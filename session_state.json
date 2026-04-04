@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "last_updated": "2026-04-04T10:15:00+09:00",
+  "project": {
+    "name": "roadtripper",
+    "status": "scaffolding",
+    "description": "Road trip planner using Urban Explorer database with persona-based recommendations"
+  },
+  "current_phase": {
+    "phase": "foundation",
+    "last_session_type": "build",
+    "last_session_work": "Dev architecture scaffolding — program.md, design.md, skills, harness, Claude Code config",
+    "last_session_date": "2026-04-04",
+    "next_session_type": "build",
+    "next_action": "Initialize Next.js project, connect Urban Explorer Firestore, build route input UI"
+  },
+  "roadmap": {
+    "foundation": [
+      "Next.js 16 project init with TypeScript + Tailwind",
+      "Firebase/Firestore connection to urbanexplorer named database",
+      "Clerk auth integration",
+      "Google Maps API setup with route display"
+    ],
+    "core": [
+      "Start/end city input with autocomplete",
+      "Daily drive time budget selector",
+      "Route calculation via Google Maps Directions API",
+      "Stop recommendation engine (query waypoints within +/- 60 min of route)",
+      "Dynamic route recalculation on stop selection"
+    ],
+    "personas": [
+      "Persona selector UI (outdoorsman, foodie, gearhead, culture, nerd)",
+      "Persona-to-vibe mapping (Urban Explorer vibeClass + waypoint categories)",
+      "Filtered recommendations based on active persona",
+      "Persona-themed route line colors and markers"
+    ],
+    "polish": [
+      "Multi-day itinerary view with day dividers",
+      "Trip export (PDF, share link)",
+      "Save/load trips (Firestore user collection)",
+      "Mobile bottom sheet for itinerary",
+      "Drag-to-reorder stops"
+    ]
+  },
+  "completed_features": [],
+  "session_log": [],
+  "resume_instructions": "Project scaffolding complete. Next session: initialize Next.js project and connect Urban Explorer Firestore."
+}
