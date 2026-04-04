@@ -35,4 +35,11 @@ Format:
 
 ## Session Learnings
 
-(Entries added after each development session)
+### Session 1: Project Init + Firebase (2026-04-04)
+- **KEEP**: Copying firebase.ts and firebaseAdmin.ts patterns verbatim from UE — worked first try
+- **KEEP**: Using ADC (gcloud auth application-default login) instead of service account key — simpler local dev
+- **IMPROVE**: Assumed `global_city_cache` was a Firestore collection — it's actually `cities`. Always run `listCollections()` first to verify actual schema.
+- **IMPROVE**: Firebase Admin SDK with ADC needs explicit `projectId` — doesn't auto-detect from gcloud config
+- **INSIGHT**: The `global_city_cache.json` file is a local data export, not a mirror of a Firestore collection name. Use it for static lookups, use `cities` collection for Firestore queries.
+- **INSIGHT**: Zod v4 import path is `zod/v4` — different from v3's `zod`
+- **TEST CAUGHT**: 500 error on test page revealed missing projectId — would have shipped broken without the manual curl verification

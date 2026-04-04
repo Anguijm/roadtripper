@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "last_updated": "2026-04-04T10:15:00+09:00",
+  "last_updated": "2026-04-04T11:00:00+09:00",
   "project": {
     "name": "roadtripper",
-    "status": "scaffolding",
+    "status": "building",
     "description": "Road trip planner using Urban Explorer database with persona-based recommendations"
   },
   "current_phase": {
     "phase": "foundation",
     "last_session_type": "build",
-    "last_session_work": "Dev architecture scaffolding — program.md, design.md, skills, harness, Claude Code config",
+    "last_session_work": "Session 1: Next.js 16 init, Firebase client+admin SDK, Zod schemas, city utilities, test page verified against Firestore",
     "last_session_date": "2026-04-04",
     "next_session_type": "build",
-    "next_action": "Initialize Next.js project, connect Urban Explorer Firestore, build route input UI"
+    "next_action": "Session 2: Clerk auth integration + Google Maps setup with route polyline display"
   },
   "roadmap": {
     "foundation": [
@@ -42,7 +42,7 @@
       "Drag-to-reorder stops"
     ]
   },
-  "completed_features": [],
+  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified"],
   "session_log": [],
-  "resume_instructions": "Project scaffolding complete. Next session: initialize Next.js project and connect Urban Explorer Firestore."
+  "resume_instructions": "Session 1 complete. Next.js 16 app initialized with Firebase connection to urbanexplorer named DB. Test page at /test verifies connection. Firestore cities are in 'cities' collection (not global_city_cache). Next: Session 2 — Clerk auth + Google Maps."
 }
