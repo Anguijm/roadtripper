@@ -1,30 +1,44 @@
-import { adminDb } from "@/lib/firebaseAdmin";
+import { urbanExplorerDb, roadtripperDb } from "@/lib/firebaseAdmin";
 import { getAllCities } from "@/lib/urban-explorer/cities";
 
 export const dynamic = "force-dynamic";
 
-async function getFirestoreInfo() {
-  const collections = await adminDb.listCollections();
-  const collectionNames = collections.map((c) => c.id);
+async function getUrbanExplorerInfo() {
+  try {
+    const collections = await urbanExplorerDb.listCollections();
+    const collectionNames = collections.map((c) => c.id);
 
-  const citiesSnapshot = await adminDb.collection("cities").limit(5).get();
-  const citySampleIds = citiesSnapshot.docs.map((d) => d.id);
+    const citiesSnapshot = await urbanExplorerDb.collection("cities").limit(5).get();
+    const citySampleIds = citiesSnapshot.docs.map((d) => d.id);
 
-  const waypointsSnapshot = await adminDb
-    .collection("vibe_waypoints")
-    .where("city_id", "==", "new-york-city")
-    .limit(5)
-    .get();
-  const nycWaypoints = waypointsSnapshot.docs.map((d) => {
-    const data = d.data();
-    return { id: d.id, type: data.type, name: data.name?.en ?? d.id };
-  });
+    const waypointsSnapshot = await urbanExplorerDb
+      .collection("vibe_waypoints")
+      .where("city_id", "==", "new-york-city")
+      .limit(5)
+      .get();
+    const nycWaypoints = waypointsSnapshot.docs.map((d) => {
+      const data = d.data();
+      return { id: d.id, type: data.type, name: data.name?.en ?? d.id };
+    });
 
-  return { collections: collectionNames, citySampleIds, nycWaypoints };
+    return { status: "ok" as const, collections: collectionNames, citySampleIds, nycWaypoints };
+  } catch (e) {
+    return { status: "error" as const, error: String(e), collections: [], citySampleIds: [], nycWaypoints: [] };
+  }
+}
+
+async function getRoadtripperInfo() {
+  try {
+    const collections = await roadtripperDb.listCollections();
+    return { status: "ok" as const, collections: collections.map((c) => c.id) };
+  } catch (e) {
+    return { status: "error" as const, error: String(e), collections: [] };
+  }
 }
 
 export default async function TestPage() {
-  const firestore = await getFirestoreInfo();
+  const ue = await getUrbanExplorerInfo();
+  const rt = await getRoadtripperInfo();
   const localCities = getAllCities();
   const northAmerica = localCities.filter((c) => c.region === "north-america");
 
@@ -35,12 +49,15 @@ export default async function TestPage() {
       </h1>
 
       <section style={{ marginBottom: "2rem" }}>
-        <h2 style={{ color: "#3fb950", marginBottom: "0.5rem" }}>Firestore (Admin SDK → urbanexplorer)</h2>
-        <p>Collections: {firestore.collections.join(", ")}</p>
-        <p>City sample: {firestore.citySampleIds.join(", ")}</p>
+        <h2 style={{ color: "#3fb950", marginBottom: "0.5rem" }}>
+          Urban Explorer DB (cross-project, read-only)
+        </h2>
+        <p>Project: urban-explorer-483600 / DB: urbanexplorer — {ue.status === "error" ? <span style={{color:"#f85149"}}>ERROR: {ue.error}</span> : <span style={{color:"#3fb950"}}>OK</span>}</p>
+        <p>Collections: {ue.collections.join(", ")}</p>
+        <p>City sample: {ue.citySampleIds.join(", ")}</p>
         <p style={{ marginTop: "0.5rem" }}>NYC waypoints:</p>
         <ul style={{ listStyle: "none", padding: 0 }}>
-          {firestore.nycWaypoints.map((w) => (
+          {ue.nycWaypoints.map((w) => (
             <li key={w.id} style={{ padding: "0.15rem 0", color: "#a0a0a0" }}>
               [{w.type}] {w.name}
             </li>
@@ -49,13 +66,21 @@ export default async function TestPage() {
       </section>
 
       <section style={{ marginBottom: "2rem" }}>
-        <h2 style={{ color: "#58a6ff", marginBottom: "0.5rem" }}>Local Cache</h2>
+        <h2 style={{ color: "#58a6ff", marginBottom: "0.5rem" }}>
+          Roadtripper DB (own project)
+        </h2>
+        <p>Project: roadtripper-planner / DB: (default) — {rt.status === "error" ? <span style={{color:"#f85149"}}>ERROR: {rt.error}</span> : <span style={{color:"#3fb950"}}>OK</span>}</p>
+        <p>Collections: {rt.collections.length > 0 ? rt.collections.join(", ") : "empty (ready for saved_trips)"}</p>
+      </section>
+
+      <section style={{ marginBottom: "2rem" }}>
+        <h2 style={{ color: "#d29922", marginBottom: "0.5rem" }}>Local Cache</h2>
         <p>Total cities: <strong>{localCities.length}</strong></p>
         <p>North America: <strong>{northAmerica.length}</strong></p>
       </section>
 
       <section>
-        <h2 style={{ color: "#d29922", marginBottom: "0.5rem" }}>North America Cities</h2>
+        <h2 style={{ color: "#bc8cff", marginBottom: "0.5rem" }}>North America Cities</h2>
         <ul style={{ listStyle: "none", padding: 0 }}>
           {northAmerica.map((city) => (
             <li key={city.id} style={{ padding: "0.25rem 0", borderBottom: "1px solid #222" }}>
