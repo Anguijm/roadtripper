@@ -1,0 +1,16 @@
+# Firebase App Hosting — Roadtripper
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  memory: 512MiB
+  cpu: 1
+
+env:
+  - variable: GOOGLE_MAPS_KEY
+    secret: GOOGLE_MAPS_KEY
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_KEY
+    secret: NEXT_PUBLIC_GOOGLE_MAPS_KEY
+  - variable: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    secret: CLERK_PUBLISHABLE_KEY
+  - variable: CLERK_SECRET_KEY
+    secret: CLERK_SECRET_KEY

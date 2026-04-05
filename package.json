@@ -10,6 +10,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.0.8",
+    "@vis.gl/react-google-maps": "^1.8.2",
     "firebase": "^12.11.0",
     "firebase-admin": "^13.7.0",
     "next": "16.2.2",

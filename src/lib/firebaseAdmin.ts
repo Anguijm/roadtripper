@@ -1,5 +1,5 @@
 import "server-only";
-import { initializeApp, getApps, getApp, cert, type App } from "firebase-admin/app";
+import { initializeApp, getApp, cert, type App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 const ROADTRIPPER_PROJECT_ID = "roadtripper-planner";
