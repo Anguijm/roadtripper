@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_updated": "2026-04-04T11:00:00+09:00",
+  "last_updated": "2026-04-04T12:00:00+09:00",
   "project": {
     "name": "roadtripper",
     "status": "building",
@@ -9,10 +9,10 @@
   "current_phase": {
     "phase": "foundation",
     "last_session_type": "build",
-    "last_session_work": "Session 1: Next.js 16 init, Firebase client+admin SDK, Zod schemas, city utilities, test page verified against Firestore",
+    "last_session_work": "Session 2: Clerk v7 auth, Google Maps RouteMap component, CSP headers, dark design system, apphosting.yaml",
     "last_session_date": "2026-04-04",
     "next_session_type": "build",
-    "next_action": "Session 2: Clerk auth integration + Google Maps setup with route polyline display"
+    "next_action": "Session 3: Route input UI — city autocomplete, drive budget selector, Directions API integration"
   },
   "roadmap": {
     "foundation": [
@@ -42,7 +42,7 @@
       "Drag-to-reorder stops"
     ]
   },
-  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified"],
+  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS"],
   "session_log": [],
-  "resume_instructions": "Session 1 complete. Next.js 16 app initialized with Firebase connection to urbanexplorer named DB. Test page at /test verifies connection. Firestore cities are in 'cities' collection (not global_city_cache). Next: Session 2 — Clerk auth + Google Maps."
+  "resume_instructions": "Session 2 complete. Clerk v7 auth working (sign-in/out). RouteMap component renders Google Maps with Directions polyline (needs NEXT_PUBLIC_GOOGLE_MAPS_KEY in .env.local). CSP headers configured. Dark design system applied. Next: Session 3 — route input UI with city autocomplete and drive budget selector."
 }

@@ -43,3 +43,11 @@ Format:
 - **INSIGHT**: The `global_city_cache.json` file is a local data export, not a mirror of a Firestore collection name. Use it for static lookups, use `cities` collection for Firestore queries.
 - **INSIGHT**: Zod v4 import path is `zod/v4` — different from v3's `zod`
 - **TEST CAUGHT**: 500 error on test page revealed missing projectId — would have shipped broken without the manual curl verification
+
+### Session 2: Clerk Auth + Google Maps (2026-04-04)
+- **KEEP**: Copying CSP headers from UE next.config.ts — proven pattern, just strip ad-related domains
+- **IMPROVE**: @clerk/nextjs v7 has breaking API changes from v6 — SignedIn/SignedOut exports removed, use useAuth() hook instead. Always check package version before copying import patterns.
+- **IMPROVE**: @clerk/themes package doesn't exist in v7 — dark theme must be configured via appearance prop or CSS
+- **INSIGHT**: Clerk v7 auth state requires client components — extracted AuthButtons.tsx as a "use client" wrapper to keep page.tsx as server component
+- **INSIGHT**: Google Maps dark styling uses MapTypeStyle array (not mapId) for custom colors — works without a Cloud Console map style ID
+- **INSIGHT**: Google Maps Directions renderer needs to be cleaned up on unmount (setMap(null)) to prevent memory leaks
