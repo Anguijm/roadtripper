@@ -66,3 +66,20 @@ Format:
 - **INSIGHT**: Server-side `computeRoute` uses GOOGLE_MAPS_KEY (server only), client uses NEXT_PUBLIC_GOOGLE_MAPS_KEY — security council recommendation paid off, separation enforced
 - **INSIGHT**: RouteMap accepting precomputed encodedPolyline avoids a second Directions call when the route was already computed server-side — saves API quota and latency
 - **INSIGHT**: APIProvider must be re-instantiated per page if libraries differ (places vs geometry) — could lift to root layout but each page requesting only what it needs is cleaner
+
+### Session 4 + 4.5: Stop Recommendation + Council Retro (2026-04-07)
+- **KEEP**: Two-phase pipeline (geometric pre-filter → drive-time validation) is the right shape — saves 95%+ of API calls vs validating every city
+- **KEEP**: Routes API v2 `computeRouteMatrix` over legacy Distance Matrix — same data, billed per pair instead of N² (25x cost reduction on this hot path)
+- **KEEP**: In-memory LRU cache keyed by (polylineHash, detourCap) — same query reruns are free
+- **KEEP**: Detour cap scaled from user budget — NYC→Miami at 4h budget gets 60min cap which lets DC pass at ~57min round-trip
+- **KEEP**: Custom error types (RoutesApiError, InvalidRouteParamsError) over plain Error — caller can branch on type
+- **IMPROVE**: I shipped Sessions 1-4 without council review even though program.md said to. The council exists to prevent design errors before they cement, not to consult when stuck. Updated skills/10-build.md to make council a numbered, non-skippable step before EXECUTE.
+- **IMPROVE**: First samplePolyline impl snapped to next vertex — silently missed cities along long highway segments. Now interpolates at the exact interval distance.
+- **IMPROVE**: First geometricFilter used the nearest sample as nearestRoutePoint — up to 25km of slop inflated detour times. Now projects onto the full decoded polyline.
+- **IMPROVE**: Initial detour formula `Math.min(90, budget * 12)` was too tight at budget=4 (cap=48 missed DC at ~57). Recalibrated to `Math.min(120, Math.max(45, budget * 15))`.
+- **IMPROVE**: First validateDetourTimes used the legacy Distance Matrix "pairs trick" (N origins × N destinations, read diagonal) — billed N² to use N. Migrated to computeRouteMatrix.
+- **DISCARD**: Throwing API response bodies in Error messages — risk of leaking keys in logs. Strip to status code only.
+- **INSIGHT**: Distance Matrix vs Routes API matrix returns elements in arbitrary order — must build a Map keyed by (originIndex, destinationIndex), not assume array order
+- **INSIGHT**: Same code can produce different polylines locally vs production because TRAFFIC_AWARE routing varies by time of day. The "highway exit point" projected onto a slightly different polyline can shift detour times by ~20 minutes. Calibration must accommodate this jitter.
+- **INSIGHT**: Council retro reviews are cheap (3 parallel agents, ~80s) and high-value. Use them as a default, not as a last resort.
+- **TEST CAUGHT**: Live curl smoke test caught the "only 2 candidates" bug after deploy. Without checking the production response, I'd have shipped a recommendation engine that filtered out the most relevant cities.

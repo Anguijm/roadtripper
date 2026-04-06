@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_updated": "2026-04-07T20:00:00+09:00",
+  "last_updated": "2026-04-07T22:00:00+09:00",
   "project": {
     "name": "roadtripper",
     "status": "building",
@@ -9,10 +9,10 @@
   "current_phase": {
     "phase": "foundation",
     "last_session_type": "build",
-    "last_session_work": "Tightening (Firestore rules, harness fallback, cleanup) + Session 3: Route input UI, /plan page, Routes API v2 server action, deployed to App Hosting",
+    "last_session_work": "Session 4 + 4.5: Stop recommendation engine (geometric + Routes API v2 matrix) + council retro review + Tier 1 remediation (input validation, rate limit, computeRouteMatrix migration, samplePolyline interpolation fix, projectOntoPolyline precision fix, scaled detour cap, LRU cache). NYC→Miami now correctly surfaces DC.",
     "last_session_date": "2026-04-07",
     "next_session_type": "build",
-    "next_action": "Session 4: Stop recommendation engine — geometric pre-filter + Distance Matrix validation"
+    "next_action": "Session 5: Persona system — persona definitions, persona-to-vibe mapping, ranked waypoint scoring (Tier 2 council fixes pair naturally here)"
   },
   "roadmap": {
     "foundation": [
@@ -42,7 +42,7 @@
       "Drag-to-reorder stops"
     ]
   },
-  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS", "Firebase App Hosting deployed (live)", "GitHub-dark color tones", "Firestore security rules", "CityAutocomplete + DriveBudgetSelector + RouteInput", "/plan page with Routes API v2 server action", "RouteMap supports precomputed polyline + bounds"],
+  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS", "Firebase App Hosting deployed (live)", "GitHub-dark color tones", "Firestore security rules", "CityAutocomplete + DriveBudgetSelector + RouteInput", "/plan page with Routes API v2 server action", "RouteMap supports precomputed polyline + bounds", "Stop recommendation engine (geometric + Routes API computeRouteMatrix)", "Council pre-EXECUTE gate (workflow update)", "Tier 1 council remediation (input validation, rate limit, samplePolyline interpolation, projectOntoPolyline precision, scaled detour cap, LRU cache)"],
   "session_log": [],
-  "resume_instructions": "Session 3 complete + tightening done. Live at https://roadtripper--roadtripper-planner.us-central1.hosted.app/. Landing page = route input form (city autocomplete + drive budget). /plan?from=...&to=...&budget=... renders the route via Routes API v2. Firestore rules deployed. Next: Session 4 — stop recommendation engine (geometric pre-filter polyline → cities within 120km, then Distance Matrix validation)."
+  "resume_instructions": "Sessions 4 + 4.5 complete. Stop recommendation engine working end-to-end: NYC→Miami at budget=4 surfaces NYC, DC, Miami. Tier 1 council fixes shipped (input validation, rate limit, computeRouteMatrix migration killed 25x quota waste, samplePolyline interpolation, projectOntoPolyline precision fix, scaled detour cap, LRU cache). Council is now a hard pre-EXECUTE gate per skills/10-build.md. Next: Session 5 — Persona system. Tier 2 council fixes (clickable candidates, labeled markers, RankedWaypoint type, hover sync) pair naturally with persona scoring."
 }
