@@ -100,18 +100,44 @@ After automated + Gemini review:
 
 ---
 
-## Harness Council Review
+## Harness Council Review (HARD GATE)
 
-Significant features (new routes, persona logic, map integration, data layer changes) require council review:
+**The council is a pre-EXECUTE gate, not a post-hoc consultation.** Every significant feature MUST be reviewed by the council BEFORE writing implementation code. Skipping the council because "I know what to build" is the failure mode that the council exists to prevent.
 
-1. **Before implementation:** Spawn 3 parallel agents (security, architecture, product) using the persona prompts in `.harness/council/*.md`. Lead Architect (the main session) synthesizes verdicts. Harness-cli is blocked on missing ANTHROPIC_API_KEY — agent-based approach works without it.
-2. **After implementation:** Run Gemini code review (see Testing Protocol).
-3. Minor changes (copy edits, style tweaks, config) skip council review.
+### What counts as "significant" (council required)
 
-Council checks:
-- **Security:** Firestore rules, API key exposure, Clerk session management, XSS
-- **Architecture:** Data flow, Server/Client Component boundaries, caching strategy, API design
-- **Product:** UX, persona relevance, route accuracy, mobile experience
+- New API routes / Server Actions
+- New data layer code (Firestore queries, Admin SDK init, schema changes)
+- Map integration (markers, polylines, custom rendering)
+- Auth flows (Clerk middleware, protected routes)
+- Algorithm work (recommendation engine, scoring, route math)
+- New page routes that fetch data
+- Any persona/scoring logic
+
+### What is exempt (council optional)
+
+- Pure styling / Tailwind class changes
+- Copy edits, label tweaks
+- README and doc updates
+- Renaming files or variables
+- Bumping dependency versions
+
+### Council protocol (BEFORE coding)
+
+1. **Read** `.harness/council/security.md`, `architecture.md`, `product.md` for the persona prompts
+2. **Spawn 3 parallel agents** via the Agent tool (`general-purpose` subagent type), one per council member, each with its persona prompt + the feature description + the specific files/decisions to scrutinize
+3. **Wait for all 3 verdicts** before starting code (use `run_in_background: true` and let them work)
+4. **Synthesize as Lead Architect:** the main session reads all 3 reports, resolves conflicts, and writes a brief decision record (which findings to fix vs defer, why)
+5. **Encode council fixes as ISC criteria** in the PRD before EXECUTE — so the build can be verified against them
+
+### Council protocol (AFTER coding)
+
+1. Run Gemini code review (see Testing Protocol) on the changed files
+2. If Gemini finds bugs the council didn't, fix them AND update the council prompts so the gap is closed for next time
+
+### Why this matters
+
+Sessions 1-4 of Roadtripper shipped without council review. Session 4 (the recommendation algorithm — the core IP) shipped with hardcoded constants (50km sample, 120km buffer, 60min detour cap), no rate limiting, and no caching. A pre-EXECUTE council would have caught these. The agent-based council pattern works without harness-cli — there is no excuse to skip it.
 
 ---
 
