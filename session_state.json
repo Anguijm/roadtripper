@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_updated": "2026-04-04T12:00:00+09:00",
+  "last_updated": "2026-04-07T20:00:00+09:00",
   "project": {
     "name": "roadtripper",
     "status": "building",
@@ -9,10 +9,10 @@
   "current_phase": {
     "phase": "foundation",
     "last_session_type": "build",
-    "last_session_work": "Session 2: Clerk v7 auth, Google Maps RouteMap component, CSP headers, dark design system, apphosting.yaml",
-    "last_session_date": "2026-04-04",
+    "last_session_work": "Tightening (Firestore rules, harness fallback, cleanup) + Session 3: Route input UI, /plan page, Routes API v2 server action, deployed to App Hosting",
+    "last_session_date": "2026-04-07",
     "next_session_type": "build",
-    "next_action": "Session 3: Route input UI — city autocomplete, drive budget selector, Directions API integration"
+    "next_action": "Session 4: Stop recommendation engine — geometric pre-filter + Distance Matrix validation"
   },
   "roadmap": {
     "foundation": [
@@ -42,7 +42,7 @@
       "Drag-to-reorder stops"
     ]
   },
-  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS"],
+  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS", "Firebase App Hosting deployed (live)", "GitHub-dark color tones", "Firestore security rules", "CityAutocomplete + DriveBudgetSelector + RouteInput", "/plan page with Routes API v2 server action", "RouteMap supports precomputed polyline + bounds"],
   "session_log": [],
-  "resume_instructions": "Session 2 complete. Clerk v7 auth working (sign-in/out). RouteMap component renders Google Maps with Directions polyline (needs NEXT_PUBLIC_GOOGLE_MAPS_KEY in .env.local). CSP headers configured. Dark design system applied. Next: Session 3 — route input UI with city autocomplete and drive budget selector."
+  "resume_instructions": "Session 3 complete + tightening done. Live at https://roadtripper--roadtripper-planner.us-central1.hosted.app/. Landing page = route input form (city autocomplete + drive budget). /plan?from=...&to=...&budget=... renders the route via Routes API v2. Firestore rules deployed. Next: Session 4 — stop recommendation engine (geometric pre-filter polyline → cities within 120km, then Distance Matrix validation)."
 }

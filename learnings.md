@@ -51,3 +51,18 @@ Format:
 - **INSIGHT**: Clerk v7 auth state requires client components — extracted AuthButtons.tsx as a "use client" wrapper to keep page.tsx as server component
 - **INSIGHT**: Google Maps dark styling uses MapTypeStyle array (not mapId) for custom colors — works without a Cloud Console map style ID
 - **INSIGHT**: Google Maps Directions renderer needs to be cleaned up on unmount (setMap(null)) to prevent memory leaks
+
+### Tightening Pass (2026-04-07)
+- **KEEP**: Firestore deny-by-default with explicit allow rules per collection — clean security posture
+- **KEEP**: Agent-based council reviews (3 parallel general-purpose Agents) when harness-cli is unavailable — proven effective on the Firebase hosting decision
+- **INSIGHT**: Firebase App Hosting needs `firebase apphosting:secrets:grantaccess` (not the generic `gcloud secrets add-iam-policy-binding`) — App Hosting uses a different SA than the compute SA
+- **INSIGHT**: GitHub-dark tones (#0d1117 family) read much better than pure black for UI — pure black eliminates depth perception between layers
+
+### Session 3: Route Input UI (2026-04-07)
+- **KEEP**: Routes API v2 (`routes.googleapis.com/directions/v2:computeRoutes`) over legacy Directions API — newer, returns encoded polyline + viewport in one call
+- **KEEP**: URL search params for trip state (`/plan?from=...&to=...&budget=...`) — shareable, bookmarkable, no client state library needed
+- **KEEP**: Google Places Autocomplete via @vis.gl/react-google-maps `useMapsLibrary("places")` — clean React integration, no manual script loading
+- **KEEP**: Pill-style budget selector over slider — better mobile UX, fewer accidental changes
+- **INSIGHT**: Server-side `computeRoute` uses GOOGLE_MAPS_KEY (server only), client uses NEXT_PUBLIC_GOOGLE_MAPS_KEY — security council recommendation paid off, separation enforced
+- **INSIGHT**: RouteMap accepting precomputed encodedPolyline avoids a second Directions call when the route was already computed server-side — saves API quota and latency
+- **INSIGHT**: APIProvider must be re-instantiated per page if libraries differ (places vs geometry) — could lift to root layout but each page requesting only what it needs is cleaner
