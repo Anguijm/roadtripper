@@ -74,9 +74,14 @@ export function validateRouteParams(
 
 /**
  * Compute the maximum allowed round-trip detour minutes based on the user's
- * daily drive budget. A user with an 8h day can tolerate up to ~96 min detour
- * (12 min per budget hour, capped at 90).
+ * daily drive budget. Tuned so a 4h-budget trip surfaces ~30-60 min detour
+ * stops (e.g., NYC→Miami picks up DC at ~57 min round-trip).
+ *
+ * 2h budget → 45 min cap
+ * 4h budget → 60 min cap
+ * 6h budget → 90 min cap
+ * 8h budget → 120 min cap
  */
 export function detourCapForBudget(budgetHours: number): number {
-  return Math.min(90, Math.max(30, budgetHours * 12));
+  return Math.min(120, Math.max(45, budgetHours * 15));
 }
