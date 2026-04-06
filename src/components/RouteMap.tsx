@@ -3,6 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
 
+export interface CandidateMarker {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  detourMinutes: number;
+}
+
 interface RouteMapProps {
   origin?: google.maps.LatLngLiteral;
   destination?: google.maps.LatLngLiteral;
@@ -11,6 +19,7 @@ interface RouteMapProps {
     northeast: { lat: number; lng: number };
     southwest: { lat: number; lng: number };
   };
+  candidates?: CandidateMarker[];
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -39,11 +48,13 @@ function PolylineRenderer({
   bounds,
   origin,
   destination,
+  candidates,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
   origin: google.maps.LatLngLiteral;
   destination: google.maps.LatLngLiteral;
+  candidates?: CandidateMarker[];
 }) {
   const map = useMap();
   const [polyline, setPolyline] = useState<google.maps.Polyline | null>(null);
@@ -90,8 +101,25 @@ function PolylineRenderer({
       },
     });
 
+    const candidateMarkers: google.maps.Marker[] = (candidates ?? []).map(
+      (candidate) =>
+        new google.maps.Marker({
+          position: { lat: candidate.lat, lng: candidate.lng },
+          map,
+          title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 6,
+            fillColor: "#bc8cff",
+            fillOpacity: 0.9,
+            strokeColor: "#0d1117",
+            strokeWeight: 2,
+          },
+        })
+    );
+
     setPolyline(line);
-    setMarkers([startMarker, endMarker]);
+    setMarkers([startMarker, endMarker, ...candidateMarkers]);
 
     if (bounds) {
       map.fitBounds(
@@ -111,9 +139,10 @@ function PolylineRenderer({
       line.setMap(null);
       startMarker.setMap(null);
       endMarker.setMap(null);
+      candidateMarkers.forEach((m) => m.setMap(null));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, encodedPolyline]);
+  }, [map, encodedPolyline, candidates]);
 
   // Reference vars to satisfy ESLint about state usage
   void polyline;
@@ -175,6 +204,7 @@ export default function RouteMap({
   destination = DC,
   encodedPolyline,
   bounds,
+  candidates,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -212,6 +242,7 @@ export default function RouteMap({
             bounds={bounds}
             origin={origin}
             destination={destination}
+            candidates={candidates}
           />
         ) : (
           <DirectionsFallback origin={origin} destination={destination} />

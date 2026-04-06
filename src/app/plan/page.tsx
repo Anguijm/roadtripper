@@ -1,10 +1,11 @@
 import Link from "next/link";
-import RouteMap from "@/components/RouteMap";
+import RouteMap, { type CandidateMarker } from "@/components/RouteMap";
 import {
   computeRoute,
   formatDistance,
   formatDuration,
 } from "@/lib/routing/directions";
+import { findCandidateCities } from "@/lib/routing/candidates";
 
 interface PlanSearchParams {
   from?: string;
@@ -61,11 +62,30 @@ export default async function PlanPage({
 
   let routeError: string | null = null;
   let route = null;
+  let candidateMarkers: CandidateMarker[] = [];
+  let candidateError: string | null = null;
 
   try {
     route = await computeRoute(origin, destination);
   } catch (e) {
     routeError = e instanceof Error ? e.message : String(e);
+  }
+
+  if (route) {
+    try {
+      const validated = await findCandidateCities(route.encodedPolyline, {
+        maxDetourMinutes: 60,
+      });
+      candidateMarkers = validated.map((c) => ({
+        id: c.city.id,
+        name: c.city.name,
+        lat: c.city.lat,
+        lng: c.city.lng,
+        detourMinutes: c.roundTripDetourMinutes,
+      }));
+    } catch (e) {
+      candidateError = e instanceof Error ? e.message : String(e);
+    }
   }
 
   const totalDays =
@@ -92,6 +112,7 @@ export default async function PlanPage({
             destination={destination}
             encodedPolyline={route.encodedPolyline}
             bounds={route.bounds}
+            candidates={candidateMarkers}
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-[#0d1117]">
@@ -131,9 +152,28 @@ export default async function PlanPage({
                   <p className="text-sm text-[#f0f6fc] mt-1">{totalDays}</p>
                 </div>
               </div>
-              <p className="text-xs text-[#7d8590] border-t border-[#30363d] pt-2">
-                Stop recommendations coming in Session 4
-              </p>
+              <div className="border-t border-[#30363d] pt-2">
+                <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] mb-1">
+                  Candidate Cities ({candidateMarkers.length})
+                </p>
+                {candidateError ? (
+                  <p className="text-xs text-[#f85149]">{candidateError}</p>
+                ) : candidateMarkers.length > 0 ? (
+                  <p className="text-xs text-[#b0b9c2]">
+                    {candidateMarkers
+                      .slice(0, 5)
+                      .map((c) => c.name)
+                      .join(" · ")}
+                    {candidateMarkers.length > 5
+                      ? ` · +${candidateMarkers.length - 5} more`
+                      : ""}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#7d8590]">
+                    No Urban Explorer cities along this route
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
