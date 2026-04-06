@@ -104,8 +104,8 @@ After automated + Gemini review:
 
 Significant features (new routes, persona logic, map integration, data layer changes) require council review:
 
-1. **Before implementation:** Run `node ~/harness-cli/src/cli.js plan "<feature description>"`. Incorporate council feedback into your approach.
-2. **After implementation:** Run Gemini code review (see Testing Protocol). Harness `review` command is planned for v0.2 — use Gemini until then.
+1. **Before implementation:** Spawn 3 parallel agents (security, architecture, product) using the persona prompts in `.harness/council/*.md`. Lead Architect (the main session) synthesizes verdicts. Harness-cli is blocked on missing ANTHROPIC_API_KEY — agent-based approach works without it.
+2. **After implementation:** Run Gemini code review (see Testing Protocol).
 3. Minor changes (copy edits, style tweaks, config) skip council review.
 
 Council checks:
