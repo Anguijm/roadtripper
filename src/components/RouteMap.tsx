@@ -12,23 +12,38 @@ const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
 const DC: google.maps.LatLngLiteral = { lat: 38.9072, lng: -77.0369 };
 
 const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#1a1a1a" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0a0a0a" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#555555" }] },
+  { elementType: "geometry", stylers: [{ color: "#1c2128" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0d1117" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#7d8590" }] },
   {
     featureType: "road",
     elementType: "geometry",
-    stylers: [{ color: "#333333" }],
+    stylers: [{ color: "#3d444d" }],
   },
   {
     featureType: "road",
     elementType: "geometry.stroke",
-    stylers: [{ color: "#222222" }],
+    stylers: [{ color: "#262c36" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#4a5159" }],
   },
   {
     featureType: "water",
     elementType: "geometry",
-    stylers: [{ color: "#111111" }],
+    stylers: [{ color: "#161b22" }],
+  },
+  {
+    featureType: "landscape",
+    elementType: "geometry",
+    stylers: [{ color: "#1c2128" }],
+  },
+  {
+    featureType: "administrative",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#30363d" }],
   },
   {
     featureType: "poi",
@@ -90,8 +105,8 @@ export default function RouteMap({ origin = NYC, destination = DC }: RouteMapPro
 
   if (!apiKey) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-[#111] border border-[#222]">
-        <p className="text-sm text-[#666] font-mono uppercase tracking-widest">
+      <div className="h-full w-full flex items-center justify-center bg-[#161b22] border border-[#30363d]">
+        <p className="text-sm text-[#7d8590] font-mono uppercase tracking-widest">
           Configure NEXT_PUBLIC_GOOGLE_MAPS_KEY
         </p>
       </div>

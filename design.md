@@ -4,23 +4,23 @@ Roadtripper inherits Urban Explorer's visual language — dark, industrial, info
 
 ## Color Palette
 
-### Base (inherited from Urban Explorer)
-- **Page background:** `#0a0a0a`
-- **Surface:** `#111111`
-- **Elevated surface:** `#1a1a1a`
-- **Hover surface:** `#222222`
+### Base (GitHub-dark inspired — lifted from pure black for breathing room)
+- **Page background:** `#0d1117`
+- **Surface:** `#161b22`
+- **Elevated surface:** `#1c2128`
+- **Hover surface:** `#262c36`
 
 ### Text
-- **Primary:** `#ffffff`
-- **Secondary:** `#a0a0a0`
-- **Tertiary:** `#666666`
-- **Muted:** `#444444`
+- **Primary:** `#f0f6fc`
+- **Secondary:** `#b0b9c2`
+- **Tertiary:** `#7d8590`
+- **Muted:** `#4a5159`
 
 ### Borders
-- **Default:** `#1a1a1a`
-- **Subtle:** `#222222`
-- **Visible:** `#333333`
-- **Focus:** `#555555`
+- **Default:** `#21262d`
+- **Subtle:** `#30363d`
+- **Visible:** `#3d444d`
+- **Focus:** `#6e7681`
 
 ### Semantic
 - **Success:** `#3fb950` (route confirmed, stop added)
