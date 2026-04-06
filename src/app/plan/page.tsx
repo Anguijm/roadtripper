@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import RouteMap, { type CandidateMarker } from "@/components/RouteMap";
 import {
@@ -6,6 +7,12 @@ import {
   formatDuration,
 } from "@/lib/routing/directions";
 import { findCandidateCities } from "@/lib/routing/candidates";
+import {
+  validateRouteParams,
+  detourCapForBudget,
+  InvalidRouteParamsError,
+} from "@/lib/routing/validation";
+import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 
 interface PlanSearchParams {
   from?: string;
@@ -21,12 +28,23 @@ interface PlanSearchParams {
 
 export const dynamic = "force-dynamic";
 
-function parseLatLng(latStr?: string, lngStr?: string) {
-  if (!latStr || !lngStr) return null;
-  const lat = parseFloat(latStr);
-  const lng = parseFloat(lngStr);
-  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
-  return { lat, lng };
+function ErrorScreen({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-4 bg-[#0d1117]">
+      <div className="border border-[#f85149] bg-[#161b22] p-6 max-w-md">
+        <p className="text-xs font-mono uppercase tracking-widest text-[#f85149] mb-2">
+          {title}
+        </p>
+        <p className="text-sm text-[#b0b9c2]">{message}</p>
+      </div>
+      <Link
+        href="/"
+        className="text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors"
+      >
+        ← Back
+      </Link>
+    </div>
+  );
 }
 
 export default async function PlanPage({
@@ -35,30 +53,42 @@ export default async function PlanPage({
   searchParams: Promise<PlanSearchParams>;
 }) {
   const params = await searchParams;
-  const origin = parseLatLng(params.fromLat, params.fromLng);
-  const destination = parseLatLng(params.toLat, params.toLng);
-  const fromName = params.fromName ?? "Start";
-  const toName = params.toName ?? "End";
-  const budget = parseInt(params.budget ?? "4", 10);
+  const requestHeaders = await headers();
 
-  if (!origin || !destination) {
+  // Rate limit BEFORE doing anything expensive
+  maybeSweep();
+  const ip = getClientIp(requestHeaders);
+  const limit = checkRateLimit(ip);
+  if (!limit.ok) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-4">
-        <h1 className="text-lg font-mono uppercase tracking-widest text-[#f0f6fc]">
-          Missing Route Parameters
-        </h1>
-        <p className="text-sm text-[#7d8590]">
-          Please return to the home page and select start and end cities.
-        </p>
-        <Link
-          href="/"
-          className="text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors"
-        >
-          ← Back
-        </Link>
-      </div>
+      <ErrorScreen
+        title="Rate Limit"
+        message={`Too many requests. Try again in ${limit.retryAfterSeconds} seconds.`}
+      />
     );
   }
+
+  // Validate ALL inputs before any API calls
+  let validated;
+  try {
+    validated = validateRouteParams(
+      params.fromLat,
+      params.fromLng,
+      params.toLat,
+      params.toLng,
+      params.budget
+    );
+  } catch (e) {
+    if (e instanceof InvalidRouteParamsError) {
+      return <ErrorScreen title="Invalid Parameters" message={e.message} />;
+    }
+    throw e;
+  }
+
+  const { origin, destination, budgetHours } = validated;
+  const fromName = params.fromName ?? "Start";
+  const toName = params.toName ?? "End";
+  const maxDetourMinutes = detourCapForBudget(budgetHours);
 
   let routeError: string | null = null;
   let route = null;
@@ -68,15 +98,15 @@ export default async function PlanPage({
   try {
     route = await computeRoute(origin, destination);
   } catch (e) {
-    routeError = e instanceof Error ? e.message : String(e);
+    routeError = e instanceof Error ? e.message : "Failed to compute route";
   }
 
   if (route) {
     try {
-      const validated = await findCandidateCities(route.encodedPolyline, {
-        maxDetourMinutes: 60,
+      const validatedCandidates = await findCandidateCities(route.encodedPolyline, {
+        maxDetourMinutes,
       });
-      candidateMarkers = validated.map((c) => ({
+      candidateMarkers = validatedCandidates.map((c) => ({
         id: c.city.id,
         name: c.city.name,
         lat: c.city.lat,
@@ -84,12 +114,14 @@ export default async function PlanPage({
         detourMinutes: c.roundTripDetourMinutes,
       }));
     } catch (e) {
-      candidateError = e instanceof Error ? e.message : String(e);
+      candidateError = e instanceof Error ? e.message : "Failed to find candidates";
     }
   }
 
   const totalDays =
-    route && budget > 0 ? Math.ceil(route.totalDurationSeconds / 3600 / budget) : 0;
+    route && budgetHours > 0
+      ? Math.ceil(route.totalDurationSeconds / 3600 / budgetHours)
+      : 0;
 
   return (
     <div className="flex flex-col h-screen">
@@ -147,14 +179,14 @@ export default async function PlanPage({
                 </div>
                 <div>
                   <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-                    Days @ {budget}h
+                    Days @ {budgetHours}h
                   </p>
                   <p className="text-sm text-[#f0f6fc] mt-1">{totalDays}</p>
                 </div>
               </div>
               <div className="border-t border-[#30363d] pt-2">
                 <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] mb-1">
-                  Candidate Cities ({candidateMarkers.length})
+                  Candidate Cities ({candidateMarkers.length}) · max {maxDetourMinutes}min detour
                 </p>
                 {candidateError ? (
                   <p className="text-xs text-[#f85149]">{candidateError}</p>
@@ -170,7 +202,9 @@ export default async function PlanPage({
                   </p>
                 ) : (
                   <p className="text-xs text-[#7d8590]">
-                    No Urban Explorer cities along this route
+                    Urban Explorer covers ~22 North American cities, mostly major metros.
+                    No coverage along this route — try East Coast, West Coast, or
+                    Southwest corridors.
                   </p>
                 )}
               </div>

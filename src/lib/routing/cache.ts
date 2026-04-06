@@ -1,0 +1,56 @@
+import "server-only";
+
+/**
+ * Tiny LRU cache for the recommendation pipeline. Keyed by a stable string
+ * derived from request inputs. In-memory single-instance — adequate for
+ * dev and low-traffic prod. Migrate to a shared store (Upstash, Firestore)
+ * when scaling beyond one App Hosting instance.
+ */
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const MAX_ENTRIES = 200;
+const DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+const store = new Map<string, CacheEntry<unknown>>();
+
+export function cacheGet<T>(key: string): T | null {
+  const entry = store.get(key) as CacheEntry<T> | undefined;
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    store.delete(key);
+    return null;
+  }
+  // Refresh LRU position
+  store.delete(key);
+  store.set(key, entry);
+  return entry.value;
+}
+
+export function cacheSet<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_MS): void {
+  if (store.size >= MAX_ENTRIES) {
+    // Evict oldest (first inserted)
+    const oldestKey = store.keys().next().value;
+    if (oldestKey !== undefined) store.delete(oldestKey);
+  }
+  store.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+/**
+ * Stable cache key for the candidate pipeline. The encoded polyline is the
+ * canonical route fingerprint; the budget tier affects the detour cap.
+ */
+export function candidateCacheKey(
+  encodedPolyline: string,
+  maxDetourMinutes: number
+): string {
+  // Hash the polyline to a short prefix to keep keys bounded
+  let hash = 0;
+  for (let i = 0; i < encodedPolyline.length; i++) {
+    hash = (hash * 31 + encodedPolyline.charCodeAt(i)) | 0;
+  }
+  return `candidates:${hash.toString(36)}:${encodedPolyline.length}:${maxDetourMinutes}`;
+}
