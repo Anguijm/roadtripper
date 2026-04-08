@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_updated": "2026-04-08T20:02:00+09:00",
+  "last_updated": "2026-04-09T06:45:00+09:00",
   "project": {
     "name": "roadtripper",
     "status": "building",
@@ -9,10 +9,10 @@
   "current_phase": {
     "phase": "core",
     "last_session_type": "build",
-    "last_session_work": "Session 6: MVP loop closer shipped. recomputeRouteAction Server Action (src/app/plan/actions.ts) — discriminated-union return, 3-layer rate limit (burst/spacing/daily quota), validate-before-quota, error enum. computeRouteWithStops in directions.ts — never spreads client objects, omits empty intermediates, no optimizeWaypointOrder. Client trip state in PlanWorkspace via useState<TripStop[]>; liveRoute: DirectionsResult | null; requestIdRef latest-wins guard. PolylineRenderer split into 4 effects (geometry / opacity / candidate markers / numbered trip markers); hasFitOnceRef so recomputes redraw line in place without camera churn. Add city button at city group header in RecommendationList. New Itinerary component renders ABOVE recommendations when stops>0. Stale-recs banner per Council PROD-1. Error banner with Retry per PROD-3. Pending UI per PROD-4. formatDistance/formatDuration extracted to format.ts (no re-export from server-only directions.ts). next.config.ts adds serverActions.allowedOrigins. Council pre-EXECUTE gate ran: Sec 6/10, Arch 6/10 C, Prod 7/10 — all CONDITIONAL → 18 blocker findings → all folded into ISC and addressed. Simplify post-EXECUTE pass caught 6 fixes (biggest: polyline opacity in-place setOptions instead of full rebuild). 60/60 ISC pass. Lint/type-check/build all green. Pushed to origin/main as 1bc3270. App Hosting deploy in progress at re-check time.",
-    "last_session_date": "2026-04-08",
+    "last_session_work": "Session 7: Recommendation refresh after stop add — SHIPPED + LIVE. Replaced recomputeRouteAction with recomputeAndRefreshAction(origin, destination, stops, budgetHours) returning a tighter discriminated union: {ok:true,status:'fresh',waypointFetch} | {ok:true,status:'degraded',waypointFetch:null} | {ok:false,error}. Serial waterfall: computeRouteWithStops → findCandidateCities(new polyline) → fetchWaypointsForCandidates. Single rate-limit charge per call (documented). CityContext extended with lat/lng so client can build CandidateMarker without re-querying UE cities (Council S7-ARCH-1). New liveWaypointFetch: WaypointFetchResult | null slice in PlanWorkspace mirroring S6's liveRoute pattern; effectiveWaypointFetch = liveWaypointFetch ?? props. Atomic batched setters after the final await per Council S7-ARCH-3/4. requestIdRef stale-bail wraps BOTH setters; empty-stops branch resets BOTH before incrementing requestIdRef. Partial-failure path: route succeeds + candidates fail returns status='degraded' and client KEEPS prior waypointFetch + surfaces inline 'Couldn't refresh recommendations — showing previous' notice (both Arch ARCH-2 and Product PROD-1 independently flagged this — the most critical council finding of S7). Stale-recs banner from S6 removed. Prominent 'Updating route + recs…' caption during isPending. refreshTick + 800ms panel highlight ring on each successful refresh (Council S7-PROD-2, positive proof of refresh). Shared isBudgetHoursInRange helper extracted into validation.ts (single source of truth). Council pre-EXECUTE: Sec 8/10, Arch 7.5/10 B, Prod 6/10 — all CONDITIONAL, 11 blockers addressed. Simplify post-EXECUTE: 4 fixes (biggest: tightened discriminated union so `fresh ⇒ waypointFetch !== null` is compile-time enforced). 50/50 ISC pass. Lint/type-check/build green. Committed e77a3b5 and pushed to origin/main. LIVE at rollout-2026-04-08-000 (Cloud Run revision roadtripper-build-2026-04-08-000). App Hosting GitHub connection wired mid-session via Firebase console — future pushes to main auto-deploy, was previously manual-rollout-only.",
+    "last_session_date": "2026-04-09",
     "next_session_type": "build",
-    "next_action": "Session 7: Recommendation refresh after stop selection. The Council PROD-1 stale-recs banner ('Showing stops along your original route') is the trust gap to close. Build a Server Action that re-fetches candidate cities + waypoints based on the new polyline after each Add. Likely shape: extend recomputeRouteAction to ALSO return refreshed waypointFetch (single round trip, single rate-limit charge), client updates the waypointFetch slice, banner removed. Architecture: reuse findCandidateCities + fetchWaypointsForCandidates with the new polyline. Watch: cache invalidation (waypoints LRU is keyed by sorted cityIds — different polyline → different candidate set → cache miss is correct), Firestore read budget, IN query 30-id cap."
+    "next_action": "Session 8: polish the MVP. Top candidates from S7 out-of-scope list and prior council deferrals (ranked by user-visible impact): (1) MARKER DIFF — PolylineRenderer Effect 2 currently tears down and rebuilds ~25 candidate markers on every refresh, visible flicker on every Add; fix with an id→marker map + diff. (2) OFF-CORRIDOR INDICATOR in Itinerary — mark stops that are no longer in the refreshed candidate list with a subtle badge (addresses a Council S7-PROD observation). (3) MOBILE BOTTOM SHEET — the 360px fixed aside doesn't fit phones; 20/55/92 snap points (Session 5 council deferred). (4) SAVE/LOAD TRIPS — biggest new surface; needs Firestore schema + Clerk-scoped storage + trip list view. (5) 'OPTIMIZE STOP ORDER' toggle — wraps Routes API optimizeWaypointOrder. Recommended: #1 first (direct polish to the live S7 interaction), #3 second (biggest footprint gap), then #4 as a larger net-new feature. Ask user which to take on."
   },
   "roadmap": {
     "foundation": [
@@ -26,7 +26,8 @@
       "Daily drive time budget selector",
       "Route calculation via Google Maps Directions API",
       "Stop recommendation engine (query waypoints within +/- 60 min of route)",
-      "Dynamic route recalculation on stop selection"
+      "Dynamic route recalculation on stop selection",
+      "Recommendation refresh after stop add"
     ],
     "personas": [
       "Persona selector UI (outdoorsman, foodie, gearhead, culture, nerd)",
@@ -35,14 +36,83 @@
       "Persona-themed route line colors and markers"
     ],
     "polish": [
+      "Marker diff (avoid full rebuild on every refresh)",
+      "Off-corridor stop indicator in Itinerary",
       "Multi-day itinerary view with day dividers",
       "Trip export (PDF, share link)",
       "Save/load trips (Firestore user collection)",
-      "Mobile bottom sheet for itinerary",
+      "Mobile bottom sheet for itinerary (20/55/92 snap points)",
       "Drag-to-reorder stops"
     ]
   },
-  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS", "Firebase App Hosting deployed (live)", "GitHub-dark color tones", "Firestore security rules", "CityAutocomplete + DriveBudgetSelector + RouteInput", "/plan page with Routes API v2 server action", "RouteMap supports precomputed polyline + bounds", "Stop recommendation engine (geometric + Routes API computeRouteMatrix)", "Council pre-EXECUTE gate (workflow update)", "Tier 1 council remediation (input validation, rate limit, samplePolyline interpolation, projectOntoPolyline precision, scaled detour cap, LRU cache)", "Persona system (5 personas with typeWeights + preferredVibes + accentColor)", "Scoring engine (scoreWaypoint + buildRankedGroups, isomorphic client/server)", "fetchWaypointsForCandidates with dedicated LRU cache + nested field projection", "PersonaSelector + RecommendationList + PlanWorkspace components", "Tier 2 council fixes (labeled candidate markers, click-to-highlight, hover sync)", "Persona lifted to client state via history.replaceState (avoids server re-run)", "Server Action recomputeRouteAction with 3-layer rate limit + error enum", "computeRouteWithStops with intermediates (no spread / no optimize)", "Trip state in PlanWorkspace (TripStop[], 7-stop cap, dedupe)", "Add city to trip button per city group", "Itinerary component (ordered stops, Remove, failed-stop indicator, empty state)", "PolylineRenderer split into 4 effects + fit-bounds-once + in-place opacity", "format.ts extraction (no server-only re-export)", "Stale-recs banner + error/retry/pending UI", "next.config serverActions.allowedOrigins", "Session 6 council pre-EXECUTE gate (18 blockers addressed)"],
-  "session_log": [],
-  "resume_instructions": "Session 5 complete. Persona system is live end-to-end. Key files: src/lib/personas/{types,index}.ts, src/lib/routing/{recommend,scoring}.ts, src/components/{PersonaSelector,RecommendationList,PlanWorkspace}.tsx. Runtime verification pending (needs browser with real Google Maps key): confirm persona swap reorders the list visibly, candidate marker labels render, click-highlight works, hover sync works. Critical architectural lesson: in Next.js 16 App Router, force-dynamic + router.replace on a searchParam re-runs the Server Component — if you need instant client state (like persona swap), use window.history.replaceState and client-side useState instead. Next: Session 6 — Stop selection + route recalculation. This closes the core loop and is MVP. Will need trip state (zustand or React context), Add-to-trip button, Directions API waypoints param, dynamic polyline updates, Itinerary component."
+  "completed_features": [
+    "Next.js 16 project init",
+    "Firebase Firestore connection (urbanexplorer named DB)",
+    "Zod schemas + city utilities",
+    "Test page verified",
+    "Clerk v7 auth (sign-in/out)",
+    "Google Maps RouteMap with Directions renderer",
+    "CSP security headers",
+    "Dark industrial design system CSS",
+    "Firebase App Hosting deployed (live)",
+    "GitHub-dark color tones",
+    "Firestore security rules",
+    "CityAutocomplete + DriveBudgetSelector + RouteInput",
+    "/plan page with Routes API v2 server action",
+    "RouteMap supports precomputed polyline + bounds",
+    "Stop recommendation engine (geometric + Routes API computeRouteMatrix)",
+    "Council pre-EXECUTE gate (workflow update)",
+    "Tier 1 council remediation (input validation, rate limit, samplePolyline interpolation, projectOntoPolyline precision, scaled detour cap, LRU cache)",
+    "Persona system (5 personas with typeWeights + preferredVibes + accentColor)",
+    "Scoring engine (scoreWaypoint + buildRankedGroups, isomorphic client/server)",
+    "fetchWaypointsForCandidates with dedicated LRU cache + nested field projection",
+    "PersonaSelector + RecommendationList + PlanWorkspace components",
+    "Tier 2 council fixes (labeled candidate markers, click-to-highlight, hover sync)",
+    "Persona lifted to client state via history.replaceState (avoids server re-run)",
+    "Server Action recomputeRouteAction (S6) — replaced in S7",
+    "computeRouteWithStops with intermediates (no spread / no optimize)",
+    "Trip state in PlanWorkspace (TripStop[], 7-stop cap, dedupe)",
+    "Add city to trip button per city group",
+    "Itinerary component (ordered stops, Remove, failed-stop indicator, empty state)",
+    "PolylineRenderer split into 4 effects + fit-bounds-once + in-place opacity",
+    "format.ts extraction (no server-only re-export)",
+    "next.config serverActions.allowedOrigins",
+    "Session 6 council pre-EXECUTE gate (18 blockers addressed)",
+    "recomputeAndRefreshAction (S7) — single action returning route + refreshed waypoints",
+    "CityContext extended with lat/lng for client-side CandidateMarker derivation",
+    "liveWaypointFetch client state slice mirroring liveRoute null-fallback pattern",
+    "Degraded refresh path keeps prior recommendations + inline notice (S7 council ARCH-2/PROD-1)",
+    "Refresh-success panel highlight (refreshTick + 800ms ring, Council S7-PROD-2)",
+    "Shared isBudgetHoursInRange helper in validation.ts",
+    "Session 7 council pre-EXECUTE gate (11 blockers addressed)",
+    "App Hosting GitHub connection wired (Firebase console, 2026-04-09) — auto-deploys on push to main"
+  ],
+  "session_log": [
+    {
+      "session": 4,
+      "date": "2026-04-08",
+      "title": "Stop recommendation engine",
+      "summary": "Phase 1+2 of the recommendation pipeline: geometric pre-filter + Routes API computeRouteMatrix for drive-time validation. Added LRU cache, samplePolyline interpolation, projectOntoPolyline precision, scaled detour cap. Council pre-EXECUTE gate became a HARD gate mid-session (retroactive review → workflow change in skills/10-build.md)."
+    },
+    {
+      "session": 5,
+      "date": "2026-04-08",
+      "title": "Persona system + recommendation engine",
+      "summary": "5 personas with typeWeights/preferredVibes/accentColor. Isomorphic scoring engine runs client-side on persona change. Critical architectural lesson: in Next.js 16 force-dynamic pages, router.replace on a searchParam re-runs the Server Component and re-bills computeRoute. Fixed by lifting persona to client state + history.replaceState sync. Council pre-EXECUTE gate (22 ISC from findings). Committed ae3601f."
+    },
+    {
+      "session": 6,
+      "date": "2026-04-08",
+      "title": "Stop selection + route recalc (MVP loop closer)",
+      "summary": "recomputeRouteAction Server Action with 3-layer rate limit (burst/spacing/daily quota). computeRouteWithStops helper in directions.ts. Client trip state (TripStop[], 7-stop cap), liveRoute: DirectionsResult | null, requestIdRef latest-wins. Itinerary component. Council pre-EXECUTE: Sec 6/10, Arch 6/10, Prod 7/10 — all CONDITIONAL, 18 blockers addressed. Simplify caught polyline-rebuild-on-pending (now setOptions({strokeOpacity}) in place). Committed 1bc3270."
+    },
+    {
+      "session": 7,
+      "date": "2026-04-09",
+      "title": "Recommendation refresh after stop add",
+      "summary": "Replaced recomputeRouteAction with recomputeAndRefreshAction — serial route+candidates+waypoints waterfall, single rate-limit charge. CityContext extended with lat/lng. liveWaypointFetch slice, effectiveWaypointFetch derived. Degraded path keeps prior recs + inline notice (S7 council ARCH-2/PROD-1 — both reviewers independently flagged clobbering-on-degraded). Discriminated union tightened to 2-arm keyed on waypointStatus (compile-time invariant). Refresh-success highlight. Removed the S6 stale-recs banner. Council: Sec 8/10, Arch 7.5/10, Prod 6/10 — 11 blockers addressed. Committed e77a3b5. LIVE as rollout-2026-04-08-000. ALSO: discovered App Hosting GitHub connection was never wired — all prior deploys manual — user set it up mid-session via Firebase console; auto-deploy now works."
+    }
+  ],
+  "resume_instructions": "Roadtripper is LIVE at https://roadtripper--roadtripper-planner.us-central1.hosted.app with Sessions 5 + 6 + 7 all deployed as of 2026-04-09. The MVP loop is closed end-to-end: enter origin/destination → see route + persona-ranked recommendations → Add city to trip → route reshapes + recommendations refresh + Itinerary tracks the trip. Key files to re-read on resume: src/app/plan/actions.ts (recomputeAndRefreshAction), src/app/plan/page.tsx (Server Component, force-dynamic), src/components/PlanWorkspace.tsx (liveRoute + liveWaypointFetch null-fallback pattern), src/components/RouteMap.tsx (PolylineRenderer 4-effect split with hasFitOnceRef), src/components/{RecommendationList,Itinerary,PersonaSelector}.tsx, src/lib/routing/{directions,candidates,recommend,scoring,validation,rate-limit,format,cache,polyline}.ts, src/lib/personas/{types,index}.ts. Key memories to load: project_roadtripper.md (current state + stack versions), reference_apphosting_deploy.md (deploy diagnostic chain + smoke test commands), and ALL feedback_*.md (six files encoding hard-learned architectural invariants + working style across S5-S7). Council pre-EXECUTE gate is MANDATORY per Session 4.5 workflow change — never start BUILD on Advanced effort without it. CONDITIONAL is the normal council verdict; remediation of every blocker is the actual ship signal, not the verdict itself. Next session should pick from the next_action list and ask the user which direction. Deploy pipeline: push to origin/main now auto-deploys via the wired App Hosting + GitHub connection (verify via gcloud run services list --region=us-central1 for the last-deployed timestamp if in doubt). Runtime smoke test commands are in reference_apphosting_deploy.md. Note: PRDs for prior sessions live in ~/.claude/MEMORY/WORK/{slug}/PRD.md (ephemeral working state); the durable distillation is the council review files in .harness/memory/decisions/ and the feedback memories.",
+  "session_log_format_note": "Each session_log entry is an INDEX, not a rationale record. The 'why' lives in feedback_*.md memories and .harness/memory/decisions/ council files. Read those for design context before extending an area."
 }
