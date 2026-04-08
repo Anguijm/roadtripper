@@ -54,3 +54,14 @@ export function candidateCacheKey(
   }
   return `candidates:${hash.toString(36)}:${encodedPolyline.length}:${maxDetourMinutes}`;
 }
+
+/**
+ * Cache key for the waypoint fetch stage. Independent of persona and
+ * detour cap — scoring is downstream and runs on the client. The key is
+ * the sorted city id tuple so that different candidate orderings for the
+ * same city set hit the same cache entry.
+ */
+export function waypointsCacheKey(cityIds: readonly string[]): string {
+  const sorted = [...new Set(cityIds)].sort().join(",");
+  return `waypoints:${sorted}`;
+}

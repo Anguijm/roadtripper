@@ -1,18 +1,18 @@
 {
   "version": 1,
-  "last_updated": "2026-04-07T22:00:00+09:00",
+  "last_updated": "2026-04-08T11:45:00+09:00",
   "project": {
     "name": "roadtripper",
     "status": "building",
     "description": "Road trip planner using Urban Explorer database with persona-based recommendations"
   },
   "current_phase": {
-    "phase": "foundation",
+    "phase": "core",
     "last_session_type": "build",
-    "last_session_work": "Session 4 + 4.5: Stop recommendation engine (geometric + Routes API v2 matrix) + council retro review + Tier 1 remediation (input validation, rate limit, computeRouteMatrix migration, samplePolyline interpolation fix, projectOntoPolyline precision fix, scaled detour cap, LRU cache). NYC→Miami now correctly surfaces DC.",
-    "last_session_date": "2026-04-07",
+    "last_session_work": "Session 5: Persona system shipped. 5 personas (outdoorsman/foodie/gearhead/culture/nerd) with typeWeights + preferredVibes + accentColor. Scoring engine (scoreWaypoint: trending*typeWeight*vibeBonus/max(detour,5)). fetchWaypointsForCandidates via urbanExplorerDb Admin SDK (single IN query, .select('name.en',...) projection, LRU cached by sorted cityIds). buildRankedGroups pre-groups waypoints then scores (isomorphic — runs client-side on persona change). PersonaSelector + RecommendationList + PlanWorkspace wired. Tier 2 council fixes landed: labeled candidate markers, click-to-highlight, hover sync. Council pre-EXECUTE gate passed (sec 6/10, arch B/6, prod 5/10) with 22 ISC added for findings. Simplify caught critical bug: URL-param persona was re-triggering Server Component and re-billing computeRoute API — fixed by lifting persona to client state with history.replaceState sync. Lint/type-check/build all green.",
+    "last_session_date": "2026-04-08",
     "next_session_type": "build",
-    "next_action": "Session 5: Persona system — persona definitions, persona-to-vibe mapping, ranked waypoint scoring (Tier 2 council fixes pair naturally here)"
+    "next_action": "Session 6: Stop selection + route recalculation — the CORE LOOP closes here. Trip state (zustand or context), 'Add to trip' button, Directions API waypoints param, dynamic polyline updates, Itinerary component. This is MVP."
   },
   "roadmap": {
     "foundation": [
@@ -42,7 +42,7 @@
       "Drag-to-reorder stops"
     ]
   },
-  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS", "Firebase App Hosting deployed (live)", "GitHub-dark color tones", "Firestore security rules", "CityAutocomplete + DriveBudgetSelector + RouteInput", "/plan page with Routes API v2 server action", "RouteMap supports precomputed polyline + bounds", "Stop recommendation engine (geometric + Routes API computeRouteMatrix)", "Council pre-EXECUTE gate (workflow update)", "Tier 1 council remediation (input validation, rate limit, samplePolyline interpolation, projectOntoPolyline precision, scaled detour cap, LRU cache)"],
+  "completed_features": ["Next.js 16 project init", "Firebase Firestore connection (urbanexplorer named DB)", "Zod schemas + city utilities", "Test page verified", "Clerk v7 auth (sign-in/out)", "Google Maps RouteMap with Directions renderer", "CSP security headers", "Dark industrial design system CSS", "Firebase App Hosting deployed (live)", "GitHub-dark color tones", "Firestore security rules", "CityAutocomplete + DriveBudgetSelector + RouteInput", "/plan page with Routes API v2 server action", "RouteMap supports precomputed polyline + bounds", "Stop recommendation engine (geometric + Routes API computeRouteMatrix)", "Council pre-EXECUTE gate (workflow update)", "Tier 1 council remediation (input validation, rate limit, samplePolyline interpolation, projectOntoPolyline precision, scaled detour cap, LRU cache)", "Persona system (5 personas with typeWeights + preferredVibes + accentColor)", "Scoring engine (scoreWaypoint + buildRankedGroups, isomorphic client/server)", "fetchWaypointsForCandidates with dedicated LRU cache + nested field projection", "PersonaSelector + RecommendationList + PlanWorkspace components", "Tier 2 council fixes (labeled candidate markers, click-to-highlight, hover sync)", "Persona lifted to client state via history.replaceState (avoids server re-run)"],
   "session_log": [],
-  "resume_instructions": "Sessions 4 + 4.5 complete. Stop recommendation engine working end-to-end: NYC→Miami at budget=4 surfaces NYC, DC, Miami. Tier 1 council fixes shipped (input validation, rate limit, computeRouteMatrix migration killed 25x quota waste, samplePolyline interpolation, projectOntoPolyline precision fix, scaled detour cap, LRU cache). Council is now a hard pre-EXECUTE gate per skills/10-build.md. Next: Session 5 — Persona system. Tier 2 council fixes (clickable candidates, labeled markers, RankedWaypoint type, hover sync) pair naturally with persona scoring."
+  "resume_instructions": "Session 5 complete. Persona system is live end-to-end. Key files: src/lib/personas/{types,index}.ts, src/lib/routing/{recommend,scoring}.ts, src/components/{PersonaSelector,RecommendationList,PlanWorkspace}.tsx. Runtime verification pending (needs browser with real Google Maps key): confirm persona swap reorders the list visibly, candidate marker labels render, click-highlight works, hover sync works. Critical architectural lesson: in Next.js 16 App Router, force-dynamic + router.replace on a searchParam re-runs the Server Component — if you need instant client state (like persona swap), use window.history.replaceState and client-side useState instead. Next: Session 6 — Stop selection + route recalculation. This closes the core loop and is MVP. Will need trip state (zustand or React context), Add-to-trip button, Directions API waypoints param, dynamic polyline updates, Itinerary component."
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { APIProvider, Map as GMap, useMap } from "@vis.gl/react-google-maps";
 
 export interface CandidateMarker {
   id: string;
@@ -20,6 +20,12 @@ interface RouteMapProps {
     southwest: { lat: number; lng: number };
   };
   candidates?: CandidateMarker[];
+  /** Persona accent color for the route line. Defaults to explorer blue. */
+  routeColor?: string;
+  /** City id currently highlighted (hovered / selected from the list) */
+  highlightedCandidateId?: string | null;
+  /** Fired when the user clicks a candidate marker on the map */
+  onCandidateClick?: (cityId: string) => void;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -49,16 +55,26 @@ function PolylineRenderer({
   origin,
   destination,
   candidates,
+  routeColor,
+  highlightedCandidateId,
+  onCandidateClick,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
   origin: google.maps.LatLngLiteral;
   destination: google.maps.LatLngLiteral;
   candidates?: CandidateMarker[];
+  routeColor: string;
+  highlightedCandidateId?: string | null;
+  onCandidateClick?: (cityId: string) => void;
 }) {
   const map = useMap();
-  const [polyline, setPolyline] = useState<google.maps.Polyline | null>(null);
-  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
+  // Marker handles are imperative Google Maps objects, not React-rendered.
+  // Refs avoid re-render churn (and a flash-of-wrong-highlight race that
+  // happens when the build effect triggers a re-render before the
+  // highlight effect runs).
+  const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const previousHighlightRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!map || !window.google?.maps?.geometry) return;
@@ -67,7 +83,7 @@ function PolylineRenderer({
 
     const line = new google.maps.Polyline({
       path,
-      strokeColor: "#58a6ff",
+      strokeColor: routeColor,
       strokeOpacity: 0.85,
       strokeWeight: 4,
       map,
@@ -101,25 +117,39 @@ function PolylineRenderer({
       },
     });
 
-    const candidateMarkers: google.maps.Marker[] = (candidates ?? []).map(
-      (candidate) =>
-        new google.maps.Marker({
-          position: { lat: candidate.lat, lng: candidate.lng },
-          map,
-          title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 6,
-            fillColor: "#bc8cff",
-            fillOpacity: 0.9,
-            strokeColor: "#0d1117",
-            strokeWeight: 2,
-          },
-        })
-    );
+    const candidateEntries: Array<[string, google.maps.Marker]> = (
+      candidates ?? []
+    ).map((candidate) => {
+      const marker = new google.maps.Marker({
+        position: { lat: candidate.lat, lng: candidate.lng },
+        map,
+        label: {
+          text: candidate.name,
+          color: "#f0f6fc",
+          fontSize: "11px",
+          fontWeight: "500",
+          className: "rt-candidate-label",
+        },
+        title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: routeColor,
+          fillOpacity: 0.9,
+          strokeColor: "#0d1117",
+          strokeWeight: 2,
+        },
+      });
+      if (onCandidateClick) {
+        marker.addListener("click", () => onCandidateClick(candidate.id));
+      }
+      return [candidate.id, marker];
+    });
 
-    setPolyline(line);
-    setMarkers([startMarker, endMarker, ...candidateMarkers]);
+    const candidateMarkers = candidateEntries.map(([, m]) => m);
+    candidateMarkersRef.current = new Map(candidateEntries);
+    // Reset highlight tracking on rebuild
+    previousHighlightRef.current = null;
 
     if (bounds) {
       map.fitBounds(
@@ -140,13 +170,53 @@ function PolylineRenderer({
       startMarker.setMap(null);
       endMarker.setMap(null);
       candidateMarkers.forEach((m) => m.setMap(null));
+      candidateMarkersRef.current = new Map();
+      previousHighlightRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, encodedPolyline, candidates]);
+  }, [map, encodedPolyline, candidates, routeColor]);
 
-  // Reference vars to satisfy ESLint about state usage
-  void polyline;
-  void markers;
+  // Highlight effect: only touch the markers that actually changed
+  // (previous highlight + new highlight). Avoids N-marker churn per hover.
+  useEffect(() => {
+    if (!window.google?.maps) return;
+    const markersMap = candidateMarkersRef.current;
+    if (markersMap.size === 0) return;
+
+    const baseIcon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 6,
+      fillColor: routeColor,
+      fillOpacity: 0.9,
+      strokeColor: "#0d1117",
+      strokeWeight: 2,
+    };
+    const activeIcon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 10,
+      fillColor: routeColor,
+      fillOpacity: 1,
+      strokeColor: "#f0f6fc",
+      strokeWeight: 3,
+    };
+
+    const prev = previousHighlightRef.current;
+    if (prev && prev !== highlightedCandidateId) {
+      const prevMarker = markersMap.get(prev);
+      if (prevMarker) {
+        prevMarker.setIcon(baseIcon);
+        prevMarker.setZIndex(1);
+      }
+    }
+    if (highlightedCandidateId) {
+      const nextMarker = markersMap.get(highlightedCandidateId);
+      if (nextMarker) {
+        nextMarker.setIcon(activeIcon);
+        nextMarker.setZIndex(1000);
+      }
+    }
+    previousHighlightRef.current = highlightedCandidateId ?? null;
+  }, [highlightedCandidateId, routeColor]);
 
   return null;
 }
@@ -205,6 +275,9 @@ export default function RouteMap({
   encodedPolyline,
   bounds,
   candidates,
+  routeColor = "#58a6ff",
+  highlightedCandidateId = null,
+  onCandidateClick,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -225,7 +298,7 @@ export default function RouteMap({
 
   return (
     <APIProvider apiKey={apiKey} libraries={["geometry"]}>
-      <Map
+      <GMap
         defaultCenter={center}
         defaultZoom={7}
         gestureHandling="greedy"
@@ -243,11 +316,14 @@ export default function RouteMap({
             origin={origin}
             destination={destination}
             candidates={candidates}
+            routeColor={routeColor}
+            highlightedCandidateId={highlightedCandidateId}
+            onCandidateClick={onCandidateClick}
           />
         ) : (
           <DirectionsFallback origin={origin} destination={destination} />
         )}
-      </Map>
+      </GMap>
     </APIProvider>
   );
 }

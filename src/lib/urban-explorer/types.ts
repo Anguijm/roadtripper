@@ -4,16 +4,20 @@ export const SupportedLocaleSchema = z.enum([
   "en", "ja", "ko", "zh-Hans", "zh-Hant", "es", "fr", "th",
 ]);
 
+// Max length for a single localized string. Caps payload bloat and reduces
+// the XSS blast radius on any waypoint string rendered in the UI.
+const LOCALIZED_STRING_MAX = 1000;
+
 export const LocalizedTextSchema = z
   .object({
-    en: z.string().min(1),
-    ja: z.string().optional(),
-    ko: z.string().optional(),
-    "zh-Hans": z.string().optional(),
-    "zh-Hant": z.string().optional(),
-    es: z.string().optional(),
-    fr: z.string().optional(),
-    th: z.string().optional(),
+    en: z.string().min(1).max(LOCALIZED_STRING_MAX),
+    ja: z.string().max(LOCALIZED_STRING_MAX).optional(),
+    ko: z.string().max(LOCALIZED_STRING_MAX).optional(),
+    "zh-Hans": z.string().max(LOCALIZED_STRING_MAX).optional(),
+    "zh-Hant": z.string().max(LOCALIZED_STRING_MAX).optional(),
+    es: z.string().max(LOCALIZED_STRING_MAX).optional(),
+    fr: z.string().max(LOCALIZED_STRING_MAX).optional(),
+    th: z.string().max(LOCALIZED_STRING_MAX).optional(),
   })
   .strict();
 
@@ -77,7 +81,9 @@ export const WaypointSchema = z
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
     trending_score: z.number().min(0).max(100),
-    source: z.string().optional(),
+    // URL validation guards against javascript: URLs that could slip through
+    // to an <a href={waypoint.source}> later.
+    source: z.string().url().refine((u) => /^https?:/i.test(u)).optional(),
     enriched_at: z.string().datetime().optional(),
   })
   .strict();
