@@ -5,11 +5,30 @@ import { PERSONAS } from "@/lib/personas";
 import type { PersonaId, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
 
+export interface AddCityPayload {
+  cityId: string;
+  cityName: string;
+  lat: number;
+  lng: number;
+}
+
 interface RecommendationListProps {
   fetchResult: WaypointFetchResult;
   activePersonaId: PersonaId;
   highlightedCityId?: string | null;
   onCityHover?: (cityId: string | null) => void;
+  /** Map of cityId → {lat,lng} so the Add button can build a TripStop */
+  cityCoords: Map<string, { lat: number; lng: number }>;
+  /** Set of cityIds already in the trip — flips button to "Added" */
+  addedCityIds: ReadonlySet<string>;
+  /** Add the city to the trip */
+  onAddCity: (city: AddCityPayload) => void;
+  /** Remove the city from the trip (used by the "Added" button) */
+  onRemoveCity: (cityId: string) => void;
+  /** Disable Add/Remove while a recompute is pending */
+  pending?: boolean;
+  /** Disable Add when the trip is at the cap */
+  atCap?: boolean;
 }
 
 const TIER_LABELS: Record<RankedWaypoint["tier"], string> = {
@@ -35,6 +54,12 @@ export default function RecommendationList({
   activePersonaId,
   highlightedCityId,
   onCityHover,
+  cityCoords,
+  addedCityIds,
+  onAddCity,
+  onRemoveCity,
+  pending = false,
+  atCap = false,
 }: RecommendationListProps) {
   const persona = PERSONAS[activePersonaId];
   const accent = persona.accentColor;
@@ -89,20 +114,65 @@ export default function RecommendationList({
         const { cityId, cityName, rows, detourMinutes } = group;
         if (rows.length === 0) return null;
         const isHighlighted = cityId === highlightedCityId;
+        const isAdded = addedCityIds.has(cityId);
+        const coords = cityCoords.get(cityId);
+        const canAdd = !isAdded && !pending && !atCap && Boolean(coords);
+
+        const handleAddClick = () => {
+          if (isAdded) {
+            onRemoveCity(cityId);
+            return;
+          }
+          if (!coords) return;
+          onAddCity({
+            cityId,
+            cityName,
+            lat: coords.lat,
+            lng: coords.lng,
+          });
+        };
+
         return (
           <section key={cityId} className="mb-3">
             <h3
               className={[
-                "sticky top-0 z-10 text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b",
+                "sticky top-0 z-10 text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b flex items-center justify-between gap-2",
                 isHighlighted
                   ? "bg-[#262c36] text-[#f0f6fc] border-[#6e7681]"
                   : "bg-[#161b22] text-[#7d8590] border-[#30363d]",
               ].join(" ")}
             >
-              {cityName}
-              <span className="ml-2 text-[#4a5159]">
-                · +{Math.round(detourMinutes)}m detour
+              <span className="truncate">
+                {cityName}
+                <span className="ml-2 text-[#4a5159]">
+                  · +{Math.round(detourMinutes)}m
+                </span>
               </span>
+              <button
+                type="button"
+                onClick={handleAddClick}
+                disabled={!isAdded && !canAdd}
+                title={
+                  isAdded
+                    ? "Remove from trip"
+                    : atCap
+                    ? "Trip is at the maximum number of stops"
+                    : "Add city to trip"
+                }
+                className={[
+                  "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors",
+                  isAdded
+                    ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
+                    : canAdd
+                    ? "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]"
+                    : "border-[#21262d] text-[#4a5159] cursor-not-allowed",
+                ].join(" ")}
+                style={
+                  isAdded ? { backgroundColor: accent, color: "#0d1117" } : undefined
+                }
+              >
+                {isAdded ? "✓ Added" : "+ Add city to trip"}
+              </button>
             </h3>
             <ul className="space-y-1 pt-1">
               {rows.map((r) => (

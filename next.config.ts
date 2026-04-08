@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Server Action origin allowlist (Council ISC-S6-SEC-5).
+  // Next.js compares the request Origin / Host headers against this list
+  // before invoking any "use server" function. Same-origin requests
+  // (same host as the deploy) are always allowed; this list adds
+  // explicit non-default origins (e.g., the App Hosting custom domain).
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        "roadtripper-planner.web.app",
+        "roadtripper-planner.firebaseapp.com",
+      ],
+    },
+  },
   env: {
     // Roadtripper's own Firebase project (client-side)
     NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyAxsr1QKIZhIHn7kZstTdRCArfdvCZ4RtQ",

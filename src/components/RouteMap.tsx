@@ -11,6 +11,13 @@ export interface CandidateMarker {
   detourMinutes: number;
 }
 
+export interface TripStopMarker {
+  cityId: string;
+  cityName: string;
+  lat: number;
+  lng: number;
+}
+
 interface RouteMapProps {
   origin?: google.maps.LatLngLiteral;
   destination?: google.maps.LatLngLiteral;
@@ -26,6 +33,10 @@ interface RouteMapProps {
   highlightedCandidateId?: string | null;
   /** Fired when the user clicks a candidate marker on the map */
   onCandidateClick?: (cityId: string) => void;
+  /** Ordered trip stops — rendered as numbered square markers */
+  tripStops?: TripStopMarker[];
+  /** Subtle dim applied to the polyline while a recompute is pending */
+  pending?: boolean;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -48,6 +59,19 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
  * computed server-side.
+ *
+ * Council ISC-S6-ARCH-2 — split into THREE effects:
+ *   1. Polyline effect — keyed on `[map, encodedPolyline, routeColor, pending]`.
+ *      Tears down and rebuilds JUST the line, not the markers.
+ *   2. Marker effect — keyed on `[map, candidates, routeColor, onCandidateClick]`.
+ *      Builds endpoints + candidate markers ONCE per candidate set, not on
+ *      every recompute. Avoids losing highlight state and click handlers.
+ *   3. Trip-stop effect — keyed on `[map, tripStops, routeColor]`.
+ *      Numbered square markers for stops the user has added.
+ *
+ * `hasFitOnceRef` guards `fitBounds` so the camera only re-fits on the
+ * VERY FIRST polyline render — subsequent recomputes redraw the line in
+ * place without zoom/pan churn.
  */
 function PolylineRenderer({
   encodedPolyline,
@@ -58,6 +82,8 @@ function PolylineRenderer({
   routeColor,
   highlightedCandidateId,
   onCandidateClick,
+  tripStops,
+  pending,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -67,15 +93,19 @@ function PolylineRenderer({
   routeColor: string;
   highlightedCandidateId?: string | null;
   onCandidateClick?: (cityId: string) => void;
+  tripStops?: TripStopMarker[];
+  pending?: boolean;
 }) {
   const map = useMap();
-  // Marker handles are imperative Google Maps objects, not React-rendered.
-  // Refs avoid re-render churn (and a flash-of-wrong-highlight race that
-  // happens when the build effect triggers a re-render before the
-  // highlight effect runs).
   const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const previousHighlightRef = useRef<string | null>(null);
+  const hasFitOnceRef = useRef(false);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
+  // ── Effect 1a: polyline geometry / color ───────────────────────────────
+  // Rebuilds when the route geometry or persona color changes.
+  // `pending` is intentionally NOT in deps — opacity is updated in-place
+  // by Effect 1b to avoid tearing down the Polyline on every transition.
   useEffect(() => {
     if (!map || !window.google?.maps?.geometry) return;
 
@@ -84,10 +114,50 @@ function PolylineRenderer({
     const line = new google.maps.Polyline({
       path,
       strokeColor: routeColor,
-      strokeOpacity: 0.85,
+      strokeOpacity: pending ? 0.4 : 0.85,
       strokeWeight: 4,
       map,
     });
+    polylineRef.current = line;
+
+    // Fit-bounds-once: only the FIRST render triggers a camera fit.
+    // Council ISC-S6-ARCH-2 — recomputes redraw in place.
+    if (!hasFitOnceRef.current) {
+      if (bounds) {
+        map.fitBounds(
+          new google.maps.LatLngBounds(
+            { lat: bounds.southwest.lat, lng: bounds.southwest.lng },
+            { lat: bounds.northeast.lat, lng: bounds.northeast.lng }
+          ),
+          { top: 60, right: 60, bottom: 120, left: 60 }
+        );
+      } else {
+        const b = new google.maps.LatLngBounds();
+        path.forEach((p) => b.extend(p));
+        map.fitBounds(b, { top: 60, right: 60, bottom: 120, left: 60 });
+      }
+      hasFitOnceRef.current = true;
+    }
+
+    return () => {
+      line.setMap(null);
+      polylineRef.current = null;
+    };
+    // `pending` and `bounds` intentionally omitted from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, encodedPolyline, routeColor]);
+
+  // ── Effect 1b: polyline opacity (pending state) ────────────────────────
+  // Mutates the existing Polyline in place — no rebuild.
+  useEffect(() => {
+    polylineRef.current?.setOptions({
+      strokeOpacity: pending ? 0.4 : 0.85,
+    });
+  }, [pending]);
+
+  // ── Effect 2: endpoint + candidate markers ─────────────────────────────
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
 
     const startMarker = new google.maps.Marker({
       position: origin,
@@ -148,25 +218,9 @@ function PolylineRenderer({
 
     const candidateMarkers = candidateEntries.map(([, m]) => m);
     candidateMarkersRef.current = new Map(candidateEntries);
-    // Reset highlight tracking on rebuild
     previousHighlightRef.current = null;
 
-    if (bounds) {
-      map.fitBounds(
-        new google.maps.LatLngBounds(
-          { lat: bounds.southwest.lat, lng: bounds.southwest.lng },
-          { lat: bounds.northeast.lat, lng: bounds.northeast.lng }
-        ),
-        { top: 60, right: 60, bottom: 120, left: 60 }
-      );
-    } else {
-      const b = new google.maps.LatLngBounds();
-      path.forEach((p) => b.extend(p));
-      map.fitBounds(b, { top: 60, right: 60, bottom: 120, left: 60 });
-    }
-
     return () => {
-      line.setMap(null);
       startMarker.setMap(null);
       endMarker.setMap(null);
       candidateMarkers.forEach((m) => m.setMap(null));
@@ -174,7 +228,42 @@ function PolylineRenderer({
       previousHighlightRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, encodedPolyline, candidates, routeColor]);
+  }, [map, candidates, routeColor, origin, destination]);
+
+  // ── Effect 3: trip-stop numbered markers ───────────────────────────────
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+    if (!tripStops || tripStops.length === 0) return;
+
+    const stopMarkers = tripStops.map((stop, index) => {
+      return new google.maps.Marker({
+        position: { lat: stop.lat, lng: stop.lng },
+        map,
+        title: `Stop ${index + 1}: ${stop.cityName}`,
+        zIndex: 2000,
+        label: {
+          text: String(index + 1),
+          color: "#0d1117",
+          fontSize: "12px",
+          fontWeight: "700",
+        },
+        icon: {
+          path:
+            "M -10 -10 L 10 -10 L 10 10 L -10 10 z" /* square */,
+          fillColor: routeColor,
+          fillOpacity: 1,
+          strokeColor: "#f0f6fc",
+          strokeWeight: 2,
+          scale: 1,
+          anchor: new google.maps.Point(0, 0),
+        },
+      });
+    });
+
+    return () => {
+      stopMarkers.forEach((m) => m.setMap(null));
+    };
+  }, [map, tripStops, routeColor]);
 
   // Highlight effect: only touch the markers that actually changed
   // (previous highlight + new highlight). Avoids N-marker churn per hover.
@@ -278,6 +367,8 @@ export default function RouteMap({
   routeColor = "#58a6ff",
   highlightedCandidateId = null,
   onCandidateClick,
+  tripStops,
+  pending = false,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -319,6 +410,8 @@ export default function RouteMap({
             routeColor={routeColor}
             highlightedCandidateId={highlightedCandidateId}
             onCandidateClick={onCandidateClick}
+            tripStops={tripStops}
+            pending={pending}
           />
         ) : (
           <DirectionsFallback origin={origin} destination={destination} />

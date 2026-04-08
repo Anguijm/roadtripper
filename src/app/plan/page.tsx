@@ -2,11 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import type { CandidateMarker } from "@/components/RouteMap";
-import {
-  computeRoute,
-  formatDistance,
-  formatDuration,
-} from "@/lib/routing/directions";
+import { computeRoute } from "@/lib/routing/directions";
 import { findCandidateCities } from "@/lib/routing/candidates";
 import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
@@ -131,11 +127,6 @@ export default async function PlanPage({
     }
   }
 
-  const totalDays =
-    route && budgetHours > 0
-      ? Math.ceil(route.totalDurationSeconds / 3600 / budgetHours)
-      : 0;
-
   return (
     <div className="flex flex-col h-screen">
       <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
@@ -160,9 +151,10 @@ export default async function PlanPage({
           waypointFetch={waypointFetch}
           initialPersonaId={activePersonaId}
           budgetHours={budgetHours}
-          totalDistanceText={formatDistance(route.totalDistanceMeters)}
-          totalDurationText={formatDuration(route.totalDurationSeconds)}
-          totalDays={totalDays}
+          initialDistanceMeters={route.totalDistanceMeters}
+          initialDurationSeconds={route.totalDurationSeconds}
+          fromName={fromName}
+          toName={toName}
           maxDetourMinutes={maxDetourMinutes}
         />
       ) : (

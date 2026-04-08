@@ -30,17 +30,53 @@ export class RoutesApiError extends Error {
   }
 }
 
+/** Defensive cap on intermediate stops at the helper boundary.
+ *  Mirrored by the action's cap (Council ISC-S6-SEC-6). */
+const MAX_INTERMEDIATES = 7;
+
 /**
- * Compute a driving route between two points using the Google Routes API v2.
+ * Compute a driving route between two points (optionally through ordered
+ * intermediate stops) using the Google Routes API v2.
+ *
  * Server-side only — uses GOOGLE_MAPS_KEY (not the public client key).
  */
-export async function computeRoute(
+export async function computeRouteWithStops(
   origin: { lat: number; lng: number },
-  destination: { lat: number; lng: number }
+  destination: { lat: number; lng: number },
+  stops: ReadonlyArray<{ lat: number; lng: number }>
 ): Promise<DirectionsResult> {
   const apiKey = process.env.GOOGLE_MAPS_KEY;
   if (!apiKey) {
     throw new Error("GOOGLE_MAPS_KEY environment variable not set");
+  }
+
+  // Defense in depth — Council ISC-S6-SEC-6
+  if (stops.length > MAX_INTERMEDIATES) {
+    throw new RoutesApiError(
+      `computeRouteWithStops: too many stops (${stops.length} > ${MAX_INTERMEDIATES})`
+    );
+  }
+
+  // Body is constructed field-by-field — never spread client objects.
+  // Council ISC-S6-SEC-6 (prevents `sideOfRoad` / `vehicleHeading` / `via` injection).
+  const body: Record<string, unknown> = {
+    origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+    destination: {
+      location: { latLng: { latitude: destination.lat, longitude: destination.lng } },
+    },
+    travelMode: "DRIVE",
+    routingPreference: "TRAFFIC_AWARE",
+    units: "IMPERIAL",
+  };
+
+  // Routes API rejects an empty `intermediates: []` — only set the field
+  // when we actually have stops.
+  if (stops.length > 0) {
+    body.intermediates = stops.map((s) => ({
+      location: { latLng: { latitude: s.lat, longitude: s.lng } },
+    }));
+    // Intentionally NOT passing `optimizeWaypointOrder` — preserve the
+    // user-controlled order from the Itinerary.
   }
 
   let response: Response;
@@ -55,15 +91,7 @@ export async function computeRoute(
           "X-Goog-FieldMask":
             "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.viewport",
         },
-        body: JSON.stringify({
-          origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
-          destination: {
-            location: { latLng: { latitude: destination.lat, longitude: destination.lng } },
-          },
-          travelMode: "DRIVE",
-          routingPreference: "TRAFFIC_AWARE",
-          units: "IMPERIAL",
-        }),
+        body: JSON.stringify(body),
       }
     );
   } catch {
@@ -103,15 +131,12 @@ export async function computeRoute(
   };
 }
 
-export function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
-}
-
-export function formatDistance(meters: number): string {
-  const miles = meters / 1609.34;
-  return `${Math.round(miles)} mi`;
+/**
+ * Convenience wrapper — compute a route with no intermediate stops.
+ */
+export function computeRoute(
+  origin: { lat: number; lng: number },
+  destination: { lat: number; lng: number }
+): Promise<DirectionsResult> {
+  return computeRouteWithStops(origin, destination, []);
 }
