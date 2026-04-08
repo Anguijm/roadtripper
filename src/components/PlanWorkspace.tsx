@@ -22,7 +22,7 @@ import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDistance, formatDuration } from "@/lib/routing/format";
 import {
-  recomputeRouteAction,
+  recomputeAndRefreshAction,
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
 import type { DirectionsResult } from "@/lib/routing/directions";
@@ -78,11 +78,20 @@ export default function PlanWorkspace({
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
 
   // Trip + recompute state.
-  // `liveRoute === null` means "use the initial server-rendered values".
-  // (Council ISC-S6-ARCH-3 / PROD-5)
+  // `liveRoute === null` / `liveWaypointFetch === null` means "use the
+  // initial server-rendered values" (Council ISC-S6-ARCH-3, S7-ARCH-2).
   const [tripStops, setTripStops] = useState<TripStopMarker[]>([]);
   const [liveRoute, setLiveRoute] = useState<DirectionsResult | null>(null);
+  const [liveWaypointFetch, setLiveWaypointFetch] =
+    useState<WaypointFetchResult | null>(null);
   const [recomputeError, setRecomputeError] = useState<string | null>(null);
+  // Inline notice when the route updated but the recommendation refresh
+  // failed — keeps prior recs visible (Council S7-ARCH-2 / S7-PROD-1).
+  const [recommendationsDegraded, setRecommendationsDegraded] = useState(false);
+  // Bumped on each successful refresh — drives the brief panel highlight
+  // that proves to the user the recommendations actually updated
+  // (Council S7-PROD-2).
+  const [refreshTick, setRefreshTick] = useState(0);
   // Only the most-recent failed stop is ever surfaced in the Itinerary,
   // so a single nullable id replaces the prior `Set<string>`.
   const [failedStopId, setFailedStopId] = useState<string | null>(null);
@@ -104,14 +113,33 @@ export default function PlanWorkspace({
   const totalDays =
     budgetHours > 0 ? Math.ceil(liveDuration / 3600 / budgetHours) : 0;
 
+  // The recommendation set the user actually sees — refreshed when present,
+  // initial server prop otherwise (Council ISC-S7-ARCH-2).
+  const effectiveWaypointFetch = liveWaypointFetch ?? waypointFetch;
+
+  // Live candidate markers derived from the effective waypoint set so the
+  // map updates after each refresh (Council ISC-S7-ARCH-1 lat/lng now on
+  // CityContext, no client-side lookup needed).
+  const liveCandidateMarkers = useMemo<CandidateMarker[]>(() => {
+    if (liveWaypointFetch === null) return candidateMarkers;
+    return liveWaypointFetch.cities.map((c) => ({
+      id: c.id,
+      name: c.name,
+      lat: c.lat,
+      lng: c.lng,
+      detourMinutes: c.detourMinutes,
+    }));
+  }, [liveWaypointFetch, candidateMarkers]);
+
   // cityId → {lat,lng} lookup so RecommendationList can build TripStops.
+  // Sources from the effective set so refreshed cities become addable.
   const cityCoords = useMemo(() => {
     const m = new Map<string, { lat: number; lng: number }>();
-    for (const c of candidateMarkers) {
+    for (const c of liveCandidateMarkers) {
       m.set(c.id, { lat: c.lat, lng: c.lng });
     }
     return m;
-  }, [candidateMarkers]);
+  }, [liveCandidateMarkers]);
 
   const addedCityIds = useMemo(
     () => new Set(tripStops.map((s) => s.cityId)),
@@ -154,17 +182,19 @@ export default function PlanWorkspace({
     setFailedStopId((curr) => (curr === cityId ? null : curr));
   }, []);
 
-  // ── Recompute effect ───────────────────────────────────────────────────
+  // ── Recompute + refresh effect ─────────────────────────────────────────
   // Fires whenever the user changes the trip-stops list.
-  // Skips when the list is empty AND we already have the initial polyline
-  // (Council ISC-S6-ARCH-3 — restore via `liveRoute = null`).
+  // Empty-stops branch restores the server-rendered route AND
+  // recommendations via the `liveRoute = null` / `liveWaypointFetch = null`
+  // pattern (Council ISC-S6-ARCH-3, S7-ARCH-2). The `requestIdRef` increment
+  // is gated behind that early-return so empty resets don't burn IDs
+  // (Council S7-ARCH-5).
   useEffect(() => {
     if (tripStops.length === 0) {
-      // Reset to the initial server-rendered route. Guards prevent
-      // wasted re-renders on the very first mount when these are
-      // already at their reset values.
       if (liveRoute !== null) setLiveRoute(null);
+      if (liveWaypointFetch !== null) setLiveWaypointFetch(null);
       if (recomputeError !== null) setRecomputeError(null);
+      if (recommendationsDegraded) setRecommendationsDegraded(false);
       if (failedStopId !== null) setFailedStopId(null);
       return;
     }
@@ -177,33 +207,58 @@ export default function PlanWorkspace({
     }));
 
     startTransition(async () => {
-      const result = await recomputeRouteAction(
+      const result = await recomputeAndRefreshAction(
         { lat: origin.lat, lng: origin.lng },
         { lat: destination.lat, lng: destination.lng },
-        stopsForRequest
+        stopsForRequest,
+        budgetHours
       );
 
-      // Stale-response guard — bail if a newer request started.
+      // Stale-response guard — wraps BOTH state updates so a stale
+      // response can't half-update (Council ISC-S7-ARCH-5).
       if (myId !== requestIdRef.current) return;
 
       if (result.ok) {
+        // Council ISC-S7-ARCH-4 — atomic batching: setters fire on adjacent
+        // lines after the final await with NO intervening await. React 19
+        // batches into a single render commit.
         setLiveRoute(result.route);
+        if (result.waypointStatus === "fresh") {
+          setLiveWaypointFetch(result.waypointFetch);
+          setRecommendationsDegraded(false);
+          setRefreshTick((t) => t + 1);
+        } else {
+          // Degraded — keep the prior liveWaypointFetch (Council S7-ARCH-2).
+          setRecommendationsDegraded(true);
+        }
         setRecomputeError(null);
         setFailedStopId(null);
       } else {
         // Council ISC-S6-PROD-3: do NOT roll back tripStops; keep prior
-        // polyline; mark the most recently added stop as failed.
+        // polyline AND prior recommendations; mark the most recently
+        // added stop as failed.
         setRecomputeError(ERROR_LABELS[result.error]);
         const lastStop = stopsForRequest[stopsForRequest.length - 1];
         setFailedStopId(lastStop ? lastStop.cityId : null);
       }
     });
-    // origin/destination/initialFromProps are stable for the life of this
-    // PlanWorkspace (server props don't mutate client-side). liveRoute,
-    // recomputeError, failedStopId are intentionally excluded — setting
-    // them inside the effect would cause a feedback loop.
+    // origin/destination/budgetHours are stable for the life of this
+    // PlanWorkspace (server props don't mutate client-side). live*,
+    // recomputeError, recommendationsDegraded, failedStopId are
+    // intentionally excluded — setting them inside the effect would
+    // cause a feedback loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripStops]);
+
+  // Brief recommendation panel highlight after each successful refresh
+  // (Council ISC-S7-PROD-2 — positive proof of refresh).
+  const [highlightRefresh, setHighlightRefresh] = useState(false);
+  useEffect(() => {
+    if (refreshTick === 0) return;
+    setHighlightRefresh(true);
+    const timer = window.setTimeout(() => setHighlightRefresh(false), 800);
+    return () => window.clearTimeout(timer);
+  }, [refreshTick]);
 
   const handleRetry = useCallback(() => {
     // Force a fresh recompute by bumping the request id; the effect's
@@ -248,11 +303,19 @@ export default function PlanWorkspace({
               <p className="text-[#f0f6fc] mt-0.5">{totalDays}</p>
             </div>
           </div>
-          <div>
+          <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-              Candidates ({waypointFetch.cities.length}) · max {maxDetourMinutes}
-              min detour
+              Candidates ({effectiveWaypointFetch.cities.length}) · max{" "}
+              {maxDetourMinutes}min
             </p>
+            {isPending && (
+              <p
+                className="text-[10px] font-mono uppercase tracking-widest text-[#d29922] animate-pulse"
+                aria-live="polite"
+              >
+                Updating route + recs…
+              </p>
+            )}
           </div>
         </div>
 
@@ -285,27 +348,38 @@ export default function PlanWorkspace({
             </div>
           )}
 
-          {/* Stale recommendations notice (Council ISC-S6-PROD-1) */}
-          {showItinerary && (
+          {/* Recommendation refresh failed — keep prior recs visible
+              (Council ISC-S7-ARCH-2 / S7-PROD-1). */}
+          {recommendationsDegraded && (
             <div className="px-3 py-2 border border-[#d29922] bg-[#161b22]">
               <p className="text-xs text-[#d29922] leading-snug">
-                Showing stops along your original route. Replan to refresh.
+                Couldn&apos;t refresh recommendations — showing previous.
               </p>
             </div>
           )}
 
-          <RecommendationList
-            fetchResult={waypointFetch}
-            activePersonaId={activePersonaId}
-            highlightedCityId={highlightedCityId}
-            onCityHover={setHighlightedCityId}
-            cityCoords={cityCoords}
-            addedCityIds={addedCityIds}
-            onAddCity={handleAddCity}
-            onRemoveCity={handleRemoveCity}
-            pending={isPending}
-            atCap={tripCount >= MAX_TRIP_STOPS}
-          />
+          {/* Council ISC-S7-PROD-2 — brief panel highlight on each
+              successful refresh proves the list actually updated. */}
+          <div
+            className={
+              highlightRefresh
+                ? "transition-shadow duration-700 shadow-[0_0_0_1px_rgba(210,153,34,0.6)]"
+                : "transition-shadow duration-700"
+            }
+          >
+            <RecommendationList
+              fetchResult={effectiveWaypointFetch}
+              activePersonaId={activePersonaId}
+              highlightedCityId={highlightedCityId}
+              onCityHover={setHighlightedCityId}
+              cityCoords={cityCoords}
+              addedCityIds={addedCityIds}
+              onAddCity={handleAddCity}
+              onRemoveCity={handleRemoveCity}
+              pending={isPending}
+              atCap={tripCount >= MAX_TRIP_STOPS}
+            />
+          </div>
         </div>
       </aside>
 
@@ -316,7 +390,7 @@ export default function PlanWorkspace({
           destination={destination}
           encodedPolyline={livePolyline}
           bounds={bounds}
-          candidates={candidateMarkers}
+          candidates={liveCandidateMarkers}
           routeColor={accent}
           highlightedCandidateId={highlightedCityId}
           onCandidateClick={handleMapClick}

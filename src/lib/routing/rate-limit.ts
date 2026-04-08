@@ -11,7 +11,7 @@ import "server-only";
  *   2. Daily quota (`checkDailyQuota`)          — caps Routes-API-spending
  *      operations (recompute) at MAX_DAILY_RECOMPUTE per IP per UTC day.
  *      Compensating control for cost-amplification DoS on the unauth'd
- *      `recomputeRouteAction` (Council ISC-S6-SEC-3).
+ *      `recomputeAndRefreshAction` (Council ISC-S6-SEC-3, S7-SEC-2).
  *   3. Recompute spacing limiter (`checkRecomputeSpacing`) — at most one
  *      recompute per 1500ms per IP. Bounds the worst-case server-side rate
  *      a scripted client can drive even if it bypasses the client-side

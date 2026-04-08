@@ -8,8 +8,20 @@ export class InvalidRouteParamsError extends Error {
 }
 
 const MAX_GREAT_CIRCLE_KM = 5000;
-const MIN_BUDGET_HOURS = 1;
-const MAX_BUDGET_HOURS = 24;
+export const MIN_BUDGET_HOURS = 1;
+export const MAX_BUDGET_HOURS = 24;
+
+/** Single source of truth for the budget-hours range check.
+ *  Pure number predicate — call from string-parsing validators
+ *  (`validateBudget`) or RSC-boundary type guards (server actions). */
+export function isBudgetHoursInRange(b: unknown): b is number {
+  return (
+    typeof b === "number" &&
+    Number.isInteger(b) &&
+    b >= MIN_BUDGET_HOURS &&
+    b <= MAX_BUDGET_HOURS
+  );
+}
 
 export interface ValidatedRouteParams {
   origin: LatLng;
@@ -39,7 +51,7 @@ export function validateLatLng(latStr?: string, lngStr?: string): LatLng {
 
 export function validateBudget(budgetStr?: string): number {
   const budget = parseInt(budgetStr ?? "4", 10);
-  if (!Number.isFinite(budget) || budget < MIN_BUDGET_HOURS || budget > MAX_BUDGET_HOURS) {
+  if (!isBudgetHoursInRange(budget)) {
     throw new InvalidRouteParamsError(
       `budget must be an integer between ${MIN_BUDGET_HOURS} and ${MAX_BUDGET_HOURS}`
     );

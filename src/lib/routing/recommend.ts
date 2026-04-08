@@ -74,7 +74,7 @@ export async function fetchWaypointsForCandidates(
     return { ...cached, cities: patchedCities };
   }
 
-  // City context list (ships to client for scoring)
+  // City context list (ships to client for scoring + map markers)
   const cities: CityContext[] = uniqueCityIds.map((id) => {
     const cand = cityById.get(id)!;
     return {
@@ -82,6 +82,8 @@ export async function fetchWaypointsForCandidates(
       name: cand.city.name,
       vibeClass: (cand.city.vibeClass ?? null) as VibeClass | null,
       detourMinutes: cand.roundTripDetourMinutes,
+      lat: cand.city.lat,
+      lng: cand.city.lng,
     };
   });
 

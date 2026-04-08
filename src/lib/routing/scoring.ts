@@ -19,12 +19,16 @@ export const TOP_WAYPOINTS_PER_CITY = 5;
 
 export type ScoringTier = "primary" | "secondary" | "other";
 
-/** Lean city metadata shipped to the client so scoring can run there. */
+/** Lean city metadata shipped to the client so scoring can run there.
+ *  Carries lat/lng so the client can build CandidateMarker / TripStop without
+ *  re-querying the Urban Explorer city table (Council ISC-S7-ARCH-1). */
 export interface CityContext {
   id: string;
   name: string;
   vibeClass: VibeClass | null;
   detourMinutes: number;
+  lat: number;
+  lng: number;
 }
 
 /** Lean waypoint row shipped to the client. Keeps payload small. */

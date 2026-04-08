@@ -1,129 +1,143 @@
-# Session 6 — Stop Selection + Route Recalculation (MVP loop closer)
+# Session 7 — Recommendation Refresh After Stop Add
 
 ## Context
 
-Roadtripper currently lets a user pick a start/end city, see a route on the map, and browse persona-ranked recommendations along that route — but every "Add to trip" button is disabled. This session makes the button real and closes the core MVP loop: **start → end → pick stops → see updated route**.
+Session 6 closed the MVP loop but left a visible scar: the Council PROD-1 banner ("Showing stops along your original route. Replan to refresh.") sits on every multi-stop trip because the recommendation panel still reflects the *original* corridor, not the post-detour route. Session 7 makes the refresh real and removes the banner.
 
-The architectural lesson from Session 5 must be respected: in this Next.js 16 App Router with `force-dynamic`, ANY navigation that mutates a search param re-runs the Server Component, which re-bills `computeRoute`. Stops therefore live in **client state**, and route recomputation goes through a **Server Action** that the client invokes — not through a URL-driven server re-render.
+The architectural rules from Sessions 5/6 still apply:
+- No `router.replace` / search-param navigation
+- Persona swaps remain client-only with zero Firestore reads
+- Trip stops are the source of truth for the trip — refreshed candidates that no longer contain an added city DO NOT remove that city from `tripStops`
+- Removing the last stop reverts both `liveRoute` AND the new `liveWaypointFetch` to `null`
 
-A separate Phase A first commits the uncommitted Session 5 work so Session 6's diff stays scoped.
+## Approach
 
-## Phase A — Commit Session 5
+Replace `recomputeRouteAction` with `recomputeAndRefreshAction(origin, destination, stops, budgetHours)` returning `{route, waypointFetch}`. One Server Action call per Add → one rate-limit charge → atomic update on the client. Internally serial: route first, then candidates from the new polyline, then waypoints. Partial degradation if the candidates pipeline fails (route still updates).
 
-One commit. All files currently uncommitted (modifications + new files + the council review note + session_state.json). Message references "Session 5: persona system" scope.
+Client adds `liveWaypointFetch: WaypointFetchResult | null` slice mirroring the `liveRoute` null-fallback pattern from S6.
 
-## Phase B/C — Server Action + `computeRouteWithStops`
+## Phase A — `recomputeAndRefreshAction`
 
-**New file:** `src/app/plan/actions.ts`
-- `"use server"`
-- `recomputeRouteAction(origin, destination, stops)` returns a discriminated union `{ok:true,route} | {ok:false,error}` (never throws across the boundary)
-- Reuses `validateRouteParams` from `src/lib/routing/validation.ts` for origin/destination
-- Reuses `checkRateLimit` + `getClientIp` from `src/lib/routing/rate-limit.ts`
-- Caps stops at 10
-- Calls `computeRouteWithStops`
+**Edit:** `src/app/plan/actions.ts`
 
-**Edit:** `src/lib/routing/directions.ts`
-- Add `computeRouteWithStops(origin, destination, stops: {lat:number;lng:number}[])`
-- Routes API request body adds `intermediates: [...]` ONLY when stops is non-empty (omit field for empty stops — Routes API rejects empty arrays)
-- Does NOT pass `optimizeWaypointOrder` (preserve user-controlled order)
-- Existing `computeRoute(origin, destination)` becomes a thin wrapper passing `[]`
+- Same gate stack as S6: burst → spacing → shape/range validation → daily quota
+- After gates pass:
+  1. `await computeRouteWithStops(origin, destination, cleanStops)` → `route`
+  2. Inside a try/catch:
+     - `findCandidateCities(route.encodedPolyline, { maxDetourMinutes: detourCapForBudget(budgetHours) })`
+     - `fetchWaypointsForCandidates(validatedCandidates)`
+  3. On candidates failure: return `{ok:true, route, waypointFetch: {cities:[], waypoints:[], degraded:true}}` — route still ships
+- New return type:
+  ```ts
+  type RecomputeAndRefreshResult =
+    | { ok: true; route: DirectionsResult; waypointFetch: WaypointFetchResult }
+    | { ok: false; error: RecomputeErrorCode; retryAfterSeconds?: number };
+  ```
+- Add `budgetHours` parameter; validate it (must match the existing `validateBudget` semantics — int 1..24)
+- Remove the old `recomputeRouteAction` export (nothing else imports it)
 
-**Move:** `formatDistance` and `formatDuration` are currently in `directions.ts` which is `"server-only"`. Extract into `src/lib/routing/format.ts` (no `"server-only"`) so the client `PlanWorkspace` can re-use them after recompute. Re-export from `directions.ts` for back-compat.
+**Reuse (no edits):**
+- `computeRouteWithStops` (Session 6)
+- `findCandidateCities` (`src/lib/routing/candidates.ts`)
+- `fetchWaypointsForCandidates` (`src/lib/routing/recommend.ts`)
+- `detourCapForBudget` (`src/lib/routing/validation.ts`)
+- All rate-limit functions (Session 6)
 
-## Phase D — Trip state in `PlanWorkspace`
+## Phase B — `liveWaypointFetch` slice
+
+**Edit:** `src/components/PlanWorkspace.tsx`
 
 ```ts
-type TripStop = { id: string; cityId: string; cityName: string; lat: number; lng: number };
-const [tripStops, setTripStops] = useState<TripStop[]>([]);
+const [liveRoute, setLiveRoute] = useState<DirectionsResult | null>(null);
+// NEW:
+const [liveWaypointFetch, setLiveWaypointFetch] = useState<WaypointFetchResult | null>(null);
+
+// derived:
+const effectiveWaypointFetch = liveWaypointFetch ?? props.waypointFetch;
 ```
 
-- `addStop(stop)` rejects duplicate cityId, rejects when length === 10
-- `removeStop(cityId)` filters
-- No reducer, no zustand — `useState` is sufficient
+The recompute effect updates BOTH slices on success. Empty-stops branch resets BOTH to `null`. Failure path leaves BOTH untouched. The `requestIdRef` guard already protects both writes.
 
-## Phase E — Add-to-trip in `RecommendationList`
-
-**Edit:** `src/components/RecommendationList.tsx`
-- New props: `addedCityIds: Set<string>`, `onAddCity(stop)`, `onRemoveCity(cityId)`
-- Each city group header gets an "Add to trip" button (per-city granularity, not per-waypoint — adding a whole city is the right MVP unit because the route recomputes through the city centroid)
-- Button switches to disabled "✓ Added" when in `addedCityIds`
-- The candidate marker `lat`/`lng` flows from `PlanWorkspace` props (already loaded as `candidateMarkers`); we'll thread a `cityId → {lat,lng}` map from `PlanWorkspace` into the list so the button can build a complete `TripStop`
-
-## Phase F — Server Action invocation + live polyline
+## Phase C — Wire `effectiveWaypointFetch`
 
 **Edit:** `src/components/PlanWorkspace.tsx`
-- New state: `livePolyline`, `liveBounds`, `liveDistanceMeters`, `liveDurationSeconds` (initial values come from props)
-- `recomputeError` state for failures
-- `useTransition()` for pending UI
-- `useEffect(() => { ... }, [tripStops])` calls `recomputeRouteAction`
-  - Skips when `tripStops.length === 0` AND we already have an initial polyline
-  - Tracks an `inFlightRef` so rapid Adds don't overlap (latest wins, earlier results discarded)
-- On success: update live state slices
-- On failure: set `recomputeError`, leave previous polyline in place
 
-## Phase G — RouteMap dynamic polyline + stop markers
+- `RecommendationList` reads from `effectiveWaypointFetch` instead of `props.waypointFetch`
+- `cityCoords` builds from `effectiveWaypointFetch.cities` (so newly-discovered cities are addable)
+- `RouteMap`'s `candidates` prop derives from `effectiveWaypointFetch.cities` → derived `candidateMarkers` (replaces the pre-computed prop for the live state)
+- Initial render still uses the server-rendered prop until the first refresh lands
 
-**Edit:** `src/components/RouteMap.tsx`
-- The `PolylineRenderer` `useEffect` already includes `encodedPolyline` in its dep list — confirmed it tears down the polyline + markers and rebuilds. Good.
-- Add a `tripStops` prop and render numbered ▪ markers (square + label "1","2",...) visually distinct from the round candidate markers
-- **Bounds change:** refit only on initial render (i.e., when polyline changes from undefined → set OR on explicit user action). Track via a `hasFitOnceRef` so subsequent recomputes redraw the line WITHOUT zoom/pan churn.
+**Note on candidateMarkers:** Today PlanWorkspace receives a pre-computed `candidateMarkers: CandidateMarker[]` prop from `/plan/page.tsx`. After Session 7, that prop is the *initial* set. We derive a `liveCandidateMarkers` from `effectiveWaypointFetch.cities` (each `CityContext` has lat/lng implicitly via the candidate pipeline — verify). If `CityContext` doesn't carry lat/lng, we fall back to looking up the city in `getAllCities()` client-side via a small lookup table OR server-side as part of the action's response. **Decision:** check `CityContext` shape during BUILD; if it lacks lat/lng, extend the action to include them in the response.
 
-## Phase H — Itinerary component
-
-**New file:** `src/components/Itinerary.tsx`
-- Renders ordered list: **Start** → Stop 1 → Stop 2 → … → **End**
-- Each stop has a "Remove" button wired to `removeStop`
-- Empty state: "Add stops from the recommendations panel."
-- Lives in `PlanWorkspace` below the recommendations list (same left aside)
-
-## Phase I — Live totals
+## Phase D — Remove the stale-recs banner
 
 **Edit:** `src/components/PlanWorkspace.tsx`
-- `totalDistanceText`, `totalDurationText`, `totalDays` recomputed from live state via the new client-safe `format.ts`
-- Initial values match props (so first paint is correct)
 
-## Phase J — Hygiene
+Delete this block:
+```jsx
+{showItinerary && (
+  <div className="px-3 py-2 border border-[#d29922] bg-[#161b22]">
+    <p className="text-xs text-[#d29922] leading-snug">
+      Showing stops along your original route. Replan to refresh.
+    </p>
+  </div>
+)}
+```
 
-`bun run lint` · `bun run type-check` (or `tsc --noEmit`) · `bun run build` — all green.
+## Phase E — Off-corridor added stops survive refresh
 
-## Phase K — Pre-EXECUTE Council Gate (mandatory per Session 4.5)
+`tripStops` is its own state, completely independent of `effectiveWaypointFetch`. The refresh never touches `tripStops`. ISC-A5 enforces this. Itinerary continues to render off-corridor stops with their numbers and Remove buttons. If we want to be polite, we mark off-corridor stops in the Itinerary with a subtle indicator — defer to S8.
 
-Before any Phase B–J code change is written, run a council review of this plan: 3 parallel `general-purpose` agents acting as Security / Architecture / Product personas. Capture verdicts + scores in `.harness/memory/decisions/session-6-council-review.md`. Address any FAIL verdicts before proceeding.
+## Phase F — Pending UX upgrade
 
-## Critical Files to Modify
+**Edit:** `src/components/PlanWorkspace.tsx`
+
+S6's pending indicators (totals spinner + dimmed polyline + disabled buttons) remain. Add a new prominent caption inside the aside header:
+
+```jsx
+{isPending && (
+  <p className="text-[11px] font-mono uppercase tracking-widest text-[#d29922] animate-pulse">
+    Updating route + recommendations…
+  </p>
+)}
+```
+
+## Phase G — Hygiene
+
+`bun run lint` · `bun run type-check` · `bun run build` — green. Run `/simplify` on the diff.
+
+## Phase H — Council pre-EXECUTE gate (mandatory)
+
+3 parallel `general-purpose` agents (Security / Architecture / Product) review this plan. Capture verdicts in `.harness/memory/decisions/session-7-council-review.md`. Address any blockers before EXECUTE.
+
+## Critical Files
 
 | File | Change |
 |---|---|
-| `src/app/plan/actions.ts` | NEW — `recomputeRouteAction` server action |
-| `src/lib/routing/directions.ts` | Add `computeRouteWithStops`; refactor `computeRoute` to wrap it |
-| `src/lib/routing/format.ts` | NEW — extract `formatDistance` / `formatDuration` (client-safe) |
-| `src/components/PlanWorkspace.tsx` | Trip state, recompute effect, live totals, Itinerary mount |
-| `src/components/RecommendationList.tsx` | Add-to-trip buttons + props |
-| `src/components/RouteMap.tsx` | Numbered stop markers + bounds-fit-once |
-| `src/components/Itinerary.tsx` | NEW |
+| `src/app/plan/actions.ts` | Replace `recomputeRouteAction` with `recomputeAndRefreshAction` |
+| `src/components/PlanWorkspace.tsx` | New `liveWaypointFetch` slice, wire `effectiveWaypointFetch`, remove banner, prominent pending caption, action call site |
+| `src/components/RecommendationList.tsx` | (likely no edit — already accepts `fetchResult`) |
+| `src/components/RouteMap.tsx` | (likely no edit — already accepts `candidates` prop reactively) |
 
-## Files to Reuse (no edits needed)
-
-- `src/lib/routing/validation.ts` — `validateRouteParams`, `InvalidRouteParamsError`
-- `src/lib/routing/rate-limit.ts` — `checkRateLimit`, `getClientIp`, `maybeSweep`
-- `src/lib/personas/index.ts` — `PERSONAS`, accent colors
+Possibly:
+- `src/app/plan/page.tsx` — only if we need to thread a city lat/lng lookup through props
+- `src/lib/routing/scoring.ts` — only if `CityContext` needs lat/lng added (check during BUILD)
 
 ## Verification
 
-1. Run dev server, navigate to a known-good corridor (e.g., NYC → DC).
-2. Confirm initial route renders + recommendations appear.
-3. Click "Add to trip" on a city → polyline reshapes through that city, button flips to "✓ Added", Itinerary shows it, totals update.
-4. Add a second city → second recompute, polyline still correct.
-5. Remove a stop from Itinerary → polyline reverts, button re-enables.
-6. Try to add 11 stops → 11th rejected.
-7. Switch personas mid-trip → polyline color changes, candidate markers re-color, NO Firestore reads (Session 5 invariant), NO new computeRoute calls.
-8. `bun run lint && bun run build` — green.
-9. Council review file exists with all verdicts and any blocker findings addressed.
+1. `bun run dev`, navigate to NYC → DC plan
+2. Confirm initial recommendations load (Philly, Baltimore, etc.)
+3. Click "Add city to trip" on Baltimore → polyline reshapes, recommendations re-fetch and reorder, banner is gone, totals update
+4. Click "Add city to trip" on Philly → polyline reshapes again, recommendations refresh again
+5. Remove Baltimore → polyline + recommendations both update; Philly stays added
+6. Remove the last stop → both polyline AND recommendations revert to the initial server-rendered set
+7. Switch persona mid-trip → polyline color changes, list re-orders, NO Firestore reads, NO Routes API calls (S5 invariant preserved)
+8. `bun run lint && bun run type-check && bun run build` — green
+9. Council review file exists; all blockers addressed
 
-## Out of Scope (Session 7+)
+## Out of Scope (Session 8+)
 
-- Refreshing candidate cities / waypoint recommendations after a stop is added (recommendations stay frozen to the original corridor)
-- Drag-to-reorder Itinerary stops (Remove + re-add is acceptable for MVP)
-- "Replan recommendations" button
-- Save/load trips, share links, export
-- Mobile bottom-sheet itinerary
+- Marker diff (avoid full marker rebuild on every refresh) — performance polish
+- Off-corridor indicator badge in the Itinerary
+- "Optimize stop order" toggle (Routes API `optimizeWaypointOrder`)
+- Multi-day itinerary view, save/load trips, mobile bottom sheet
