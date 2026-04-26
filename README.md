@@ -62,6 +62,12 @@ gcloud run services list --region=us-central1 \
 - **Three-layer per-IP rate limit** (burst / spacing / daily quota) on every paid-API server action.
 - **Live-state null-fallback pattern:** `liveRoute: DirectionsResult | null` and `liveWaypointFetch: WaypointFetchResult | null` — `null` means "use the initial server-rendered values", which makes "remove the last stop" cleanly revert without bookkeeping.
 
+## Council review (Gemini, on every PR)
+
+Roadtripper runs an automated multi-persona Gemini council on every PR (`.github/workflows/council.yml`). Six reviewer angles + a lead-architect resolver post a single re-edited comment with verdict + structured findings. See `CONTRIBUTING.md` for the full setup, bypass mechanism, and kill criteria.
+
 ## Status
 
-The MVP loop is closed and live. Next polish work is queued in `session_state.json`.
+MVP loop is live. **Up next:** see `SESSION_HANDOFF.md` (start-here block at the top) and `BACKLOG.md` (Now / Next / Someday / In flight).
+
+The legacy `session_state.json` at the repo root is the older state file from sessions 1–7; new session work goes through `SESSION_HANDOFF.md` and `BACKLOG.md`.
