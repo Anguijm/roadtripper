@@ -75,6 +75,15 @@ export function waypointsCacheKey(cityIds: readonly string[]): string {
  * stable so the two namespaces are orthogonal by construction.
  *
  * Shares the single LRU declared above; max-entries cap is unchanged.
+ *
+ * COLLISION RESISTANCE: the full `cityId` is fed into the hash payload
+ * via `JSON.stringify`, not just its length. The `:${cityId.length}`
+ * suffix is a *secondary* tiebreaker that makes hash collisions between
+ * same-length-different-cityId pairs require BOTH a hash collision AND
+ * matching length — improbable on the 32-bit hash space. Two cityIds of
+ * different lengths cannot produce the same key regardless of their
+ * hash output. (S8a council R1 misread the suffix as the only
+ * differentiator; this comment documents the actual structure.)
  */
 export function neighborhoodsCacheKey(cityId: string): string {
   const payload = JSON.stringify({ kind: "neighborhoods", cityId });

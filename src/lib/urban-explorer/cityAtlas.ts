@@ -146,6 +146,19 @@ export const NeighborhoodSchema = z.object({
 });
 
 /**
+ * Maximum neighborhoods fetched per city in S8's per-stop drill-down.
+ * Used by `fetchNeighborhoods` (lands in S8b) as the `.limit()` argument
+ * on the Firestore query. Defined here so the bound is visible at the
+ * schema layer, not buried in the fetch helper. Cost council R1 wanted
+ * the bound declared upfront.
+ *
+ * 20 is generous: las-vegas has 12 neighborhoods, and our largest cities
+ * are unlikely to exceed 20 enriched neighborhoods per stop. Bump only
+ * after measuring actual UE coverage.
+ */
+export const MAX_NEIGHBORHOODS_PER_CITY = 20;
+
+/**
  * Lite projection for the per-stop neighborhood drill-down UI. Validates
  * what Firestore returns from `.select('name.en', 'summary.en',
  * 'trending_score')` plus the synthetic doc id.
