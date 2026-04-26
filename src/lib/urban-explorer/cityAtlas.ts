@@ -163,17 +163,31 @@ export const MAX_NEIGHBORHOODS_PER_CITY = 20;
  * what Firestore returns from `.select('name.en', 'summary.en',
  * 'trending_score')` plus the synthetic doc id.
  *
+ * `name` and `summary` reuse `LocalizedTextSchema` so the i18n contract
+ * stays consistent across the app — `localizedText(text, locale)` works
+ * the same on a lite waypoint as on a full one. `LocalizedTextSchema`
+ * has `en` required and the other 6 locales optional, which exactly
+ * matches what `.select('name.en', 'summary.en', ...)` returns from
+ * Firestore (only `en` populated for the projection's lifetime; future
+ * locales can land without a schema change). S8a council R2
+ * (accessibility) flagged the previous English-only shape.
+ *
  * `id` regex is intentionally tighter than `NeighborhoodSchema.id` (S8
  * plan SEC requirement: React-key safety on UI-rendered values). The
  * strict schema stays open because verify scripts and future server-side
  * callers may want to surface raw ids; the lite shape is what reaches the
  * NeighborhoodPanel and is the right place to enforce the constraint.
+ *
+ * `.strict()` outer is preserved (not `.passthrough()`): the projection
+ * `.select('name.en', 'summary.en', 'trending_score')` bounds the
+ * returned shape by construction, so unknown keys here are evidence of
+ * the projection drifting from the schema, not pipeline drift.
  */
 export const NeighborhoodLiteSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9-]+$/, "id must be lowercase a-z, 0-9, hyphen"),
-    name: z.object({ en: z.string().min(1) }).strict(),
-    summary: z.object({ en: z.string().min(1) }).strict().optional(),
+    name: LocalizedTextSchema,
+    summary: LocalizedTextSchema.optional(),
     trending_score: z.number().min(0).max(100),
   })
   .strict();
