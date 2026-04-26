@@ -21,6 +21,25 @@ type Schema<T> = {
   ) => { success: true; data: T } | { success: false; error: ParseError };
 };
 
+/** A document that failed schema validation and was dropped from the result. */
+export type ParseFailure = { id: string; reason: string };
+
+/**
+ * Surface the partial-failure shape so callers can distinguish "this
+ * collection is empty" from "every doc in this collection failed schema
+ * validation and was dropped." Bugs reviewer R4 cited this as the
+ * non-negotiable that distinguishes empty-state from failed-state in the UI.
+ *
+ * `items` is the parsed content. `dropped` lists each document that failed,
+ * with the doc id and a flattened Zod error summary. Both are always present;
+ * a healthy fetch returns `{ items: [...], dropped: [] }`. UI code that needs
+ * to render an "X items failed to load" surface inspects `dropped`.
+ */
+export type LoadResult<T> = {
+  items: T[];
+  dropped: ParseFailure[];
+};
+
 function summarizeIssues(error: ParseError): string {
   return error.issues
     .map((i) => `${i.path.length ? i.path.join(".") : "<root>"}: ${i.message}`)
@@ -32,23 +51,26 @@ function parseDocs<T>(
   docs: FirebaseFirestore.QueryDocumentSnapshot[],
   collectionLabel: string,
   parentLabel?: string
-): T[] {
-  const out: T[] = [];
+): LoadResult<T> {
+  const items: T[] = [];
+  const dropped: ParseFailure[] = [];
   for (const d of docs) {
     const candidate = { id: d.id, ...d.data() };
     const result = schema.safeParse(candidate);
     if (result.success) {
-      out.push(result.data);
+      items.push(result.data);
     } else {
       // Log per-doc with full Zod issues so schema drift is diagnosable.
       // (Bugs reviewer S8: aggregate count alone made debugging brutal.)
       const where = parentLabel ? `${parentLabel}/` : "";
+      const reason = summarizeIssues(result.error);
       console.warn(
-        `[urban-explorer/firestore] dropped ${collectionLabel} ${where}${d.id}: ${summarizeIssues(result.error)}`
+        `[urban-explorer/firestore] dropped ${collectionLabel} ${where}${d.id}: ${reason}`
       );
+      dropped.push({ id: d.id, reason });
     }
   }
-  return out;
+  return { items, dropped };
 }
 
 export async function getCity(cityId: string): Promise<City | null> {
@@ -74,7 +96,9 @@ export async function getCity(cityId: string): Promise<City | null> {
   return result.data;
 }
 
-export async function listNeighborhoods(cityId: string): Promise<Neighborhood[]> {
+export async function listNeighborhoods(
+  cityId: string
+): Promise<LoadResult<Neighborhood>> {
   const snap = await urbanExplorerDb
     .collection(CITIES)
     .doc(cityId)
@@ -86,7 +110,7 @@ export async function listNeighborhoods(cityId: string): Promise<Neighborhood[]>
 export async function listWaypoints(
   cityId: string,
   neighborhoodId: string
-): Promise<Waypoint[]> {
+): Promise<LoadResult<Waypoint>> {
   const snap = await urbanExplorerDb
     .collection(CITIES)
     .doc(cityId)

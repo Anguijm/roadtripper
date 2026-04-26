@@ -1,11 +1,11 @@
 {
   "last_commit": {
-    "hash": "7fcbc45312e7c450931e3d801d09c8393204029e",
-    "short": "7fcbc45",
-    "subject": "Address council #2 findings (Revise → Proceed loop, round 2)",
+    "hash": "c91df26b6882dce2ccf7e9e33bcb518e3e1e4f5d",
+    "short": "c91df26",
+    "subject": "Address council #3 cost-veto: honor 15-call cap",
     "author": "John Anguiano <anguijm@gmail.com>",
     "branch": "chore/session-8-harness-council-v2",
-    "committed_at": "2026-04-26T19:48:58+09:00",
+    "committed_at": "2026-04-26T19:52:53+09:00",
     "files_changed": 6
   },
   "schema_version": 1,
