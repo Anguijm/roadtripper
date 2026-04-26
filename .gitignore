@@ -22,3 +22,15 @@ npm-debug.log*
 
 # harness logs
 .harness/logs/
+
+# harness circuit breaker (local-only trigger file; never commit)
+.harness_halt
+
+# harness latest council output (regenerated each run; durable record lives in
+# .harness/yolo_log.jsonl + .harness/memory/decisions/session-N-*.md)
+.harness/last_council.md
+.harness/.venv/
+
+# Python bytecode caches in the harness scripts dir
+.harness/scripts/__pycache__/
+.harness/**/__pycache__/
