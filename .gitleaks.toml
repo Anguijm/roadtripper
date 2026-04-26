@@ -1,0 +1,50 @@
+# Gitleaks configuration for Roadtripper.
+# Extends the default ruleset (high-entropy + well-known key patterns),
+# then adds repo-specific exceptions.
+#
+# Why: PR diffs get shipped to a third-party LLM (the Gemini council).
+# Anything this scanner misses gets exfiltrated. Tighter is better.
+# The Security council's `security_checklist.md` requires this step
+# under "PR diffs sent to external services… are secret-scanned first."
+
+title = "Roadtripper gitleaks"
+
+[extend]
+# Start from the default ruleset.
+useDefault = true
+
+[allowlist]
+description = "Allowed false positives"
+paths = [
+  # Persona files contain prose that sometimes mentions placeholder keys
+  # and env var names for illustration. Real keys never land here.
+  '''\.harness/council/.*\.md''',
+  '''\.harness/scripts/security_checklist\.md''',
+  # Documentation-style examples.
+  '''\.harness/README\.md''',
+  '''\.harness/model-upgrade-audit\.md''',
+  '''\.harness/halt_instructions\.md''',
+  '''\.harness/learnings\.md''',
+  '''CONTRIBUTING\.md''',
+  '''README\.md''',
+  '''CLAUDE\.md''',
+  # Council-generated artifacts (never contain real secrets, regenerated
+  # each run; durable record lives in yolo_log.jsonl + memory/decisions/).
+  '''\.harness/last_council\.md''',
+  '''Plans/.*\.md''',
+  # Memory/decision records — narrative documentation only.
+  '''\.harness/memory/decisions/.*\.md''',
+  '''\.harness/memory/context\.md''',
+]
+# Placeholder strings used in examples and docs.
+regexes = [
+  '''GEMINI_API_KEY\s*=\s*["']?(your[-_]?key|\.{3}|<.*?>|xxx+|fake)["']?''',
+  '''GOOGLE_MAPS_KEY\s*=\s*["']?(your[-_]?key|\.{3}|<.*?>|xxx+|fake)["']?''',
+  '''CLERK_SECRET_KEY\s*=\s*["']?(your[-_]?key|\.{3}|<.*?>|xxx+|fake)["']?''',
+  '''FIREBASE_SERVICE_ACCOUNT_KEY\s*=\s*["']?(your[-_]?key|\.{3}|<.*?>|xxx+|fake)["']?''',
+  # `sk_test_` / `pk_test_` Clerk test-keys are intentionally pasted in
+  # `.env.example` files; treat them as documentation rather than leaks.
+  # They never grant access to a production cohort.
+  '''sk_test_[a-zA-Z0-9]+example[a-zA-Z0-9]*''',
+  '''pk_test_[a-zA-Z0-9]+example[a-zA-Z0-9]*''',
+]

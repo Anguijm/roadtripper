@@ -1,12 +1,12 @@
 {
   "last_commit": {
-    "hash": "a374810d1112fb657e69e37912dd575b163df78e",
-    "short": "a374810",
-    "subject": "Session 8a: city-atlas-service live-read integration",
+    "hash": "a36cd512ba3c50dc42f89f614a16cfeb41991682",
+    "short": "a36cd51",
+    "subject": "Session 8b: harness council v2 — ported from LLMwiki-StudyGuide",
     "author": "John Anguiano <anguijm@gmail.com>",
     "branch": "main",
-    "committed_at": "2026-04-26T15:48:19+09:00",
-    "files_changed": 4
+    "committed_at": "2026-04-26T15:48:59+09:00",
+    "files_changed": 24
   },
   "schema_version": 1
 }

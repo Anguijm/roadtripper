@@ -34,3 +34,7 @@ npm-debug.log*
 # Python bytecode caches in the harness scripts dir
 .harness/scripts/__pycache__/
 .harness/**/__pycache__/
+
+# CI council monthly-budget counter (lives in GH Actions cache, not the repo;
+# this guard prevents accidental commit of the local copy)
+.budget/
