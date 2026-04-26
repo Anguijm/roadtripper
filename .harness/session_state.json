@@ -1,12 +1,12 @@
 {
   "last_commit": {
-    "hash": "c91df26b6882dce2ccf7e9e33bcb518e3e1e4f5d",
-    "short": "c91df26",
-    "subject": "Address council #3 cost-veto: honor 15-call cap",
+    "hash": "2a223d3b76e7f1d1e5b363ec61849ceaba1a44cf",
+    "short": "2a223d3",
+    "subject": "Surface partial-failure shape from list helpers",
     "author": "John Anguiano <anguijm@gmail.com>",
     "branch": "chore/session-8-harness-council-v2",
-    "committed_at": "2026-04-26T19:52:53+09:00",
-    "files_changed": 6
+    "committed_at": "2026-04-26T19:56:34+09:00",
+    "files_changed": 3
   },
   "schema_version": 1,
   "last_council": {

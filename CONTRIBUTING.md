@@ -43,7 +43,7 @@ The council was added on the hypothesis that automated multi-persona review impr
 2. **Council feedback is being routinely ignored** (judged by inspection of merged PRs vs. the council's blockers in the comment thread).
 3. **Cost exceeds $50/month** on the council itself, sustained for two consecutive months.
 
-To roll back: revert the three commits that introduced the council (`a374810`, `a36cd51`, `4494cf2`), or surgically remove `.github/workflows/council.yml` and `.harness/`. The application code does not depend on either.
+To roll back: surgically remove `.github/workflows/council.yml` and `.harness/`. The application code does not depend on either.
 
 ## Running the council locally
 
