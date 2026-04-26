@@ -1,12 +1,12 @@
 {
   "last_commit": {
-    "hash": "2a223d3b76e7f1d1e5b363ec61849ceaba1a44cf",
-    "short": "2a223d3",
-    "subject": "Surface partial-failure shape from list helpers",
+    "hash": "ceac52bea69b01b1332568bb975b4f47664493a5",
+    "short": "ceac52b",
+    "subject": "S8a R2: SHA-256 hash + LocalizedText shape on lite schema",
     "author": "John Anguiano <anguijm@gmail.com>",
-    "branch": "chore/session-8-harness-council-v2",
-    "committed_at": "2026-04-26T19:56:34+09:00",
-    "files_changed": 3
+    "branch": "feat/session-8a-neighborhood-foundation",
+    "committed_at": "2026-04-27T06:06:38+09:00",
+    "files_changed": 2
   },
   "schema_version": 1,
   "last_council": {

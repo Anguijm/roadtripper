@@ -145,6 +145,55 @@ export const NeighborhoodSchema = z.object({
   enriched_at: TimestampSchema.optional(),
 });
 
+/**
+ * Maximum neighborhoods fetched per city in S8's per-stop drill-down.
+ * Used by `fetchNeighborhoods` (lands in S8b) as the `.limit()` argument
+ * on the Firestore query. Defined here so the bound is visible at the
+ * schema layer, not buried in the fetch helper. Cost council R1 wanted
+ * the bound declared upfront.
+ *
+ * 20 is generous: las-vegas has 12 neighborhoods, and our largest cities
+ * are unlikely to exceed 20 enriched neighborhoods per stop. Bump only
+ * after measuring actual UE coverage.
+ */
+export const MAX_NEIGHBORHOODS_PER_CITY = 20;
+
+/**
+ * Lite projection for the per-stop neighborhood drill-down UI. Validates
+ * what Firestore returns from `.select('name.en', 'summary.en',
+ * 'trending_score')` plus the synthetic doc id.
+ *
+ * `name` and `summary` reuse `LocalizedTextSchema` so the i18n contract
+ * stays consistent across the app — `localizedText(text, locale)` works
+ * the same on a lite waypoint as on a full one. `LocalizedTextSchema`
+ * has `en` required and the other 6 locales optional, which exactly
+ * matches what `.select('name.en', 'summary.en', ...)` returns from
+ * Firestore (only `en` populated for the projection's lifetime; future
+ * locales can land without a schema change). S8a council R2
+ * (accessibility) flagged the previous English-only shape.
+ *
+ * `id` regex is intentionally tighter than `NeighborhoodSchema.id` (S8
+ * plan SEC requirement: React-key safety on UI-rendered values). The
+ * strict schema stays open because verify scripts and future server-side
+ * callers may want to surface raw ids; the lite shape is what reaches the
+ * NeighborhoodPanel and is the right place to enforce the constraint.
+ *
+ * `.strict()` outer is preserved (not `.passthrough()`): the projection
+ * `.select('name.en', 'summary.en', 'trending_score')` bounds the
+ * returned shape by construction, so unknown keys here are evidence of
+ * the projection drifting from the schema, not pipeline drift.
+ */
+export const NeighborhoodLiteSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]+$/, "id must be lowercase a-z, 0-9, hyphen"),
+    name: LocalizedTextSchema,
+    summary: LocalizedTextSchema.optional(),
+    trending_score: z.number().min(0).max(100),
+  })
+  .strict();
+
+export type NeighborhoodLite = z.infer<typeof NeighborhoodLiteSchema>;
+
 export const WaypointTypeSchema = z.enum([
   "landmark",
   "food",
@@ -225,3 +274,18 @@ export type WaypointType = z.infer<typeof WaypointTypeSchema>;
 export type Waypoint = z.infer<typeof WaypointSchema>;
 export type Task = z.infer<typeof TaskSchema>;
 export type SeasonalVariant = z.infer<typeof SeasonalVariantSchema>;
+
+/**
+ * Resolve a `LocalizedText` to a single string for a given locale, falling
+ * back to `en` (which is non-optional in the schema, so the return type is
+ * always a string).
+ *
+ * Centralized so the eventual i18n switch is a single-file change. Don't
+ * inline `someLocalized.en` in components; route through here.
+ */
+export function localizedText(
+  text: { en: string } & Partial<Record<SupportedLocale, string>>,
+  locale: SupportedLocale = "en"
+): string {
+  return text[locale] ?? text.en;
+}
