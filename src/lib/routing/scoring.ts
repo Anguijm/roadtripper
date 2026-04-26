@@ -1,4 +1,4 @@
-import type { Waypoint, VibeClass } from "@/lib/urban-explorer/types";
+import type { Waypoint, VibeClass, NeighborhoodLite } from "@/lib/urban-explorer/types";
 import type { PersonaConfig, RankedWaypoint } from "@/lib/personas/types";
 import { getPersona } from "@/lib/personas";
 
@@ -38,14 +38,35 @@ export interface LiteWaypoint {
   name: string;
   type: Waypoint["type"];
   trendingScore: number;
+  neighborhoodId: string | null;
 }
 
-export interface WaypointFetchResult {
-  cities: CityContext[];
-  waypoints: LiteWaypoint[];
-  /** True when at least one Firestore chunk failed and was skipped. */
-  degraded: boolean;
-}
+/** Per-city neighborhood fetch state. Key absence in the Record ≡ not requested. */
+export type NeighborhoodLoadState =
+  | { kind: "empty" }
+  | { kind: "loaded"; data: NeighborhoodLite[] }
+  | { kind: "failed" };
+
+export type WaypointFetchFailure = {
+  kind: "waypoints" | "neighborhoods";
+  cityId?: string;
+  reason: string;
+};
+
+export type WaypointFetchResult =
+  | {
+      status: "fresh";
+      cities: CityContext[];
+      waypoints: LiteWaypoint[];
+      neighborhoods: Record<string, NeighborhoodLoadState>;
+    }
+  | {
+      status: "degraded";
+      cities: CityContext[];
+      waypoints: LiteWaypoint[];
+      neighborhoods: Record<string, NeighborhoodLoadState>;
+      failures: WaypointFetchFailure[];
+    };
 
 export function tierForType(
   type: Waypoint["type"],

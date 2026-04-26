@@ -92,7 +92,7 @@ export default function RecommendationList({
           No waypoints yet
         </p>
         <p className="text-xs text-[#b0b9c2]">
-          {fetchResult.degraded
+          {fetchResult.status === "degraded"
             ? "Waypoint data is degraded — some chunks failed to load. Reload to retry."
             : "Candidate cities had no waypoint data in Urban Explorer. Try a different corridor."}
         </p>
@@ -102,7 +102,7 @@ export default function RecommendationList({
 
   return (
     <div className="flex flex-col">
-      {fetchResult.degraded && (
+      {fetchResult.status === "degraded" && (
         <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
           <p className="text-xs font-mono uppercase tracking-widest text-[#d29922]">
             Partial data — some waypoint chunks failed
