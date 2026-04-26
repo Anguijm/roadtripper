@@ -145,6 +145,28 @@ export const NeighborhoodSchema = z.object({
   enriched_at: TimestampSchema.optional(),
 });
 
+/**
+ * Lite projection for the per-stop neighborhood drill-down UI. Validates
+ * what Firestore returns from `.select('name.en', 'summary.en',
+ * 'trending_score')` plus the synthetic doc id.
+ *
+ * `id` regex is intentionally tighter than `NeighborhoodSchema.id` (S8
+ * plan SEC requirement: React-key safety on UI-rendered values). The
+ * strict schema stays open because verify scripts and future server-side
+ * callers may want to surface raw ids; the lite shape is what reaches the
+ * NeighborhoodPanel and is the right place to enforce the constraint.
+ */
+export const NeighborhoodLiteSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]+$/, "id must be lowercase a-z, 0-9, hyphen"),
+    name: z.object({ en: z.string().min(1) }).strict(),
+    summary: z.object({ en: z.string().min(1) }).strict().optional(),
+    trending_score: z.number().min(0).max(100),
+  })
+  .strict();
+
+export type NeighborhoodLite = z.infer<typeof NeighborhoodLiteSchema>;
+
 export const WaypointTypeSchema = z.enum([
   "landmark",
   "food",
@@ -225,3 +247,18 @@ export type WaypointType = z.infer<typeof WaypointTypeSchema>;
 export type Waypoint = z.infer<typeof WaypointSchema>;
 export type Task = z.infer<typeof TaskSchema>;
 export type SeasonalVariant = z.infer<typeof SeasonalVariantSchema>;
+
+/**
+ * Resolve a `LocalizedText` to a single string for a given locale, falling
+ * back to `en` (which is non-optional in the schema, so the return type is
+ * always a string).
+ *
+ * Centralized so the eventual i18n switch is a single-file change. Don't
+ * inline `someLocalized.en` in components; route through here.
+ */
+export function localizedText(
+  text: { en: string } & Partial<Record<SupportedLocale, string>>,
+  locale: SupportedLocale = "en"
+): string {
+  return text[locale] ?? text.en;
+}

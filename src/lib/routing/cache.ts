@@ -65,3 +65,22 @@ export function waypointsCacheKey(cityIds: readonly string[]): string {
   const sorted = [...new Set(cityIds)].sort().join(",");
   return `waypoints:${sorted}`;
 }
+
+/**
+ * Cache key for the per-stop neighborhood fetch (S8). Lives in its own
+ * namespace so it never collides with `waypointsCacheKey` even if a city
+ * id ever contained a separator-like character. Per S8 plan SEC-1 +
+ * ARCH-1, the key is structured-hashed (JSON-of-an-object, then a
+ * bounded-length hash) rather than a raw string concat. The kind tag is
+ * stable so the two namespaces are orthogonal by construction.
+ *
+ * Shares the single LRU declared above; max-entries cap is unchanged.
+ */
+export function neighborhoodsCacheKey(cityId: string): string {
+  const payload = JSON.stringify({ kind: "neighborhoods", cityId });
+  let hash = 0;
+  for (let i = 0; i < payload.length; i++) {
+    hash = (hash * 31 + payload.charCodeAt(i)) | 0;
+  }
+  return `neighborhoods:${hash.toString(36)}:${cityId.length}`;
+}
