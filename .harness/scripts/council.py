@@ -39,10 +39,13 @@ SESSION_STATE = HARNESS_DIR / "session_state.json"
 # Each Gemini call gets up to (1 + MAX_RETRIES) attempts, all of which charge
 # the same shared RequestBudget. CALL_CAP must therefore cover the worst case:
 #   (num_personas + 1 lead) * (MAX_RETRIES + 1)
-# With 6 angles + lead and 2 retries, worst case is 7 * 3 = 21. CALL_CAP=25
-# leaves slack for a 7th angle without bumping the cap.
-CALL_CAP = 25
-MAX_RETRIES = 2
+# With 6 angles + lead and 1 retry, worst case is 7 * 2 = 14, which fits the
+# 15-call cap declared as a non-negotiable in `.harness/council/cost.md`.
+# A 7th angle pushes worst case to 8 * 2 = 16, which would require relaxing
+# either the cap or the retry budget — see the cost reviewer persona before
+# changing either.
+CALL_CAP = 15
+MAX_RETRIES = 1
 DEFAULT_MODEL = os.environ.get("HARNESS_MODEL", "gemini-2.5-pro")
 EXCLUDED_PERSONAS = {"lead-architect.md", "README.md"}
 

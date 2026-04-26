@@ -24,6 +24,17 @@ The council runs on Gemini 2.5 Pro via a separate API key (`GEMINI_API_KEY` repo
 
 Add `[skip council]` (case-insensitive) to the PR title to skip the run on subsequent pushes. Prefer this for trivial commits (typos, copy tweaks, docs-only) where the council cost outweighs its signal.
 
+### Cost backstop (mandatory)
+
+The workflow's monthly run cap (60) is a soft limit — it can drift due to a documented cross-PR race in the GH Actions cache. **Set a hard external budget alert at the GCP project that owns the `GEMINI_API_KEY`** so a runaway scenario surfaces independently of the workflow's accounting:
+
+1. Open the [GCP Billing Budgets console](https://console.cloud.google.com/billing/budgets) for the project that owns the API key.
+2. Create a budget scoped to the **Generative Language API** SKU.
+3. Set the amount to **$50/month** (matching the kill criterion below).
+4. Configure email alerts at 50% / 90% / 100% to the repo owner.
+
+This is a defense-in-depth backstop, not an alternative to the workflow's monthly cap. Both should be in place; the workflow cap stops cost early in the typical case, and the GCP alert catches the cross-PR race or any future runaway.
+
 ### Kill criteria
 
 The council was added on the hypothesis that automated multi-persona review improves PR quality without disproportionately slowing the cycle. The hypothesis is testable. It will be rolled back if any of the following hold over a one-month window:

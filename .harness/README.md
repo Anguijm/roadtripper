@@ -79,6 +79,6 @@ Output goes to `.harness/last_council.md` (overwritten each run) and a `council_
 ## Hard rules
 
 - **Council refuses to review uncommitted plans.** Plans must be tracked in git and have no unstaged changes. Override with `--allow-untracked` only if you know what you're doing.
-- **Cap of 25 Gemini calls per run** (`CALL_CAP` in `council.py`). The pre-flight check rejects any setup whose worst case exceeds the cap: `(num_personas + 1 lead) × (MAX_RETRIES + 1)`. With 6 angles + lead and 2 retries that's 21; CALL_CAP=25 leaves slack for one extra angle. Adding a 7th angle is fine; an 8th requires bumping `CALL_CAP` first.
+- **Cap of 15 Gemini calls per run** (`CALL_CAP` in `council.py`, declared as a non-negotiable in `.harness/council/cost.md`). The pre-flight check rejects any setup whose worst case exceeds the cap: `(num_personas + 1 lead) × (MAX_RETRIES + 1)`. With 6 angles + lead and `MAX_RETRIES=1` the worst case is 14. Adding a 7th angle pushes worst case to 16 and would require either relaxing the cost-doc cap or dropping retries to zero — read `cost.md` before doing either.
 - **`.harness_halt` halts the council.** See `halt_instructions.md`.
 - **Lead Architect cannot Proceed if any reviewer veto'd** (score ≤ 3 with non-negotiable cited) or if average < 5.

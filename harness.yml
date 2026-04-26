@@ -34,7 +34,8 @@ council:
   # Hard cap on Gemini calls per council run (includes retries). Source of
   # truth is `CALL_CAP` in .harness/scripts/council.py; this value is
   # documentation. Worst case = (num_personas + 1) * (MAX_RETRIES + 1).
-  call_cap: 25
+  # Also declared as a non-negotiable in .harness/council/cost.md.
+  call_cap: 15
   # Council never auto-approves; the human reads .harness/last_council.md
   # and decides.
   auto_approve_threshold: 0
