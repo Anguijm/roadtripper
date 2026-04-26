@@ -167,6 +167,20 @@ export const WaypointSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   trending_score: z.number().min(0).max(100),
+  // `source` is NOT URL-validated. The pipeline writes a provenance tag,
+  // not a link — values like "enrichment-gemini-2026-04" or
+  // "enrichment-google-places". Reinstating `.url()` here would fail
+  // strict-parse on every pipeline-written waypoint (which is what an
+  // earlier local schema did and what S8 council R2's security review
+  // recommended). XSS protection lives at the render layer instead:
+  //   - `.harness/scripts/security_checklist.md` bans
+  //     `dangerouslySetInnerHTML` on UE-pipeline-written strings.
+  //   - React's default escaping handles plain-text rendering.
+  //   - The Security council persona (`security.md`) lists this rule
+  //     under "Untrusted ingested content".
+  // If we ever start treating `source` as a clickable URL in the UI, the
+  // safety check belongs at that callsite (validate-on-use) rather than
+  // here, since not all `source` values are URLs.
   source: z.string().optional(),
   enriched_at: TimestampSchema.optional(),
   is_active: z.boolean().optional(),

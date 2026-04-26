@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -58,10 +59,25 @@ def check_halt() -> None:
 
 
 def load_personas() -> list[tuple[str, str]]:
-    personas = []
+    # Pre-flight: detect case-insensitive stem collisions BEFORE we collapse
+    # into a stem-keyed dict. On case-insensitive filesystems (macOS default,
+    # Windows, some Linux mounts) `bugs.md` and `Bugs.md` would silently
+    # overwrite each other in the critiques dict — one reviewer dropped, no
+    # warning. Bugs reviewer R2 named this explicitly.
+    seen: dict[str, str] = {}
+    personas: list[tuple[str, str]] = []
     for path in sorted(COUNCIL_DIR.glob("*.md")):
         if path.name in EXCLUDED_PERSONAS:
             continue
+        stem_ci = path.stem.lower()
+        if stem_ci in seen:
+            die(
+                f"Persona stem collision (case-insensitive): "
+                f"'{seen[stem_ci]}' and '{path.name}' both resolve to '{stem_ci}'.\n"
+                f"Rename one of them in {COUNCIL_DIR.relative_to(REPO_ROOT)}/.",
+                code=8,
+            )
+        seen[stem_ci] = path.name
         personas.append((path.stem, path.read_text()))
     if not personas:
         die(f"No persona files found in {COUNCIL_DIR}")
@@ -241,16 +257,42 @@ def append_log(entry: dict) -> None:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+_SCORE_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
 def extract_score(text: str) -> int | None:
+    """Pull a 1-10 integer score from the first ``Score:`` line.
+
+    Tolerates common LLM output drift: ``8``, ``8/10``, ``8 out of 10``,
+    ``8 (excellent)``, ``Score: 8.5``, ``**Score:** 8``. Returns the first
+    parseable integer in the line. Warns when a Score line is found but
+    nothing parseable follows, instead of silently returning None — that
+    distinguishes "model didn't produce a score" from "model produced one
+    in a format we missed" (Bugs reviewer R2).
+    """
     for line in text.splitlines():
-        s = line.strip().lower()
-        if s.startswith("score:"):
-            tail = s.split(":", 1)[1].strip()
-            tail = tail.split("/")[0].split(" ")[0].strip()
-            try:
-                return int(float(tail))
-            except ValueError:
-                return None
+        # Strip leading markdown bullets / bolding.
+        stripped = line.strip().lstrip("-* ").lstrip("*").strip()
+        lower = stripped.lower()
+        # Match "Score:" or "**Score:**" or similar.
+        if not lower.startswith("score") or ":" not in stripped:
+            continue
+        tail = stripped.split(":", 1)[1]
+        m = _SCORE_NUMBER_RE.search(tail)
+        if not m:
+            print(
+                f"[council] warn: Score line found but no number parseable: {line.rstrip()!r}",
+                file=sys.stderr,
+            )
+            return None
+        try:
+            return int(float(m.group(0)))
+        except ValueError:
+            print(
+                f"[council] warn: Score number not int-coercible: {m.group(0)!r}",
+                file=sys.stderr,
+            )
+            return None
     return None
 
 

@@ -110,16 +110,27 @@ jobs:
       # Denial-of-Wallet vector (a PR could modify yolo_log.jsonl to reset
       # the counter). GH Actions cache is outside the PR's blast radius.
       #
-      # KNOWN RACE: restore -> read -> increment -> save is not atomic.
-      # Two PRs that fire concurrently can both read the same count, both
-      # run, and one save's overwrite causes a single-run undercount. With
-      # a monthly cap of 60 the worst-case overrun is bounded by the
-      # number of concurrent runs (one race window per month for typical
-      # usage). Acceptable; mitigated by the per-run CALL_CAP and the
-      # human-in-the-loop comment review. A real lock requires moving
-      # state to an external store (S3, Firestore) which trades simplicity
-      # for atomicity. Bugs reviewer S8 flagged this; documenting as
-      # accepted risk.
+      # CONCURRENCY POSTURE — defense-in-depth, not a complete fix:
+      #
+      # 1. Within a single runner: the increment step uses `flock` to
+      #    serialize the read -> increment -> save-prep sequence. This is
+      #    the bugs reviewer's R2 mitigation request.
+      # 2. Within a single PR: the workflow's `concurrency:` block at the
+      #    top of this file (`council-${{ github.event.pull_request.number }}`)
+      #    cancels in-flight runs when a new push lands. Serial within PR.
+      # 3. ACROSS DIFFERENT PRs: a real race remains. Two PRs A and B that
+      #    fire near-simultaneously each restore the same cached count,
+      #    each save with their own run-id-suffixed key, and the next run
+      #    picks one of those (non-deterministic) via the restore-key
+      #    prefix match. flock cannot fix this — A and B are on different
+      #    VMs. The exposure is bounded: monthly cap is 60, worst-case
+      #    overrun = number of concurrent PRs × 1, and the human still
+      #    reviews the council comment on every PR.
+      #
+      # Mitigating the cross-PR race would require external CAS state
+      # (Firestore / S3 with versioning) — explicitly out of scope per
+      # resolver R2 step 5 ("Implement a file lock") which named the
+      # within-runner mitigation. Bugs reviewer S8 + R2 acknowledge.
       - name: Restore budget counter
         if: steps.skip.outputs.skip != 'true' && steps.halt.outputs.halted != 'true'
         id: budget-restore
@@ -236,11 +247,17 @@ jobs:
 
       - name: Increment budget counter
         if: steps.council-run.outcome == 'success'
+        # flock serializes the read-modify-write within this runner. The
+        # cross-runner race is a separate concern documented above the
+        # restore step.
         run: |
           mkdir -p .budget
-          RAW="$(cat .budget/count 2>/dev/null || echo 0)"
-          if [[ "$RAW" =~ ^[0-9]+$ ]]; then CURR="$RAW"; else CURR=0; fi
-          echo $((CURR + 1)) > .budget/count
+          (
+            flock -x 9
+            RAW="$(cat .budget/count 2>/dev/null || echo 0)"
+            if [[ "$RAW" =~ ^[0-9]+$ ]]; then CURR="$RAW"; else CURR=0; fi
+            echo $((CURR + 1)) > .budget/count
+          ) 9>.budget/.lock
 
       - name: Save budget counter
         if: steps.council-run.outcome == 'success'

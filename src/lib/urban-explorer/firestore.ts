@@ -61,6 +61,16 @@ export async function getCity(cityId: string): Promise<City | null> {
     );
     return null;
   }
+  // Match the JSON-cache `cities.ts:getAllCities` filter so callers see a
+  // consistent "archived = invisible" model regardless of which path
+  // produced the City object. Bugs reviewer R2.
+  //
+  // Note on neighborhoods/waypoints: those schemas use `is_active`
+  // (different field, different semantics — runtime open/closed signal,
+  // not editorial archival). Filtering them by default would drop
+  // legitimate "currently closed but exists" venues; consumers handle
+  // that explicitly when needed.
+  if (result.data.isArchived) return null;
   return result.data;
 }
 
