@@ -1,0 +1,24 @@
+{
+  "last_commit": {
+    "hash": "2a223d3b76e7f1d1e5b363ec61849ceaba1a44cf",
+    "short": "2a223d3",
+    "subject": "Surface partial-failure shape from list helpers",
+    "author": "John Anguiano <anguijm@gmail.com>",
+    "branch": "chore/session-8-harness-council-v2",
+    "committed_at": "2026-04-26T19:56:34+09:00",
+    "files_changed": 3
+  },
+  "schema_version": 1,
+  "last_council": {
+    "ts": "2026-04-26T10:35:01+00:00",
+    "source": "PLAN FILE: Plans/session-8-neighborhood-drilldown.md",
+    "scores": {
+      "product": null,
+      "cost": null,
+      "bugs": null,
+      "architecture": null,
+      "security": null,
+      "accessibility": null
+    }
+  }
+}
