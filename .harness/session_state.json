@@ -1,12 +1,24 @@
 {
   "last_commit": {
-    "hash": "a36cd512ba3c50dc42f89f614a16cfeb41991682",
-    "short": "a36cd51",
-    "subject": "Session 8b: harness council v2 — ported from LLMwiki-StudyGuide",
+    "hash": "4494cf28a0be636e78bbf09d9e2196cee67cddd3",
+    "short": "4494cf2",
+    "subject": "Session 8c: council runs in CI on every PR",
     "author": "John Anguiano <anguijm@gmail.com>",
     "branch": "main",
-    "committed_at": "2026-04-26T15:48:59+09:00",
-    "files_changed": 24
+    "committed_at": "2026-04-26T18:08:34+09:00",
+    "files_changed": 5
   },
-  "schema_version": 1
+  "schema_version": 1,
+  "last_council": {
+    "ts": "2026-04-26T10:35:01+00:00",
+    "source": "PLAN FILE: Plans/session-8-neighborhood-drilldown.md",
+    "scores": {
+      "product": null,
+      "cost": null,
+      "bugs": null,
+      "architecture": null,
+      "security": null,
+      "accessibility": null
+    }
+  }
 }

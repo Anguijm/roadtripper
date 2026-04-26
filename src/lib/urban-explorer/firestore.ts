@@ -13,30 +13,40 @@ const CITIES = "cities";
 const NEIGHBORHOODS = "neighborhoods";
 const WAYPOINTS = "waypoints";
 
+type ParseIssue = { path: ReadonlyArray<PropertyKey>; message: string };
+type ParseError = { issues: ReadonlyArray<ParseIssue> };
 type Schema<T> = {
-  safeParse: (input: unknown) => { success: true; data: T } | { success: false };
+  safeParse: (
+    input: unknown
+  ) => { success: true; data: T } | { success: false; error: ParseError };
 };
+
+function summarizeIssues(error: ParseError): string {
+  return error.issues
+    .map((i) => `${i.path.length ? i.path.join(".") : "<root>"}: ${i.message}`)
+    .join(" | ");
+}
 
 function parseDocs<T>(
   schema: Schema<T>,
   docs: FirebaseFirestore.QueryDocumentSnapshot[],
-  collectionLabel: string
+  collectionLabel: string,
+  parentLabel?: string
 ): T[] {
   const out: T[] = [];
-  let dropped = 0;
   for (const d of docs) {
     const candidate = { id: d.id, ...d.data() };
     const result = schema.safeParse(candidate);
     if (result.success) {
       out.push(result.data);
     } else {
-      dropped += 1;
+      // Log per-doc with full Zod issues so schema drift is diagnosable.
+      // (Bugs reviewer S8: aggregate count alone made debugging brutal.)
+      const where = parentLabel ? `${parentLabel}/` : "";
+      console.warn(
+        `[urban-explorer/firestore] dropped ${collectionLabel} ${where}${d.id}: ${summarizeIssues(result.error)}`
+      );
     }
-  }
-  if (dropped > 0) {
-    console.warn(
-      `[urban-explorer/firestore] dropped ${dropped} ${collectionLabel} doc(s) that failed schema validation`
-    );
   }
   return out;
 }
@@ -47,7 +57,7 @@ export async function getCity(cityId: string): Promise<City | null> {
   const result = CitySchema.safeParse({ id: snap.id, ...snap.data() });
   if (!result.success) {
     console.warn(
-      `[urban-explorer/firestore] city ${cityId} failed schema validation`
+      `[urban-explorer/firestore] dropped city ${cityId}: ${summarizeIssues(result.error)}`
     );
     return null;
   }
@@ -60,7 +70,7 @@ export async function listNeighborhoods(cityId: string): Promise<Neighborhood[]>
     .doc(cityId)
     .collection(NEIGHBORHOODS)
     .get();
-  return parseDocs(NeighborhoodSchema, snap.docs, "neighborhood");
+  return parseDocs(NeighborhoodSchema, snap.docs, "neighborhood", cityId);
 }
 
 export async function listWaypoints(
@@ -74,5 +84,10 @@ export async function listWaypoints(
     .doc(neighborhoodId)
     .collection(WAYPOINTS)
     .get();
-  return parseDocs(WaypointSchema, snap.docs, "waypoint");
+  return parseDocs(
+    WaypointSchema,
+    snap.docs,
+    "waypoint",
+    `${cityId}/${neighborhoodId}`
+  );
 }

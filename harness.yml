@@ -31,8 +31,10 @@ council:
   # The model the council runs on. Override via HARNESS_MODEL env var or
   # --model CLI flag.
   default_model: gemini-2.5-pro
-  # Hard cap on Gemini calls per council run (includes retries).
-  call_cap: 15
+  # Hard cap on Gemini calls per council run (includes retries). Source of
+  # truth is `CALL_CAP` in .harness/scripts/council.py; this value is
+  # documentation. Worst case = (num_personas + 1) * (MAX_RETRIES + 1).
+  call_cap: 25
   # Council never auto-approves; the human reads .harness/last_council.md
   # and decides.
   auto_approve_threshold: 0

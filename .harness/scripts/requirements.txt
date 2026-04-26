@@ -1,1 +1,15 @@
-google-genai>=1.0.0
+# Pinned to an exact version (Security council S8: supply-chain guard).
+# PyPI version slots are immutable, so a pin to ==1.73.1 prevents an
+# auto-upgrade to a malicious release.
+#
+# Full hash-pinning (--require-hashes mode) would also lock the transitive
+# dependency tree (~30 packages) and is the gold standard, but adds
+# meaningful maintenance burden. The version pin defends against the
+# specific attack the council flagged (auto-upgrade to a hijacked release);
+# upgrade to hash-pinning if/when this script grows beyond a single
+# dependency or when CI starts running on untrusted contributors.
+#
+# Wheel sha256 (informational, for audit; matches the published artifact
+# at https://pypi.org/project/google-genai/1.73.1/):
+#   af2d2287d25e42a187de19811ef33beb2e347c7e2bdb4dc8c467d78254e43a2c
+google-genai==1.73.1

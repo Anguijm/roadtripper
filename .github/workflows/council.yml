@@ -109,6 +109,17 @@ jobs:
       # Cache-based monthly budget. Storing state in the repo would be a
       # Denial-of-Wallet vector (a PR could modify yolo_log.jsonl to reset
       # the counter). GH Actions cache is outside the PR's blast radius.
+      #
+      # KNOWN RACE: restore -> read -> increment -> save is not atomic.
+      # Two PRs that fire concurrently can both read the same count, both
+      # run, and one save's overwrite causes a single-run undercount. With
+      # a monthly cap of 60 the worst-case overrun is bounded by the
+      # number of concurrent runs (one race window per month for typical
+      # usage). Acceptable; mitigated by the per-run CALL_CAP and the
+      # human-in-the-loop comment review. A real lock requires moving
+      # state to an external store (S3, Firestore) which trades simplicity
+      # for atomicity. Bugs reviewer S8 flagged this; documenting as
+      # accepted risk.
       - name: Restore budget counter
         if: steps.skip.outputs.skip != 'true' && steps.halt.outputs.halted != 'true'
         id: budget-restore

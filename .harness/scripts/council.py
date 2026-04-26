@@ -35,7 +35,13 @@ YOLO_LOG = HARNESS_DIR / "yolo_log.jsonl"
 HALT_FILE = REPO_ROOT / ".harness_halt"
 SESSION_STATE = HARNESS_DIR / "session_state.json"
 
-CALL_CAP = 15
+# Each Gemini call gets up to (1 + MAX_RETRIES) attempts, all of which charge
+# the same shared RequestBudget. CALL_CAP must therefore cover the worst case:
+#   (num_personas + 1 lead) * (MAX_RETRIES + 1)
+# With 6 angles + lead and 2 retries, worst case is 7 * 3 = 21. CALL_CAP=25
+# leaves slack for a 7th angle without bumping the cap.
+CALL_CAP = 25
+MAX_RETRIES = 2
 DEFAULT_MODEL = os.environ.get("HARNESS_MODEL", "gemini-2.5-pro")
 EXCLUDED_PERSONAS = {"lead-architect.md", "README.md"}
 
@@ -210,7 +216,7 @@ def call_gemini(
     model: str,
     prompt: str,
     budget: "RequestBudget",
-    retries: int = 2,
+    retries: int = MAX_RETRIES,
 ) -> str:
     last_err: Exception | None = None
     for attempt in range(retries + 1):
@@ -298,11 +304,18 @@ def main() -> int:
     source_label, source_text = get_plan_text(args)
     personas = load_personas()
 
-    total_calls = len(personas) + 1  # angles + lead
-    if total_calls > CALL_CAP:
+    # Pre-flight against worst case (every call exhausting its retry budget),
+    # not just the no-retry minimum. The previous check approved runs that
+    # could exhaust mid-run and produce a confusing partial report (Bugs
+    # reviewer S8).
+    base_calls = len(personas) + 1  # angles + lead
+    worst_case_calls = base_calls * (MAX_RETRIES + 1)
+    if worst_case_calls > CALL_CAP:
         die(
-            f"Persona count ({len(personas)}) + Lead Architect exceeds cap ({CALL_CAP}).\n"
-            f"Remove or disable angles in .harness/council/.",
+            f"Worst-case calls ({base_calls} × {MAX_RETRIES + 1} attempts = "
+            f"{worst_case_calls}) exceed cap ({CALL_CAP}).\n"
+            f"Reduce angles in .harness/council/, lower MAX_RETRIES, or raise "
+            f"CALL_CAP in .harness/scripts/council.py.",
             code=5,
         )
 
