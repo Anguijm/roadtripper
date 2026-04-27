@@ -2,20 +2,16 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-28** (Session 10).
+Last refreshed: **2026-04-28** (Session 10 closeout).
 
 ## Now (this week)
 
-- ~~**Step 9 — S8 latency assertion:**~~ ✓ DONE — 1150ms (LA→LV route, build `2026-04-27-006`). Well within S7+200ms budget.
-- ~~**Vitest scaffolding:**~~ ✓ DONE — PR #5 `43ff9ec`. 30 tests, 1-round Proceed.
-- ~~**Check upstream city-atlas-service#26:**~~ ✓ DONE — already merged. WaypointSchema + NeighborhoodSchema divergences cleared; CitySchema still local-only. `cityAtlas.ts` comment updated.
-- ~~**SHA-256 for `candidateCacheKey` / `waypointsCacheKey`:**~~ ✓ DONE — PR #6 `a3b03b7`. 41 tests, 2-round Proceed.
+All prior Now items done. Watching PR #7 council.
 
 ## Next (queued, scoped)
 
-- **`getAllCities` / `lookupCity` live-read migration**: currently reads from `src/data/global_city_cache.json`; migrate to live Firestore via `getCity`. No current bugs but JSON cache will drift.
 - **PolylineRenderer marker diff**: candidate-marker rebuild on every refresh causes visible flicker on Add. Fix with `id → marker` map and diff. 4-effect split is load-bearing, don't collapse.
-- **Click-to-select neighborhood panel**: panel currently shows for last-added stop. User should click any Itinerary stop to switch. Needs a lightweight separate Server Action (neighborhood-only, no route recompute) to avoid burning rate-limit budget.
+- **Click-to-select neighborhood panel**: panel shows for last-added stop. User should click any Itinerary stop to switch. Needs a lightweight separate Server Action (neighborhood-only, no route recompute) to avoid burning rate-limit budget.
 - **Off-corridor indicator in Itinerary**: subtle badge for stops no longer in the refreshed candidate list (Council S7-PROD deferred).
 - **Mobile bottom sheet**: 360px aside doesn't fit phones; 20/55/92 snap points (Session 5 council deferred).
 
@@ -23,19 +19,28 @@ Last refreshed: **2026-04-28** (Session 10).
 
 - Save/load trips: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view.
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
-- Map polygon rendering for neighborhoods (S8 out of scope; schema doesn't carry polygons today).
+- Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
 - Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
 - External CAS state for council monthly-budget counter (documented cross-PR race in GH Actions cache; GCP budget alert is current backstop).
 - Move post-commit hook artifacts off the working tree so `gh pr merge` stops requiring a pre-merge stash.
 - Persona-aware neighborhood ranking (trending_score + persona weights, S8 deferred).
+- CitySchema: reconcile local nested `location.{latitude,longitude}` divergence with upstream (deferred from city-atlas-service#26).
+- `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
 
 ## Open issues
 
-None.
+None. (`gh issue list` returned empty as of 2026-04-28.)
 
 ## In flight
 
-None.
+- **PR #7** `feat/session-10-live-city-read` — `getAllCities`/`lookupCity` live Firestore read, delete `global_city_cache.json`. Council pending.
+
+## Completed this session (S10, 2026-04-28)
+
+- ✓ PR #5 `43ff9ec` — Vitest scaffold, 41 unit tests
+- ✓ PR #6 `a3b03b7` — SHA-256 for all cache key helpers
+- ✓ Step 9 latency assertion: 1150ms cold, under budget
+- ✓ Upstream city-atlas-service#26 confirmed merged; cityAtlas.ts comment updated
 
 ## Scheduled remote agents
 

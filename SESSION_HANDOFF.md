@@ -2,26 +2,27 @@
 
 ## Start here next session
 
-**Current branch on origin: `main` at `a3b03b7`** (SHA-256 cache keys, PR #6). Local main is in sync. No open PRs.
+**Current branch on origin: `main` at `a6e11fe`** (plan doc commit). PR #7 open on `feat/session-10-live-city-read` — council pending. Local main is in sync.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**Session 10 shipped 2 PRs (2026-04-28):**
-- PR #5 `43ff9ec` — Vitest scaffold: 30 unit tests for isomorphic layer (`scoring.ts`, `cityAtlas.ts`, `cache.ts`), `server-only` shim alias, `bun run test` script
-- PR #6 `a3b03b7` — SHA-256 for `candidateCacheKey` + `waypointsCacheKey`; 41 tests; stale comment in `neighborhoodsCacheKey` removed
+**Session 10 shipped 2 PRs + 1 in flight (2026-04-28):**
+- PR #5 `43ff9ec` — Vitest scaffold: 41 unit tests for isomorphic layer, `server-only` shim, `bun run test` / `test:watch` scripts. Council: 1 round Proceed.
+- PR #6 `a3b03b7` — SHA-256 for all three cache key helpers (`candidateCacheKey`, `waypointsCacheKey`, `neighborhoodsCacheKey` already done in S8a). Council: 2 rounds, R1 Revise (server-only invisible in diff + edge cases), R2 Proceed.
+- **PR #7 OPEN** — `getAllCities`/`lookupCity` live-read migration. Deletes `global_city_cache.json` (1650 lines), adds `listCities()` to `firestore.ts`, rewrites `cities.ts` as server-only with 24h LRU cache. Council pending.
 
 **Also completed (no PR):**
-- Step 9 latency assertion: 1150ms cold (LA→LV), well under S7+200ms budget
-- Upstream `city-atlas-service#26` merged; `cityAtlas.ts` divergence comment updated
+- Step 9 latency assertion: 1150ms cold (LA→LV), under S7+200ms budget
+- Upstream `city-atlas-service#26` confirmed merged; `cityAtlas.ts` divergence comment updated
 
-**Next actions (top of Next queue):**
-1. **`getAllCities` / `lookupCity` live-read migration** — remove `global_city_cache.json` dep, migrate to live Firestore via `getCity`. Pure server-side, no UI change.
-2. **PolylineRenderer marker diff** — fix visible flicker on Add. 4-effect split is load-bearing; don't collapse.
-3. **Click-to-select neighborhood panel** — needs a lightweight neighborhood-only Server Action.
+**Next actions (after PR #7 merges):**
+1. **PolylineRenderer marker diff** — candidate-marker rebuild on every refresh causes visible flicker. Fix with `id → marker` map and diff. 4-effect split is load-bearing; don't collapse.
+2. **Click-to-select neighborhood panel** — panel shows for last-added stop; needs click on any Itinerary stop to switch. Requires a lightweight neighborhood-only Server Action (no route recompute, avoids rate-limit budget).
 
 **Known stickies (no blockers):**
 - **Post-commit hook + `gh pr merge`:** stash before merge, drop after. See `.harness/learnings.md`.
-- **CitySchema** still a local divergence from upstream — `location.{lat,lng}` vs nested shape. Upstream PR #26 deferred it explicitly.
+- **CitySchema** still a local divergence — nested `location.{latitude,longitude}` vs flat `lat/lng`. Upstream PR #26 deferred it explicitly.
+- **`actions.ts` ISC anchor comment stale** — references removed `WaypointFetchResult.degraded`. Fix on next `actions.ts` touch.
 - **30-day kill-criteria check** scheduled (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26T00:00:00Z = 09:00 JST).
 
 ---

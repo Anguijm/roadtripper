@@ -43,6 +43,7 @@ Required env vars (see `apphosting.yaml` for the production binding list):
 - `bun run dev` — local Next dev server
 - `bun run lint` — ESLint
 - `bun run type-check` — `tsc --noEmit`
+- `bun run test` — vitest run (unit tests for isomorphic layer)
 - `bun run build` — production build
 - `bun run start` — serve the production build
 

@@ -90,6 +90,30 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ---
 
+## 2026-04-28 — Session 10: housekeeping + infra (PRs #5, #6, #7 in flight)
+
+### KEEP
+- **Chore PRs with no behavior change converge in 1–2 council rounds.** PR #5 (Vitest) hit 1 round, PR #6 (SHA-256) hit 2. Clean diffs with well-named tests read quickly for all 6 angles.
+- **Always use CI diff-review path for council — never the local `--plan` runner.** `GEMINI_API_KEY` lives in GitHub Actions secrets. Create branch → implement → open PR → wait for CI. The committed plan file satisfies the tracked-plan requirement. Locked in memory: `feedback_council_local_key.md`.
+- **`server-only` imports invisible in diff → hallucinated as missing.** PR #6 R1 Revise was caused by the council's diff view not including unchanged line 1 (`import "server-only"`). Fix: touch the line with a comment to force it into the diff context. Saves a round.
+- **Keep `geometricFilter` synchronous even when its data source becomes async.** `findCandidateCities` (already async) fetches `await getAllCities()` once and passes via `options.cities`. `geometricFilter` stays a pure function — testable without Firestore, no signature change.
+- **Update docs at each merge, not at session end.** Caught stale BACKLOG + SESSION_HANDOFF at closeout; should update after each merge so the next session picks up clean state.
+
+### IMPROVE
+- **`actions.ts` ISC anchor comment is still stale** — lists `S7-SEC-4 catch... returns ONLY {degraded:true}` but `WaypointFetchResult.degraded` was replaced by the DU in S8b. Update on next `actions.ts` touch.
+- **`geometricFilter` docstring still says "For each of the 102 UE cities"** — hardcoded city count will drift as Urban Explorer grows. Update when next touching that function.
+
+### INSIGHT
+- **Deleting a 1650-line JSON snapshot and replacing it with two functions (listCities + getAllCities) is a net improvement in maintainability.** The JSON had no validation, no partial-failure surface, and silently served stale data. The live path has all three via `LoadResult<City>` and the `parseDocs` pattern already established in `firestore.ts`.
+- **Council CI runs on PRs only; `workflow_dispatch` skips the PR comment step.** There is no "manual trigger with output" shortcut — you must have an open PR for the council comment to land.
+
+### COUNCIL
+- **PR #5 (Vitest scaffold):** 1 round, immediate Proceed. All 6 angles scored 9–10. Cost: ~7 calls. Fast because the diff was pure additive dev tooling.
+- **PR #6 (SHA-256 cache keys):** 2 rounds. R1 Revise: (1) `server-only` import not visible in diff (unchanged line), (2) edge case tests missing. R2 Proceed after touching the import line + adding 5 edge case tests (empty input, comma IDs, Unicode). Cost: ~14 calls.
+- **PR #7 (live city read):** open as of 2026-04-28 closeout. Council pending.
+
+---
+
 ## 2026-04-27 10:15 UTC — Session 9: S8 neighborhood drill-down (PRs #2, #3, #4)
 
 ### KEEP

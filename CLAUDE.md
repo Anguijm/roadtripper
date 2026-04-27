@@ -14,27 +14,27 @@ bun run dev          # local dev server
 bun run type-check   # tsc --noEmit — run before every commit
 bun run lint         # ESLint
 bun run build        # production build
+bun run test         # vitest run (41 unit tests, isomorphic layer)
+bun run test:watch   # vitest watch mode
 ```
 
 ## Council — mandatory pre-EXECUTE gate
 
-Before writing any non-trivial code, run the council against a tracked plan file:
+Standard flow — **always use CI diff review, not the local runner**:
 
 ```bash
 # 1. Save plan to Plans/session-N-<slug>.md and commit it
-git add Plans/... && git commit -m "docs: session N plan"
+git add Plans/... && git commit -m "docs: session N plan [skip council]"
 
-# 2. Run council (~7 Gemini calls, ~45s)
-python3 .harness/scripts/council.py --plan Plans/session-N-<slug>.md
+# 2. Create feature branch, implement, open PR
+gh pr create ...
 
-# 3. Read .harness/last_council.md — check the Lead Architect verdict
-#    Proceed → build. Revise → fix plan, recommit, re-run. Reject → redesign.
+# 3. CI runs the council automatically on push (council.yml).
+#    Check the <!-- council-report --> comment on the PR.
+#    Proceed → merge. Revise → fix, push, wait for next run.
 ```
 
-Post-implementation review (on the diff, not the plan):
-```bash
-python3 .harness/scripts/council.py --diff
-```
+`GEMINI_API_KEY` lives in GitHub Actions secrets. Never ask to set it locally — always use the CI path above.
 
 The CI workflow (`.github/workflows/council.yml`) re-runs automatically on every PR push and posts a single re-edited comment. Add `[skip council]` to the PR title to skip on trivial/docs-only pushes.
 
@@ -50,7 +50,7 @@ The CI workflow (`.github/workflows/council.yml`) re-runs automatically on every
 
 **Rate limit layers are all non-redundant.** `recomputeAndRefreshAction` has burst + spacing + daily quota guards. All three must stay. ONE call to the action = ONE charge across all three layers — do not add per-service charges inside the action.
 
-**Server-only boundary.** `src/lib/firebaseAdmin.ts`, `src/lib/routing/recommend.ts`, and `src/lib/routing/cache.ts` all import `server-only`. No client component may import them directly or through a barrel. `scoring.ts` is intentionally isomorphic — keep it free of server-only imports.
+**Server-only boundary.** `src/lib/firebaseAdmin.ts`, `src/lib/routing/recommend.ts`, `src/lib/routing/cache.ts`, and `src/lib/urban-explorer/cities.ts` all import `server-only`. No client component may import them directly or through a barrel. `scoring.ts` is intentionally isomorphic — keep it free of server-only imports.
 
 **`dangerouslySetInnerHTML` is banned in `NeighborhoodPanel.tsx`.** Gemini-enriched `name.en` / `summary.en` are untrusted. Render as React children only. CI grep (`dangerouslySetInnerHTML=`) enforces this on every PR.
 
@@ -74,12 +74,13 @@ src/
     firebaseAdmin.ts          — server-only Firestore client
     urban-explorer/
       cityAtlas.ts            — canonical Zod schemas + localizedText()
-      firestore.ts            — server-only typed read helpers
+      firestore.ts            — server-only typed read helpers (getCity, listCities, listNeighborhoods, listWaypoints)
+      cities.ts               — server-only getAllCities() + lookupCity() with 24h LRU cache
       types.ts                — barrel re-export of cityAtlas
     routing/
       recommend.ts            — fetchWaypointsForCandidates + fetchNeighborhoods
       scoring.ts              — isomorphic scoring + WaypointFetchResult type
-      cache.ts                — LRU cache + waypointsCacheKey + neighborhoodsCacheKey
+      cache.ts                — LRU cache + candidateCacheKey + waypointsCacheKey + neighborhoodsCacheKey (all SHA-256)
       candidates.ts           — findCandidateCities (Routes API matrix)
       directions.ts           — computeRoute / computeRouteWithStops
       rate-limit.ts           — burst / spacing / daily quota
