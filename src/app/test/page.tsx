@@ -39,7 +39,7 @@ async function getRoadtripperInfo() {
 export default async function TestPage() {
   const ue = await getUrbanExplorerInfo();
   const rt = await getRoadtripperInfo();
-  const localCities = getAllCities();
+  const localCities = await getAllCities();
   const northAmerica = localCities.filter((c) => c.region === "north-america");
 
   return (
@@ -74,7 +74,7 @@ export default async function TestPage() {
       </section>
 
       <section style={{ marginBottom: "2rem" }}>
-        <h2 style={{ color: "#d29922", marginBottom: "0.5rem" }}>Local Cache</h2>
+        <h2 style={{ color: "#d29922", marginBottom: "0.5rem" }}>Cities (live)</h2>
         <p>Total cities: <strong>{localCities.length}</strong></p>
         <p>North America: <strong>{northAmerica.length}</strong></p>
       </section>

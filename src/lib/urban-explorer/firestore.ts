@@ -73,6 +73,14 @@ function parseDocs<T>(
   return { items, dropped };
 }
 
+export async function listCities(): Promise<LoadResult<City>> {
+  const snap = await urbanExplorerDb.collection(CITIES).get();
+  const result = parseDocs(CitySchema, snap.docs, "city");
+  // Filter archived at the application layer, consistent with getCity().
+  // Archived cities are intentionally excluded — not counted as dropped.
+  return { items: result.items.filter((c) => !c.isArchived), dropped: result.dropped };
+}
+
 export async function getCity(cityId: string): Promise<City | null> {
   const snap = await urbanExplorerDb.collection(CITIES).doc(cityId).get();
   if (!snap.exists) return null;

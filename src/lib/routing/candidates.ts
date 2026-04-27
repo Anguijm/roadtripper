@@ -1,6 +1,6 @@
 import "server-only";
 import type { City } from "@/lib/urban-explorer/types";
-import { getAllCities } from "@/lib/urban-explorer/cities";
+import { getAllCities } from "@/lib/urban-explorer/cities"; // used in findCandidateCities
 import {
   decodePolyline,
   samplePolyline,
@@ -46,7 +46,7 @@ export function geometricFilter(
 ): GeometricCandidate[] {
   const sampleIntervalKm = options.sampleIntervalKm ?? DEFAULT_SAMPLE_INTERVAL_KM;
   const bufferKm = options.bufferKm ?? DEFAULT_GEOMETRIC_BUFFER_KM;
-  const cities = options.cities ?? getAllCities();
+  const cities = options.cities ?? [];
 
   const decoded = decodePolyline(encodedPolyline);
   if (decoded.length === 0) return [];
@@ -235,9 +235,11 @@ export async function findCandidateCities(
   const cached = cacheGet<ValidatedCandidate[]>(cacheKey);
   if (cached) return cached;
 
+  const cities = await getAllCities();
   const geometric = geometricFilter(encodedPolyline, {
     sampleIntervalKm: options.sampleIntervalKm,
     bufferKm: options.bufferKm,
+    cities,
   });
 
   if (geometric.length === 0) {
