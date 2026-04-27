@@ -140,7 +140,8 @@ export async function recomputeAndRefreshAction(
   origin: PlainLatLng,
   destination: PlainLatLng,
   stops: ReadonlyArray<RecomputeStopInput>,
-  budgetHours: number
+  budgetHours: number,
+  selectedCityId?: string
 ): Promise<RecomputeAndRefreshResult> {
   // ── Burst + spacing gates (DoS shields — run BEFORE validation) ────────
   let ip: string;
@@ -169,6 +170,12 @@ export async function recomputeAndRefreshAction(
     return { ok: false, error: "invalid_input" };
   }
   if (!isBudgetHoursInRange(budgetHours)) {
+    return { ok: false, error: "invalid_input" };
+  }
+  if (
+    selectedCityId !== undefined &&
+    !/^[a-z0-9-]{1,100}$/.test(selectedCityId)
+  ) {
     return { ok: false, error: "invalid_input" };
   }
 
@@ -231,7 +238,7 @@ export async function recomputeAndRefreshAction(
     const validatedCandidates = await findCandidateCities(route.encodedPolyline, {
       maxDetourMinutes: detourCapForBudget(budgetHours),
     });
-    const waypointFetch = await fetchWaypointsForCandidates(validatedCandidates);
+    const waypointFetch = await fetchWaypointsForCandidates(validatedCandidates, selectedCityId);
     console.info(
       `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh dailyRemaining=${daily.remaining}`
     );
