@@ -10,19 +10,20 @@
  *   vibe_neighborhoods, vibe_waypoints, vibe_tasks  (flat denorm)
  *   seasonal_variants
  *
- * Upstream divergences (pipeline writes these; upstream schema doesn't yet
- * declare them — file as upstream PR):
- *   - WaypointSchema: is_active, google_place_id|business_status|last_validated
- *     (nullable; unset until Google Places enrichment runs)
- *   - NeighborhoodSchema: source, enriched_at
+ * Upstream divergences — fields present in pipeline output but not yet in
+ * the upstream canonical schema:
  *   - CitySchema: live docs use { location: { latitude, longitude } } and
  *     carry cache_metadata; older docs / JSON cache use flat lat/lng. Schema
- *     accepts either input and normalizes to flat lat/lng.
- *   - All `enriched_at` / `last_validated` values use ISO offset format
- *     ("+00:00"), not "Z".
+ *     accepts either input and normalizes to flat lat/lng. Upstream PR #26
+ *     explicitly deferred CitySchema changes — separate PR needed there.
  *   - .strict() removed on Firestore-backed object schemas because the
  *     pipeline adds fields faster than upstream tracks; rely on upstream's
  *     write-time validation for typo detection.
+ *
+ * Previously-diverged fields now in upstream (merged Anguijm/city-atlas-service#26):
+ *   - WaypointSchema: is_active, google_place_id|business_status|last_validated,
+ *     enriched_at with ISO offset format (+00:00)
+ *   - NeighborhoodSchema: source, enriched_at
  */
 import { z } from "zod/v4";
 
