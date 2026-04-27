@@ -96,9 +96,10 @@ export default async function PlanPage({
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;
   let candidateMarkers: CandidateMarker[] = [];
   let waypointFetch: WaypointFetchResult = {
+    status: "fresh",
     cities: [],
     waypoints: [],
-    degraded: false,
+    neighborhoods: {},
   };
 
   try {
