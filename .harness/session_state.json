@@ -1,12 +1,12 @@
 {
   "last_commit": {
-    "hash": "ceac52bea69b01b1332568bb975b4f47664493a5",
-    "short": "ceac52b",
-    "subject": "S8a R2: SHA-256 hash + LocalizedText shape on lite schema",
+    "hash": "a525ef31e82815ca36aba948088ba3e3becddc54",
+    "short": "a525ef3",
+    "subject": "docs: Session 9 closeout — learnings, handoff, backlog, README",
     "author": "John Anguiano <anguijm@gmail.com>",
-    "branch": "feat/session-8a-neighborhood-foundation",
-    "committed_at": "2026-04-27T06:06:38+09:00",
-    "files_changed": 2
+    "branch": "main",
+    "committed_at": "2026-04-27T19:22:13+09:00",
+    "files_changed": 4
   },
   "schema_version": 1,
   "last_council": {
