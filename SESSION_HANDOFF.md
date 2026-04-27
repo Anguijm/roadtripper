@@ -2,7 +2,9 @@
 
 ## Start here next session
 
-**Current branch on origin: `main` at `418ae53`** (squashed PR #4 merge: S8c NeighborhoodPanel + CI grep). Local main is in sync. No open PRs. Working tree clean.
+**Current branch on origin: `main` at `81a3134`** (docs closeout + hook artifact commit). Local main is in sync. No open PRs.
+
+**Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit — committing them triggers another modification. All code and docs are committed. Ignore these in `git status`.
 
 **S8 neighborhood drill-down is complete.** Three PRs merged this session:
 - PR #2 `5dcedc0` — S8a: `NeighborhoodLiteSchema`, `neighborhoodsCacheKey` (SHA-256), `localizedText`, `MAX_NEIGHBORHOODS_PER_CITY`
