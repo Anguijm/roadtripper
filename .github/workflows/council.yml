@@ -49,6 +49,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # SEC-2 guard: dangerouslySetInnerHTML= is permanently banned in
+      # NeighborhoodPanel.tsx (Gemini-enriched copy rendered as untrusted text).
+      # Grep for the attribute form (with =) to avoid matching this comment.
+      - name: Ban dangerouslySetInnerHTML in NeighborhoodPanel
+        run: |
+          if grep -n "dangerouslySetInnerHTML=" src/components/NeighborhoodPanel.tsx 2>/dev/null; then
+            echo "::error::dangerouslySetInnerHTML= is banned in NeighborhoodPanel.tsx (S8 plan SEC-2)"
+            exit 1
+          fi
+          echo "No dangerouslySetInnerHTML= found in NeighborhoodPanel.tsx — OK"
+
       # Case-insensitive [skip council] check. GitHub Actions expression
       # language has no toLower(), so we do it in a shell step.
       - name: Check skip directive

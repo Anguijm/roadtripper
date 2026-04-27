@@ -17,6 +17,7 @@ import RecommendationList, {
   type AddCityPayload,
 } from "@/components/RecommendationList";
 import Itinerary from "@/components/Itinerary";
+import NeighborhoodPanel from "@/components/NeighborhoodPanel";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
@@ -146,6 +147,21 @@ export default function PlanWorkspace({
     [tripStops]
   );
 
+  // The most recently added stop drives the neighborhood panel. Derived from
+  // tripStops so it stays in sync with what the recompute action fetched.
+  const selectedStop = tripStops[tripStops.length - 1] ?? null;
+  const selectedCityId = selectedStop?.cityId;
+
+  const selectedCityWaypoints = useMemo(
+    () =>
+      selectedCityId
+        ? effectiveWaypointFetch.waypoints.filter(
+            (w) => w.cityId === selectedCityId
+          )
+        : [],
+    [effectiveWaypointFetch.waypoints, selectedCityId]
+  );
+
   // ── Persona / hover handlers ───────────────────────────────────────────
   const handlePersonaChange = useCallback((next: PersonaId) => {
     setActivePersonaId(next);
@@ -205,13 +221,15 @@ export default function PlanWorkspace({
       lat: s.lat,
       lng: s.lng,
     }));
+    const lastStopCityId = stopsForRequest[stopsForRequest.length - 1]?.cityId;
 
     startTransition(async () => {
       const result = await recomputeAndRefreshAction(
         { lat: origin.lat, lng: origin.lng },
         { lat: destination.lat, lng: destination.lng },
         stopsForRequest,
-        budgetHours
+        budgetHours,
+        lastStopCityId
       );
 
       // Stale-response guard — wraps BOTH state updates so a stale
@@ -332,6 +350,23 @@ export default function PlanWorkspace({
               accent={accent}
             />
           )}
+
+          {/* Neighborhood panel for the most recently added stop */}
+          {selectedCityId &&
+            selectedStop &&
+            effectiveWaypointFetch.neighborhoods[selectedCityId] && (
+              <NeighborhoodPanel
+                cityId={selectedCityId}
+                cityName={selectedStop.cityName}
+                loadState={effectiveWaypointFetch.neighborhoods[selectedCityId]}
+                waypoints={selectedCityWaypoints}
+                failures={
+                  effectiveWaypointFetch.status === "degraded"
+                    ? effectiveWaypointFetch.failures
+                    : []
+                }
+              />
+            )}
 
           {/* Recompute error banner with Retry */}
           {recomputeError && (
