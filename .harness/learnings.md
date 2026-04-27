@@ -87,3 +87,28 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 - The trigger is memory-based, which means I read it at session start and pattern-match. Not a hook — won't fire deterministically on every "explain it" string. Acceptable for a soft preference; promote to a hook if it ever misses badly.
 ### INSIGHT
 - Audio summaries decouple "I want the conversation context" from "I'm in front of a screen with markdown rendering." Useful when you're on a phone in a Remote Control session.
+
+---
+
+## 2026-04-27 10:15 UTC — Session 9: S8 neighborhood drill-down (PRs #2, #3, #4)
+
+### KEEP
+- **Slicing into coherent complete scopes works.** Prior session's IMPROVE note said "bundle S8b+S8c — slicing failed council convergence." That was wrong. This session sliced S8 into three PRs (foundation / server helpers / UI) and all three passed council in ≤2 rounds each. The difference: each slice was a *complete, coherent scope* (pure schema additions; pure server helpers; pure UI + wiring) rather than half a feature. Councils grade the scope in front of them; the key is making each scope complete, not making it large.
+- **`dangerouslySetInnerHTML=` CI grep: target the attribute form (with `=`)**, not the bare word. A comment mentioning the ban by name will trip the bare-word grep — which is exactly what happened on S8c R1 (FAILURE, immediately fixed). The `=` suffix catches only JSX attribute usage, not explanatory comments.
+- **`WaypointFetchResult` as a discriminated union** (`status: "fresh" | "degraded"`) gives the client both the failure reason and the partial data in one payload. The `failures: WaypointFetchFailure[]` array is what PROD-3 uses to distinguish "fetch failed" from "zero results" — two states that look identical if you only check for an empty array.
+- **Parallel cache namespace split** (`waypointsCacheKey` / `neighborhoodsCacheKey` in separate SHA-256-hashed namespaces) is the right pattern for any feature that adds a second cache tier to an existing orchestrator. Composing at the call site, not co-mingling, keeps TTL and LRU slot concerns independent.
+- **Committing `MAX_NEIGHBORHOODS_PER_CITY` at the schema layer** (S8a) before the fetch helper (S8b) is the right declaration order. The cost reviewer can verify the bound is declared before any billing-amplifying Firestore call exists in the diff.
+
+### IMPROVE
+- **CI grep steps should run a local dry-run before pushing.** The S8c council FAILURE (run 24988943786) was caught in 10 seconds and fixed, but the fix burned a council run count. A one-line `grep` in a pre-push hook would have caught it locally at zero cost.
+- **`actions.ts` ISC anchor comment is getting stale.** The header lists `S7-SEC-4 catch around candidates pipeline returns ONLY {degraded:true}` — but `WaypointFetchResult.degraded` is now gone (replaced by the DU). The anchor is accurate about the intent but points at a removed field. Update it in S10 alongside any next `actions.ts` touch.
+
+### INSIGHT
+- **`NeighborhoodLoadState` key-absence-as-"not-requested"** is a clean three-state design: `{kind:"empty"}`, `{kind:"loaded", data:[]}`, `{kind:"failed"}` — with key absent meaning "never asked for." This avoids a fourth enum variant and is correct given `MAX_NEIGHBORHOOD_CITIES = 1` (only one city is ever fetched per request, so the record is always ≤1 entry in practice). Document this pattern for any future per-entity lazy-load state.
+- **`selectedCityId = last stop in tripStops`** is the minimal viable "which stop's neighborhoods to show" heuristic. It means "when you add a stop, you see its neighborhoods" — which matches user intent 100% of the time for single-stop trips and ~last-intent for multi-stop trips. Good enough for MVP; the S9+ enhancement is click-to-select with a separate lightweight fetch action.
+- **Council's 6-angle breadth caught the SEC-2 XSS surface on S8c independently.** Security flagged `dangerouslySetInnerHTML` risk on Gemini-enriched copy before we even wrote the component. This is the council working as designed: catching a class of bug (untrusted-source rendering) on a plan before it becomes code review feedback.
+
+### COUNCIL
+- **PR #2 (S8a):** 2 rounds. R1 returned Revise (avg 7.0) with cost hallucinating about Firestore queries that don't exist in the diff yet; fixed by clarifying with `MAX_NEIGHBORHOODS_PER_CITY` and an expanded cache-key comment. R2: avg 8.33, Proceed. Council run sha: `5dcedc0`. Cost: ~14 Gemini calls.
+- **PR #3 (S8b):** 1 round. Immediate Proceed (SUCCESS). Council run: workflow `24967777514`. Cost: ~7 calls. Clean diff = fast convergence.
+- **PR #4 (S8c):** 1 real round after 1 CI failure. Run `24988943786` failed on the `Ban dangerouslySetInnerHTML` step (comment contained `dangerouslySetInnerHTML=`). Fixed comment wording; re-run `24989140907` passed in ~2 min. Proceed. Cost: ~14 calls (1 failed + 1 success, council only charged for the success run per the budget counter logic).

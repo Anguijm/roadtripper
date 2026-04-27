@@ -58,7 +58,8 @@ gcloud run services list --region=us-central1 \
 ## Architecture highlights
 
 - **Force-dynamic + client state:** the `/plan` page is `force-dynamic` and re-runs the Server Component on each navigation. To avoid re-billing the Routes API on every UI tweak (persona swap, stop add), all interactive state lives in client `useState` slices and URL sync is done with `window.history.replaceState`, never `router.replace`.
-- **Server Action with discriminated-union returns:** `recomputeAndRefreshAction` recomputes the route through new stops AND re-fetches candidate cities + waypoints in a single round trip. Returns `{ok:true, status:"fresh", waypointFetch}` or `{ok:true, status:"degraded", waypointFetch:null}` or `{ok:false, error}` — never throws across the RSC boundary.
+- **Server Action with discriminated-union returns:** `recomputeAndRefreshAction` recomputes the route through new stops AND re-fetches candidate cities + waypoints + neighborhoods in a single round trip via `Promise.all`. Returns `{ok:true, waypointFetch}` (itself a DU: `{status:"fresh"|"degraded", cities, waypoints, neighborhoods, failures?}`) or `{ok:false, error}` — never throws across the RSC boundary.
+- **Neighborhood drill-down:** adding a stop shows a `<NeighborhoodPanel>` for that city. Neighborhoods fetched from `vibe_neighborhoods` in parallel with waypoints, cached under a separate SHA-256-hashed namespace, client-side grouped by `neighborhood_id`. Three load states: `loaded` (grouped or chip layout), `empty` ("Showing all stops in {city}"), `failed` ("Couldn't load neighborhoods").
 - **Three-layer per-IP rate limit** (burst / spacing / daily quota) on every paid-API server action.
 - **Live-state null-fallback pattern:** `liveRoute: DirectionsResult | null` and `liveWaypointFetch: WaypointFetchResult | null` — `null` means "use the initial server-rendered values", which makes "remove the last stop" cleanly revert without bookkeeping.
 

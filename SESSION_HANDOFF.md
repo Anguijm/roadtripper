@@ -2,33 +2,36 @@
 
 ## Start here next session
 
-**Current branch on origin: `main` at `234a722`** (squashed PR #1 merge: city-atlas live-read + harness council v2 + CI workflow). Local main is in sync.
+**Current branch on origin: `main` at `418ae53`** (squashed PR #4 merge: S8c NeighborhoodPanel + CI grep). Local main is in sync. No open PRs. Working tree clean.
 
-**One PR open: [#2 — S8a foundation](https://github.com/Anguijm/roadtripper/pull/2)** on branch `feat/session-8a-neighborhood-foundation`. Three council rounds run; the slicing strategy is being penalized by reviewers for *being* sliced (council grades the imagined complete feature, not the actual diff).
+**S8 neighborhood drill-down is complete.** Three PRs merged this session:
+- PR #2 `5dcedc0` — S8a: `NeighborhoodLiteSchema`, `neighborhoodsCacheKey` (SHA-256), `localizedText`, `MAX_NEIGHBORHOODS_PER_CITY`
+- PR #3 `1ba6fd5` — S8b: `fetchNeighborhoods`, `Promise.all` orchestrator, `WaypointFetchResult` DU, `neighborhood_id` projection
+- PR #4 `418ae53` — S8c: `<NeighborhoodPanel>`, `selectedCityId` wiring through `recomputeAndRefreshAction`, `dangerouslySetInnerHTML=` CI grep
 
-**Next action — bundle S8b + S8c into PR #2.** Decision made at end of last session: pull all 10 plan steps from `Plans/session-8-neighborhood-drilldown.md` into the existing branch. Larger PR but complete feature, which is what the council can actually grade. Same shape as PR #1 (huge, converged in 5 rounds).
+**Next 1–2 actions (in priority order):**
 
-Concretely on PR #2:
-1. **Step 3** — `fetchNeighborhoods(cityId)` in `src/lib/routing/recommend.ts`. Wraps `listNeighborhoods` from `firestore.ts` with the SHA-256 cache key, dedupe (PROD-1: las-vegas duplicate-name collapse), and the `MAX_NEIGHBORHOODS_PER_CITY = 20` `.limit()`.
-2. **Step 4** — Refactor `fetchWaypointsForCandidates` into a `Promise.all` orchestrator that fans out waypoints + neighborhoods. Returns the discriminated `WaypointFetchResult` from the resolver-produced PLAN.md (`{status:'fresh'|'degraded', cities, waypoints, neighborhoods, failures?}`).
-3. **Step 5** — Add `neighborhood_id` to the existing `vibe_waypoints` `.select(...)` projection so the client can group locally without an extra fetch.
-4. **Step 6** — `<NeighborhoodPanel>` in `src/components/`. Empty/failed/loaded states per PLAN. `useMemo` grouping. No `dangerouslySetInnerHTML`.
-5. **Step 7** — Wire `plan/page.tsx` to pass the discriminated result through.
-6. **Step 10** — `dangerouslySetInnerHTML` grep at lint or pre-commit (CI grep). Probably an ESLint rule scoped to `NeighborhoodPanel.tsx`.
-7. **Step 9 (post-merge)** — Manual First-Add cold p50 measurement. Latency budget: ≤ S7 baseline + 200ms.
+1. **Step 9 — latency assertion** (S8 plan, post-merge). Load the live app, add a stop (las-vegas or any city), measure First-Add cold p50 in DevTools Network. Target: ≤ S7 baseline + 200ms. If over, lazy-fetch neighborhoods on panel expand rather than server-render. Record the measurement in a commit note. Low effort, closes the only open S8 plan item.
 
-**Gating criteria for merging PR #2:** v2 council Proceed verdict, OR documented stable disagreement (per CONTRIBUTING.md kill criteria) where remaining findings are in the "council is grading the next feature, not this diff" pattern.
+2. **Vitest scaffolding** (`chore: add vitest + firestore mocks`). Bugs reviewer asks for unit tests every round. A Vitest setup + Firestore emulator mock would give tests a place to land and silence the recurring council finding. No behavior change; council should converge in 1 round.
 
-**Blockers / known stickies:**
-- **No Vitest setup.** Bugs reviewer asks for unit tests every round; we don't have a test runner wired. Worth a separate `chore: add vitest + firestore mocks` PR before or after PR #2 — bundling it inflates this PR's scope, but skipping it leaves a recurring council blocker.
-- **Product reviewer variance.** Same persona file, same plan, scores oscillating 3/4/7/8/9 across rounds. The kill criteria in `CONTRIBUTING.md` are the documented override. Will be exercised again on PR #2.
-- **Post-commit hook + `gh pr merge` interaction.** The hook dirties `session_state.json` + `yolo_log.jsonl` after every commit. `gh pr merge` aborts on dirty tree. Workaround: stash before merge, drop after. Tracked in this session's learnings.md IMPROVE bullet.
-
-**The 30-day kill-criteria check is scheduled** (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26 09:00 JST = 2026-05-26T00:00:00Z). It pulls PR cycle-time data, council compliance tally, and a cost estimate, then either opens a draft rollback PR or a "paying off" status issue.
+**Known stickies (no blockers):**
+- **Post-commit hook + `gh pr merge` interaction.** Hook dirties `session_state.json` + `yolo_log.jsonl` after every commit. Workaround: `git stash` before merge, `git stash drop` after. Tracked in `.harness/learnings.md` IMPROVE bullet (2026-04-27).
+- **Upstream [Anguijm/city-atlas-service#26](https://github.com/Anguijm/city-atlas-service/pull/26)** schema-convergence PR is still open. Worth a status check before next schema work.
+- **30-day kill-criteria check** is scheduled (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26T00:00:00Z = 09:00 JST). Pulls PR cycle-time, council compliance, cost estimate. Opens a draft rollback PR if any criterion tripped; otherwise a "paying off" status issue.
 
 ---
 
 ## Historical log
+
+### Session 9 (2026-04-27 JST) — S8 neighborhood drill-down (PRs #2, #3, #4)
+
+**Merged to main (all squash-merges):**
+- PR #2 `5dcedc0` — S8a: `NeighborhoodLiteSchema` + `NeighborhoodLite` type; `neighborhoodsCacheKey(cityId)` using SHA-256 (16-hex); `localizedText(text, locale)` helper; `MAX_NEIGHBORHOODS_PER_CITY = 20` constant at schema layer. Council: 2 rounds, avg 7.0 → 8.33. Converged to Proceed.
+- PR #3 `1ba6fd5` — S8b: `fetchNeighborhoods(cityId)` with city-id boundary validation, Firestore query on `vibe_neighborhoods`, `NeighborhoodLiteSchema` validation, name-normalize dedupe (PROD-1, las-vegas), cache under `neighborhoodsCacheKey`. `fetchWaypointsForCandidates` refactored to `Promise.all` orchestrator with optional `selectedCityId`. `WaypointFetchResult` changed from `{cities, waypoints, degraded:boolean}` to a DU: `{status:"fresh"|"degraded", cities, waypoints, neighborhoods:Record<cityId,NeighborhoodLoadState>, failures?:WaypointFetchFailure[]}`. `neighborhood_id` added to `vibe_waypoints` projection; `LiteWaypoint.neighborhoodId:string|null`. Council: 1 round, immediate Proceed.
+- PR #4 `418ae53` — S8c: `<NeighborhoodPanel>` with three load states (failed/empty/loaded), GROUP_THRESHOLD=3 layout logic, `useMemo` groupBy; `recomputeAndRefreshAction` gets optional `selectedCityId` (validated + threaded through); PlanWorkspace derives `selectedCityId` = last stop, renders panel below Itinerary; `dangerouslySetInnerHTML=` CI grep added to `council.yml`. Council: 1 failure (comment contained the banned grep string) + 1 Proceed.
+
+**Slicing verdict (corrects prior session's IMPROVE note):** S8a/S8b/S8c as separate PRs worked well — each was a coherent complete scope. Prior note said "bundle" because S8a alone (pure schema) confused reviewers. Separating by scope (schema / server / UI) rather than by feature fraction is the right approach.
 
 ### Session 8 (2026-04-26 / 2026-04-27 JST) — city-atlas live-read + harness council v2 + S8a foundation in flight
 
