@@ -2,29 +2,45 @@
 
 ## Start here next session
 
-**Current branch on origin: `main` at `81a3134`** (docs closeout + hook artifact commit). Local main is in sync. No open PRs.
+**Current branch on origin: `main` at `a3b03b7`** (SHA-256 cache keys, PR #6). Local main is in sync. No open PRs.
 
-**Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit — committing them triggers another modification. All code and docs are committed. Ignore these in `git status`.
+**Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**S8 neighborhood drill-down is complete.** Three PRs merged this session:
-- PR #2 `5dcedc0` — S8a: `NeighborhoodLiteSchema`, `neighborhoodsCacheKey` (SHA-256), `localizedText`, `MAX_NEIGHBORHOODS_PER_CITY`
-- PR #3 `1ba6fd5` — S8b: `fetchNeighborhoods`, `Promise.all` orchestrator, `WaypointFetchResult` DU, `neighborhood_id` projection
-- PR #4 `418ae53` — S8c: `<NeighborhoodPanel>`, `selectedCityId` wiring through `recomputeAndRefreshAction`, `dangerouslySetInnerHTML=` CI grep
+**Session 10 shipped 2 PRs (2026-04-28):**
+- PR #5 `43ff9ec` — Vitest scaffold: 30 unit tests for isomorphic layer (`scoring.ts`, `cityAtlas.ts`, `cache.ts`), `server-only` shim alias, `bun run test` script
+- PR #6 `a3b03b7` — SHA-256 for `candidateCacheKey` + `waypointsCacheKey`; 41 tests; stale comment in `neighborhoodsCacheKey` removed
 
-**Next 1–2 actions (in priority order):**
+**Also completed (no PR):**
+- Step 9 latency assertion: 1150ms cold (LA→LV), well under S7+200ms budget
+- Upstream `city-atlas-service#26` merged; `cityAtlas.ts` divergence comment updated
 
-1. ~~**Step 9 — latency assertion**~~ ✓ DONE — 1150ms cold (LA→LV, build `2026-04-27-006`). Under S7+200ms budget; no fallback needed. Recorded in `.harness/learnings.md`.
-
-2. **Vitest scaffolding** (`chore: add vitest + firestore mocks`). Bugs reviewer asks for unit tests every round. A Vitest setup + Firestore emulator mock would give tests a place to land and silence the recurring council finding. No behavior change; council should converge in 1 round.
+**Next actions (top of Next queue):**
+1. **`getAllCities` / `lookupCity` live-read migration** — remove `global_city_cache.json` dep, migrate to live Firestore via `getCity`. Pure server-side, no UI change.
+2. **PolylineRenderer marker diff** — fix visible flicker on Add. 4-effect split is load-bearing; don't collapse.
+3. **Click-to-select neighborhood panel** — needs a lightweight neighborhood-only Server Action.
 
 **Known stickies (no blockers):**
-- **Post-commit hook + `gh pr merge` interaction.** Hook dirties `session_state.json` + `yolo_log.jsonl` after every commit. Workaround: `git stash` before merge, `git stash drop` after. Tracked in `.harness/learnings.md` IMPROVE bullet (2026-04-27).
-- **Upstream [Anguijm/city-atlas-service#26](https://github.com/Anguijm/city-atlas-service/pull/26)** schema-convergence PR is still open. Worth a status check before next schema work.
-- **30-day kill-criteria check** is scheduled (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26T00:00:00Z = 09:00 JST). Pulls PR cycle-time, council compliance, cost estimate. Opens a draft rollback PR if any criterion tripped; otherwise a "paying off" status issue.
+- **Post-commit hook + `gh pr merge`:** stash before merge, drop after. See `.harness/learnings.md`.
+- **CitySchema** still a local divergence from upstream — `location.{lat,lng}` vs nested shape. Upstream PR #26 deferred it explicitly.
+- **30-day kill-criteria check** scheduled (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26T00:00:00Z = 09:00 JST).
 
 ---
 
 ## Historical log
+
+### Session 10 (2026-04-28) — housekeeping + infra (PRs #5, #6)
+
+**Merged to main:**
+- PR #5 `43ff9ec` — Vitest scaffold: `vitest.config.ts`, `server-only` shim alias, `bun run test` / `bun run test:watch` scripts, 30 unit tests across `scoring.ts` / `cityAtlas.ts` / `cache.ts`. Council: 1 round, immediate Proceed (all 6 angles scored 9–10).
+- PR #6 `a3b03b7` — SHA-256 for `candidateCacheKey` + `waypointsCacheKey`; 41 tests; stale "other two helpers keep the loop" comment removed from `neighborhoodsCacheKey`. Council: 2 rounds (R1 Revise: `server-only` not visible in diff + edge case tests missing; R2 Proceed after both addressed).
+
+**No-PR completions:**
+- Step 9 latency assertion: 1150ms cold (LA→LV, build `2026-04-27-006`) — 850ms under S7+200ms budget. Promise.all parallel neighborhood fetch added no measurable overhead.
+- Upstream `city-atlas-service#26` already merged; `cityAtlas.ts` header comment updated to reflect WaypointSchema + NeighborhoodSchema divergences cleared; CitySchema remains local-only.
+
+**Council pattern from this session:** chore PRs with no behavior change converge in 1–2 rounds. R1 Revise on SHA-256 PR was caused by `server-only` import being invisible in the diff (unchanged line). Fix: touch the line to bring it into diff context.
+
+---
 
 ### Session 9 (2026-04-27 JST) — S8 neighborhood drill-down (PRs #2, #3, #4)
 

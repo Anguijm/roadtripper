@@ -2,21 +2,21 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-27 10:20 UTC** (end of Session 9).
+Last refreshed: **2026-04-28** (Session 10).
 
 ## Now (this week)
 
-- ~~**Step 9 — S8 latency assertion:**~~ ✓ DONE — 1150ms (LA→LV route, build `2026-04-27-006`). Well within S7+200ms budget. No lazy-fetch fallback needed.
-- **Vitest scaffolding** (`chore: add vitest + firestore mocks`): bugs reviewer asks for unit tests every round; a scaffold gives them a place to land and should converge in 1 council round.
-- **Check upstream [Anguijm/city-atlas-service#26](https://github.com/Anguijm/city-atlas-service/pull/26) status** before next schema work; carries the divergence fixes we filed.
+- ~~**Step 9 — S8 latency assertion:**~~ ✓ DONE — 1150ms (LA→LV route, build `2026-04-27-006`). Well within S7+200ms budget.
+- ~~**Vitest scaffolding:**~~ ✓ DONE — PR #5 `43ff9ec`. 30 tests, 1-round Proceed.
+- ~~**Check upstream city-atlas-service#26:**~~ ✓ DONE — already merged. WaypointSchema + NeighborhoodSchema divergences cleared; CitySchema still local-only. `cityAtlas.ts` comment updated.
+- ~~**SHA-256 for `candidateCacheKey` / `waypointsCacheKey`:**~~ ✓ DONE — PR #6 `a3b03b7`. 41 tests, 2-round Proceed.
 
 ## Next (queued, scoped)
 
 - **`getAllCities` / `lookupCity` live-read migration**: currently reads from `src/data/global_city_cache.json`; migrate to live Firestore via `getCity`. No current bugs but JSON cache will drift.
-- **SHA-256 for `candidateCacheKey` / `waypointsCacheKey`**: `charCodeAt`-loop helpers have a documented Unicode bug (non-BMP inputs). Inputs are ASCII-only today so theoretical, but fix is mechanical. Needs its own PR (cache-churn implications).
-- **PolylineRenderer marker diff**: candidate-marker rebuild on every refresh causes visible flicker on Add. Fix with `id → marker` map and diff. `feedback_polyline_renderer_effects.md` — 4-effect split is load-bearing, don't collapse.
-- **Off-corridor indicator in Itinerary**: subtle badge for stops no longer in the refreshed candidate list (Council S7-PROD deferred).
+- **PolylineRenderer marker diff**: candidate-marker rebuild on every refresh causes visible flicker on Add. Fix with `id → marker` map and diff. 4-effect split is load-bearing, don't collapse.
 - **Click-to-select neighborhood panel**: panel currently shows for last-added stop. User should click any Itinerary stop to switch. Needs a lightweight separate Server Action (neighborhood-only, no route recompute) to avoid burning rate-limit budget.
+- **Off-corridor indicator in Itinerary**: subtle badge for stops no longer in the refreshed candidate list (Council S7-PROD deferred).
 - **Mobile bottom sheet**: 360px aside doesn't fit phones; 20/55/92 snap points (Session 5 council deferred).
 
 ## Someday (architectural ideas, daydreams)
@@ -31,11 +31,11 @@ Last refreshed: **2026-04-27 10:20 UTC** (end of Session 9).
 
 ## Open issues
 
-None. (`gh issue list` returned empty as of 2026-04-27 10:20 UTC.)
+None.
 
 ## In flight
 
-None. All S8 branches merged; working tree clean.
+None.
 
 ## Scheduled remote agents
 
