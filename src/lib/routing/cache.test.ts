@@ -69,4 +69,30 @@ describe("candidateCacheKey", () => {
   it("produces distinct keys for different detour values", () => {
     expect(candidateCacheKey("abc123", 30)).not.toBe(candidateCacheKey("abc123", 60));
   });
+
+  it("handles an empty polyline without throwing", () => {
+    expect(() => candidateCacheKey("", 0)).not.toThrow();
+    expect(candidateCacheKey("", 0)).toMatch(/^candidates:[0-9a-f]{16}$/);
+  });
+
+  it("handles a Unicode polyline without throwing", () => {
+    // Encoded polylines are ASCII in practice; this guards the surrogate-pair edge case
+    expect(() => candidateCacheKey("🗺️route", 30)).not.toThrow();
+  });
+});
+
+describe("waypointsCacheKey — edge cases", () => {
+  it("handles an empty city id list without throwing", () => {
+    expect(() => waypointsCacheKey([])).not.toThrow();
+    expect(waypointsCacheKey([])).toMatch(/^waypoints:[0-9a-f]{16}$/);
+  });
+
+  it("distinguishes city ids that contain commas from multi-element sets", () => {
+    // structured JSON means ['a,b','c'] and ['a','b,c'] produce different keys
+    expect(waypointsCacheKey(["a,b", "c"])).not.toBe(waypointsCacheKey(["a", "b,c"]));
+  });
+
+  it("handles Unicode city ids without throwing", () => {
+    expect(() => waypointsCacheKey(["montréal", "québec"])).not.toThrow();
+  });
 });

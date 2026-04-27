@@ -1,4 +1,4 @@
-import "server-only";
+import "server-only"; // keeps this module out of client bundles
 import { createHash } from "node:crypto";
 
 /**
