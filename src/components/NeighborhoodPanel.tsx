@@ -2,8 +2,8 @@
 
 // SEC-2: name.en and summary.en come from the Gemini enrichment pipeline —
 // an untrusted source. All fields below are rendered as React children
-// (plain text). The property dangerouslySetInnerHTML= is forbidden in this
-// file; CI grep enforces the ban on every PR.
+// (plain text). The dangerouslySetInnerHTML prop is forbidden in this file;
+// CI grep on council.yml enforces the ban on every PR.
 
 import { useMemo } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
