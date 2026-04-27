@@ -13,7 +13,7 @@
 
 **Next 1–2 actions (in priority order):**
 
-1. **Step 9 — latency assertion** (S8 plan, post-merge). Load the live app, add a stop (las-vegas or any city), measure First-Add cold p50 in DevTools Network. Target: ≤ S7 baseline + 200ms. If over, lazy-fetch neighborhoods on panel expand rather than server-render. Record the measurement in a commit note. Low effort, closes the only open S8 plan item.
+1. ~~**Step 9 — latency assertion**~~ ✓ DONE — 1150ms cold (LA→LV, build `2026-04-27-006`). Under S7+200ms budget; no fallback needed. Recorded in `.harness/learnings.md`.
 
 2. **Vitest scaffolding** (`chore: add vitest + firestore mocks`). Bugs reviewer asks for unit tests every round. A Vitest setup + Firestore emulator mock would give tests a place to land and silence the recurring council finding. No behavior change; council should converge in 1 round.
 

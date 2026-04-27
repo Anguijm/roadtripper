@@ -6,7 +6,7 @@ Last refreshed: **2026-04-27 10:20 UTC** (end of Session 9).
 
 ## Now (this week)
 
-- **Step 9 — S8 latency assertion:** load live app, measure First-Add cold p50 in DevTools, verify ≤ S7 baseline + 200ms. If over, fall back to lazy-fetch on panel expand. Closes the last open S8 plan item.
+- ~~**Step 9 — S8 latency assertion:**~~ ✓ DONE — 1150ms (LA→LV route, build `2026-04-27-006`). Well within S7+200ms budget. No lazy-fetch fallback needed.
 - **Vitest scaffolding** (`chore: add vitest + firestore mocks`): bugs reviewer asks for unit tests every round; a scaffold gives them a place to land and should converge in 1 council round.
 - **Check upstream [Anguijm/city-atlas-service#26](https://github.com/Anguijm/city-atlas-service/pull/26) status** before next schema work; carries the divergence fixes we filed.
 

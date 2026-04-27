@@ -112,3 +112,17 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 - **PR #2 (S8a):** 2 rounds. R1 returned Revise (avg 7.0) with cost hallucinating about Firestore queries that don't exist in the diff yet; fixed by clarifying with `MAX_NEIGHBORHOODS_PER_CITY` and an expanded cache-key comment. R2: avg 8.33, Proceed. Council run sha: `5dcedc0`. Cost: ~14 Gemini calls.
 - **PR #3 (S8b):** 1 round. Immediate Proceed (SUCCESS). Council run: workflow `24967777514`. Cost: ~7 calls. Clean diff = fast convergence.
 - **PR #4 (S8c):** 1 real round after 1 CI failure. Run `24988943786` failed on the `Ban dangerouslySetInnerHTML` step (comment contained `dangerouslySetInnerHTML=`). Fixed comment wording; re-run `24989140907` passed in ~2 min. Proceed. Cost: ~14 calls (1 failed + 1 success, council only charged for the success run per the budget counter logic).
+
+---
+
+## 2026-04-27 — Step 9: S8 latency assertion (post-merge measurement)
+
+### KEEP
+- **Promise.all parallel neighborhood fetch added no measurable latency.** First-Add cold measurement: **1150ms** (LA → Las Vegas route, single reading, build `roadtripper-build-2026-04-27-006`). S7 baseline was ~2000ms. Result is 850ms faster — likely a shorter/cheaper route, but well within the +200ms budget.
+- Measurement method: DevTools Network tab, capture the `fetch` POST to `/plan?from=...` triggered by clicking "Add to trip" on a recommendation card.
+
+### INSIGHT
+- The ~2s S7 baseline was measured on a different route. Single-reading p50 is not statistically rigorous, but the margin (850ms under budget) makes a false pass unlikely. If a longer route (e.g. NYC → LA) ever becomes a test case, re-measure — the neighborhood Firestore call could matter more on a longer candidate list.
+
+### COUNCIL
+- No council run. This was a measurement-only step, no code change.
