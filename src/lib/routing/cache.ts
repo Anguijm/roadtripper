@@ -1,4 +1,4 @@
-import "server-only";
+import "server-only"; // keeps this module out of client bundles
 import { createHash } from "node:crypto";
 
 /**
@@ -43,28 +43,37 @@ export function cacheSet<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_M
 /**
  * Stable cache key for the candidate pipeline. The encoded polyline is the
  * canonical route fingerprint; the budget tier affects the detour cap.
+ *
+ * SHA-256 truncated to 16 hex chars (64 bits). Structured JSON input keeps
+ * the `candidates:` namespace orthogonal to other key kinds by construction.
+ * One-time cold cache at deploy when upgrading from the prior charCodeAt
+ * implementation — in-memory LRU only, no migration needed.
  */
 export function candidateCacheKey(
   encodedPolyline: string,
   maxDetourMinutes: number
 ): string {
-  // Hash the polyline to a short prefix to keep keys bounded
-  let hash = 0;
-  for (let i = 0; i < encodedPolyline.length; i++) {
-    hash = (hash * 31 + encodedPolyline.charCodeAt(i)) | 0;
-  }
-  return `candidates:${hash.toString(36)}:${encodedPolyline.length}:${maxDetourMinutes}`;
+  const payload = JSON.stringify({ kind: "candidates", polyline: encodedPolyline, maxDetourMinutes });
+  const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
+  return `candidates:${hash}`;
 }
 
 /**
  * Cache key for the waypoint fetch stage. Independent of persona and
  * detour cap — scoring is downstream and runs on the client. The key is
- * the sorted city id tuple so that different candidate orderings for the
- * same city set hit the same cache entry.
+ * the sorted, deduped city id set so that different candidate orderings for
+ * the same city set hit the same cache entry.
+ *
+ * SHA-256 truncated to 16 hex chars (64 bits). Structured JSON input keeps
+ * the `waypoints:` namespace orthogonal to other key kinds by construction.
+ * One-time cold cache at deploy when upgrading from the prior raw-join
+ * implementation — in-memory LRU only, no migration needed.
  */
 export function waypointsCacheKey(cityIds: readonly string[]): string {
-  const sorted = [...new Set(cityIds)].sort().join(",");
-  return `waypoints:${sorted}`;
+  const sorted = [...new Set(cityIds)].sort();
+  const payload = JSON.stringify({ kind: "waypoints", cityIds: sorted });
+  const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
+  return `waypoints:${hash}`;
 }
 
 /**
@@ -83,9 +92,8 @@ export function waypointsCacheKey(cityIds: readonly string[]): string {
  * 16-bit halves with the same numeric weight as their leading half).
  * Roadtripper city ids are ASCII slugs today so the bug is theoretical,
  * but S8a council R2 (bugs) flagged it correctly and SHA-256 is the
- * standard answer. The other two helpers in this file (`candidateCacheKey`,
- * `waypointsCacheKey`) keep the loop for now — switching them is its own
- * scope.
+ * standard answer. All three key helpers in this file now use the same
+ * structured-hash approach.
  *
  * Caller precondition: `cityId` MUST be validated at its Server Action
  * boundary before reaching this function (regex `^[a-z0-9-]+$` matches
