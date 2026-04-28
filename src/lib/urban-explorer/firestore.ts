@@ -73,6 +73,17 @@ function parseDocs<T>(
   return { items, dropped };
 }
 
+// Full collection scan — reads every document in `cities` (102 docs ≈ $0.00006).
+// Acceptable at this scale; if the collection grows beyond ~10k cities, add a
+// server-side `.where("isArchived", "==", false)` or an aggregation document.
+export async function listCities(): Promise<LoadResult<City>> {
+  const snap = await urbanExplorerDb.collection(CITIES).get();
+  const result = parseDocs(CitySchema, snap.docs, "city");
+  // Filter archived at the application layer, consistent with getCity().
+  // Archived cities are intentionally excluded — not counted as dropped.
+  return { items: result.items.filter((c) => !c.isArchived), dropped: result.dropped };
+}
+
 export async function getCity(cityId: string): Promise<City | null> {
   const snap = await urbanExplorerDb.collection(CITIES).doc(cityId).get();
   if (!snap.exists) return null;
