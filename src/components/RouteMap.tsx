@@ -56,6 +56,25 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
 ];
 
 /**
+ * Builds a candidate marker icon as an SVG data URI.
+ * The canvas is 44×44px (WCAG 2.5.5 touch target) with the visible circle
+ * centered inside, so the tap area is large while the visual stays compact.
+ * Must be called inside effects where google.maps is guaranteed loaded.
+ */
+function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
+  const r = active ? 10 : 6;
+  const stroke = active ? "#f0f6fc" : "#0d1117";
+  const sw = active ? 3 : 2;
+  const opacity = active ? 1 : 0.9;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="${r}" fill="${color}" fill-opacity="${opacity}" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: new google.maps.Point(22, 22),
+    scaledSize: new google.maps.Size(44, 44),
+  };
+}
+
+/**
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
  * computed server-side.
@@ -251,14 +270,7 @@ function PolylineRenderer({
       const existingMarker = existing.get(candidate.id);
       if (existingMarker) {
         // Survivor — update icon color in case persona changed.
-        existingMarker.setIcon({
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 6,
-          fillColor: routeColor,
-          fillOpacity: 0.9,
-          strokeColor: "#0d1117",
-          strokeWeight: 2,
-        });
+        existingMarker.setIcon(candidateMarkerIcon(routeColor));
         continue;
       }
       const marker = new google.maps.Marker({
@@ -272,14 +284,7 @@ function PolylineRenderer({
           className: "rt-candidate-label",
         },
         title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 6,
-          fillColor: routeColor,
-          fillOpacity: 0.9,
-          strokeColor: "#0d1117",
-          strokeWeight: 2,
-        },
+        icon: candidateMarkerIcon(routeColor),
       });
       // Delegate through ref so the handler is never stale on prop change.
       marker.addListener("click", () => onCandidateClickRef.current?.(candidate.id));
@@ -335,22 +340,8 @@ function PolylineRenderer({
     const markersMap = candidateMarkersRef.current;
     if (markersMap.size === 0) return;
 
-    const baseIcon = {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 6,
-      fillColor: routeColor,
-      fillOpacity: 0.9,
-      strokeColor: "#0d1117",
-      strokeWeight: 2,
-    };
-    const activeIcon = {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 10,
-      fillColor: routeColor,
-      fillOpacity: 1,
-      strokeColor: "#f0f6fc",
-      strokeWeight: 3,
-    };
+    const baseIcon = candidateMarkerIcon(routeColor);
+    const activeIcon = candidateMarkerIcon(routeColor, true);
 
     const prev = previousHighlightRef.current;
     if (prev && prev !== highlightedCandidateId) {
