@@ -10,11 +10,10 @@ vi.mock("@/lib/routing/cache", () => ({
 }));
 
 import { getAllCities, lookupCity } from "./cities";
-import { listCities, getCity } from "./firestore";
+import { listCities } from "./firestore";
 import { cacheGet, cacheSet } from "@/lib/routing/cache";
 
 const mockListCities = vi.mocked(listCities);
-const mockGetCity = vi.mocked(getCity);
 const mockCacheGet = vi.mocked(cacheGet);
 const mockCacheSet = vi.mocked(cacheSet);
 
@@ -125,31 +124,30 @@ describe("getAllCities", () => {
 });
 
 describe("lookupCity", () => {
-  it("returns city from in-memory cache without hitting Firestore", async () => {
+  it("returns city from in-memory cache without calling listCities", async () => {
     mockCacheGet.mockReturnValue([CITY_A]);
 
     const result = await lookupCity("las-vegas");
 
     expect(result).toEqual(CITY_A);
-    expect(mockGetCity).not.toHaveBeenCalled();
+    expect(mockListCities).not.toHaveBeenCalled();
   });
 
-  it("falls back to Firestore getCity when cache is cold", async () => {
+  it("loads all cities via getAllCities when cache is cold, never calls getCity directly", async () => {
     mockCacheGet.mockReturnValue(null);
-    mockGetCity.mockResolvedValue(CITY_A);
+    mockListCities.mockResolvedValue({ items: [CITY_A], dropped: [] });
 
     const result = await lookupCity("las-vegas");
 
     expect(result).toEqual(CITY_A);
-    expect(mockGetCity).toHaveBeenCalledWith("las-vegas");
+    expect(mockListCities).toHaveBeenCalledTimes(1);
   });
 
-  it("returns undefined for a city not in the cache", async () => {
+  it("returns undefined for a city not present in the loaded list", async () => {
     mockCacheGet.mockReturnValue([CITY_A]);
 
     const result = await lookupCity("unknown-city");
 
     expect(result).toBeUndefined();
-    expect(mockGetCity).not.toHaveBeenCalled();
   });
 });
