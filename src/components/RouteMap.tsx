@@ -72,6 +72,9 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
  *       Must be declared before 2c so its cleanup runs before 2c repopulates.
  *   2c. Candidate diff — `[map, candidates, routeColor]`, NO return cleanup.
  *       Adds new markers, removes stale ones, updates icon color for survivors.
+ *       Click handler uses `onCandidateClickRef` (always-current ref) so survivor
+ *       markers never hold a stale closure. Also sets `candidateAnnouncement` for
+ *       the aria-live region returned from this component.
  *       No teardown on candidates change = zero flicker on route refresh.
  *   3.  Trip-stop markers — `[map, tripStops, routeColor]`
  *       Numbered square markers for stops the user has added.
@@ -110,6 +113,10 @@ function PolylineRenderer({
   const previousHighlightRef = useRef<string | null>(null);
   const hasFitOnceRef = useRef(false);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
+  // Always-current ref so survivor markers never hold a stale onCandidateClick closure.
+  const onCandidateClickRef = useRef(onCandidateClick);
+  onCandidateClickRef.current = onCandidateClick;
+  const [candidateAnnouncement, setCandidateAnnouncement] = useState("");
 
   // ── Effect 1a: polyline geometry / color ───────────────────────────────
   // Rebuilds when the route geometry or persona color changes.
@@ -274,11 +281,15 @@ function PolylineRenderer({
           strokeWeight: 2,
         },
       });
-      if (onCandidateClick) {
-        marker.addListener("click", () => onCandidateClick(candidate.id));
-      }
+      // Delegate through ref so the handler is never stale on prop change.
+      marker.addListener("click", () => onCandidateClickRef.current?.(candidate.id));
       existing.set(candidate.id, marker);
     }
+
+    const count = nextCandidates.length;
+    setCandidateAnnouncement(
+      count > 0 ? `${count} stops available along this route` : "No stops available along this route"
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, candidates, routeColor]);
 
@@ -359,7 +370,11 @@ function PolylineRenderer({
     previousHighlightRef.current = highlightedCandidateId ?? null;
   }, [highlightedCandidateId, routeColor]);
 
-  return null;
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {candidateAnnouncement}
+    </div>
+  );
 }
 
 function DirectionsFallback({
