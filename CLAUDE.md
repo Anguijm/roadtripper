@@ -14,7 +14,7 @@ bun run dev          # local dev server
 bun run type-check   # tsc --noEmit — run before every commit
 bun run lint         # ESLint
 bun run build        # production build
-bun run test         # vitest run (41 unit tests, isomorphic layer)
+bun run test         # vitest run (53 unit tests, isomorphic layer)
 bun run test:watch   # vitest watch mode
 ```
 
@@ -44,7 +44,7 @@ The CI workflow (`.github/workflows/council.yml`) re-runs automatically on every
 
 **Discriminated unions from the start.** When a return type has fields whose presence depends on an outcome, split into tagged arms immediately — never `field: T | null` for mutually-exclusive states. Example: `WaypointFetchResult = {status:"fresh", ...} | {status:"degraded", ..., failures}`. The TypeScript compiler is the only enforcement across the server-action boundary.
 
-**PolylineRenderer — 4-effect split is load-bearing.** `src/components/RouteMap.tsx` intentionally has four `useEffect` blocks and a `hasFitOnceRef`. Do not collapse them. Each split exists because a specific UX bug shipped when they were combined (camera refit on every add, lost click-highlight state, opacity flicker). Add a new effect rather than expanding an existing one.
+**PolylineRenderer — multi-effect split is load-bearing.** `src/components/RouteMap.tsx` has seven `useEffect` blocks and a `hasFitOnceRef`. Do not collapse them. Each split exists because a specific UX bug shipped when they were combined. The effects are: 1a (polyline geometry), 1b (polyline opacity in-place), 2a (endpoint markers), 2b (candidate bulk-cleanup on map change — declared before 2c), 2c (candidate diff — NO cleanup returned), 3 (trip-stop markers), 4 (highlight). Add a new effect rather than expanding an existing one.
 
 **Force-dynamic + client state — never `router.replace`.** `/plan` is `export const dynamic = "force-dynamic"`. Routing state changes via `router.replace` or `router.push` re-invoke the Server Component and re-bill the Routes API. All UI state (persona, trip stops) lives in `useState` + `window.history.replaceState` only.
 
