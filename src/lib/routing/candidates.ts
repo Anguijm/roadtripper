@@ -40,6 +40,9 @@ const MAX_CANDIDATES_FOR_DRIVE_TIME = 25;
  *    `nearestRoutePoint` is the actual exit point — not just the nearest sample.
  *    This fixes a precision bug that inflated detour times by up to ~25km.
  */
+// `options.cities` must be provided by callers (e.g. findCandidateCities passes
+// await getAllCities()). The default [] produces zero results — intentional so
+// the pure function stays synchronous and testable without a Firestore dep.
 export function geometricFilter(
   encodedPolyline: string,
   options: { sampleIntervalKm?: number; bufferKm?: number; cities?: City[] } = {}

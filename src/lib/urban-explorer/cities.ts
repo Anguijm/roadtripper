@@ -62,5 +62,9 @@ async function _fetchAndCache(): Promise<City[]> {
 }
 
 export async function lookupCity(cityId: string): Promise<City | undefined> {
+  // Check the in-memory cache first to avoid a per-lookup Firestore read when
+  // the full city list is already warm (N+1 guard).
+  const cached = cacheGet<City[]>(ALL_CITIES_CACHE_KEY);
+  if (cached) return cached.find((c) => c.id === cityId);
   return (await getCity(cityId)) ?? undefined;
 }
