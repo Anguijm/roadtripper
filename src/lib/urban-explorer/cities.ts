@@ -51,6 +51,11 @@ async function _fetchAndCache(): Promise<City[]> {
     ({ items, dropped } = await listCities());
   } catch (e) {
     console.error("[cities] listCities() failed — using static fallback:", e);
+    if (CITY_FALLBACK.length === 0) {
+      console.error(
+        "[cities] CRITICAL: Firestore failed AND static fallback is empty — no cities available"
+      );
+    }
     cacheSet(ALL_CITIES_CACHE_KEY, CITY_FALLBACK, FALLBACK_TTL_MS);
     return CITY_FALLBACK;
   }

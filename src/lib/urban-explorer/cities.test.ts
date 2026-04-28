@@ -134,6 +134,17 @@ describe("getAllCities", () => {
     expect(result.length).toBeGreaterThan(0);
     expect(mockCacheSet).toHaveBeenCalled();
   });
+
+  it("caches fallback with a shorter TTL than live data to allow Firestore recovery", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCacheGet.mockReturnValue(null);
+    mockListCities.mockRejectedValue(new Error("Firestore unavailable"));
+
+    await getAllCities();
+
+    const [[, , ttl]] = mockCacheSet.mock.calls;
+    expect(ttl).toBeLessThan(24 * 60 * 60 * 1000); // fallback TTL < 24h live TTL
+  });
 });
 
 describe("lookupCity", () => {
