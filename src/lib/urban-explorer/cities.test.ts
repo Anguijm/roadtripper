@@ -55,7 +55,7 @@ describe("getAllCities", () => {
     );
   });
 
-  it("warns and caches remaining items when some cities fail schema validation", async () => {
+  it("includes dropped docIds in the warning when some cities fail schema validation", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockCacheGet.mockReturnValue(null);
     mockListCities.mockResolvedValue({
@@ -67,21 +67,26 @@ describe("getAllCities", () => {
 
     expect(result).toEqual([CITY_A]);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("failed schema validation")
+      expect.stringContaining("broken-city")
     );
     expect(mockCacheSet).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 
-  it("throws and does not cache when all cities fail schema validation", async () => {
+  it("returns static fallback when all cities fail schema validation", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mockCacheGet.mockReturnValue(null);
     mockListCities.mockResolvedValue({
       items: [],
       dropped: [{ id: "broken-city", reason: "missing lat" }],
     });
 
-    await expect(getAllCities()).rejects.toThrow("city list unavailable");
-    expect(mockCacheSet).not.toHaveBeenCalled();
+    const result = await getAllCities();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThan(0);
+    expect(mockCacheSet).toHaveBeenCalled();
   });
 
   it("caches and returns empty array for a genuinely empty collection", async () => {
@@ -105,19 +110,15 @@ describe("getAllCities", () => {
     expect(r2).toEqual([CITY_A]);
   });
 
-  it("clears in-flight state after a throw so subsequent calls retry Firestore", async () => {
+  it("returns static fallback when listCities throws", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mockCacheGet.mockReturnValue(null);
-    mockListCities.mockResolvedValueOnce({
-      items: [],
-      dropped: [{ id: "bad", reason: "x" }],
-    });
+    mockListCities.mockRejectedValue(new Error("Firestore unavailable"));
 
-    await expect(getAllCities()).rejects.toThrow();
-
-    mockListCities.mockResolvedValue({ items: [CITY_A], dropped: [] });
     const result = await getAllCities();
 
-    expect(result).toEqual([CITY_A]);
-    expect(mockListCities).toHaveBeenCalledTimes(2);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThan(0);
+    expect(mockCacheSet).toHaveBeenCalled();
   });
 });
