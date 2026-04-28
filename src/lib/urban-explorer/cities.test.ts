@@ -73,6 +73,19 @@ describe("getAllCities", () => {
     warnSpy.mockRestore();
   });
 
+  it("fallback excludes archived cities even when fallback JSON contains them", async () => {
+    // city_fallback.json is validated + isArchived-filtered at module load.
+    // This test verifies that the fallback array (CITY_FALLBACK) never contains
+    // archived entries — matching the listCities() filter applied in firestore.ts.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCacheGet.mockReturnValue(null);
+    mockListCities.mockRejectedValue(new Error("Firestore unavailable"));
+
+    const result = await getAllCities();
+
+    expect(result.every((c) => !c.isArchived)).toBe(true);
+  });
+
   it("returns static fallback when all cities fail schema validation", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});

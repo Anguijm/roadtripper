@@ -22,7 +22,9 @@ if (!_fallbackParse.success) {
     _fallbackParse.error.issues.map((i) => i.message).join("; ")
   );
 }
-const CITY_FALLBACK: City[] = _fallbackParse.success ? _fallbackParse.data : [];
+const CITY_FALLBACK: City[] = _fallbackParse.success
+  ? _fallbackParse.data.filter((c) => !c.isArchived)
+  : [];
 
 // Singleton in-flight promise — prevents cache stampede on cold start.
 // Concurrent requests that all miss the cache share one Firestore read.
