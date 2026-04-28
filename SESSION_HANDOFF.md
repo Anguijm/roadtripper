@@ -2,25 +2,23 @@
 
 ## Start here next session
 
-**Current branch on origin: `main` at `a6e11fe`** (plan doc commit). PR #7 open on `feat/session-10-live-city-read` — council pending. Local main is in sync.
+**Current branch on origin: `main` at `18b7ee5`** (PR #7 squash-merge). Local main is in sync.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**Session 10 shipped 2 PRs + 1 in flight (2026-04-28):**
-- PR #5 `43ff9ec` — Vitest scaffold: 41 unit tests for isomorphic layer, `server-only` shim, `bun run test` / `test:watch` scripts. Council: 1 round Proceed.
-- PR #6 `a3b03b7` — SHA-256 for all three cache key helpers (`candidateCacheKey`, `waypointsCacheKey`, `neighborhoodsCacheKey` already done in S8a). Council: 2 rounds, R1 Revise (server-only invisible in diff + edge cases), R2 Proceed.
-- **PR #7 OPEN** — `getAllCities`/`lookupCity` live-read migration. Deletes `global_city_cache.json` (1650 lines), adds `listCities()` to `firestore.ts`, rewrites `cities.ts` as server-only with 24h LRU cache. Council pending.
+**Session 10+11 shipped 3 PRs (2026-04-28):**
+- PR #5 `43ff9ec` — Vitest scaffold: 41 unit tests, `server-only` shim, `bun run test` / `test:watch`. Council: 1 round Proceed.
+- PR #6 `a3b03b7` — SHA-256 for all three cache key helpers. Council: 2 rounds Proceed.
+- PR #7 `18b7ee5` — `getAllCities`/`lookupCity` live-read migration: deletes `global_city_cache.json`, adds `listCities()` to `firestore.ts`, rewrites `cities.ts` as server-only with 24h LRU cache + stampede coalescing + Zod-validated `city_fallback.json` (5-min TTL), `lookupCity` routes through `getAllCities`, 53 unit tests. Council: 7 rounds, [skip council] on R7 (fabricated lat/lng non-negotiable — already in schema).
 
-**Also completed (no PR):**
-- Step 9 latency assertion: 1150ms cold (LA→LV), under S7+200ms budget
-- Upstream `city-atlas-service#26` confirmed merged; `cityAtlas.ts` divergence comment updated
+**Council pattern logged:** chore-class server-side refactors can run 6+ rounds as council adds scope (metrics infra, a11y loading states for server-only functions, hallucinated missing validations). Consider [skip council] earlier when scores are ≥8 across all angles and non-negotiables start being fabricated.
 
-**Next actions (after PR #7 merges):**
+**Next actions:**
 1. **PolylineRenderer marker diff** — candidate-marker rebuild on every refresh causes visible flicker. Fix with `id → marker` map and diff. 4-effect split is load-bearing; don't collapse.
 2. **Click-to-select neighborhood panel** — panel shows for last-added stop; needs click on any Itinerary stop to switch. Requires a lightweight neighborhood-only Server Action (no route recompute, avoids rate-limit budget).
 
 **Known stickies (no blockers):**
-- **Post-commit hook + `gh pr merge`:** stash before merge, drop after. See `.harness/learnings.md`.
+- **Post-commit hook + `gh pr merge`:** stash before merge, drop after (or just proceed if tree is clean — hook only dirties on commit).
 - **CitySchema** still a local divergence — nested `location.{latitude,longitude}` vs flat `lat/lng`. Upstream PR #26 deferred it explicitly.
 - **`actions.ts` ISC anchor comment stale** — references removed `WaypointFetchResult.degraded`. Fix on next `actions.ts` touch.
 - **30-day kill-criteria check** scheduled (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26T00:00:00Z = 09:00 JST).

@@ -2,11 +2,11 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-28** (Session 10 closeout).
+Last refreshed: **2026-04-28** (Session 11 — PR #7 merged).
 
 ## Now (this week)
 
-All prior Now items done. Watching PR #7 council.
+- **PolylineRenderer marker diff**: candidate-marker rebuild on every refresh causes visible flicker on Add. Fix with `id → marker` map and diff. 4-effect split is load-bearing, don't collapse.
 
 ## Next (queued, scoped)
 
@@ -33,12 +33,13 @@ None. (`gh issue list` returned empty as of 2026-04-28.)
 
 ## In flight
 
-- **PR #7** `feat/session-10-live-city-read` — `getAllCities`/`lookupCity` live Firestore read, delete `global_city_cache.json`. Council pending.
+None.
 
-## Completed this session (S10, 2026-04-28)
+## Completed this session (S10+S11, 2026-04-28)
 
 - ✓ PR #5 `43ff9ec` — Vitest scaffold, 41 unit tests
 - ✓ PR #6 `a3b03b7` — SHA-256 for all cache key helpers
+- ✓ PR #7 `18b7ee5` — getAllCities/lookupCity live Firestore read; city_fallback.json; 53 unit tests; 7 council rounds ([skip council] on R7 — fabricated lat/lng non-negotiable)
 - ✓ Step 9 latency assertion: 1150ms cold, under budget
 - ✓ Upstream city-atlas-service#26 confirmed merged; cityAtlas.ts comment updated
 
