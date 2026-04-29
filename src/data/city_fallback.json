@@ -14,10 +14,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.0814,
-    "lng": -81.519,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 41.0814,
+    "lng": -81.519
   },
   {
     "id": "albuquerque",
@@ -34,10 +34,10 @@
     "country": "Algeria",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": 36.7538,
-    "lng": 3.0588,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 36.7538,
+    "lng": 3.0588
   },
   {
     "id": "amarillo",
@@ -45,10 +45,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.2219,
-    "lng": -101.8313,
     "coverageTier": "town",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 35.2219,
+    "lng": -101.8313
   },
   {
     "id": "amsterdam",
@@ -65,10 +65,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 61.2181,
-    "lng": -149.9003,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 61.2181,
+    "lng": -149.9003
   },
   {
     "id": "ann-arbor-mi",
@@ -76,10 +76,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.2808,
-    "lng": -83.743,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 42.2808,
+    "lng": -83.743
   },
   {
     "id": "annapolis-md",
@@ -87,10 +87,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.9784,
-    "lng": -76.4922,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.9784,
+    "lng": -76.4922
   },
   {
     "id": "arcata-ca",
@@ -98,10 +98,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.8665,
-    "lng": -124.0828,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.8665,
+    "lng": -124.0828
   },
   {
     "id": "asbury-park-nj",
@@ -109,10 +109,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.2204,
-    "lng": -74.0121,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.2204,
+    "lng": -74.0121
   },
   {
     "id": "asheville",
@@ -120,10 +120,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.5951,
-    "lng": -82.5515,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 35.5951,
+    "lng": -82.5515
   },
   {
     "id": "ashland-or",
@@ -131,10 +131,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.1946,
-    "lng": -122.7095,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.1946,
+    "lng": -122.7095
   },
   {
     "id": "astoria-or",
@@ -142,10 +142,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 46.1879,
-    "lng": -123.8313,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 46.1879,
+    "lng": -123.8313
   },
   {
     "id": "athens",
@@ -207,10 +207,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.3876,
-    "lng": -68.2039,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 44.3876,
+    "lng": -68.2039
   },
   {
     "id": "barcelona",
@@ -227,10 +227,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 30.4515,
-    "lng": -91.1871,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 30.4515,
+    "lng": -91.1871
   },
   {
     "id": "beacon-ny",
@@ -238,10 +238,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.5035,
-    "lng": -73.9707,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 41.5035,
+    "lng": -73.9707
   },
   {
     "id": "beaufort-sc",
@@ -249,10 +249,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 32.4316,
-    "lng": -80.6698,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 32.4316,
+    "lng": -80.6698
   },
   {
     "id": "beijing",
@@ -269,10 +269,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 48.7519,
-    "lng": -122.4787,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 48.7519,
+    "lng": -122.4787
   },
   {
     "id": "bend",
@@ -280,10 +280,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.0582,
-    "lng": -121.3153,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 44.0582,
+    "lng": -121.3153
   },
   {
     "id": "bengaluru",
@@ -309,10 +309,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.6259,
-    "lng": -75.3705,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.6259,
+    "lng": -75.3705
   },
   {
     "id": "birmingham",
@@ -320,10 +320,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.5186,
-    "lng": -86.8104,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 33.5186,
+    "lng": -86.8104
   },
   {
     "id": "birmingham-al",
@@ -331,14 +331,14 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.5186,
-    "lng": -86.8104,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 33.5186,
+    "lng": -86.8104
   },
   {
     "id": "bogota",
-    "name": "Bogot\u00e1",
+    "name": "Bogotá",
     "country": "Colombia",
     "region": "latin-america",
     "tier": "tier3",
@@ -360,10 +360,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.3601,
-    "lng": -71.0589,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 42.3601,
+    "lng": -71.0589
   },
   {
     "id": "boulder",
@@ -371,10 +371,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.015,
-    "lng": -105.2705,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 40.015,
+    "lng": -105.2705
   },
   {
     "id": "bozeman-mt",
@@ -382,10 +382,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 45.677,
-    "lng": -111.0429,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 45.677,
+    "lng": -111.0429
   },
   {
     "id": "brattleboro-vt",
@@ -393,10 +393,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.8509,
-    "lng": -72.5579,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.8509,
+    "lng": -72.5579
   },
   {
     "id": "brevard-nc",
@@ -404,10 +404,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.2329,
-    "lng": -82.7343,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 35.2329,
+    "lng": -82.7343
   },
   {
     "id": "brussels",
@@ -433,10 +433,10 @@
     "country": "Argentina",
     "region": "latin-america",
     "tier": "tier3",
-    "lat": -34.6037,
-    "lng": -58.3816,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -34.6037,
+    "lng": -58.3816
   },
   {
     "id": "buffalo",
@@ -444,10 +444,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.8864,
-    "lng": -78.8784,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.8864,
+    "lng": -78.8784
   },
   {
     "id": "burlington-vt",
@@ -455,10 +455,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.4759,
-    "lng": -73.2121,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 44.4759,
+    "lng": -73.2121
   },
   {
     "id": "cairo",
@@ -484,10 +484,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.5552,
-    "lng": -121.9233,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 36.5552,
+    "lng": -121.9233
   },
   {
     "id": "casablanca",
@@ -522,10 +522,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.0456,
-    "lng": -85.3097,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 35.0456,
+    "lng": -85.3097
   },
   {
     "id": "chicago",
@@ -539,19 +539,19 @@
   {
     "id": "cincinnati",
     "name": "Cincinnati",
+    "clinicalName": "Cincinnati",
+    "vernacularName": "The Queen City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.1031,
-    "lng": -84.512,
-    "clinicalName": "Cincinnati",
-    "vernacularName": "The Queen City",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 39.1031,
+    "lng": -84.512
   },
   {
     "id": "cleveland",
@@ -559,10 +559,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.4993,
-    "lng": -81.6944,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.4993,
+    "lng": -81.6944
   },
   {
     "id": "colorado-springs",
@@ -570,10 +570,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.8339,
-    "lng": -104.8214,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.8339,
+    "lng": -104.8214
   },
   {
     "id": "columbia-sc",
@@ -581,10 +581,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.0007,
-    "lng": -81.0348,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 34.0007,
+    "lng": -81.0348
   },
   {
     "id": "columbus",
@@ -601,10 +601,10 @@
     "country": "Denmark",
     "region": "europe",
     "tier": "tier2",
-    "lat": 55.6761,
-    "lng": 12.5683,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 55.6761,
+    "lng": 12.5683
   },
   {
     "id": "dallas",
@@ -621,10 +621,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.7589,
-    "lng": -84.1916,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 39.7589,
+    "lng": -84.1916
   },
   {
     "id": "decatur-ga",
@@ -632,10 +632,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.7748,
-    "lng": -84.2963,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 33.7748,
+    "lng": -84.2963
   },
   {
     "id": "delhi",
@@ -652,10 +652,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.7392,
-    "lng": -104.9903,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 39.7392,
+    "lng": -104.9903
   },
   {
     "id": "des-moines",
@@ -663,27 +663,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.5868,
-    "lng": -93.625,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 41.5868,
+    "lng": -93.625
   },
   {
     "id": "detroit",
     "name": "Detroit",
+    "clinicalName": "Detroit",
+    "vernacularName": "Motor City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.3314,
-    "lng": -83.0458,
-    "clinicalName": "Detroit",
-    "vernacularName": "Motor City",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 42.3314,
+    "lng": -83.0458
   },
   {
     "id": "doha",
@@ -700,10 +700,10 @@
     "country": "United Arab Emirates",
     "region": "middle-east-africa",
     "tier": "tier1",
-    "lat": 25.2048,
-    "lng": 55.2708,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 25.2048,
+    "lng": 55.2708
   },
   {
     "id": "dublin",
@@ -711,10 +711,10 @@
     "country": "Ireland",
     "region": "europe",
     "tier": "tier2",
-    "lat": 53.3498,
-    "lng": -6.2603,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 53.3498,
+    "lng": -6.2603
   },
   {
     "id": "durango-co",
@@ -722,10 +722,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 37.2753,
-    "lng": -107.8801,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 37.2753,
+    "lng": -107.8801
   },
   {
     "id": "eau-claire-wi",
@@ -733,27 +733,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.8113,
-    "lng": -91.4985,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 44.8113,
+    "lng": -91.4985
   },
   {
     "id": "edinburgh",
     "name": "Edinburgh",
+    "clinicalName": "Edinburgh, United Kingdom",
+    "vernacularName": "Auld Reekie",
     "country": "United Kingdom",
     "region": "europe",
     "tier": "tier2",
-    "lat": 55.9533,
-    "lng": -3.1883,
-    "clinicalName": "Edinburgh, United Kingdom",
-    "vernacularName": "Auld Reekie",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Edinburgh's Old Town and New Town together form a UNESCO World Heritage Site; the Old Town's Royal Mile connects Edinburgh Castle, built atop an extinct volcano, to the Palace of Holyroodhouse.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 55.9533,
+    "lng": -3.1883
   },
   {
     "id": "el-paso-tx",
@@ -761,10 +761,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 31.7619,
-    "lng": -106.485,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 31.7619,
+    "lng": -106.485
   },
   {
     "id": "eureka-ca",
@@ -772,10 +772,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.8021,
-    "lng": -124.1637,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.8021,
+    "lng": -124.1637
   },
   {
     "id": "eureka-springs-ar",
@@ -783,10 +783,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.4012,
-    "lng": -93.7388,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 36.4012,
+    "lng": -93.7388
   },
   {
     "id": "fargo-nd",
@@ -794,10 +794,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 46.8772,
-    "lng": -96.7898,
     "coverageTier": "metro",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 46.8772,
+    "lng": -96.7898
   },
   {
     "id": "fernandina-beach-fl",
@@ -805,10 +805,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 30.6699,
-    "lng": -81.462,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 30.6699,
+    "lng": -81.462
   },
   {
     "id": "flagstaff",
@@ -816,10 +816,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.1983,
-    "lng": -111.6513,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 35.1983,
+    "lng": -111.6513
   },
   {
     "id": "flint",
@@ -827,10 +827,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.0125,
-    "lng": -83.6875,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.0125,
+    "lng": -83.6875
   },
   {
     "id": "florence",
@@ -838,10 +838,10 @@
     "country": "Italy",
     "region": "europe",
     "tier": "tier3",
-    "lat": 43.7696,
-    "lng": 11.2558,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 43.7696,
+    "lng": 11.2558
   },
   {
     "id": "florence-al",
@@ -849,10 +849,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.7998,
-    "lng": -87.6773,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.7998,
+    "lng": -87.6773
   },
   {
     "id": "fort-worth",
@@ -860,10 +860,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 32.7555,
-    "lng": -97.3308,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 32.7555,
+    "lng": -97.3308
   },
   {
     "id": "frederick-md",
@@ -871,10 +871,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.4143,
-    "lng": -77.4105,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 39.4143,
+    "lng": -77.4105
   },
   {
     "id": "fredericksburg-tx",
@@ -882,10 +882,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 30.2752,
-    "lng": -98.872,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 30.2752,
+    "lng": -98.872
   },
   {
     "id": "fresno",
@@ -893,10 +893,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.7378,
-    "lng": -119.7871,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 36.7378,
+    "lng": -119.7871
   },
   {
     "id": "fukuoka",
@@ -904,10 +904,10 @@
     "country": "Japan",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 33.5902,
-    "lng": 130.4017,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 33.5902,
+    "lng": 130.4017
   },
   {
     "id": "galveston-tx",
@@ -915,10 +915,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 29.3013,
-    "lng": -94.7977,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 29.3013,
+    "lng": -94.7977
   },
   {
     "id": "geneva",
@@ -935,10 +935,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.6159,
-    "lng": -70.662,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.6159,
+    "lng": -70.662
   },
   {
     "id": "grand-rapids",
@@ -946,10 +946,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.9634,
-    "lng": -85.6681,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.9634,
+    "lng": -85.6681
   },
   {
     "id": "green-bay-wi",
@@ -957,10 +957,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.5133,
-    "lng": -88.0133,
     "coverageTier": "metro",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 44.5133,
+    "lng": -88.0133
   },
   {
     "id": "greenville-sc",
@@ -968,10 +968,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.8526,
-    "lng": -82.394,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 34.8526,
+    "lng": -82.394
   },
   {
     "id": "guadalajara",
@@ -997,27 +997,27 @@
     "country": "Vietnam",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 21.0278,
-    "lng": 105.8342,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 21.0278,
+    "lng": 105.8342
   },
   {
     "id": "hartford",
     "name": "Hartford",
+    "clinicalName": "Hartford",
+    "vernacularName": "The Insurance City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.7658,
-    "lng": -72.6734,
-    "clinicalName": "Hartford",
-    "vernacularName": "The Insurance City",
     "vibeClass": "BRUTAL_GRIT",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.7658,
+    "lng": -72.6734
   },
   {
     "id": "healdsburg-ca",
@@ -1025,10 +1025,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.6099,
-    "lng": -122.8697,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.6099,
+    "lng": -122.8697
   },
   {
     "id": "helsinki",
@@ -1036,10 +1036,10 @@
     "country": "Finland",
     "region": "europe",
     "tier": "tier2",
-    "lat": 60.1699,
-    "lng": 24.9384,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 60.1699,
+    "lng": 24.9384
   },
   {
     "id": "ho-chi-minh-city",
@@ -1047,10 +1047,10 @@
     "country": "Vietnam",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 10.8231,
-    "lng": 106.6297,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 10.8231,
+    "lng": 106.6297
   },
   {
     "id": "holland-mi",
@@ -1058,10 +1058,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.7875,
-    "lng": -86.1089,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.7875,
+    "lng": -86.1089
   },
   {
     "id": "hong-kong",
@@ -1069,27 +1069,27 @@
     "country": "China",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": 22.3193,
-    "lng": 114.1694,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 22.3193,
+    "lng": 114.1694
   },
   {
     "id": "honolulu",
     "name": "Honolulu",
+    "clinicalName": "Honolulu",
+    "vernacularName": "Sheltered Harbor",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 21.3099,
-    "lng": -157.8581,
-    "clinicalName": "Honolulu",
-    "vernacularName": "Sheltered Harbor",
     "vibeClass": "FLUID_TROPIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 21.3099,
+    "lng": -157.8581
   },
   {
     "id": "hood-river-or",
@@ -1097,10 +1097,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 45.7054,
-    "lng": -121.5217,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 45.7054,
+    "lng": -121.5217
   },
   {
     "id": "hot-springs-ar",
@@ -1108,27 +1108,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.5037,
-    "lng": -93.0552,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.5037,
+    "lng": -93.0552
   },
   {
     "id": "houston",
     "name": "Houston",
+    "clinicalName": "Houston",
+    "vernacularName": "Space City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 29.7604,
-    "lng": -95.3698,
-    "clinicalName": "Houston",
-    "vernacularName": "Space City",
     "vibeClass": "NEON_GRID",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 29.7604,
+    "lng": -95.3698
   },
   {
     "id": "hudson-ny",
@@ -1136,10 +1136,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.2529,
-    "lng": -73.7862,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.2529,
+    "lng": -73.7862
   },
   {
     "id": "huntsville-al",
@@ -1147,27 +1147,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.7304,
-    "lng": -86.5861,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 34.7304,
+    "lng": -86.5861
   },
   {
     "id": "indianapolis",
     "name": "Indianapolis",
+    "clinicalName": "Indianapolis",
+    "vernacularName": "The Circle City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.7684,
-    "lng": -86.1581,
-    "clinicalName": "Indianapolis",
-    "vernacularName": "The Circle City",
     "vibeClass": "BRUTAL_GRIT",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 39.7684,
+    "lng": -86.1581
   },
   {
     "id": "iowa-city-ia",
@@ -1175,10 +1175,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.6611,
-    "lng": -91.5302,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 41.6611,
+    "lng": -91.5302
   },
   {
     "id": "istanbul",
@@ -1186,10 +1186,10 @@
     "country": "Turkey",
     "region": "europe",
     "tier": "tier2",
-    "lat": 41.0082,
-    "lng": 28.9784,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.0082,
+    "lng": 28.9784
   },
   {
     "id": "ithaca",
@@ -1197,10 +1197,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.444,
-    "lng": -76.5019,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 42.444,
+    "lng": -76.5019
   },
   {
     "id": "jackson-wy",
@@ -1208,27 +1208,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.4799,
-    "lng": -110.7624,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 43.4799,
+    "lng": -110.7624
   },
   {
     "id": "jacksonville",
     "name": "Jacksonville",
+    "clinicalName": "Jacksonville",
+    "vernacularName": "Jax",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 30.3322,
-    "lng": -81.6557,
-    "clinicalName": "Jacksonville",
-    "vernacularName": "Jax",
     "vibeClass": "FLUID_TROPIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 30.3322,
+    "lng": -81.6557
   },
   {
     "id": "jakarta",
@@ -1236,10 +1236,10 @@
     "country": "Indonesia",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": -6.2088,
-    "lng": 106.8456,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -6.2088,
+    "lng": 106.8456
   },
   {
     "id": "jersey-city",
@@ -1247,10 +1247,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.7178,
-    "lng": -74.0431,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.7178,
+    "lng": -74.0431
   },
   {
     "id": "johannesburg",
@@ -1258,10 +1258,10 @@
     "country": "South Africa",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": -26.2041,
-    "lng": 28.0473,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -26.2041,
+    "lng": 28.0473
   },
   {
     "id": "juneau-ak",
@@ -1269,10 +1269,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 58.3005,
-    "lng": -134.4197,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 58.3005,
+    "lng": -134.4197
   },
   {
     "id": "kalamazoo-mi",
@@ -1280,27 +1280,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.2917,
-    "lng": -85.5872,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.2917,
+    "lng": -85.5872
   },
   {
     "id": "kansas-city",
     "name": "Kansas City",
+    "clinicalName": "Kansas City",
+    "vernacularName": "Paris of the Plains",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.0997,
-    "lng": -94.5786,
-    "clinicalName": "Kansas City",
-    "vernacularName": "Paris of the Plains",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 39.0997,
+    "lng": -94.5786
   },
   {
     "id": "kaohsiung",
@@ -1317,10 +1317,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 24.5551,
-    "lng": -81.78,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 24.5551,
+    "lng": -81.78
   },
   {
     "id": "knoxville",
@@ -1328,10 +1328,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.9606,
-    "lng": -83.9207,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 35.9606,
+    "lng": -83.9207
   },
   {
     "id": "krakow",
@@ -1339,10 +1339,10 @@
     "country": "Poland",
     "region": "europe",
     "tier": "tier2",
-    "lat": 50.0647,
-    "lng": 19.945,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 50.0647,
+    "lng": 19.945
   },
   {
     "id": "kuala-lumpur",
@@ -1350,10 +1350,10 @@
     "country": "Malaysia",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 3.139,
-    "lng": 101.6869,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 3.139,
+    "lng": 101.6869
   },
   {
     "id": "kyoto",
@@ -1361,10 +1361,10 @@
     "country": "Japan",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 35.0116,
-    "lng": 135.7681,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 35.0116,
+    "lng": 135.7681
   },
   {
     "id": "lancaster-pa",
@@ -1372,10 +1372,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.0379,
-    "lng": -76.3055,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.0379,
+    "lng": -76.3055
   },
   {
     "id": "las-vegas",
@@ -1383,10 +1383,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.1699,
-    "lng": -115.1398,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 36.1699,
+    "lng": -115.1398
   },
   {
     "id": "lawrence-ks",
@@ -1394,10 +1394,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.9717,
-    "lng": -95.2353,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.9717,
+    "lng": -95.2353
   },
   {
     "id": "lexington",
@@ -1405,10 +1405,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.0406,
-    "lng": -84.5037,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.0406,
+    "lng": -84.5037
   },
   {
     "id": "lima",
@@ -1416,10 +1416,10 @@
     "country": "Peru",
     "region": "latin-america",
     "tier": "tier3",
-    "lat": -12.0464,
-    "lng": -77.0428,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -12.0464,
+    "lng": -77.0428
   },
   {
     "id": "lisbon",
@@ -1436,10 +1436,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.7465,
-    "lng": -92.2896,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.7465,
+    "lng": -92.2896
   },
   {
     "id": "livingston-mt",
@@ -1447,10 +1447,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 45.6641,
-    "lng": -110.5607,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 45.6641,
+    "lng": -110.5607
   },
   {
     "id": "london",
@@ -1467,10 +1467,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.7701,
-    "lng": -118.1937,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 33.7701,
+    "lng": -118.1937
   },
   {
     "id": "los-angeles",
@@ -1478,10 +1478,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier1",
-    "lat": 34.0522,
-    "lng": -118.2437,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 34.0522,
+    "lng": -118.2437
   },
   {
     "id": "louisville",
@@ -1489,10 +1489,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.2527,
-    "lng": -85.7585,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 38.2527,
+    "lng": -85.7585
   },
   {
     "id": "lubbock-tx",
@@ -1500,10 +1500,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.5779,
-    "lng": -101.8552,
     "coverageTier": "metro",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 33.5779,
+    "lng": -101.8552
   },
   {
     "id": "madison",
@@ -1511,10 +1511,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.0731,
-    "lng": -89.4012,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.0731,
+    "lng": -89.4012
   },
   {
     "id": "madrid",
@@ -1522,10 +1522,10 @@
     "country": "Spain",
     "region": "europe",
     "tier": "tier2",
-    "lat": 40.4168,
-    "lng": -3.7038,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 40.4168,
+    "lng": -3.7038
   },
   {
     "id": "manchester",
@@ -1533,10 +1533,10 @@
     "country": "United Kingdom",
     "region": "europe",
     "tier": "tier2",
-    "lat": 53.4808,
-    "lng": -2.2426,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 53.4808,
+    "lng": -2.2426
   },
   {
     "id": "manila",
@@ -1544,10 +1544,10 @@
     "country": "Philippines",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 14.5995,
-    "lng": 120.9842,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 14.5995,
+    "lng": 120.9842
   },
   {
     "id": "marquette-mi",
@@ -1555,10 +1555,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 46.5436,
-    "lng": -87.3954,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 46.5436,
+    "lng": -87.3954
   },
   {
     "id": "marrakech",
@@ -1566,14 +1566,14 @@
     "country": "Morocco",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": 31.6295,
-    "lng": -7.9811,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 31.6295,
+    "lng": -7.9811
   },
   {
     "id": "medellin",
-    "name": "Medell\u00edn",
+    "name": "Medellín",
     "country": "Colombia",
     "region": "latin-america",
     "tier": "tier3",
@@ -1586,10 +1586,10 @@
     "country": "Australia",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": -37.8136,
-    "lng": 144.9631,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -37.8136,
+    "lng": 144.9631
   },
   {
     "id": "memphis",
@@ -1597,10 +1597,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.1495,
-    "lng": -90.049,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 35.1495,
+    "lng": -90.049
   },
   {
     "id": "mexico-city",
@@ -1608,10 +1608,10 @@
     "country": "Mexico",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 19.4326,
-    "lng": -99.1332,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 19.4326,
+    "lng": -99.1332
   },
   {
     "id": "miami",
@@ -1619,10 +1619,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 25.7617,
-    "lng": -80.1918,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 25.7617,
+    "lng": -80.1918
   },
   {
     "id": "milan",
@@ -1630,10 +1630,10 @@
     "country": "Italy",
     "region": "europe",
     "tier": "tier3",
-    "lat": 45.4642,
-    "lng": 9.19,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 45.4642,
+    "lng": 9.19
   },
   {
     "id": "milwaukee",
@@ -1641,10 +1641,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.0389,
-    "lng": -87.9065,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 43.0389,
+    "lng": -87.9065
   },
   {
     "id": "minneapolis",
@@ -1652,10 +1652,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.9778,
-    "lng": -93.265,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 44.9778,
+    "lng": -93.265
   },
   {
     "id": "missoula",
@@ -1663,10 +1663,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 46.8721,
-    "lng": -113.994,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 46.8721,
+    "lng": -113.994
   },
   {
     "id": "mobile",
@@ -1674,10 +1674,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 30.6954,
-    "lng": -88.0399,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 30.6954,
+    "lng": -88.0399
   },
   {
     "id": "monterey-ca",
@@ -1685,10 +1685,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.6002,
-    "lng": -121.8947,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 36.6002,
+    "lng": -121.8947
   },
   {
     "id": "montreal",
@@ -1696,10 +1696,10 @@
     "country": "Canada",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 45.5017,
-    "lng": -73.5673,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 45.5017,
+    "lng": -73.5673
   },
   {
     "id": "mumbai",
@@ -1707,10 +1707,10 @@
     "country": "India",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 19.076,
-    "lng": 72.8777,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 19.076,
+    "lng": 72.8777
   },
   {
     "id": "muscate",
@@ -1718,10 +1718,10 @@
     "country": "Oman",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": 23.588,
-    "lng": 58.3829,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 23.588,
+    "lng": 58.3829
   },
   {
     "id": "nairobi",
@@ -1729,44 +1729,44 @@
     "country": "Kenya",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": -1.2921,
-    "lng": 36.8219,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -1.2921,
+    "lng": 36.8219
   },
   {
     "id": "nashville",
     "name": "Nashville",
+    "clinicalName": "Nashville",
+    "vernacularName": "Music City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.1627,
-    "lng": -86.7816,
-    "clinicalName": "Nashville",
-    "vernacularName": "Music City",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 36.1627,
+    "lng": -86.7816
   },
   {
     "id": "new-haven",
     "name": "New Haven",
+    "clinicalName": "New Haven",
+    "vernacularName": "Elm City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.3083,
-    "lng": -72.9279,
-    "clinicalName": "New Haven",
-    "vernacularName": "Elm City",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.3083,
+    "lng": -72.9279
   },
   {
     "id": "new-orleans",
@@ -1774,25 +1774,25 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 29.9511,
-    "lng": -90.0715,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 29.9511,
+    "lng": -90.0715
   },
   {
     "id": "new-york",
     "name": "New York City",
+    "clinicalName": "New York City, United States",
+    "vernacularName": "Gotham",
     "country": "United States",
     "region": "north-america",
     "tier": "tier1",
-    "lat": 40.7128,
-    "lng": -74.006,
-    "clinicalName": "New York City, United States",
-    "vernacularName": "Gotham",
     "vibeClass": "NEON_GRID",
     "noiseBaseline": 0.035,
     "isArchived": false,
-    "loreAnchor": "Purchased from the Lenape people by the Dutch West India Company in 1626 as New Amsterdam, the city was renamed New York when the English seized it in 1664."
+    "loreAnchor": "Purchased from the Lenape people by the Dutch West India Company in 1626 as New Amsterdam, the city was renamed New York when the English seized it in 1664.",
+    "lat": 40.7128,
+    "lng": -74.006
   },
   {
     "id": "new-york-city",
@@ -1800,10 +1800,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier1",
-    "lat": 40.7128,
-    "lng": -74.006,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 40.7128,
+    "lng": -74.006
   },
   {
     "id": "newark",
@@ -1811,10 +1811,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.7357,
-    "lng": -74.1724,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.7357,
+    "lng": -74.1724
   },
   {
     "id": "newport-ri",
@@ -1822,10 +1822,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.4901,
-    "lng": -71.3128,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 41.4901,
+    "lng": -71.3128
   },
   {
     "id": "northampton-ma",
@@ -1833,10 +1833,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.3251,
-    "lng": -72.6412,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.3251,
+    "lng": -72.6412
   },
   {
     "id": "ojai-ca",
@@ -1844,10 +1844,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.448,
-    "lng": -119.2429,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.448,
+    "lng": -119.2429
   },
   {
     "id": "oklahoma-city",
@@ -1855,10 +1855,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.4676,
-    "lng": -97.5164,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 35.4676,
+    "lng": -97.5164
   },
   {
     "id": "olympia-wa",
@@ -1866,10 +1866,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 47.0379,
-    "lng": -122.9007,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 47.0379,
+    "lng": -122.9007
   },
   {
     "id": "omaha",
@@ -1877,10 +1877,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.2565,
-    "lng": -95.9345,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 41.2565,
+    "lng": -95.9345
   },
   {
     "id": "osaka",
@@ -1888,10 +1888,10 @@
     "country": "Japan",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": 34.6937,
-    "lng": 135.5023,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 34.6937,
+    "lng": 135.5023
   },
   {
     "id": "oslo",
@@ -1899,10 +1899,10 @@
     "country": "Norway",
     "region": "europe",
     "tier": "tier2",
-    "lat": 59.9139,
-    "lng": 10.7522,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 59.9139,
+    "lng": 10.7522
   },
   {
     "id": "oxford-ms",
@@ -1910,10 +1910,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.3665,
-    "lng": -89.5195,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.3665,
+    "lng": -89.5195
   },
   {
     "id": "paris",
@@ -1921,10 +1921,10 @@
     "country": "France",
     "region": "europe",
     "tier": "tier1",
-    "lat": 48.8566,
-    "lng": 2.3522,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 48.8566,
+    "lng": 2.3522
   },
   {
     "id": "park-city",
@@ -1932,10 +1932,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.6461,
-    "lng": -111.498,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 40.6461,
+    "lng": -111.498
   },
   {
     "id": "pensacola-fl",
@@ -1943,10 +1943,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 30.4213,
-    "lng": -87.2169,
     "coverageTier": "metro",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 30.4213,
+    "lng": -87.2169
   },
   {
     "id": "petaluma-ca",
@@ -1954,10 +1954,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.2324,
-    "lng": -122.6367,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.2324,
+    "lng": -122.6367
   },
   {
     "id": "philadelphia",
@@ -1965,10 +1965,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.9526,
-    "lng": -75.1652,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 39.9526,
+    "lng": -75.1652
   },
   {
     "id": "phoenix",
@@ -1976,10 +1976,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.4484,
-    "lng": -112.074,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 33.4484,
+    "lng": -112.074
   },
   {
     "id": "pittsburgh",
@@ -1987,10 +1987,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.4406,
-    "lng": -79.9959,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 40.4406,
+    "lng": -79.9959
   },
   {
     "id": "port-townsend-wa",
@@ -1998,10 +1998,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 48.117,
-    "lng": -122.7607,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 48.117,
+    "lng": -122.7607
   },
   {
     "id": "portland",
@@ -2009,10 +2009,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 45.5152,
-    "lng": -122.6784,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 45.5152,
+    "lng": -122.6784
   },
   {
     "id": "porto",
@@ -2020,10 +2020,10 @@
     "country": "Portugal",
     "region": "europe",
     "tier": "tier2",
-    "lat": 41.1579,
-    "lng": -8.6291,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.1579,
+    "lng": -8.6291
   },
   {
     "id": "portsmouth-nh",
@@ -2031,10 +2031,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.0718,
-    "lng": -70.7626,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.0718,
+    "lng": -70.7626
   },
   {
     "id": "prague",
@@ -2042,10 +2042,10 @@
     "country": "Czech Republic",
     "region": "europe",
     "tier": "tier2",
-    "lat": 50.0755,
-    "lng": 14.4378,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 50.0755,
+    "lng": 14.4378
   },
   {
     "id": "prescott-az",
@@ -2053,27 +2053,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.54,
-    "lng": -112.4685,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.54,
+    "lng": -112.4685
   },
   {
     "id": "providence",
     "name": "Providence",
+    "clinicalName": "Providence",
+    "vernacularName": "The Creative Capital",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.824,
-    "lng": -71.4128,
-    "clinicalName": "Providence",
-    "vernacularName": "The Creative Capital",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.824,
+    "lng": -71.4128
   },
   {
     "id": "provincetown-ma",
@@ -2081,10 +2081,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.0501,
-    "lng": -70.1853,
     "coverageTier": "town",
-    "maxRadiusKm": 5
+    "maxRadiusKm": 5,
+    "lat": 42.0501,
+    "lng": -70.1853
   },
   {
     "id": "quebec-city",
@@ -2092,27 +2092,27 @@
     "country": "Canada",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 46.8139,
-    "lng": -71.208,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 46.8139,
+    "lng": -71.208
   },
   {
     "id": "raleigh",
     "name": "Raleigh",
+    "clinicalName": "Raleigh",
+    "vernacularName": "The Oak City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.7796,
-    "lng": -78.6382,
-    "clinicalName": "Raleigh",
-    "vernacularName": "The Oak City",
     "vibeClass": "NEON_GRID",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 35.7796,
+    "lng": -78.6382
   },
   {
     "id": "reno",
@@ -2120,14 +2120,14 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 39.5296,
-    "lng": -119.8138,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 39.5296,
+    "lng": -119.8138
   },
   {
     "id": "reykjavik",
-    "name": "Reykjav\u00edk",
+    "name": "Reykjavík",
     "country": "Iceland",
     "region": "europe",
     "tier": "tier3",
@@ -2137,19 +2137,19 @@
   {
     "id": "richmond",
     "name": "Richmond",
+    "clinicalName": "Richmond",
+    "vernacularName": "RVA",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 37.5407,
-    "lng": -77.436,
-    "clinicalName": "Richmond",
-    "vernacularName": "RVA",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 37.5407,
+    "lng": -77.436
   },
   {
     "id": "rio-de-janeiro",
@@ -2157,10 +2157,10 @@
     "country": "Brazil",
     "region": "latin-america",
     "tier": "tier3",
-    "lat": -22.9068,
-    "lng": -43.1729,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -22.9068,
+    "lng": -43.1729
   },
   {
     "id": "riyadh",
@@ -2168,10 +2168,10 @@
     "country": "Saudi Arabia",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": 24.7136,
-    "lng": 46.6753,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 24.7136,
+    "lng": 46.6753
   },
   {
     "id": "roanoke-va",
@@ -2179,10 +2179,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 37.271,
-    "lng": -79.9414,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 37.271,
+    "lng": -79.9414
   },
   {
     "id": "rochester-ny",
@@ -2190,10 +2190,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.1566,
-    "lng": -77.6088,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.1566,
+    "lng": -77.6088
   },
   {
     "id": "rome",
@@ -2201,10 +2201,10 @@
     "country": "Italy",
     "region": "europe",
     "tier": "tier1",
-    "lat": 41.9028,
-    "lng": 12.4964,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 41.9028,
+    "lng": 12.4964
   },
   {
     "id": "sacramento",
@@ -2212,10 +2212,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.5816,
-    "lng": -121.4944,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.5816,
+    "lng": -121.4944
   },
   {
     "id": "salem-ma",
@@ -2223,10 +2223,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.5195,
-    "lng": -70.8967,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.5195,
+    "lng": -70.8967
   },
   {
     "id": "salt-lake-city",
@@ -2234,10 +2234,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.7608,
-    "lng": -111.891,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 40.7608,
+    "lng": -111.891
   },
   {
     "id": "san-antonio",
@@ -2245,10 +2245,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 29.4241,
-    "lng": -98.4936,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 29.4241,
+    "lng": -98.4936
   },
   {
     "id": "san-diego",
@@ -2256,10 +2256,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 32.7157,
-    "lng": -117.1611,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 32.7157,
+    "lng": -117.1611
   },
   {
     "id": "san-francisco",
@@ -2267,10 +2267,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier1",
-    "lat": 37.7749,
-    "lng": -122.4194,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 37.7749,
+    "lng": -122.4194
   },
   {
     "id": "san-luis-obispo-ca",
@@ -2278,10 +2278,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.2828,
-    "lng": -120.6596,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 35.2828,
+    "lng": -120.6596
   },
   {
     "id": "santa-barbara",
@@ -2289,10 +2289,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.4208,
-    "lng": -119.6982,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 34.4208,
+    "lng": -119.6982
   },
   {
     "id": "santa-cruz-ca",
@@ -2300,10 +2300,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.9741,
-    "lng": -122.0308,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 36.9741,
+    "lng": -122.0308
   },
   {
     "id": "santa-fe",
@@ -2311,10 +2311,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.687,
-    "lng": -105.9378,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 35.687,
+    "lng": -105.9378
   },
   {
     "id": "santiago",
@@ -2322,14 +2322,14 @@
     "country": "Chile",
     "region": "latin-america",
     "tier": "tier3",
-    "lat": -33.4489,
-    "lng": -70.6693,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -33.4489,
+    "lng": -70.6693
   },
   {
     "id": "sao-paulo",
-    "name": "S\u00e3o Paulo",
+    "name": "São Paulo",
     "country": "Brazil",
     "region": "latin-america",
     "tier": "tier3",
@@ -2342,27 +2342,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.0831,
-    "lng": -73.7846,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.0831,
+    "lng": -73.7846
   },
   {
     "id": "savannah",
     "name": "Savannah",
+    "clinicalName": "Savannah",
+    "vernacularName": "Hostess City",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 32.0809,
-    "lng": -81.0912,
-    "clinicalName": "Savannah",
-    "vernacularName": "Hostess City",
     "vibeClass": "FLUID_TROPIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 32.0809,
+    "lng": -81.0912
   },
   {
     "id": "scottsdale-az",
@@ -2370,10 +2370,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 33.4942,
-    "lng": -111.9261,
     "coverageTier": "metro",
-    "maxRadiusKm": 20
+    "maxRadiusKm": 20,
+    "lat": 33.4942,
+    "lng": -111.9261
   },
   {
     "id": "scranton-pa",
@@ -2381,10 +2381,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 41.409,
-    "lng": -75.6624,
     "coverageTier": "metro",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 41.409,
+    "lng": -75.6624
   },
   {
     "id": "seattle",
@@ -2392,10 +2392,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 47.6062,
-    "lng": -122.3321,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 47.6062,
+    "lng": -122.3321
   },
   {
     "id": "sedona",
@@ -2403,10 +2403,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 34.8697,
-    "lng": -111.761,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 34.8697,
+    "lng": -111.761
   },
   {
     "id": "selma-al",
@@ -2414,10 +2414,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 32.4074,
-    "lng": -87.0211,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 32.4074,
+    "lng": -87.0211
   },
   {
     "id": "seoul",
@@ -2425,27 +2425,27 @@
     "country": "South Korea",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": 37.5665,
-    "lng": 126.978,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 37.5665,
+    "lng": 126.978
   },
   {
     "id": "shanghai",
     "name": "Shanghai",
+    "clinicalName": "Shanghai, China",
+    "vernacularName": "上海 — Modu",
     "country": "China",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 31.2304,
-    "lng": 121.4737,
-    "clinicalName": "Shanghai, China",
-    "vernacularName": "\u4e0a\u6d77 \u2014 Modu",
     "vibeClass": "NEON_GRID",
     "noiseBaseline": 0.035,
     "isArchived": false,
-    "loreAnchor": "The Bund waterfront, built during Shanghai's era as a treaty port (1843\u20131943), preserves 52 buildings spanning Art Deco, Beaux-Arts, and Romanesque styles as a monument to the city's colonial-era banking district.",
+    "loreAnchor": "The Bund waterfront, built during Shanghai's era as a treaty port (1843–1943), preserves 52 buildings spanning Art Deco, Beaux-Arts, and Romanesque styles as a monument to the city's colonial-era banking district.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 31.2304,
+    "lng": 121.4737
   },
   {
     "id": "shenzhen",
@@ -2453,10 +2453,10 @@
     "country": "China",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 22.5431,
-    "lng": 114.0579,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 22.5431,
+    "lng": 114.0579
   },
   {
     "id": "singapore",
@@ -2464,10 +2464,10 @@
     "country": "Singapore",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": 1.3521,
-    "lng": 103.8198,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 1.3521,
+    "lng": 103.8198
   },
   {
     "id": "sioux-falls",
@@ -2475,10 +2475,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.546,
-    "lng": -96.7313,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.546,
+    "lng": -96.7313
   },
   {
     "id": "sitka-ak",
@@ -2486,10 +2486,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 57.0531,
-    "lng": -135.33,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 57.0531,
+    "lng": -135.33
   },
   {
     "id": "spokane",
@@ -2497,10 +2497,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 47.6588,
-    "lng": -117.426,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 47.6588,
+    "lng": -117.426
   },
   {
     "id": "st-augustine-fl",
@@ -2508,27 +2508,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 29.8947,
-    "lng": -81.3145,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 29.8947,
+    "lng": -81.3145
   },
   {
     "id": "st-louis",
     "name": "St. Louis",
+    "clinicalName": "St. Louis",
+    "vernacularName": "Gateway to the West",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.627,
-    "lng": -90.1994,
-    "clinicalName": "St. Louis",
-    "vernacularName": "Gateway to the West",
     "vibeClass": "BRUTAL_GRIT",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 38.627,
+    "lng": -90.1994
   },
   {
     "id": "st-paul",
@@ -2536,10 +2536,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.9537,
-    "lng": -93.09,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 44.9537,
+    "lng": -93.09
   },
   {
     "id": "staunton-va",
@@ -2547,10 +2547,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.1496,
-    "lng": -79.0717,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 38.1496,
+    "lng": -79.0717
   },
   {
     "id": "steamboat-springs-co",
@@ -2558,27 +2558,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 40.485,
-    "lng": -106.8317,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 40.485,
+    "lng": -106.8317
   },
   {
     "id": "stockholm",
     "name": "Stockholm",
+    "clinicalName": "Stockholm, Sweden",
+    "vernacularName": "Stansen — Ansen",
     "country": "Sweden",
     "region": "europe",
     "tier": "tier2",
-    "lat": 59.3293,
-    "lng": 18.0686,
-    "clinicalName": "Stockholm, Sweden",
-    "vernacularName": "Stansen \u2014 Ansen",
     "vibeClass": "BRUTAL_GRIT",
     "noiseBaseline": 0.035,
     "isArchived": false,
-    "loreAnchor": "Stockholm was founded in 1252 on the island of Gamla Stan; the city spans 14 islands connected by 57 bridges across the junction of Lake M\u00e4laren and the Baltic Sea.",
+    "loreAnchor": "Stockholm was founded in 1252 on the island of Gamla Stan; the city spans 14 islands connected by 57 bridges across the junction of Lake Mälaren and the Baltic Sea.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 59.3293,
+    "lng": 18.0686
   },
   {
     "id": "sydney",
@@ -2586,10 +2586,10 @@
     "country": "Australia",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": -33.8688,
-    "lng": 151.2093,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -33.8688,
+    "lng": 151.2093
   },
   {
     "id": "syracuse",
@@ -2597,27 +2597,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 43.0481,
-    "lng": -76.1474,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 43.0481,
+    "lng": -76.1474
   },
   {
     "id": "taipei",
     "name": "Taipei",
+    "clinicalName": "Taipei, Taiwan",
+    "vernacularName": "台北 — Taibei",
     "country": "Taiwan",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": 25.033,
-    "lng": 121.5654,
-    "clinicalName": "Taipei, Taiwan",
-    "vernacularName": "\u53f0\u5317 \u2014 Taibei",
     "vibeClass": "NEON_GRID",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "The Ketagalan people were the original inhabitants of the Taipei Basin; the city's night market culture traces back to Japanese colonial-era evening bazaars of the 1890s.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 25.033,
+    "lng": 121.5654
   },
   {
     "id": "tampa",
@@ -2625,10 +2625,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 27.9506,
-    "lng": -82.4572,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 27.9506,
+    "lng": -82.4572
   },
   {
     "id": "taos",
@@ -2636,27 +2636,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.4072,
-    "lng": -105.5731,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 36.4072,
+    "lng": -105.5731
   },
   {
     "id": "tel-aviv",
     "name": "Tel Aviv",
+    "clinicalName": "Tel Aviv, Israel",
+    "vernacularName": "תל אביב — The White City",
     "country": "Israel",
     "region": "middle-east-africa",
     "tier": "tier3",
-    "lat": 32.0853,
-    "lng": 34.7818,
-    "clinicalName": "Tel Aviv, Israel",
-    "vernacularName": "\u05ea\u05dc \u05d0\u05d1\u05d9\u05d1 \u2014 The White City",
     "vibeClass": "BRUTAL_GRIT",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Tel Aviv was founded in 1909 as a Jewish neighborhood outside the ancient port of Jaffa; its White City district contains over 4,000 Bauhaus and International Style buildings, the largest concentration in the world, earning UNESCO World Heritage status in 2003.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 32.0853,
+    "lng": 34.7818
   },
   {
     "id": "tokyo",
@@ -2664,10 +2664,10 @@
     "country": "Japan",
     "region": "asia-pacific",
     "tier": "tier1",
-    "lat": 35.6762,
-    "lng": 139.6503,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 35.6762,
+    "lng": 139.6503
   },
   {
     "id": "toronto",
@@ -2675,10 +2675,10 @@
     "country": "Canada",
     "region": "north-america",
     "tier": "tier1",
-    "lat": 43.6532,
-    "lng": -79.3832,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 43.6532,
+    "lng": -79.3832
   },
   {
     "id": "traverse-city",
@@ -2686,27 +2686,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 44.7631,
-    "lng": -85.6206,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 44.7631,
+    "lng": -85.6206
   },
   {
     "id": "tucson",
     "name": "Tucson",
+    "clinicalName": "Tucson",
+    "vernacularName": "The Old Pueblo",
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 32.2226,
-    "lng": -110.9747,
-    "clinicalName": "Tucson",
-    "vernacularName": "The Old Pueblo",
     "vibeClass": "FLUID_TROPIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Origin unknown; documented local usage only.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 32.2226,
+    "lng": -110.9747
   },
   {
     "id": "tulsa",
@@ -2714,27 +2714,27 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.154,
-    "lng": -95.9928,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 36.154,
+    "lng": -95.9928
   },
   {
     "id": "valencia",
     "name": "Valencia",
+    "clinicalName": "Valencia, Spain",
+    "vernacularName": "València",
     "country": "Spain",
     "region": "europe",
     "tier": "tier3",
-    "lat": 39.4699,
-    "lng": -0.3763,
-    "clinicalName": "Valencia, Spain",
-    "vernacularName": "Val\u00e8ncia",
     "vibeClass": "FLUID_TROPIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
-    "loreAnchor": "Valencia transformed the dried-up Turia riverbed into a 9-kilometer urban park after a devastating 1957 flood; Santiago Calatrava's City of Arts and Sciences (1998\u20132005) now anchors the river gardens.",
+    "loreAnchor": "Valencia transformed the dried-up Turia riverbed into a 9-kilometer urban park after a devastating 1957 flood; Santiago Calatrava's City of Arts and Sciences (1998–2005) now anchors the river gardens.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 39.4699,
+    "lng": -0.3763
   },
   {
     "id": "vancouver",
@@ -2742,27 +2742,27 @@
     "country": "Canada",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 49.2827,
-    "lng": -123.1207,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 49.2827,
+    "lng": -123.1207
   },
   {
     "id": "venice",
     "name": "Venice",
+    "clinicalName": "Venice, Italy",
+    "vernacularName": "Venezia — La Serenissima",
     "country": "Italy",
     "region": "europe",
     "tier": "tier2",
-    "lat": 45.4408,
-    "lng": 12.3155,
-    "clinicalName": "Venice, Italy",
-    "vernacularName": "Venezia \u2014 La Serenissima",
     "vibeClass": "DECAY_CHIC",
     "noiseBaseline": 0.035,
     "isArchived": false,
     "loreAnchor": "Venice is built on 118 small islands connected by over 400 bridges; its lagoon settlement began in the 5th century as Romans fled barbarian invasions, and the Republic of Venice dominated Mediterranean trade for a millennium.",
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 45.4408,
+    "lng": 12.3155
   },
   {
     "id": "vienna",
@@ -2770,10 +2770,10 @@
     "country": "Austria",
     "region": "europe",
     "tier": "tier2",
-    "lat": 48.2082,
-    "lng": 16.3738,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 48.2082,
+    "lng": 16.3738
   },
   {
     "id": "virginia-beach",
@@ -2781,10 +2781,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 36.8529,
-    "lng": -75.978,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 36.8529,
+    "lng": -75.978
   },
   {
     "id": "waco-tx",
@@ -2792,10 +2792,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 31.5493,
-    "lng": -97.1467,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 31.5493,
+    "lng": -97.1467
   },
   {
     "id": "warsaw",
@@ -2803,10 +2803,10 @@
     "country": "Poland",
     "region": "europe",
     "tier": "tier2",
-    "lat": 52.2297,
-    "lng": 21.0122,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 52.2297,
+    "lng": 21.0122
   },
   {
     "id": "washington-dc",
@@ -2814,10 +2814,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 38.9072,
-    "lng": -77.0369,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 38.9072,
+    "lng": -77.0369
   },
   {
     "id": "wellington",
@@ -2825,10 +2825,10 @@
     "country": "New Zealand",
     "region": "asia-pacific",
     "tier": "tier2",
-    "lat": -41.2866,
-    "lng": 174.7756,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": -41.2866,
+    "lng": 174.7756
   },
   {
     "id": "whitefish-mt",
@@ -2836,10 +2836,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 48.4113,
-    "lng": -114.3351,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 48.4113,
+    "lng": -114.3351
   },
   {
     "id": "wichita",
@@ -2847,10 +2847,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 37.6872,
-    "lng": -97.3301,
     "coverageTier": "town",
-    "maxRadiusKm": 15
+    "maxRadiusKm": 15,
+    "lat": 37.6872,
+    "lng": -97.3301
   },
   {
     "id": "winslow-az",
@@ -2858,10 +2858,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 35.0242,
-    "lng": -110.6974,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 35.0242,
+    "lng": -110.6974
   },
   {
     "id": "woodstock-ny",
@@ -2869,10 +2869,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.0412,
-    "lng": -74.1168,
     "coverageTier": "village",
-    "maxRadiusKm": 3
+    "maxRadiusKm": 3,
+    "lat": 42.0412,
+    "lng": -74.1168
   },
   {
     "id": "worcester",
@@ -2880,10 +2880,10 @@
     "country": "United States",
     "region": "north-america",
     "tier": "tier3",
-    "lat": 42.2626,
-    "lng": -71.8023,
     "coverageTier": "town",
-    "maxRadiusKm": 10
+    "maxRadiusKm": 10,
+    "lat": 42.2626,
+    "lng": -71.8023
   },
   {
     "id": "yokohama",
@@ -2900,9 +2900,9 @@
     "country": "Switzerland",
     "region": "europe",
     "tier": "tier2",
-    "lat": 47.3769,
-    "lng": 8.5417,
     "coverageTier": "metro",
-    "maxRadiusKm": 25
+    "maxRadiusKm": 25,
+    "lat": 47.3769,
+    "lng": 8.5417
   }
 ]
