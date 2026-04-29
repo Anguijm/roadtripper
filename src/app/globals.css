@@ -30,3 +30,21 @@ body {
   color: var(--text-primary);
   font-family: var(--font-mono), "SF Mono", "Cascadia Code", "Fira Code", monospace;
 }
+
+@layer utilities {
+  .plan-sheet {
+    @media (max-width: 767px) {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      height: 92dvh;
+      transform: translateY(var(--sheet-y, 45%));
+      transition: transform var(--sheet-duration, 300ms) ease-out;
+    }
+    @media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}

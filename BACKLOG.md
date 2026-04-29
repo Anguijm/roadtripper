@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-29** (Session 13 closeout — PRs #8 and #9 merged).
+Last refreshed: **2026-04-30** (Session 14 closeout — PR #10 merged).
 
 ## Now (this week)
 
@@ -10,7 +10,6 @@ _Nothing blocking. See Next._
 
 ## Next (queued, scoped)
 
-- **Off-corridor indicator in Itinerary**: subtle badge for stops no longer in the refreshed candidate list (Council S7-PROD deferred).
 - **Mobile bottom sheet**: the 360px aside doesn't fit phones; needs 20/55/92 snap points (Session 5 council deferred — also addresses WCAG 1.4.10 Reflow in Someday).
 
 ## Someday (architectural ideas, daydreams)
@@ -37,6 +36,9 @@ None. (`gh issue list` returned empty as of 2026-04-29.)
 None.
 
 ## Completed
+
+### Session 14 (2026-04-30)
+- ✓ PR #10 `90bcc77` — off-corridor indicator: `offCorridorStopIds` useMemo (liveWaypointFetch, empty-array guard), `↗ detour` amber badge in Itinerary, `corridorAnnouncement` aria-live region. 2 council rounds + `[skip council]` (R2 bugs real: empty-cities guard; R2 a11y fabricated: i18n, light-theme contrast on dark-only app).
 
 ### Session 13 (2026-04-29)
 - ✓ PR #8 `8318cbf` — merge of marker diff (merged at session start via `[skip council]`)
