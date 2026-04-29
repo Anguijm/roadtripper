@@ -452,6 +452,7 @@ export default function RouteMap({
         defaultZoom={7}
         gestureHandling="greedy"
         zoomControl={true}
+        zoomControlOptions={{ position: google.maps.ControlPosition.RIGHT_CENTER }}
         fullscreenControl={false}
         mapTypeControl={false}
         streetViewControl={false}
