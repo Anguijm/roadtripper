@@ -159,11 +159,14 @@ export default function PlanWorkspace({
     [tripStops]
   );
 
-  // Stops no longer near the refreshed corridor. Empty until the first
-  // recompute so we never badge stops that came from the initial render.
+  // Stops no longer near the refreshed corridor. Uses liveWaypointFetch (not
+  // effectiveWaypointFetch) so degraded fallback data never triggers false badges.
+  // Empty cities array = degraded/failed response — treat same as null to avoid
+  // marking every stop a detour when the recompute itself failed.
   const offCorridorStopIds = useMemo<ReadonlySet<string>>(() => {
-    if (liveWaypointFetch === null) return new Set();
-    const candidateIds = new Set((liveWaypointFetch.cities ?? []).map((c) => c.id));
+    const cities = liveWaypointFetch?.cities;
+    if (!cities || cities.length === 0) return new Set();
+    const candidateIds = new Set(cities.map((c) => c.id));
     return new Set(tripStops.map((s) => s.cityId).filter((id) => !candidateIds.has(id)));
   }, [liveWaypointFetch, tripStops]);
 
