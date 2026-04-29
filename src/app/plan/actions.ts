@@ -7,6 +7,7 @@ import {
   type DirectionsResult,
 } from "@/lib/routing/directions";
 import { haversineKm } from "@/lib/routing/polyline";
+import { z } from "zod/v4";
 import { findCandidateCities } from "@/lib/routing/candidates";
 import { fetchWaypointsForCandidates, fetchNeighborhoods } from "@/lib/routing/recommend";
 import {
@@ -252,21 +253,47 @@ export async function recomputeAndRefreshAction(
 
 // ── Neighborhood-only fetch ────────────────────────────────────────────────
 
+const CityIdSchema = z.string().regex(/^[a-z0-9-]{1,100}$/);
+
 export type NeighborhoodsActionResult =
   | { ok: true; cityId: string; loadState: NeighborhoodLoadState }
-  | { ok: false; cityId: string };
+  | { ok: false; cityId: string; error: "invalid_input" | "rate_limited" | "internal_error" };
 
 /**
  * Lightweight Server Action — fetch neighborhoods for a single city.
- * No rate-limit charge: this is a cache-first Firestore read with no
- * billable upstream API calls.
+ * Uses the shared burst rate limiter (20 req/60s per IP) to prevent
+ * abuse; no daily quota or spacing guard since this is a cache-first
+ * Firestore read with no billable upstream API calls.
  */
 export async function fetchNeighborhoodsAction(
   cityId: string
 ): Promise<NeighborhoodsActionResult> {
-  if (!/^[a-z0-9-]{1,100}$/.test(cityId)) {
-    return { ok: false, cityId };
+  // Input validation first — before any I/O.
+  const parsed = CityIdSchema.safeParse(cityId);
+  if (!parsed.success) {
+    return { ok: false, cityId: typeof cityId === "string" ? cityId : "", error: "invalid_input" };
   }
-  const result = await fetchNeighborhoods(cityId);
-  return { ok: true, cityId, loadState: result.loadState };
+  const validCityId = parsed.data;
+
+  // Burst guard — prevents tight-loop abuse on this unauthenticated endpoint.
+  let ip: string;
+  try {
+    const h = await headers();
+    ip = getClientIp(h);
+  } catch {
+    return { ok: false, cityId: validCityId, error: "internal_error" };
+  }
+  maybeSweep();
+  const burst = checkRateLimit(ip);
+  if (!burst.ok) {
+    return { ok: false, cityId: validCityId, error: "rate_limited" };
+  }
+
+  try {
+    const result = await fetchNeighborhoods(validCityId);
+    return { ok: true, cityId: validCityId, loadState: result.loadState };
+  } catch (e) {
+    console.error("[fetchNeighborhoodsAction] fetchNeighborhoods threw:", e);
+    return { ok: false, cityId: validCityId, error: "internal_error" };
+  }
 }

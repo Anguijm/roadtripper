@@ -305,15 +305,29 @@ export default function PlanWorkspace({
 
     let cancelled = false;
     setIsPanelLoading(true);
-    fetchNeighborhoodsAction(panelCityId).then((result) => {
-      if (cancelled) return;
-      setLocalNeighborhoods((prev) => ({
-        ...prev,
-        [result.cityId]: result.ok ? result.loadState : { kind: "failed" },
-      }));
+    fetchNeighborhoodsAction(panelCityId)
+      .then((result) => {
+        if (cancelled) return;
+        setLocalNeighborhoods((prev) => ({
+          ...prev,
+          [result.cityId]: result.ok ? result.loadState : { kind: "failed" },
+        }));
+        setIsPanelLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLocalNeighborhoods((prev) => ({
+          ...prev,
+          [panelCityId]: { kind: "failed" },
+        }));
+        setIsPanelLoading(false);
+      });
+    // Reset loading flag if the user switches to a cached stop before this
+    // fetch completes — prevents the spinner getting stuck.
+    return () => {
+      cancelled = true;
       setIsPanelLoading(false);
-    });
-    return () => { cancelled = true; };
+    };
   }, [panelCityId, effectiveNeighborhoods]);
 
   // Brief recommendation panel highlight after each successful refresh
@@ -403,13 +417,13 @@ export default function PlanWorkspace({
 
           {/* Neighborhood panel — follows panelCityId (click any Itinerary stop) */}
           {panelCityId && panelStop && (
-            isPanelLoading ? (
+            isPanelLoading || !effectiveNeighborhoods[panelCityId] ? (
               <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
                 <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] animate-pulse">
                   Loading {panelStop.cityName}…
                 </p>
               </div>
-            ) : effectiveNeighborhoods[panelCityId] ? (
+            ) : (
               <NeighborhoodPanel
                 cityId={panelCityId}
                 cityName={panelStop.cityName}
@@ -421,7 +435,7 @@ export default function PlanWorkspace({
                     : []
                 }
               />
-            ) : null
+            )
           )}
 
           {/* Recompute error banner with Retry */}
