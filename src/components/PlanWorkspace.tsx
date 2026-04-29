@@ -107,7 +107,6 @@ export default function PlanWorkspace({
   const [localNeighborhoods, setLocalNeighborhoods] = useState<
     Record<string, NeighborhoodLoadState>
   >({});
-  const [isPanelLoading, setIsPanelLoading] = useState(false);
   // Screen-reader announcement for panel loading / content updates (WCAG 4.1.3).
   const [panelAnnouncement, setPanelAnnouncement] = useState("");
 
@@ -310,7 +309,6 @@ export default function PlanWorkspace({
       tripStops.find((s) => s.cityId === panelCityId)?.cityName ?? panelCityId;
 
     let cancelled = false;
-    setIsPanelLoading(true);
     setPanelAnnouncement(`Loading ${cityName} neighborhoods`);
     fetchNeighborhoodsAction(panelCityId)
       .then((result) => {
@@ -319,7 +317,6 @@ export default function PlanWorkspace({
           ...prev,
           [result.cityId]: result.ok ? result.loadState : { kind: "failed" },
         }));
-        setIsPanelLoading(false);
         setPanelAnnouncement(
           result.ok ? `Showing neighborhoods for ${cityName}` : `Could not load neighborhoods for ${cityName}`
         );
@@ -330,15 +327,9 @@ export default function PlanWorkspace({
           ...prev,
           [panelCityId]: { kind: "failed" },
         }));
-        setIsPanelLoading(false);
         setPanelAnnouncement(`Could not load neighborhoods for ${cityName}`);
       });
-    // Reset loading flag if the user switches to a cached stop before this
-    // fetch completes — prevents the spinner getting stuck.
-    return () => {
-      cancelled = true;
-      setIsPanelLoading(false);
-    };
+    return () => { cancelled = true; };
   }, [panelCityId, effectiveNeighborhoods]);
 
   // Brief recommendation panel highlight after each successful refresh
@@ -429,9 +420,11 @@ export default function PlanWorkspace({
             />
           )}
 
-          {/* Neighborhood panel — follows panelCityId (click any Itinerary stop) */}
+          {/* Neighborhood panel — follows panelCityId (click any Itinerary stop).
+               Loading: data absent (fetch in flight or not yet started).
+               Loaded / empty / failed: delegated to NeighborhoodPanel. */}
           {panelCityId && panelStop && (
-            isPanelLoading || !effectiveNeighborhoods[panelCityId] ? (
+            effectiveNeighborhoods[panelCityId] == null ? (
               <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
                 <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] motion-safe:animate-pulse">
                   Loading {panelStop.cityName}…

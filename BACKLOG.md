@@ -27,6 +27,7 @@ Last refreshed: **2026-04-29** (Session 12 closeout — PR #8 in flight).
 - `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
 - `actions.ts` ISC anchor comment stale — references removed `WaypointFetchResult.degraded`; fix on next `actions.ts` touch.
 - `geometricFilter` docstring still says "102 UE cities" — hardcoded count will drift; fix on next `candidates.ts` touch.
+- **WCAG 1.4.10 Reflow (BACKLOG)**: the 360px `<aside>` does not reflow at 320px viewport (WCAG requires no scroll at 320px width / 256px height). Pre-existing from S5; needs a responsive/bottom-sheet layout pass (see mobile bottom sheet item above).
 
 ## Open issues
 
