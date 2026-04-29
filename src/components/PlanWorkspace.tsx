@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import React, {
   useState,
   useCallback,
   useEffect,
@@ -112,6 +112,49 @@ export default function PlanWorkspace({
 
   // Council ISC-S6-ARCH-5 — incrementing request id, latest wins.
   const requestIdRef = useRef(0);
+
+  // Mobile bottom sheet snap state.
+  // 0 = peek (20vh), 1 = half (55vh, default), 2 = full (92vh).
+  const SNAP_Y = [80, 45, 8] as const; // translateY % for each snap
+  const [sheetSnap, setSheetSnap] = useState<0 | 1 | 2>(1);
+  const sheetRef = useRef<HTMLElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const cycleSnap = useCallback(() => {
+    setSheetSnap((s) => ((s + 1) % 3) as 0 | 1 | 2);
+  }, []);
+
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    sheetRef.current?.style.setProperty("--sheet-duration", "0ms");
+  }, []);
+
+  const handleSheetTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (touchStartYRef.current === null || !sheetRef.current) return;
+      const deltaY = e.touches[0].clientY - touchStartYRef.current;
+      const basePct = SNAP_Y[sheetSnap];
+      const deltaPct = (deltaY / window.innerHeight) * 100;
+      const clamped = Math.max(0, Math.min(95, basePct + deltaPct));
+      sheetRef.current.style.setProperty("--sheet-y", `${clamped}%`);
+    },
+    [sheetSnap]
+  );
+
+  const handleSheetTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (touchStartYRef.current === null || !sheetRef.current) return;
+      const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
+      const threshold = window.innerHeight * 0.08;
+      let nextSnap = sheetSnap;
+      if (deltaY > threshold && sheetSnap < 2) nextSnap = (sheetSnap + 1) as 1 | 2;
+      else if (deltaY < -threshold && sheetSnap > 0) nextSnap = (sheetSnap - 1) as 0 | 1;
+      touchStartYRef.current = null;
+      sheetRef.current.style.setProperty("--sheet-duration", "300ms");
+      setSheetSnap(nextSnap);
+    },
+    [sheetSnap]
+  );
 
   const accent = PERSONAS[activePersonaId].accentColor;
 
@@ -385,8 +428,27 @@ export default function PlanWorkspace({
       <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{corridorAnnouncement}</div>
 
-      {/* Side panel */}
-      <aside className="w-[360px] border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0">
+      {/* Side panel / mobile bottom sheet */}
+      <aside
+        ref={sheetRef}
+        style={{ "--sheet-y": `${SNAP_Y[sheetSnap]}%` } as React.CSSProperties}
+        className="plan-sheet md:static md:w-[360px] md:z-auto border-t md:border-t-0 md:border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0"
+      >
+        {/* Drag handle — mobile only */}
+        <div
+          className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none md:hidden"
+          onTouchStart={handleSheetTouchStart}
+          onTouchMove={handleSheetTouchMove}
+          onTouchEnd={handleSheetTouchEnd}
+          onClick={cycleSnap}
+          role="button"
+          tabIndex={0}
+          aria-label={`Panel ${["peeked", "half-open", "fully open"][sheetSnap]}. Tap to ${sheetSnap < 2 ? "expand" : "collapse"}.`}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") cycleSnap(); }}
+        >
+          <div className="w-8 h-1 rounded-full bg-[#30363d]" aria-hidden />
+        </div>
+
         <div className="p-3 border-b border-[#30363d] space-y-3">
           <PersonaSelector
             activePersonaId={activePersonaId}
