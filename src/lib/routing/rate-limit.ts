@@ -108,6 +108,26 @@ export function checkRecomputeSpacing(ip: string): RateLimitResult {
   return { ok: true, remaining: 0, retryAfterSeconds: 0 };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-IP minimum spacing between neighborhood panel fetches.
+
+const lastNeighborhoodAt = new Map<string, number>();
+const MIN_NEIGHBORHOOD_GAP_MS = 300;
+
+export function checkNeighborhoodSpacing(ip: string): RateLimitResult {
+  const now = Date.now();
+  const last = lastNeighborhoodAt.get(ip) ?? 0;
+  if (now - last < MIN_NEIGHBORHOOD_GAP_MS) {
+    return {
+      ok: false,
+      remaining: 0,
+      retryAfterSeconds: Math.ceil((MIN_NEIGHBORHOOD_GAP_MS - (now - last)) / 1000),
+    };
+  }
+  lastNeighborhoodAt.set(ip, now);
+  return { ok: true, remaining: 0, retryAfterSeconds: 0 };
+}
+
 /**
  * Periodic cleanup so the bucket maps don't grow unbounded.
  * Lazily called on each rate-check.
@@ -127,6 +147,9 @@ function sweep() {
   // Prune spacing entries older than 1 minute.
   for (const [ip, ts] of lastRecomputeAt.entries()) {
     if (now - ts >= 60_000) lastRecomputeAt.delete(ip);
+  }
+  for (const [ip, ts] of lastNeighborhoodAt.entries()) {
+    if (now - ts >= 60_000) lastNeighborhoodAt.delete(ip);
   }
 }
 

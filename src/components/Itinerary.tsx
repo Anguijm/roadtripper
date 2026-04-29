@@ -7,8 +7,10 @@ export interface ItineraryProps {
   toName: string;
   stops: TripStopMarker[];
   failedStopId?: string | null;
+  selectedCityId?: string | null;
   pending?: boolean;
   onRemoveStop: (cityId: string) => void;
+  onStopClick?: (cityId: string) => void;
   accent: string;
 }
 
@@ -25,8 +27,10 @@ export default function Itinerary({
   toName,
   stops,
   failedStopId,
+  selectedCityId,
   pending = false,
   onRemoveStop,
+  onStopClick,
   accent,
 }: ItineraryProps) {
   if (stops.length === 0) {
@@ -73,41 +77,77 @@ export default function Itinerary({
 
         {stops.map((stop, index) => {
           const failed = failedStopId === stop.cityId;
+          const selected = selectedCityId === stop.cityId;
           return (
             <li
               key={stop.cityId}
-              className="px-3 py-2 flex items-center gap-2"
-              style={{ borderLeft: `2px solid ${failed ? "#f85149" : accent}` }}
+              className={`flex items-center ${selected ? "bg-[#161b22]" : ""}`}
+              style={{ borderLeft: `2px solid ${failed ? "#f85149" : selected ? "#f0f6fc" : accent}` }}
             >
-              <span
-                aria-hidden
-                className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold"
-                style={{
-                  backgroundColor: failed ? "#f85149" : accent,
-                  color: "#0d1117",
-                }}
-              >
-                {index + 1}
-              </span>
-              <span className="text-sm text-[#f0f6fc] truncate flex-1">
-                {stop.cityName}
-                {failed && (
+              {onStopClick ? (
+                <button
+                  type="button"
+                  onClick={() => onStopClick(stop.cityId)}
+                  aria-label={`View neighborhoods for ${stop.cityName}${selected ? " (selected)" : ""}`}
+                  className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7d8590]"
+                >
                   <span
-                    className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#f85149]"
-                    title="Last route update failed for this stop"
+                    aria-hidden
+                    className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold shrink-0"
+                    style={{
+                      backgroundColor: failed ? "#f85149" : accent,
+                      color: "#0d1117",
+                    }}
                   >
-                    ⚠ failed
+                    {index + 1}
                   </span>
-                )}
-              </span>
-              <button
-                type="button"
-                onClick={() => onRemoveStop(stop.cityId)}
-                disabled={pending}
-                className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Remove
-              </button>
+                  <span className="text-sm text-[#f0f6fc] truncate">
+                    {stop.cityName}
+                    {failed && (
+                      <span
+                        className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#f85149]"
+                        title="Last route update failed for this stop"
+                      >
+                        ⚠ failed
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2">
+                  <span
+                    aria-hidden
+                    className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold shrink-0"
+                    style={{
+                      backgroundColor: failed ? "#f85149" : accent,
+                      color: "#0d1117",
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="text-sm text-[#f0f6fc] truncate flex-1">
+                    {stop.cityName}
+                    {failed && (
+                      <span
+                        className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#f85149]"
+                        title="Last route update failed for this stop"
+                      >
+                        ⚠ failed
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+              <div className="px-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onRemoveStop(stop.cityId)}
+                  disabled={pending}
+                  className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Remove
+                </button>
+              </div>
             </li>
           );
         })}

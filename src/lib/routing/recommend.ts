@@ -91,8 +91,12 @@ function dedupeNeighborhoods(
 /**
  * Fetch and cache NeighborhoodLite[] for a single city. SEC-3 caps callers
  * to MAX_NEIGHBORHOOD_CITIES = 1. Validates cityId at this boundary.
+ *
+ * @server-only — this function imports firebase-admin via `urbanExplorerDb`.
+ * It MUST NOT be imported from any client component or barrel file that is
+ * bundled for the browser. Only call it from Server Actions or Server Components.
  */
-async function fetchNeighborhoods(cityId: string): Promise<{
+export async function fetchNeighborhoods(cityId: string): Promise<{
   loadState: NeighborhoodLoadState;
   failure?: WaypointFetchFailure;
 }> {

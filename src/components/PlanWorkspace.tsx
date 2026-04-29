@@ -20,10 +20,11 @@ import Itinerary from "@/components/Itinerary";
 import NeighborhoodPanel from "@/components/NeighborhoodPanel";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
-import type { WaypointFetchResult } from "@/lib/routing/scoring";
+import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
 import { formatDistance, formatDuration } from "@/lib/routing/format";
 import {
   recomputeAndRefreshAction,
+  fetchNeighborhoodsAction,
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
 import type { DirectionsResult } from "@/lib/routing/directions";
@@ -98,6 +99,17 @@ export default function PlanWorkspace({
   const [failedStopId, setFailedStopId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Which stop's neighborhoods to show in the panel. Defaults to the most
+  // recently added stop; updated on click or add/remove.
+  const [panelCityId, setPanelCityId] = useState<string | null>(null);
+  // On-demand neighborhood cache for stops the user clicked that weren't
+  // pre-fetched by recomputeAndRefreshAction.
+  const [localNeighborhoods, setLocalNeighborhoods] = useState<
+    Record<string, NeighborhoodLoadState>
+  >({});
+  // Screen-reader announcement for panel loading / content updates (WCAG 4.1.3).
+  const [panelAnnouncement, setPanelAnnouncement] = useState("");
+
   // Council ISC-S6-ARCH-5 — incrementing request id, latest wins.
   const requestIdRef = useRef(0);
 
@@ -147,19 +159,23 @@ export default function PlanWorkspace({
     [tripStops]
   );
 
-  // The most recently added stop drives the neighborhood panel. Derived from
-  // tripStops so it stays in sync with what the recompute action fetched.
-  const selectedStop = tripStops[tripStops.length - 1] ?? null;
-  const selectedCityId = selectedStop?.cityId;
+  // Merged neighborhood data: recompute-fetched + on-demand local fetches.
+  const effectiveNeighborhoods = useMemo(
+    () => ({ ...effectiveWaypointFetch.neighborhoods, ...localNeighborhoods }),
+    [effectiveWaypointFetch.neighborhoods, localNeighborhoods]
+  );
 
-  const selectedCityWaypoints = useMemo(
+  // The stop whose neighborhoods are shown in the panel.
+  const panelStop = tripStops.find((s) => s.cityId === panelCityId) ?? null;
+
+  const panelCityWaypoints = useMemo(
     () =>
-      selectedCityId
+      panelCityId
         ? effectiveWaypointFetch.waypoints.filter(
-            (w) => w.cityId === selectedCityId
+            (w) => w.cityId === panelCityId
           )
         : [],
-    [effectiveWaypointFetch.waypoints, selectedCityId]
+    [effectiveWaypointFetch.waypoints, panelCityId]
   );
 
   // ── Persona / hover handlers ───────────────────────────────────────────
@@ -191,11 +207,17 @@ export default function PlanWorkspace({
         },
       ];
     });
+    // Auto-select the newly added stop for the neighborhood panel.
+    setPanelCityId(city.cityId);
   }, []);
 
   const handleRemoveCity = useCallback((cityId: string) => {
     setTripStops((curr) => curr.filter((s) => s.cityId !== cityId));
     setFailedStopId((curr) => (curr === cityId ? null : curr));
+  }, []);
+
+  const handleStopClick = useCallback((cityId: string) => {
+    setPanelCityId(cityId);
   }, []);
 
   // ── Recompute + refresh effect ─────────────────────────────────────────
@@ -268,6 +290,48 @@ export default function PlanWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripStops]);
 
+  // If the paneled city is removed, reset to the new last stop (or null).
+  useEffect(() => {
+    setPanelCityId((curr) => {
+      if (curr === null) return curr;
+      if (tripStops.some((s) => s.cityId === curr)) return curr;
+      return tripStops[tripStops.length - 1]?.cityId ?? null;
+    });
+  }, [tripStops]);
+
+  // Fetch neighborhoods on demand when panelCityId changes and data is absent.
+  useEffect(() => {
+    if (!panelCityId) return;
+    if (effectiveNeighborhoods[panelCityId] !== undefined) return;
+
+    // Find city name for aria announcements.
+    const cityName =
+      tripStops.find((s) => s.cityId === panelCityId)?.cityName ?? panelCityId;
+
+    let cancelled = false;
+    setPanelAnnouncement(`Loading ${cityName} neighborhoods`);
+    fetchNeighborhoodsAction(panelCityId)
+      .then((result) => {
+        if (cancelled) return;
+        setLocalNeighborhoods((prev) => ({
+          ...prev,
+          [result.cityId]: result.ok ? result.loadState : { kind: "failed" },
+        }));
+        setPanelAnnouncement(
+          result.ok ? `Showing neighborhoods for ${cityName}` : `Could not load neighborhoods for ${cityName}`
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLocalNeighborhoods((prev) => ({
+          ...prev,
+          [panelCityId]: { kind: "failed" },
+        }));
+        setPanelAnnouncement(`Could not load neighborhoods for ${cityName}`);
+      });
+    return () => { cancelled = true; };
+  }, [panelCityId, effectiveNeighborhoods]);
+
   // Brief recommendation panel highlight after each successful refresh
   // (Council ISC-S7-PROD-2 — positive proof of refresh).
   const [highlightRefresh, setHighlightRefresh] = useState(false);
@@ -289,6 +353,9 @@ export default function PlanWorkspace({
 
   return (
     <div className="flex flex-1 min-h-0">
+      {/* Screen-reader live region for panel loading / content updates */}
+      <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
+
       {/* Side panel */}
       <aside className="w-[360px] border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0">
         <div className="p-3 border-b border-[#30363d] space-y-3">
@@ -345,28 +412,38 @@ export default function PlanWorkspace({
               toName={toName}
               stops={tripStops}
               failedStopId={failedStopId}
+              selectedCityId={panelCityId}
               pending={isPending}
               onRemoveStop={handleRemoveCity}
+              onStopClick={handleStopClick}
               accent={accent}
             />
           )}
 
-          {/* Neighborhood panel for the most recently added stop */}
-          {selectedCityId &&
-            selectedStop &&
-            effectiveWaypointFetch.neighborhoods[selectedCityId] && (
+          {/* Neighborhood panel — follows panelCityId (click any Itinerary stop).
+               Loading: data absent (fetch in flight or not yet started).
+               Loaded / empty / failed: delegated to NeighborhoodPanel. */}
+          {panelCityId && panelStop && (
+            effectiveNeighborhoods[panelCityId] == null ? (
+              <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
+                <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] motion-safe:animate-pulse">
+                  Loading {panelStop.cityName}…
+                </p>
+              </div>
+            ) : (
               <NeighborhoodPanel
-                cityId={selectedCityId}
-                cityName={selectedStop.cityName}
-                loadState={effectiveWaypointFetch.neighborhoods[selectedCityId]}
-                waypoints={selectedCityWaypoints}
+                cityId={panelCityId}
+                cityName={panelStop.cityName}
+                loadState={effectiveNeighborhoods[panelCityId]}
+                waypoints={panelCityWaypoints}
                 failures={
                   effectiveWaypointFetch.status === "degraded"
                     ? effectiveWaypointFetch.failures
                     : []
                 }
               />
-            )}
+            )
+          )}
 
           {/* Recompute error banner with Retry */}
           {recomputeError && (
