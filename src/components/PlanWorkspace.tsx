@@ -173,6 +173,15 @@ export default function PlanWorkspace({
     [sheetSnap]
   );
 
+  // Browser cancels the touch (system gesture, incoming call) — restore state
+  // so transitions stay enabled and the sheet isn't stuck at a mid-drag position.
+  const handleSheetTouchCancel = useCallback(() => {
+    if (!sheetRef.current) return;
+    touchStartYRef.current = null;
+    sheetRef.current.style.setProperty("--sheet-duration", "300ms");
+    sheetRef.current.style.setProperty("--sheet-y", `${SNAP_Y[sheetSnap]}%`);
+  }, [sheetSnap]);
+
   const accent = PERSONAS[activePersonaId].accentColor;
 
   // Derived live values — fall back to the server-rendered initials.
@@ -458,6 +467,7 @@ export default function PlanWorkspace({
           onTouchStart={handleSheetTouchStart}
           onTouchMove={handleSheetTouchMove}
           onTouchEnd={handleSheetTouchEnd}
+          onTouchCancel={handleSheetTouchCancel}
           role="button"
           tabIndex={0}
           aria-label={`Panel ${SNAP_LABELS[sheetSnap]}. Tap to ${sheetSnap < 2 ? "expand" : "collapse"}.`}
