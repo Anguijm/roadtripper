@@ -2,11 +2,17 @@
 
 ## Start here next session
 
-**Current branch: `main`**. Local and origin/main are in sync at `c757abf`.
+**Current branch: `main`**. Local and origin/main are in sync at `45c65f2`.
 
-**First action:** Map padding for bottom sheet — at peek (20vh), zoom controls are partially obscured. Or start save/load trips (bigger scope). See BACKLOG.md → Next.
+**First action:** Save/load trips — biggest net-new surface. Needs Firestore `saved_hunts` schema + Clerk-scoped storage + trip-list view. Or map bottom padding (lower priority, zoom controls already moved to RIGHT_CENTER in PR #12).
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
+
+**Session 16 shipped (2026-04-30):**
+- PR #12 — map zoom controls: `zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }` keeps controls clear of bottom sheet at all snap positions. [skip council] (1-line change).
+- `city_fallback.json` — regenerated 102 → 258 cities. Added US heartland: indianapolis, memphis, nashville, louisville, kansas-city, oklahoma-city, tulsa, little-rock, st-louis, + others. 2 failures (bellevue duplicates) excluded.
+- `src/app/page.tsx` — landing page "102 cities" → "258 cities".
+- Detroit→Dallas validated live: Indianapolis, Memphis, Little Rock, Hot Springs AR, Fort Worth all return as candidates.
 
 **Session 15 shipped 1 PR (2026-04-30):**
 - PR #11 `c757abf` — mobile bottom sheet: `.plan-sheet` CSS utility (Tailwind v4, `@layer utilities`, media-scoped), `sheetSnap` state (0=peek/1=half/2=full), drag handle (44px min-height, `#6e7681` contrast-safe, tap/drag split in `touchEnd`, `touchcancel` cleanup), `sheetAnnouncement` aria-live, `dragBasePctRef` for closure-free drag. 2 council rounds + `[skip council]`.

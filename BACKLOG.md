@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-30** (Session 15 closeout — PR #11 merged).
+Last refreshed: **2026-04-30** (Session 16 closeout — PR #12 + city fallback + page fix landed).
 
 ## Now (this week)
 
@@ -11,7 +11,6 @@ _Nothing blocking. See Next._
 ## Next (queued, scoped)
 
 - **Save/load trips**: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view.
-- **Map padding for bottom sheet**: at peek (20vh), Google Maps zoom controls are partially obscured. Add bottom padding to the map container on mobile.
 
 ## Someday (architectural ideas, daydreams)
 
@@ -37,6 +36,12 @@ None. (`gh issue list` returned empty as of 2026-04-29.)
 None.
 
 ## Completed
+
+### Session 16 (2026-04-30)
+- ✓ PR #12 — map zoom controls to `RIGHT_CENTER` (clear of bottom sheet at all snap positions). [skip council].
+- ✓ `city_fallback.json` regenerated 102 → 258 cities (US heartland: indianapolis, memphis, nashville, louisville, kansas-city, oklahoma-city, tulsa, little-rock, st-louis + ~100 others). 2 failures excluded (bellevue duplicates).
+- ✓ Landing page "102 cities" → "258 cities" (`src/app/page.tsx`).
+- ✓ Detroit→Dallas live-validated: Indianapolis, Memphis, Little Rock, Hot Springs AR, Fort Worth all return as candidates.
 
 ### Session 15 (2026-04-30)
 - ✓ PR #11 `c757abf` — mobile bottom sheet: `.plan-sheet` CSS utility (media-scoped, `--sheet-y`/`--sheet-duration` CSS vars), `sheetSnap` state (0/1/2), drag handle (44px, `#6e7681`, tap/drag split in `touchEnd`), `touchcancel` cleanup, `sheetAnnouncement` aria-live. 2 council rounds + `[skip council]` (R1: touch target, contrast, double-fire, announcement — all real, all fixed; R2: `touchcancel` real, i18n fabricated).
