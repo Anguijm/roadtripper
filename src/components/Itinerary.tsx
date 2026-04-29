@@ -8,6 +8,7 @@ export interface ItineraryProps {
   stops: TripStopMarker[];
   failedStopId?: string | null;
   selectedCityId?: string | null;
+  offCorridorStopIds?: ReadonlySet<string>;
   pending?: boolean;
   onRemoveStop: (cityId: string) => void;
   onStopClick?: (cityId: string) => void;
@@ -28,6 +29,7 @@ export default function Itinerary({
   stops,
   failedStopId,
   selectedCityId,
+  offCorridorStopIds,
   pending = false,
   onRemoveStop,
   onStopClick,
@@ -78,6 +80,7 @@ export default function Itinerary({
         {stops.map((stop, index) => {
           const failed = failedStopId === stop.cityId;
           const selected = selectedCityId === stop.cityId;
+          const offCorridor = offCorridorStopIds?.has(stop.cityId) ?? false;
           return (
             <li
               key={stop.cityId}
@@ -88,7 +91,7 @@ export default function Itinerary({
                 <button
                   type="button"
                   onClick={() => onStopClick(stop.cityId)}
-                  aria-label={`View neighborhoods for ${stop.cityName}${selected ? " (selected)" : ""}`}
+                  aria-label={`View neighborhoods for ${stop.cityName}${selected ? " (selected)" : ""}${offCorridor ? " — off current corridor" : ""}`}
                   className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7d8590]"
                 >
                   <span
@@ -109,6 +112,14 @@ export default function Itinerary({
                         title="Last route update failed for this stop"
                       >
                         ⚠ failed
+                      </span>
+                    )}
+                    {offCorridor && !failed && (
+                      <span
+                        className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#d29922]"
+                        title="This stop is no longer near your current route corridor"
+                      >
+                        ↗ detour
                       </span>
                     )}
                   </span>
@@ -133,6 +144,14 @@ export default function Itinerary({
                         title="Last route update failed for this stop"
                       >
                         ⚠ failed
+                      </span>
+                    )}
+                    {offCorridor && !failed && (
+                      <span
+                        className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#d29922]"
+                        title="This stop is no longer near your current route corridor"
+                      >
+                        ↗ detour
                       </span>
                     )}
                   </span>

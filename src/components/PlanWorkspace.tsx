@@ -159,6 +159,14 @@ export default function PlanWorkspace({
     [tripStops]
   );
 
+  // Stops no longer near the refreshed corridor. Empty until the first
+  // recompute so we never badge stops that came from the initial render.
+  const offCorridorStopIds = useMemo<ReadonlySet<string>>(() => {
+    if (liveWaypointFetch === null) return new Set();
+    const candidateIds = new Set(liveWaypointFetch.cities.map((c) => c.id));
+    return new Set(tripStops.map((s) => s.cityId).filter((id) => !candidateIds.has(id)));
+  }, [liveWaypointFetch, tripStops]);
+
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
     () => ({ ...effectiveWaypointFetch.neighborhoods, ...localNeighborhoods }),
@@ -413,6 +421,7 @@ export default function PlanWorkspace({
               stops={tripStops}
               failedStopId={failedStopId}
               selectedCityId={panelCityId}
+              offCorridorStopIds={offCorridorStopIds}
               pending={isPending}
               onRemoveStop={handleRemoveCity}
               onStopClick={handleStopClick}
