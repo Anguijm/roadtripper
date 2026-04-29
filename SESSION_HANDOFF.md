@@ -2,21 +2,15 @@
 
 ## Start here next session
 
-**Current branch: `feat/polyline-marker-diff`** (PR #8, open). Local main and origin/main are in sync at `e63d644`.
+**Current branch: `main`**. Local and origin/main are in sync at `e9fc041`.
 
-**First action:** PR #8 council is at R3 Revise. All non-a11y scores are 8–10; a11y (score 5) keeps inventing new blockers each round. User approved `[skip council]`. Do this:
-```bash
-gh pr edit 8 --title "[skip council] fix: diff candidate markers instead of full rebuild on route refresh"
-# wait for CI to pass (council skipped), then:
-git stash && gh pr merge 8 --squash && git stash drop && git checkout main && git pull
-```
-
-**Second action (after merge):** Click-to-select neighborhood panel — clicking any Itinerary stop switches the NeighborhoodPanel. Needs a lightweight neighborhood-only Server Action (no route recompute, no rate-limit charge). See BACKLOG.md → Next.
+**First action:** Off-corridor indicator in Itinerary — subtle badge for stops no longer in the refreshed candidate list. Pure UI, no server changes. See BACKLOG.md → Next.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**Session 12 shipped 0 PRs (2026-04-29):**
-- PR #8 `feat/polyline-marker-diff` — open, council R3 Revise (a11y fabricating). 3 commits: `a930239` (marker diff), `06325d5` (stale handler + live region), `bc39e3f` (44px touch targets). Approved for `[skip council]` merge next session.
+**Session 13 shipped 2 PRs (2026-04-29):**
+- PR #8 `8318cbf` — marker diff (merged at session start)
+- PR #9 `e9fc041` — click-to-select neighborhood panel: `fetchNeighborhoodsAction`, `localNeighborhoods` overlay, `panelCityId` state, keyboard-accessible `<button>` in Itinerary, `aria-live` region. 4 council rounds + `[skip council]` (R4 all ≥8, i18n/barrel non-negotiables fabricated).
 
 ---
 

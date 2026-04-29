@@ -161,6 +161,27 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ---
 
+## 2026-04-29 — Session 13: click-to-select neighborhood panel (PR #9, merged e9fc041)
+
+### KEEP
+- **Remove boolean loading state; derive from data presence.** `isPanelLoading: boolean` caused a true→false→true flicker when users switched between uncached stops (cleanup set it false, new effect set it true). Replacing with `effectiveNeighborhoods[panelCityId] == null` as the loading condition is race-free: the data record is the source of truth.
+- **`[skip council]` at R4 when all angles ≥8 and remaining non-negotiables are fabricated.** R1: security/bugs both 5 (real issues — rate limit, Zod, flicker, `.catch()`). R2: a11y 3 (keyboard a11y, aria-live — real). R3: bugs 5 (cleanup flicker — real). R4: all ≥8, remaining non-negotiables = "no client barrel to check" + "NeighborhoodPanel XSS already protected" + "i18n doesn't exist". Pattern matches the `[skip council]` criterion.
+- **Per-feature spacing limiter** (`checkNeighborhoodSpacing`, 300ms, own storage map) prevents a neighborhood fetch from sharing the recompute spacing tracker — these are different operations with different cadences.
+- **`aria-live` + `panelAnnouncement` state** is the cleanest way to drive screen-reader updates from async fetches: flip the state string in `.then()` / `.catch()`, render in a `sr-only` div. No extra ref or effect needed.
+
+### IMPROVE
+- **A11y i18n non-negotiable is fabricated every session.** PR #7, PR #8, PR #9 all had the council demand i18n for UI strings when the project has no i18n system. Pattern: the a11y angle grabs any new hardcoded string and declares it a non-negotiable. The correct response is `[skip council]` once all other angles are ≥8, not building a phantom i18n layer. Track this as a known fabrication pattern.
+- **WCAG 1.4.10 Reflow blocker was a pre-existing issue.** The 360px `<aside>` has been non-reflow-compliant since Session 5. Council kept raising it as new on this PR. Added to BACKLOG as part of the mobile bottom sheet item.
+
+### INSIGHT
+- **`localNeighborhoods` overlay pattern is reusable.** When a component already has a server-provided `Record<id, State>` (here: `effectiveWaypointFetch.neighborhoods`), adding on-demand loading for additional keys is cleanly done with a `localOverlay: Record<id, State>` merged via spread. The live data stays clean; the overlay is pure client state. No need to mutate or re-fetch the live result.
+- **`<li>` with onClick is not keyboard-accessible.** The council caught this at R2. The fix is always: button inside the `<li>` for the main action, sibling button for Remove, `e.stopPropagation()` not needed since they're siblings.
+
+### COUNCIL
+- **PR #9 (click-to-select panel):** 4 rounds + `[skip council]`. R1 Revise (sec/bugs 5/5): rate limit, Zod, stuck loading, flicker, .catch(). R2 Revise (a11y 3): keyboard a11y, aria-live, motion-safe, spacing. R3 Revise (bugs 5): cleanup flicker (isPanelLoading boolean). R4 Revise (all ≥8): fabricated non-negotiables — no barrel to check, XSS already protected by CI grep, i18n doesn't exist. `[skip council]` approved.
+
+---
+
 ## 2026-04-27 — Step 9: S8 latency assertion (post-merge measurement)
 
 ### KEEP
