@@ -24,7 +24,7 @@ export default function Home() {
           </div>
           <RouteInput />
           <p className="mt-6 text-xs text-center text-[#4a5159] font-mono">
-            Powered by Urban Explorer — 102 cities, thousands of waypoints
+            Powered by Urban Explorer — 258 cities, thousands of waypoints
           </p>
         </div>
       </main>
