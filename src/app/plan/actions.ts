@@ -8,12 +8,12 @@ import {
 } from "@/lib/routing/directions";
 import { haversineKm } from "@/lib/routing/polyline";
 import { findCandidateCities } from "@/lib/routing/candidates";
-import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
+import { fetchWaypointsForCandidates, fetchNeighborhoods } from "@/lib/routing/recommend";
 import {
   detourCapForBudget,
   isBudgetHoursInRange,
 } from "@/lib/routing/validation";
-import type { WaypointFetchResult } from "@/lib/routing/scoring";
+import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
 import {
   checkRateLimit,
   checkDailyQuota,
@@ -248,4 +248,25 @@ export async function recomputeAndRefreshAction(
     console.error("[recomputeAndRefreshAction] candidate refresh failed:", e);
     return { ok: true, route, waypointStatus: "degraded", waypointFetch: null };
   }
+}
+
+// ── Neighborhood-only fetch ────────────────────────────────────────────────
+
+export type NeighborhoodsActionResult =
+  | { ok: true; cityId: string; loadState: NeighborhoodLoadState }
+  | { ok: false; cityId: string };
+
+/**
+ * Lightweight Server Action — fetch neighborhoods for a single city.
+ * No rate-limit charge: this is a cache-first Firestore read with no
+ * billable upstream API calls.
+ */
+export async function fetchNeighborhoodsAction(
+  cityId: string
+): Promise<NeighborhoodsActionResult> {
+  if (!/^[a-z0-9-]{1,100}$/.test(cityId)) {
+    return { ok: false, cityId };
+  }
+  const result = await fetchNeighborhoods(cityId);
+  return { ok: true, cityId, loadState: result.loadState };
 }

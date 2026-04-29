@@ -7,8 +7,10 @@ export interface ItineraryProps {
   toName: string;
   stops: TripStopMarker[];
   failedStopId?: string | null;
+  selectedCityId?: string | null;
   pending?: boolean;
   onRemoveStop: (cityId: string) => void;
+  onStopClick?: (cityId: string) => void;
   accent: string;
 }
 
@@ -25,8 +27,10 @@ export default function Itinerary({
   toName,
   stops,
   failedStopId,
+  selectedCityId,
   pending = false,
   onRemoveStop,
+  onStopClick,
   accent,
 }: ItineraryProps) {
   if (stops.length === 0) {
@@ -73,11 +77,13 @@ export default function Itinerary({
 
         {stops.map((stop, index) => {
           const failed = failedStopId === stop.cityId;
+          const selected = selectedCityId === stop.cityId;
           return (
             <li
               key={stop.cityId}
-              className="px-3 py-2 flex items-center gap-2"
-              style={{ borderLeft: `2px solid ${failed ? "#f85149" : accent}` }}
+              className={`px-3 py-2 flex items-center gap-2 ${onStopClick ? "cursor-pointer" : ""} ${selected ? "bg-[#161b22]" : "hover:bg-[#0d1117]"}`}
+              style={{ borderLeft: `2px solid ${failed ? "#f85149" : selected ? "#f0f6fc" : accent}` }}
+              onClick={onStopClick ? () => onStopClick(stop.cityId) : undefined}
             >
               <span
                 aria-hidden
@@ -102,7 +108,10 @@ export default function Itinerary({
               </span>
               <button
                 type="button"
-                onClick={() => onRemoveStop(stop.cityId)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveStop(stop.cityId);
+                }}
                 disabled={pending}
                 className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 disabled:cursor-not-allowed"
               >

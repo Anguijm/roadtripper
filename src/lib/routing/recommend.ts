@@ -92,7 +92,7 @@ function dedupeNeighborhoods(
  * Fetch and cache NeighborhoodLite[] for a single city. SEC-3 caps callers
  * to MAX_NEIGHBORHOOD_CITIES = 1. Validates cityId at this boundary.
  */
-async function fetchNeighborhoods(cityId: string): Promise<{
+export async function fetchNeighborhoods(cityId: string): Promise<{
   loadState: NeighborhoodLoadState;
   failure?: WaypointFetchFailure;
 }> {
