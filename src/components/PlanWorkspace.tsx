@@ -163,9 +163,26 @@ export default function PlanWorkspace({
   // recompute so we never badge stops that came from the initial render.
   const offCorridorStopIds = useMemo<ReadonlySet<string>>(() => {
     if (liveWaypointFetch === null) return new Set();
-    const candidateIds = new Set(liveWaypointFetch.cities.map((c) => c.id));
+    const candidateIds = new Set((liveWaypointFetch.cities ?? []).map((c) => c.id));
     return new Set(tripStops.map((s) => s.cityId).filter((id) => !candidateIds.has(id)));
   }, [liveWaypointFetch, tripStops]);
+
+  // Announce newly off-corridor stops to screen readers after each recompute.
+  const [corridorAnnouncement, setCorridorAnnouncement] = useState("");
+  const prevOffCorridorRef = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    const prev = prevOffCorridorRef.current;
+    const newlyOff = [...offCorridorStopIds].filter((id) => !prev.has(id));
+    if (newlyOff.length > 0) {
+      const names = newlyOff
+        .map((id) => tripStops.find((s) => s.cityId === id)?.cityName ?? id)
+        .join(", ");
+      setCorridorAnnouncement(
+        `Route updated. ${names} ${newlyOff.length === 1 ? "is" : "are"} now a detour.`
+      );
+    }
+    prevOffCorridorRef.current = offCorridorStopIds;
+  }, [offCorridorStopIds, tripStops]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -361,8 +378,9 @@ export default function PlanWorkspace({
 
   return (
     <div className="flex flex-1 min-h-0">
-      {/* Screen-reader live region for panel loading / content updates */}
+      {/* Screen-reader live regions */}
       <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{corridorAnnouncement}</div>
 
       {/* Side panel */}
       <aside className="w-[360px] border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0">
