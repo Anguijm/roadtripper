@@ -108,6 +108,8 @@ export default function PlanWorkspace({
     Record<string, NeighborhoodLoadState>
   >({});
   const [isPanelLoading, setIsPanelLoading] = useState(false);
+  // Screen-reader announcement for panel loading / content updates (WCAG 4.1.3).
+  const [panelAnnouncement, setPanelAnnouncement] = useState("");
 
   // Council ISC-S6-ARCH-5 — incrementing request id, latest wins.
   const requestIdRef = useRef(0);
@@ -303,8 +305,13 @@ export default function PlanWorkspace({
     if (!panelCityId) return;
     if (effectiveNeighborhoods[panelCityId] !== undefined) return;
 
+    // Find city name for aria announcements.
+    const cityName =
+      tripStops.find((s) => s.cityId === panelCityId)?.cityName ?? panelCityId;
+
     let cancelled = false;
     setIsPanelLoading(true);
+    setPanelAnnouncement(`Loading ${cityName} neighborhoods`);
     fetchNeighborhoodsAction(panelCityId)
       .then((result) => {
         if (cancelled) return;
@@ -313,6 +320,9 @@ export default function PlanWorkspace({
           [result.cityId]: result.ok ? result.loadState : { kind: "failed" },
         }));
         setIsPanelLoading(false);
+        setPanelAnnouncement(
+          result.ok ? `Showing neighborhoods for ${cityName}` : `Could not load neighborhoods for ${cityName}`
+        );
       })
       .catch(() => {
         if (cancelled) return;
@@ -321,6 +331,7 @@ export default function PlanWorkspace({
           [panelCityId]: { kind: "failed" },
         }));
         setIsPanelLoading(false);
+        setPanelAnnouncement(`Could not load neighborhoods for ${cityName}`);
       });
     // Reset loading flag if the user switches to a cached stop before this
     // fetch completes — prevents the spinner getting stuck.
@@ -351,6 +362,9 @@ export default function PlanWorkspace({
 
   return (
     <div className="flex flex-1 min-h-0">
+      {/* Screen-reader live region for panel loading / content updates */}
+      <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
+
       {/* Side panel */}
       <aside className="w-[360px] border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0">
         <div className="p-3 border-b border-[#30363d] space-y-3">
@@ -419,7 +433,7 @@ export default function PlanWorkspace({
           {panelCityId && panelStop && (
             isPanelLoading || !effectiveNeighborhoods[panelCityId] ? (
               <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
-                <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] animate-pulse">
+                <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] motion-safe:animate-pulse">
                   Loading {panelStop.cityName}…
                 </p>
               </div>

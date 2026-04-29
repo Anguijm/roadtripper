@@ -19,6 +19,7 @@ import {
   checkRateLimit,
   checkDailyQuota,
   checkRecomputeSpacing,
+  checkNeighborhoodSpacing,
   getClientIp,
   maybeSweep,
 } from "@/lib/routing/rate-limit";
@@ -275,7 +276,7 @@ export async function fetchNeighborhoodsAction(
   }
   const validCityId = parsed.data;
 
-  // Burst guard — prevents tight-loop abuse on this unauthenticated endpoint.
+  // Burst + spacing guards — prevent tight-loop abuse on this unauthenticated endpoint.
   let ip: string;
   try {
     const h = await headers();
@@ -286,6 +287,10 @@ export async function fetchNeighborhoodsAction(
   maybeSweep();
   const burst = checkRateLimit(ip);
   if (!burst.ok) {
+    return { ok: false, cityId: validCityId, error: "rate_limited" };
+  }
+  const spacing = checkNeighborhoodSpacing(ip);
+  if (!spacing.ok) {
     return { ok: false, cityId: validCityId, error: "rate_limited" };
   }
 
