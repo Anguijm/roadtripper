@@ -65,7 +65,7 @@ src/
       actions.ts              — recomputeAndRefreshAction (server action)
   components/
     PlanWorkspace.tsx         — client root for /plan
-    RouteMap.tsx              — map + PolylineRenderer (4-effect split!)
+    RouteMap.tsx              — map + PolylineRenderer (7-effect split: 1a/1b/2a/2b/2c/3/4)
     RecommendationList.tsx    — persona-ranked stop cards
     Itinerary.tsx             — ordered trip stop list
     NeighborhoodPanel.tsx     — per-stop neighborhood drill-down
