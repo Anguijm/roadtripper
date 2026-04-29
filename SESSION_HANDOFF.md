@@ -2,19 +2,24 @@
 
 ## Start here next session
 
-**Current branch: `main`**. Local and origin/main are in sync at `e9fc041`.
+**Current branch: `main`**. Local and origin/main are in sync at `90bcc77`.
 
-**First action:** Off-corridor indicator in Itinerary — subtle badge for stops no longer in the refreshed candidate list. Pure UI, no server changes. See BACKLOG.md → Next.
+**First action:** Mobile bottom sheet — `<aside>` at 360px doesn't fit phones; 20/55/92 snap points, WCAG 1.4.10 Reflow. See BACKLOG.md → Next.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**Session 13 shipped 2 PRs (2026-04-29):**
-- PR #8 `8318cbf` — marker diff (merged at session start)
-- PR #9 `e9fc041` — click-to-select neighborhood panel: `fetchNeighborhoodsAction`, `localNeighborhoods` overlay, `panelCityId` state, keyboard-accessible `<button>` in Itinerary, `aria-live` region. 4 council rounds + `[skip council]` (R4 all ≥8, i18n/barrel non-negotiables fabricated).
+**Session 14 shipped 1 PR (2026-04-30):**
+- PR #10 `90bcc77` — off-corridor indicator: `offCorridorStopIds` useMemo (liveWaypointFetch, empty-cities guard), `↗ detour` amber badge in Itinerary, `corridorAnnouncement` aria-live region. 2 council rounds + `[skip council]` (R2 real bug: empty-cities false-positive fixed; R2 fabricated: i18n, light-theme contrast on dark-only app).
 
 ---
 
 ## Historical log
+
+### Session 13 (2026-04-29) — PRs #8, #9
+
+**Shipped 2 PRs (2026-04-29):**
+- PR #8 `8318cbf` — marker diff (merged at session start)
+- PR #9 `e9fc041` — click-to-select neighborhood panel: `fetchNeighborhoodsAction`, `localNeighborhoods` overlay, `panelCityId` state, keyboard-accessible `<button>` in Itinerary, `aria-live` region. 4 council rounds + `[skip council]` (R4 all ≥8, i18n/barrel non-negotiables fabricated).
 
 ### Session 10+11 (2026-04-28) — PRs #5, #6, #7
 

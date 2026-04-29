@@ -182,6 +182,24 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ---
 
+## 2026-04-30 — Session 14: off-corridor indicator (PR #10, merged 90bcc77)
+
+### KEEP
+- **Empty-array guard is required alongside null guard.** `liveWaypointFetch?.cities?.length === 0` must return an empty set, same as `null`. A degraded/failed recompute can return an empty array — without the guard, every stop gets a false `↗ detour` badge. The pattern: `const cities = liveWaypointFetch?.cities; if (!cities || cities.length === 0) return new Set();`.
+- **`[skip council]` at R2 when the one real bug is fixed.** R1 caught a real edge case (empty cities array). R2 still Revise on: stale closure (deps array was already correct), light-theme contrast (app is dark-only), i18n (no i18n system). Once the real concern is addressed, `[skip council]` is the right call.
+- **Council process is working — noise is concentrated in a11y + bugs at round N+1.** Security/architecture/cost/product converge quickly with real findings. A11y and bugs keep generating fabricated non-negotiables in later rounds. This is a known pattern; the response is not to fix phantom issues but to apply `[skip council]` once all real findings are addressed.
+
+### IMPROVE
+- **A11y reviewer hardcodes "light theme" contrast concerns even on dark-only apps.** `#d29922` on `#0d1117` is ~7.7:1 contrast, well above the 4.5:1 AA threshold. The reviewer still flagged it as a failure against an imagined light background. Resolution: verify contrast manually before treating it as a real blocker.
+
+### INSIGHT
+- **The council catches ~1 real bug per PR in the bugs angle, wrapped in 2–3 hallucinated ones.** It's worth doing for that one real catch (empty cities here, cleanup flicker in PR #9, stale handler in PR #8). The cost is parsing out fabrications — which is manageable once you know the pattern.
+
+### COUNCIL
+- **PR #10 (off-corridor indicator):** 2 rounds + `[skip council]`. R1: real bug — empty cities array treated as valid (fixed: `cities.length === 0` guard). R2: fabricated — stale closure (deps correct), light-theme contrast (dark-only app), i18n. All angles ≥8 (avg 8.5). `[skip council]` applied.
+
+---
+
 ## 2026-04-27 — Step 9: S8 latency assertion (post-merge measurement)
 
 ### KEEP
