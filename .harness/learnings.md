@@ -139,6 +139,28 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ---
 
+## 2026-04-29 — Session 12: PolylineRenderer marker diff (PR #8, in flight)
+
+### KEEP
+- **`onCandidateClickRef` pattern for stable event handlers.** Assign `ref.current = prop` in render (not in an effect) so the ref is always current. Listener closures delegate through the ref — created once per marker, never stale. Avoids the stale-closure bug where survivor markers keep an old callback without re-attaching.
+- **SVG data URI for 44px touch targets.** `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}` with `anchor: new google.maps.Point(22,22)` and `scaledSize: new google.maps.Size(44,44)` gives a 44×44 transparent hit area with a small visible circle centered inside. Mobile-primary apps need this; WCAG 2.5.5 is the citation.
+- **`aria-live="polite"` from inside GMap children works.** `PolylineRenderer` returned `null` before; it now returns a `sr-only` div with the live region. Works because GMap renders React children normally — the div lands in the map container's DOM, invisible to sighted users, readable by screen readers.
+- **Effect 2b/2c order is load-bearing.** Effect 2b is cleanup-only (`[map]` dep, returns teardown). Effect 2c is diff-only (`[map, candidates, routeColor]` deps, NO return cleanup). 2b must be declared before 2c so React runs 2b's cleanup before 2c's body on a map change. This prevents double-creation of markers.
+- **Mobile is primary, not secondary.** "Mobile deferred" in the backlog = bottom sheet layout (the aside panel doesn't fit phones). It does NOT mean touch targets are optional. When the council flags 44px touch targets, that's a legitimate blocker for a mobile-primary app.
+
+### IMPROVE
+- **Use `[skip council]` earlier when a11y invents new blockers each round.** PR #8 went 3 rounds: R1 caught real bugs (stale handler, missing live region — fixed). R2 introduced touch targets (legitimate for mobile-primary — fixed) + theme stroke + i18n (scope-creep). R3 introduced `prefers-reduced-motion` (new scope-creep) + still blocked on theme stroke + i18n. A11y score went 4 → 5 (getting worse despite fixes). The signal to skip is: all non-a11y angles ≥8, a11y keeps adding new requirements it didn't flag previously, and the requirements are outside the PR's scope (no theme system, no i18n layer, motion preference outside this diff).
+- **End every response with "what we're waiting on next" — not what just happened.** User had to scroll up to find the council status. The last line should always be the blocking action: "council is running, check with X command" or "waiting for your go-ahead on Y."
+
+### INSIGHT
+- **A11y reviewers fabricate new requirements each round in a way that semantic reviewers don't.** Security, architecture, and bugs reviewers converge (their non-negotiables get addressed and they move on). The a11y angle keeps introducing new scope each round: first it was "no live region," then "theme-adaptive stroke + i18n + touch targets," then "prefers-reduced-motion + i18n + theme stroke (again)." This is a property of how accessibility is graded against an evolving checklist, not a specific failing of the council. The response is to fix legitimate items in scope (live region, touch targets) and use `[skip council]` for scope-creep items (theme switching that doesn't exist, i18n that doesn't exist, motion preference for a camera animation outside the PR's diff).
+- **The 4-effect split is now a 7-effect split.** PR #8 expanded Effect 2 (previously "all markers") into three sub-effects: 2a (endpoint markers, `[map, origin, destination]`), 2b (candidate cleanup, `[map]`, cleanup-only), 2c (candidate diff, `[map, candidates, routeColor]`, no cleanup). Total effects in `PolylineRenderer`: 1a, 1b, 2a, 2b, 2c, 3, 4 = 7.
+
+### COUNCIL
+- **PR #8 (polyline marker diff):** 3 rounds as of 2026-04-29 closeout. R1 Revise: stale click handler + missing a11y live region (both legitimate, both fixed, commits `06325d5`). R2 Revise: touch targets (fixed, commit `bc39e3f`) + theme-adaptive stroke + i18n (scope-creep, not fixed). R3 Revise: a11y score 5/10 (all others 8–10). A11y introduced `prefers-reduced-motion` as new blocker; theme stroke and i18n repeated. PR is blocked on fabricated a11y requirements. Resolution: `[skip council]` merge approved by user — pending next session.
+
+---
+
 ## 2026-04-27 — Step 9: S8 latency assertion (post-merge measurement)
 
 ### KEEP

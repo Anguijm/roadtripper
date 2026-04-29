@@ -56,18 +56,49 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
 ];
 
 /**
+ * Builds a candidate marker icon as an SVG data URI.
+ * The canvas is 44×44px (WCAG 2.5.5 touch target) with the visible circle
+ * centered inside, so the tap area is large while the visual stays compact.
+ * Must be called inside effects where google.maps is guaranteed loaded.
+ */
+function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
+  const r = active ? 10 : 6;
+  const stroke = active ? "#f0f6fc" : "#0d1117";
+  const sw = active ? 3 : 2;
+  const opacity = active ? 1 : 0.9;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="${r}" fill="${color}" fill-opacity="${opacity}" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: new google.maps.Point(22, 22),
+    scaledSize: new google.maps.Size(44, 44),
+  };
+}
+
+/**
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
  * computed server-side.
  *
- * Council ISC-S6-ARCH-2 — split into THREE effects:
- *   1. Polyline effect — keyed on `[map, encodedPolyline, routeColor, pending]`.
- *      Tears down and rebuilds JUST the line, not the markers.
- *   2. Marker effect — keyed on `[map, candidates, routeColor, onCandidateClick]`.
- *      Builds endpoints + candidate markers ONCE per candidate set, not on
- *      every recompute. Avoids losing highlight state and click handlers.
- *   3. Trip-stop effect — keyed on `[map, tripStops, routeColor]`.
- *      Numbered square markers for stops the user has added.
+ * Effect split (do not collapse — each boundary was added to fix a specific bug):
+ *   1a. Polyline geometry — `[map, encodedPolyline, routeColor]`
+ *       Tears down and rebuilds JUST the line when the route changes.
+ *   1b. Polyline opacity — `[pending]`
+ *       Mutates the existing Polyline in place; no rebuild on pending toggle.
+ *   2a. Endpoint markers — `[map, origin, destination]`
+ *       Start/end pins; independent of candidate set so no flash on refresh.
+ *   2b. Candidate cleanup — `[map]`
+ *       Bulk-removes all candidate markers on map change or unmount.
+ *       Must be declared before 2c so its cleanup runs before 2c repopulates.
+ *   2c. Candidate diff — `[map, candidates, routeColor]`, NO return cleanup.
+ *       Adds new markers, removes stale ones, updates icon color for survivors.
+ *       Click handler uses `onCandidateClickRef` (always-current ref) so survivor
+ *       markers never hold a stale closure. Also sets `candidateAnnouncement` for
+ *       the aria-live region returned from this component.
+ *       No teardown on candidates change = zero flicker on route refresh.
+ *   3.  Trip-stop markers — `[map, tripStops, routeColor]`
+ *       Numbered square markers for stops the user has added.
+ *   4.  Highlight — `[highlightedCandidateId, routeColor]`
+ *       Mutates only the two affected markers (prev + next highlight).
  *
  * `hasFitOnceRef` guards `fitBounds` so the camera only re-fits on the
  * VERY FIRST polyline render — subsequent recomputes redraw the line in
@@ -101,6 +132,10 @@ function PolylineRenderer({
   const previousHighlightRef = useRef<string | null>(null);
   const hasFitOnceRef = useRef(false);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
+  // Always-current ref so survivor markers never hold a stale onCandidateClick closure.
+  const onCandidateClickRef = useRef(onCandidateClick);
+  onCandidateClickRef.current = onCandidateClick;
+  const [candidateAnnouncement, setCandidateAnnouncement] = useState("");
 
   // ── Effect 1a: polyline geometry / color ───────────────────────────────
   // Rebuilds when the route geometry or persona color changes.
@@ -155,7 +190,7 @@ function PolylineRenderer({
     });
   }, [pending]);
 
-  // ── Effect 2: endpoint + candidate markers ─────────────────────────────
+  // ── Effect 2a: endpoint markers ────────────────────────────────────────
   useEffect(() => {
     if (!map || !window.google?.maps) return;
 
@@ -187,9 +222,57 @@ function PolylineRenderer({
       },
     });
 
-    const candidateEntries: Array<[string, google.maps.Marker]> = (
-      candidates ?? []
-    ).map((candidate) => {
+    return () => {
+      startMarker.setMap(null);
+      endMarker.setMap(null);
+    };
+  }, [map, origin, destination]);
+
+  // ── Effect 2b: candidate marker cleanup ────────────────────────────────
+  // Bulk-removes all candidate markers when the map object is replaced or the
+  // component unmounts. Declared before 2c so this cleanup runs (and empties
+  // candidateMarkersRef) before 2c's body re-populates it on a map change.
+  useEffect(() => {
+    return () => {
+      for (const marker of candidateMarkersRef.current.values()) {
+        marker.setMap(null);
+      }
+      candidateMarkersRef.current = new Map();
+      previousHighlightRef.current = null;
+    };
+  }, [map]);
+
+  // ── Effect 2c: candidate marker diff ───────────────────────────────────
+  // Diffs the new candidate set against the live marker map:
+  //   • removes markers for cities that dropped off the corridor
+  //   • adds markers for newly eligible cities
+  //   • updates icon color for survivors when the persona changes
+  // No cleanup is returned — diff manages per-marker lifecycle.
+  // Bulk teardown on map change / unmount lives in Effect 2b above.
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+
+    const existing = candidateMarkersRef.current;
+    const nextCandidates = candidates ?? [];
+    const nextIds = new Set(nextCandidates.map((c) => c.id));
+
+    for (const [id, marker] of existing) {
+      if (!nextIds.has(id)) {
+        marker.setMap(null);
+        existing.delete(id);
+        if (previousHighlightRef.current === id) {
+          previousHighlightRef.current = null;
+        }
+      }
+    }
+
+    for (const candidate of nextCandidates) {
+      const existingMarker = existing.get(candidate.id);
+      if (existingMarker) {
+        // Survivor — update icon color in case persona changed.
+        existingMarker.setIcon(candidateMarkerIcon(routeColor));
+        continue;
+      }
       const marker = new google.maps.Marker({
         position: { lat: candidate.lat, lng: candidate.lng },
         map,
@@ -201,34 +284,19 @@ function PolylineRenderer({
           className: "rt-candidate-label",
         },
         title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 6,
-          fillColor: routeColor,
-          fillOpacity: 0.9,
-          strokeColor: "#0d1117",
-          strokeWeight: 2,
-        },
+        icon: candidateMarkerIcon(routeColor),
       });
-      if (onCandidateClick) {
-        marker.addListener("click", () => onCandidateClick(candidate.id));
-      }
-      return [candidate.id, marker];
-    });
+      // Delegate through ref so the handler is never stale on prop change.
+      marker.addListener("click", () => onCandidateClickRef.current?.(candidate.id));
+      existing.set(candidate.id, marker);
+    }
 
-    const candidateMarkers = candidateEntries.map(([, m]) => m);
-    candidateMarkersRef.current = new Map(candidateEntries);
-    previousHighlightRef.current = null;
-
-    return () => {
-      startMarker.setMap(null);
-      endMarker.setMap(null);
-      candidateMarkers.forEach((m) => m.setMap(null));
-      candidateMarkersRef.current = new Map();
-      previousHighlightRef.current = null;
-    };
+    const count = nextCandidates.length;
+    setCandidateAnnouncement(
+      count > 0 ? `${count} stops available along this route` : "No stops available along this route"
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, candidates, routeColor, origin, destination]);
+  }, [map, candidates, routeColor]);
 
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
   useEffect(() => {
@@ -272,22 +340,8 @@ function PolylineRenderer({
     const markersMap = candidateMarkersRef.current;
     if (markersMap.size === 0) return;
 
-    const baseIcon = {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 6,
-      fillColor: routeColor,
-      fillOpacity: 0.9,
-      strokeColor: "#0d1117",
-      strokeWeight: 2,
-    };
-    const activeIcon = {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 10,
-      fillColor: routeColor,
-      fillOpacity: 1,
-      strokeColor: "#f0f6fc",
-      strokeWeight: 3,
-    };
+    const baseIcon = candidateMarkerIcon(routeColor);
+    const activeIcon = candidateMarkerIcon(routeColor, true);
 
     const prev = previousHighlightRef.current;
     if (prev && prev !== highlightedCandidateId) {
@@ -307,7 +361,11 @@ function PolylineRenderer({
     previousHighlightRef.current = highlightedCandidateId ?? null;
   }, [highlightedCandidateId, routeColor]);
 
-  return null;
+  return (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {candidateAnnouncement}
+    </div>
+  );
 }
 
 function DirectionsFallback({

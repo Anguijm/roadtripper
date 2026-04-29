@@ -2,30 +2,40 @@
 
 ## Start here next session
 
-**Current branch on origin: `main` at `18b7ee5`** (PR #7 squash-merge). Local main is in sync.
+**Current branch: `feat/polyline-marker-diff`** (PR #8, open). Local main and origin/main are in sync at `e63d644`.
+
+**First action:** PR #8 council is at R3 Revise. All non-a11y scores are 8–10; a11y (score 5) keeps inventing new blockers each round. User approved `[skip council]`. Do this:
+```bash
+gh pr edit 8 --title "[skip council] fix: diff candidate markers instead of full rebuild on route refresh"
+# wait for CI to pass (council skipped), then:
+git stash && gh pr merge 8 --squash && git stash drop && git checkout main && git pull
+```
+
+**Second action (after merge):** Click-to-select neighborhood panel — clicking any Itinerary stop switches the NeighborhoodPanel. Needs a lightweight neighborhood-only Server Action (no route recompute, no rate-limit charge). See BACKLOG.md → Next.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**Session 10+11 shipped 3 PRs (2026-04-28):**
+**Session 12 shipped 0 PRs (2026-04-29):**
+- PR #8 `feat/polyline-marker-diff` — open, council R3 Revise (a11y fabricating). 3 commits: `a930239` (marker diff), `06325d5` (stale handler + live region), `bc39e3f` (44px touch targets). Approved for `[skip council]` merge next session.
+
+---
+
+## Historical log
+
+### Session 10+11 (2026-04-28) — PRs #5, #6, #7
+
+**Shipped 3 PRs (2026-04-28):**
 - PR #5 `43ff9ec` — Vitest scaffold: 41 unit tests, `server-only` shim, `bun run test` / `test:watch`. Council: 1 round Proceed.
 - PR #6 `a3b03b7` — SHA-256 for all three cache key helpers. Council: 2 rounds Proceed.
 - PR #7 `18b7ee5` — `getAllCities`/`lookupCity` live-read migration: deletes `global_city_cache.json`, adds `listCities()` to `firestore.ts`, rewrites `cities.ts` as server-only with 24h LRU cache + stampede coalescing + Zod-validated `city_fallback.json` (5-min TTL), `lookupCity` routes through `getAllCities`, 53 unit tests. Council: 7 rounds, [skip council] on R7 (fabricated lat/lng non-negotiable — already in schema).
 
 **Council pattern logged:** chore-class server-side refactors can run 6+ rounds as council adds scope (metrics infra, a11y loading states for server-only functions, hallucinated missing validations). Consider [skip council] earlier when scores are ≥8 across all angles and non-negotiables start being fabricated.
 
-**Next actions:**
-1. **PolylineRenderer marker diff** — candidate-marker rebuild on every refresh causes visible flicker. Fix with `id → marker` map and diff. 4-effect split is load-bearing; don't collapse.
-2. **Click-to-select neighborhood panel** — panel shows for last-added stop; needs click on any Itinerary stop to switch. Requires a lightweight neighborhood-only Server Action (no route recompute, avoids rate-limit budget).
-
-**Known stickies (no blockers):**
-- **Post-commit hook + `gh pr merge`:** stash before merge, drop after (or just proceed if tree is clean — hook only dirties on commit).
-- **CitySchema** still a local divergence — nested `location.{latitude,longitude}` vs flat `lat/lng`. Upstream PR #26 deferred it explicitly.
+**Stickies still open:**
+- **Post-commit hook + `gh pr merge`:** stash before merge, drop after.
+- **CitySchema** local divergence — nested `location.{latitude,longitude}` vs flat `lat/lng`. Deferred from city-atlas-service#26.
 - **`actions.ts` ISC anchor comment stale** — references removed `WaypointFetchResult.degraded`. Fix on next `actions.ts` touch.
 - **30-day kill-criteria check** scheduled (`trig_01YHMwS7gNTrnNqYY7AHhrpX`, fires 2026-05-26T00:00:00Z = 09:00 JST).
-
----
-
-## Historical log
 
 ### Session 10 (2026-04-28) — housekeeping + infra (PRs #5, #6)
 
