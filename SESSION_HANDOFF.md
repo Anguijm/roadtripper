@@ -2,18 +2,23 @@
 
 ## Start here next session
 
-**Current branch: `main`**. Local and origin/main are in sync at `90bcc77`.
+**Current branch: `main`**. Local and origin/main are in sync at `c757abf`.
 
-**First action:** Mobile bottom sheet — `<aside>` at 360px doesn't fit phones; 20/55/92 snap points, WCAG 1.4.10 Reflow. See BACKLOG.md → Next.
+**First action:** Map padding for bottom sheet — at peek (20vh), zoom controls are partially obscured. Or start save/load trips (bigger scope). See BACKLOG.md → Next.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
-**Session 14 shipped 1 PR (2026-04-30):**
-- PR #10 `90bcc77` — off-corridor indicator: `offCorridorStopIds` useMemo (liveWaypointFetch, empty-cities guard), `↗ detour` amber badge in Itinerary, `corridorAnnouncement` aria-live region. 2 council rounds + `[skip council]` (R2 real bug: empty-cities false-positive fixed; R2 fabricated: i18n, light-theme contrast on dark-only app).
+**Session 15 shipped 1 PR (2026-04-30):**
+- PR #11 `c757abf` — mobile bottom sheet: `.plan-sheet` CSS utility (Tailwind v4, `@layer utilities`, media-scoped), `sheetSnap` state (0=peek/1=half/2=full), drag handle (44px min-height, `#6e7681` contrast-safe, tap/drag split in `touchEnd`, `touchcancel` cleanup), `sheetAnnouncement` aria-live, `dragBasePctRef` for closure-free drag. 2 council rounds + `[skip council]`.
 
 ---
 
 ## Historical log
+
+### Session 14 (2026-04-30) — PR #10
+
+**Shipped 1 PR (2026-04-30):**
+- PR #10 `90bcc77` — off-corridor indicator: `offCorridorStopIds` useMemo (liveWaypointFetch, empty-cities guard), `↗ detour` amber badge in Itinerary, `corridorAnnouncement` aria-live region. 2 council rounds + `[skip council]` (R2 real bug: empty-cities false-positive fixed; R2 fabricated: i18n, light-theme contrast on dark-only app).
 
 ### Session 13 (2026-04-29) — PRs #8, #9
 

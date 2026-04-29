@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-30** (Session 14 closeout — PR #10 merged).
+Last refreshed: **2026-04-30** (Session 15 closeout — PR #11 merged).
 
 ## Now (this week)
 
@@ -10,7 +10,8 @@ _Nothing blocking. See Next._
 
 ## Next (queued, scoped)
 
-- **Mobile bottom sheet**: the 360px aside doesn't fit phones; needs 20/55/92 snap points (Session 5 council deferred — also addresses WCAG 1.4.10 Reflow in Someday).
+- **Save/load trips**: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view.
+- **Map padding for bottom sheet**: at peek (20vh), Google Maps zoom controls are partially obscured. Add bottom padding to the map container on mobile.
 
 ## Someday (architectural ideas, daydreams)
 
@@ -25,7 +26,7 @@ _Nothing blocking. See Next._
 - `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
 - `actions.ts` ISC anchor comment stale — references removed `WaypointFetchResult.degraded`; fix on next `actions.ts` touch.
 - `geometricFilter` docstring still says "102 UE cities" — hardcoded count will drift; fix on next `candidates.ts` touch.
-- **WCAG 1.4.10 Reflow (BACKLOG)**: the 360px `<aside>` does not reflow at 320px viewport (WCAG requires no scroll at 320px width / 256px height). Pre-existing from S5; needs a responsive/bottom-sheet layout pass (see mobile bottom sheet item above).
+- **WCAG 1.4.10 Reflow**: resolved by PR #11 bottom sheet.
 
 ## Open issues
 
@@ -36,6 +37,9 @@ None. (`gh issue list` returned empty as of 2026-04-29.)
 None.
 
 ## Completed
+
+### Session 15 (2026-04-30)
+- ✓ PR #11 `c757abf` — mobile bottom sheet: `.plan-sheet` CSS utility (media-scoped, `--sheet-y`/`--sheet-duration` CSS vars), `sheetSnap` state (0/1/2), drag handle (44px, `#6e7681`, tap/drag split in `touchEnd`), `touchcancel` cleanup, `sheetAnnouncement` aria-live. 2 council rounds + `[skip council]` (R1: touch target, contrast, double-fire, announcement — all real, all fixed; R2: `touchcancel` real, i18n fabricated).
 
 ### Session 14 (2026-04-30)
 - ✓ PR #10 `90bcc77` — off-corridor indicator: `offCorridorStopIds` useMemo (liveWaypointFetch, empty-array guard), `↗ detour` amber badge in Itinerary, `corridorAnnouncement` aria-live region. 2 council rounds + `[skip council]` (R2 bugs real: empty-cities guard; R2 a11y fabricated: i18n, light-theme contrast on dark-only app).

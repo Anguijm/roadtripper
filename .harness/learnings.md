@@ -200,6 +200,27 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ---
 
+## 2026-04-30 — Session 15: mobile bottom sheet (PR #11, merged c757abf)
+
+### KEEP
+- **CSS custom property + `@layer utilities` is the right pattern for media-conditional JS-driven animation.** `.plan-sheet` scopes `position: fixed` + `transform: translateY(var(--sheet-y))` to `@media (max-width: 767px)` only. React sets `--sheet-y` via the `style` prop for snapped positions; touch handlers mutate it directly via `style.setProperty` during drag (no React re-renders per pixel). Desktop is untouched — the media query simply doesn't fire.
+- **`dragBasePctRef` eliminates closure staleness in `handleSheetTouchMove`.** Read the current CSS var value at `touchStart` and store it in a ref. `handleSheetTouchMove` then has zero state dependencies and never needs to be in a `useCallback` dep array. Cleaner than including `sheetSnap` in deps and re-creating the callback each snap.
+- **Tap vs drag split belongs in `touchEnd`, not as a parallel `onClick`.** `onClick` fires after `touchEnd` — having both causes double state updates on fast taps. Detect tap (`Math.abs(rawDelta) < 5px`) at the top of `handleSheetTouchEnd` and return early with `cycleSnap`. Remove `onClick` entirely.
+- **`touchcancel` handler is non-negotiable for bottom sheets.** iOS fires `touchcancel` on system gestures (home indicator swipe, incoming call). Without a handler, `--sheet-duration: 0ms` stays set and all future transitions are disabled until remount. One-liner: restore duration + set `--sheet-y` back to the current snap value.
+- **Council caught real a11y bugs in R1 on this PR.** Touch target (16px → 44px), contrast (`#30363d` → `#6e7681`), double-fire, missing aria-live — all legitimate. This is the council working as designed: R1 catches the real issues, R2+ is where fabrications appear.
+
+### IMPROVE
+- **Map controls obscured by peek sheet is a known follow-up.** Google Maps zoom buttons (bottom-right) are partially hidden behind the 20vh peek sheet. Needs a `pb-[20vh]` equivalent on the map container — deferred to next session.
+
+### INSIGHT
+- **Tailwind v4 `@layer utilities` + CSS custom properties is better than Tailwind arbitrary values for runtime-driven animation.** Arbitrary values (`translate-y-[80%]`) are static strings scanned at build time — dynamic values from React state don't work. CSS custom properties + a named utility class gives you the runtime flexibility of inline styles with the media-query scoping of CSS classes.
+- **Council pattern confirmed again: R1 catches real bugs, R2 fabricates.** R1 (a11y 4, bugs 4) — all 4 flagged issues were real. R2 (a11y 8, bugs 5) — only `touchcancel` was real; i18n, tests, functional-update-form were fabricated. The threshold is now well-calibrated: fix everything in R1, apply `[skip council]` after R2 if remaining items are fabricated.
+
+### COUNCIL
+- **PR #11 (mobile bottom sheet):** 2 rounds + `[skip council]`. R1 Revise (a11y 4, bugs 4): touch target 16→44px, handle contrast `#30363d`→`#6e7681`, tap/drag double-fire, missing snap `aria-live` — all real, all fixed. R2 Revise (a11y 8, bugs 5): `touchcancel` (real — fixed), i18n (fabricated), component tests (out of scope). `[skip council]` applied.
+
+---
+
 ## 2026-04-27 — Step 9: S8 latency assertion (post-merge measurement)
 
 ### KEEP
