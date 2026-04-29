@@ -159,6 +159,34 @@ export default function PlanWorkspace({
     [tripStops]
   );
 
+  // Stops no longer near the refreshed corridor. Uses liveWaypointFetch (not
+  // effectiveWaypointFetch) so degraded fallback data never triggers false badges.
+  // Empty cities array = degraded/failed response — treat same as null to avoid
+  // marking every stop a detour when the recompute itself failed.
+  const offCorridorStopIds = useMemo<ReadonlySet<string>>(() => {
+    const cities = liveWaypointFetch?.cities;
+    if (!cities || cities.length === 0) return new Set();
+    const candidateIds = new Set(cities.map((c) => c.id));
+    return new Set(tripStops.map((s) => s.cityId).filter((id) => !candidateIds.has(id)));
+  }, [liveWaypointFetch, tripStops]);
+
+  // Announce newly off-corridor stops to screen readers after each recompute.
+  const [corridorAnnouncement, setCorridorAnnouncement] = useState("");
+  const prevOffCorridorRef = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    const prev = prevOffCorridorRef.current;
+    const newlyOff = [...offCorridorStopIds].filter((id) => !prev.has(id));
+    if (newlyOff.length > 0) {
+      const names = newlyOff
+        .map((id) => tripStops.find((s) => s.cityId === id)?.cityName ?? id)
+        .join(", ");
+      setCorridorAnnouncement(
+        `Route updated. ${names} ${newlyOff.length === 1 ? "is" : "are"} now a detour.`
+      );
+    }
+    prevOffCorridorRef.current = offCorridorStopIds;
+  }, [offCorridorStopIds, tripStops]);
+
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
     () => ({ ...effectiveWaypointFetch.neighborhoods, ...localNeighborhoods }),
@@ -353,8 +381,9 @@ export default function PlanWorkspace({
 
   return (
     <div className="flex flex-1 min-h-0">
-      {/* Screen-reader live region for panel loading / content updates */}
+      {/* Screen-reader live regions */}
       <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{corridorAnnouncement}</div>
 
       {/* Side panel */}
       <aside className="w-[360px] border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0">
@@ -413,6 +442,7 @@ export default function PlanWorkspace({
               stops={tripStops}
               failedStopId={failedStopId}
               selectedCityId={panelCityId}
+              offCorridorStopIds={offCorridorStopIds}
               pending={isPending}
               onRemoveStop={handleRemoveCity}
               onStopClick={handleStopClick}

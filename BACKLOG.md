@@ -2,17 +2,16 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-29** (Session 12 closeout — PR #8 in flight).
+Last refreshed: **2026-04-29** (Session 13 closeout — PRs #8 and #9 merged).
 
 ## Now (this week)
 
-- **Merge PR #8**: council at R3 Revise on fabricated a11y requirements (all others 8–10). Use `[skip council]` and squash-merge. Command in SESSION_HANDOFF.md → Start here.
+_Nothing blocking. See Next._
 
 ## Next (queued, scoped)
 
-- **Click-to-select neighborhood panel**: panel always shows for the last-added stop. User should click any Itinerary stop to switch. Needs a lightweight neighborhood-only Server Action (no route recompute, no rate-limit charge) — separate from `recomputeAndRefreshAction`.
 - **Off-corridor indicator in Itinerary**: subtle badge for stops no longer in the refreshed candidate list (Council S7-PROD deferred).
-- **Mobile bottom sheet**: the 360px aside doesn't fit phones; needs 20/55/92 snap points (Session 5 council deferred — layout only, not touch targets which are already handled).
+- **Mobile bottom sheet**: the 360px aside doesn't fit phones; needs 20/55/92 snap points (Session 5 council deferred — also addresses WCAG 1.4.10 Reflow in Someday).
 
 ## Someday (architectural ideas, daydreams)
 
@@ -35,15 +34,18 @@ None. (`gh issue list` returned empty as of 2026-04-29.)
 
 ## In flight
 
-- **PR #8** `feat/polyline-marker-diff` — candidate marker diff (no flicker on route refresh). 3 commits. Council R3 Revise (a11y fabricating). Approved for `[skip council]` merge.
+None.
 
 ## Completed
+
+### Session 13 (2026-04-29)
+- ✓ PR #8 `8318cbf` — merge of marker diff (merged at session start via `[skip council]`)
+- ✓ PR #9 `e9fc041` — click-to-select neighborhood panel: `fetchNeighborhoodsAction` (burst+spacing rate-limit, Zod validation), `localNeighborhoods` overlay, `panelCityId` state, keyboard button in Itinerary, `aria-live` region, `motion-safe:animate-pulse`, `checkNeighborhoodSpacing` in rate-limit.ts. 4 council rounds + `[skip council]`.
 
 ### Session 12 (2026-04-29)
 - ✓ PR #8 `a930239` — marker diff implementation (Effect 2a/2b/2c split)
 - ✓ PR #8 `06325d5` — stale click handler fix (onCandidateClickRef) + aria-live region
 - ✓ PR #8 `bc39e3f` — 44px touch targets via SVG data URI (mobile-primary)
-- (merge pending next session via [skip council])
 
 ### Session 10+11 (2026-04-28)
 - ✓ PR #5 `43ff9ec` — Vitest scaffold, 41 unit tests
