@@ -50,6 +50,7 @@ interface PlanWorkspaceProps {
   endDate?: string;
 }
 
+// 7 stops balances itinerary richness against UI clarity and API cost per recompute.
 const MAX_TRIP_STOPS = 7;
 
 // Compile-time exhaustiveness — adding a new RecomputeErrorCode forces a label.

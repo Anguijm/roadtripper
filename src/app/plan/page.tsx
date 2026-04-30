@@ -13,16 +13,22 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 // Maximum trip duration enforced server-side to prevent resource exhaustion
 // from unbounded date ranges passed via URL params.
 const MAX_TRIP_DAYS = 90;
 
-const PlanDatesSchema = z
+// Comprehensive Zod schema for all trip-planning URL params (dates + budget).
+// Coordinate params (fromLat/fromLng/toLat/toLng) are validated separately by
+// validateRouteParams, which also enforces geometry constraints (haversine,
+// North America bbox). Both schemas must pass before any API call is made.
+const TripParamsSchema = z
   .object({
     startDate: z.string().date(),
     endDate: z.string().date(),
+    // Daily driving hours: min 1h to make progress, max 16h sanity limit.
+    dailyBudgetHours: z.number().int().min(1).max(16),
   })
   .refine((d) => d.startDate <= d.endDate, {
     message: "Start date must be on or before end date.",
@@ -119,21 +125,22 @@ export default async function PlanPage({
   const toName = params.toName ?? "End";
   const activePersonaId = parsePersonaId(params.persona);
 
-  // Parse and validate trip dates via consolidated schema.
-  // Both params must be present and valid if either is supplied.
+  // Parse and validate trip params (dates + budget) via comprehensive schema.
+  // Both date params must be present and valid if either is supplied.
   let startDate: string | undefined;
   let endDate: string | undefined;
   if (params.startDate !== undefined || params.endDate !== undefined) {
-    const datesParsed = PlanDatesSchema.safeParse({
+    const tripParsed = TripParamsSchema.safeParse({
       startDate: params.startDate,
       endDate: params.endDate,
+      dailyBudgetHours: budgetHours,
     });
-    if (!datesParsed.success) {
-      const msg = datesParsed.error.issues[0]?.message ?? "Invalid date parameters.";
+    if (!tripParsed.success) {
+      const msg = tripParsed.error.issues[0]?.message ?? "Invalid trip parameters.";
       return <ErrorScreen title="Invalid Parameters" message={msg} />;
     }
-    startDate = datesParsed.data.startDate;
-    endDate = datesParsed.data.endDate;
+    startDate = tripParsed.data.startDate;
+    endDate = tripParsed.data.endDate;
   }
 
   // Use total trip days × daily budget as the effective budget signal so that

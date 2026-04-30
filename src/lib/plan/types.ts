@@ -1,4 +1,4 @@
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const LatLngSchema = z.object({
   lat: z.number().min(-90).max(90),
