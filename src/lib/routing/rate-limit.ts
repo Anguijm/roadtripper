@@ -136,6 +136,9 @@ export function checkNeighborhoodSpacing(ip: string): RateLimitResult {
 // client retransmits the same request ID (framework retry or rapid double-submit).
 
 const idempotencyKeys = new Map<string, number>(); // key → timestamp
+// 60 s covers any realistic client retry window (network timeout, double-click)
+// while remaining short enough that a genuinely new request for the same user
+// action (e.g., after a page refresh) gets a fresh quota slot.
 const IDEMPOTENCY_TTL_MS = 60_000;
 
 /** Returns true if this (ip, requestId) pair has already consumed a quota slot. */

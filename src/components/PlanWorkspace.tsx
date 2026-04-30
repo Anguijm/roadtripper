@@ -346,6 +346,9 @@ export default function PlanWorkspace({
       lng: s.lng,
     }));
     const lastStopCityId = stopsForRequest[stopsForRequest.length - 1]?.cityId;
+    // Generated before the transition so any retry of this specific action
+    // reuses the same key — prevents double-charging daily quota on re-submits.
+    const actionRequestId = crypto.randomUUID();
 
     startTransition(async () => {
       const result = await recomputeAndRefreshAction(
@@ -354,7 +357,7 @@ export default function PlanWorkspace({
         stopsForRequest,
         budgetHours,
         lastStopCityId,
-        crypto.randomUUID()
+        actionRequestId
       );
 
       // Stale-response guard — wraps BOTH state updates so a stale
