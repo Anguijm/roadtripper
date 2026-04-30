@@ -73,7 +73,9 @@ function computeBearing(
 ): number {
   const lat1 = (from.lat * Math.PI) / 180;
   const lat2 = (to.lat * Math.PI) / 180;
-  const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+  // Normalise to [-180, 180] so routes crossing the antimeridian point the right way.
+  const dLngDeg = ((to.lng - from.lng + 540) % 360) - 180;
+  const dLng = (dLngDeg * Math.PI) / 180;
   const y = Math.sin(dLng) * Math.cos(lat2);
   const x =
     Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
@@ -269,7 +271,7 @@ export default function PlanWorkspace({
         : { lat: origin.lat, lng: origin.lng };
     return {
       center: arcCenter,
-      radiusMeters: maxDetourMinutes * 1333,
+      radiusMeters: maxDetourMinutes * 1333, // 1333 m/min ≈ 80 km/h average road speed
       headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
     };
   }, [tripStops, origin, destination, maxDetourMinutes]);

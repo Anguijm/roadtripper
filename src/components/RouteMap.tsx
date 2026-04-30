@@ -82,7 +82,8 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
   };
 }
 
-/** Approximates a 180° forward-facing arc as a polyline path. */
+/** Approximates a 180° forward-facing arc as a polyline path.
+ *  steps=32 → 33 points: smooth at typical zoom levels, negligible DOM cost. */
 function buildSemicirclePoints(
   center: google.maps.LatLngLiteral,
   radiusMeters: number,
@@ -416,7 +417,7 @@ function PolylineRenderer({
     const arc = new google.maps.Polyline({
       path: pts,
       strokeColor: routeColor,
-      strokeOpacity: 0.35,
+      strokeOpacity: 0.5,
       strokeWeight: 1.5,
       map,
     });
