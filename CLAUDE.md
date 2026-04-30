@@ -93,6 +93,15 @@ src/
 Plans/                        — tracked plan files (required for council)
 ```
 
+## New CI workflows (added 2026-04-30, harness update)
+
+- `.github/workflows/ci.yml` — build + type-check on every push
+- `.github/workflows/council.yml` — council review on every PR (split into `budget` pre-flight + `council` jobs)
+- `.github/workflows/branch-guard.yml` — prevents pushing to main directly
+- `.github/workflows/drift-check.yml` — flags schema drift
+
+Session-start hook (`.claude/hooks/session-start.sh`) surfaces branch, last commit, active plan, and last council verdict at the start of every Claude Code session.
+
 ## Known gotcha — post-commit hook
 
 The post-commit hook writes `.harness/session_state.json` and `.harness/yolo_log.jsonl` after every commit, leaving the working tree dirty. This causes `gh pr merge` to abort. Workaround:

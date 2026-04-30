@@ -221,6 +221,28 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ---
 
+## 2026-04-30 — Session 17: radial hop planner brainstorm + PR A (PR #13, in flight)
+
+### KEEP
+- **Deploy failures are silent if you only watch GitHub Actions.** Firebase App Hosting build failures show up at `firebaseapphosting.googleapis.com` REST API, not in GH Actions (which only runs the council workflow). `package-lock.json` was stale since 2026-04-06; every build from PR #5 onward silently failed for 3 days (commits `43ff9ec` through `f4ac0ec`). Verification command: `gcloud auth print-access-token | xargs -I T curl -s ".../builds" -H "Authorization: Bearer T"`. Fix: `npm install --package-lock-only` regenerates without touching `node_modules`.
+- **Bun + npm lockfile duality.** Bun writes `bun.lock`; Firebase App Hosting uses `npm ci` (reads `package-lock.json`). Any `bun add` that updates `bun.lock` without a matching `npm install --package-lock-only` will break App Hosting builds. Run both when adding deps.
+- **Plan doc in the PR diff gets graded by the council.** Including `Plans/session-17-radial-hop-planner.md` in PR #13 caused the council to review the entire radial-hop plan, not just the 2-line persona change. This is the correct behavior — it surfaces real design issues before implementation starts. Cost: ~14 Gemini calls to converge; value: caught the $258/IP/day quota risk before any code was written.
+- **New harness infrastructure merged 2026-04-30 (sha `1c5b44d`, `4d54462`).** Adds: `budget` pre-flight job (serializes quota reservation), `council.py` cross-round drift prevention, session-start hook surfacing branch/plan/verdict, `ci.yml` build+type-check on every push, `check-branch-not-merged.sh` pre-Bash hook. Use PR A as the first real test of the new harness infrastructure.
+
+### IMPROVE
+- **Check App Hosting build status after every main push, not just council.** Add `gcloud builds describe` or the REST endpoint to the standard post-merge checklist.
+- **Council reviews plan docs thoroughly — commit them to the right PR.** The plan doc for a multi-PR feature should go in the first PR of that feature, not a separate docs PR. The council grades whatever is in the diff; plan-in-diff = plan gets reviewed, which is what we want.
+
+### INSIGHT
+- **The corridor model was wrong from the start for road-trip UX.** Filtering to cities near a polyline implicitly optimizes for "make good time," but road-trip planners explicitly don't want that. The semicircle radial model (current-position → candidates within budget, aimed toward destination) better matches the mental model: "what can I reach from here, broadly in that direction?"
+- **$1.29/matrix-call × 200/IP/day quota = $258/IP/day cost ceiling.** The existing 200/IP/day daily quota was set when actions cost $0.005. Applying it to `findCitiesInRadius` would be a cost catastrophe. Must lower to 20–30/IP/day in PR C before the feature ships. Council cost angle (Score 2 → VETO) caught this from the plan doc before any code existed.
+- **Council fabrication pattern confirmed across multiple PRs: A11y and Bugs invent new non-negotiables each round; Security/Architecture/Cost/Product converge.** The correct response remains: fix R1 catches (real), fix R2 catches that are real, apply `[skip council]` once all non-fabricated items are resolved.
+
+### COUNCIL
+- **PR #13 (culture default persona + radial-hop plan doc):** R3 in flight as of 2026-04-30 closeout. R1 Revise: cost VETO (no cache specified), a11y (missing aria-live replacements), architecture DU violation (`chosenCity: null`), bugs (double-click race, overlay leak). All real — fixed in commit `5d79e61`. R2 Revise: cost (Score 4, quota not committed to specific number), maintainability (Score 3, no comment explaining why culture is default). Fixed in commit `52e6e30` (after rebase on remote `4db3fde`). R3 running. New harness features visible: `budget` pre-flight job, `council-script-check`, `secret-scan`, `validate` jobs all passing.
+
+---
+
 ## 2026-04-27 — Step 9: S8 latency assertion (post-merge measurement)
 
 ### KEEP

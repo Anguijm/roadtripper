@@ -2,19 +2,24 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-30** (Session 16 closeout — PR #12 + city fallback + page fix landed).
+Last refreshed: **2026-04-30** (Session 17 closeout — harness update merged, PR #13 in flight, radial hop planner planned).
 
 ## Now (this week)
 
-_Nothing blocking. See Next._
+- **Merge PR #13** (`feat/culture-default-persona`) — R3 council running. Check `gh pr checks 13`. Merge when Proceed.
+- **PR B — trip input model**: `TripInputSchema` (startDate, endDate, dailyBudgetHours), updated `RouteInput.tsx` form, updated `PlanSearchParams`. No deps. Start after #13 merges.
 
 ## Next (queued, scoped)
 
-- **Save/load trips**: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view.
+Radial hop planner — full spec in `Plans/session-17-radial-hop-planner.md`:
+- **PR C — radial candidate engine**: `src/lib/routing/radial.ts` (`bearingDeg`, `snapToCompassPoint`, `withinSemicircle`, `findCitiesInRadius`). Delete `findCandidateCities`. Lower daily quota to 20–30/IP/day (hard gate before ship). Full unit tests.
+- **PR D — trip state + budget tracking**: `TripLeg`, `TripState`, `TripStatus` DU, `remainingBudgetMinutes`, `directMinutesToDestination`. Unit tests.
+- **PR E — hop-by-hop UX** *(needs C+D)*: PlanWorkspace rewritten around `TripState`, city selection → append leg → next candidate fetch, budget counter + soft warning, `candidatePoolAnnouncement` aria-live.
+- **PR F — semicircle map overlay** *(needs E)*: Effect 5 in PolylineRenderer, `searchArc` prop, arc cleanup on unmount.
 
 ## Someday (architectural ideas, daydreams)
 
-- Save/load trips: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view.
+- Save/load trips: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view. (Deferred in favor of radial hop planner.)
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
 - Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
 - Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
@@ -24,16 +29,15 @@ _Nothing blocking. See Next._
 - CitySchema: reconcile local nested `location.{latitude,longitude}` divergence with upstream (deferred from city-atlas-service#26).
 - `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
 - `actions.ts` ISC anchor comment stale — references removed `WaypointFetchResult.degraded`; fix on next `actions.ts` touch.
-- `geometricFilter` docstring still says "102 UE cities" — hardcoded count will drift; fix on next `candidates.ts` touch.
-- **WCAG 1.4.10 Reflow**: resolved by PR #11 bottom sheet.
+- `geometricFilter` docstring still says "102 UE cities" — will be deleted entirely in PR C (`findCandidateCities` goes away).
 
 ## Open issues
 
-None. (`gh issue list` returned empty as of 2026-04-29.)
+None. (`gh issue list` returned empty as of 2026-04-30.)
 
 ## In flight
 
-None.
+- **PR #13** `feat/culture-default-persona` — culture default persona + radial hop planner plan doc. R3 council running.
 
 ## Completed
 

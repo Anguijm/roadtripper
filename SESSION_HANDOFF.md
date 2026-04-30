@@ -2,11 +2,19 @@
 
 ## Start here next session
 
-**Current branch: `main`**. Local and origin/main are in sync at `45c65f2`.
+**Current branch: `main`**. Local and origin/main are in sync at `4d54462`.
 
-**First action:** Save/load trips — biggest net-new surface. Needs Firestore `saved_hunts` schema + Clerk-scoped storage + trip-list view. Or map bottom padding (lower priority, zoom controls already moved to RIGHT_CENTER in PR #12).
+**PR #13 in flight** (`feat/culture-default-persona`) — R3 council running as of session close. Check `gh pr checks 13` first thing. If Proceed: merge with `git stash && gh pr merge 13 --squash && git stash drop`. If Revise: read the new comment on the PR and fix.
+
+**After PR #13 merges:** Start PR B — trip input model (add `startDate`, `endDate`, `dailyBudgetHours` to `TripInputSchema`, update `RouteInput.tsx` form, update `PlanSearchParams`). See `Plans/session-17-radial-hop-planner.md` for full scope. PR B has no deps, safe to start immediately.
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
+
+**Session 17 shipped (2026-04-30):**
+- Harness infrastructure update merged to main (`1c5b44d`, `4d54462`): `budget` pre-flight CI job, `council.py` cross-round drift prevention, session-start hook, `ci.yml`, `branch-guard.yml`, `drift-check.yml`, `check-branch-not-merged.sh`.
+- `package-lock.json` regenerated (`f4ac0ec`) — fixes Firebase App Hosting build failures since PR #5 (2026-04-28). All 12 old stale branches deleted from GitHub.
+- PR #13 opened: culture default persona + `Plans/session-17-radial-hop-planner.md` (full 6-PR radial hop planner spec). R1+R2 addressed; R3 in flight.
+- Brainstorm: radial hop-by-hop planner design fully scoped into PRs A–F. See `Plans/session-17-radial-hop-planner.md`.
 
 **Session 16 shipped (2026-04-30):**
 - PR #12 — map zoom controls: `zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER }` keeps controls clear of bottom sheet at all snap positions. [skip council] (1-line change).
