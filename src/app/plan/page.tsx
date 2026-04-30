@@ -13,6 +13,7 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
+import { totalDays, TripParamsSchema } from "@/lib/plan/types";
 
 interface PlanSearchParams {
   from?: string;
@@ -25,6 +26,8 @@ interface PlanSearchParams {
   toLng?: string;
   budget?: string;
   persona?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -89,8 +92,31 @@ export default async function PlanPage({
   const { origin, destination, budgetHours } = validated;
   const fromName = params.fromName ?? "Start";
   const toName = params.toName ?? "End";
-  const maxDetourMinutes = detourCapForBudget(budgetHours);
   const activePersonaId = parsePersonaId(params.persona);
+
+  // Parse and validate trip params (dates + budget) via comprehensive schema.
+  // Both date params must be present and valid if either is supplied.
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+  if (params.startDate !== undefined || params.endDate !== undefined) {
+    const tripParsed = TripParamsSchema.safeParse({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      dailyBudgetHours: budgetHours,
+    });
+    if (!tripParsed.success) {
+      const msg = tripParsed.error.issues[0]?.message ?? "Invalid trip parameters.";
+      return <ErrorScreen title="Invalid Parameters" message={msg} />;
+    }
+    startDate = tripParsed.data.startDate;
+    endDate = tripParsed.data.endDate;
+  }
+
+  // Total trip days scales the per-stop detour cap so longer trips can reach
+  // further stops. Falls back to 1 day for legacy URLs without date params.
+  // detourCapForBudget already hard-caps at 120 min regardless of input size.
+  const tripDays = startDate && endDate ? totalDays({ startDate, endDate }) : 1;
+  const maxDetourMinutes = detourCapForBudget(tripDays * budgetHours);
 
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;
@@ -157,6 +183,8 @@ export default async function PlanPage({
           fromName={fromName}
           toName={toName}
           maxDetourMinutes={maxDetourMinutes}
+          startDate={startDate}
+          endDate={endDate}
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">
