@@ -180,11 +180,15 @@ async function fetchWaypointsCore(
   const cached = cacheGet<WaypointsCorePayload>(cacheKey);
 
   if (cached) {
-    const patchedCities = cached.cities.map((city) => {
-      const cand = cityById.get(city.id);
-      // Doubled: detourMinutes retains its round-trip semantics for scoring/display compat.
-      return cand ? { ...city, detourMinutes: cand.oneWayDriveMinutes * 2 } : city;
-    });
+    // Filter to current candidates — defensive guard against any cache-key
+    // collision that could surface cities no longer in the active set.
+    const patchedCities = cached.cities
+      .filter((city) => cityById.has(city.id))
+      .map((city) => {
+        const cand = cityById.get(city.id)!;
+        // Doubled: detourMinutes retains round-trip semantics for scoring/display compat.
+        return { ...city, detourMinutes: cand.oneWayDriveMinutes * 2 };
+      });
     return { payload: { cities: patchedCities, waypoints: cached.waypoints } };
   }
 

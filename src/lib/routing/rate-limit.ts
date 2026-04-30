@@ -130,6 +130,30 @@ export function checkNeighborhoodSpacing(ip: string): RateLimitResult {
   return { ok: true, remaining: 0, retryAfterSeconds: 0 };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Idempotency cache: de-duplicates daily quota decrements within a 60-second
+// window. Keyed on `${ip}:${requestId}`. Prevents double-charging when a
+// client retransmits the same request ID (framework retry or rapid double-submit).
+
+const idempotencyKeys = new Map<string, number>(); // key → timestamp
+const IDEMPOTENCY_TTL_MS = 60_000;
+
+/** Returns true if this (ip, requestId) pair has already consumed a quota slot. */
+export function isQuotaDuplicate(ip: string, requestId: string): boolean {
+  const key = `${ip}:${requestId}`;
+  const ts = idempotencyKeys.get(key);
+  if (ts === undefined) return false;
+  if (Date.now() - ts > IDEMPOTENCY_TTL_MS) {
+    idempotencyKeys.delete(key);
+    return false;
+  }
+  return true;
+}
+
+export function markQuotaRequestId(ip: string, requestId: string): void {
+  idempotencyKeys.set(`${ip}:${requestId}`, Date.now());
+}
+
 /**
  * Periodic cleanup so the bucket maps don't grow unbounded.
  * Lazily called on each rate-check.
@@ -152,6 +176,10 @@ function sweep() {
   }
   for (const [ip, ts] of lastNeighborhoodAt.entries()) {
     if (now - ts >= 60_000) lastNeighborhoodAt.delete(ip);
+  }
+  // Prune idempotency keys older than 2× TTL.
+  for (const [k, ts] of idempotencyKeys.entries()) {
+    if (now - ts >= IDEMPOTENCY_TTL_MS * 2) idempotencyKeys.delete(k);
   }
 }
 

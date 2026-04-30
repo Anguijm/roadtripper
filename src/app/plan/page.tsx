@@ -158,7 +158,7 @@ export default async function PlanPage({
 
       waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
     } catch (e) {
-      console.error("[plan] candidate/waypoint pipeline failed:", e);
+      console.error("[plan] candidate/waypoint pipeline failed:", e instanceof Error ? e.message : "unknown");
       candidateFetchFailed = true;
     }
   }

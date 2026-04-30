@@ -353,7 +353,8 @@ export default function PlanWorkspace({
         { lat: destination.lat, lng: destination.lng },
         stopsForRequest,
         budgetHours,
-        lastStopCityId
+        lastStopCityId,
+        crypto.randomUUID()
       );
 
       // Stale-response guard — wraps BOTH state updates so a stale

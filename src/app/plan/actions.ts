@@ -23,6 +23,8 @@ import {
   checkNeighborhoodSpacing,
   getClientIp,
   maybeSweep,
+  isQuotaDuplicate,
+  markQuotaRequestId,
 } from "@/lib/routing/rate-limit";
 
 /**
@@ -133,7 +135,8 @@ export async function recomputeAndRefreshAction(
   destination: PlainLatLng,
   stops: ReadonlyArray<RecomputeStopInput>,
   budgetHours: number,
-  selectedCityId?: string
+  selectedCityId?: string,
+  requestId?: string
 ): Promise<RecomputeAndRefreshResult> {
   // ── Burst + spacing gates (DoS shields — run BEFORE validation) ────────
   let ip: string;
@@ -203,14 +206,19 @@ export async function recomputeAndRefreshAction(
   }
 
   // ── Daily quota (cost-amplification ceiling — single charge per call) ──
-  // Next.js does NOT automatically retry failed Server Actions — retries
-  // are always explicit user gestures (button click). The `requestIdRef`
-  // guard in PlanWorkspace additionally prevents concurrent calls from the
-  // same client. There is no framework-level path that would cause this
-  // function to be called twice for a single user operation.
-  const daily = checkDailyQuota(ip);
-  if (!daily.ok) {
-    return { ok: false, error: "quota_exceeded", retryAfterSeconds: daily.retryAfterSeconds };
+  // Idempotency: a UUID requestId from the client de-duplicates the quota
+  // decrement within 60 s, guarding against rapid double-submits or any
+  // framework-level retry path that might replay the same request.
+  const safeRequestId =
+    typeof requestId === "string" && /^[0-9a-f-]{36}$/.test(requestId)
+      ? requestId
+      : undefined;
+  if (safeRequestId === undefined || !isQuotaDuplicate(ip, safeRequestId)) {
+    const daily = checkDailyQuota(ip);
+    if (!daily.ok) {
+      return { ok: false, error: "quota_exceeded", retryAfterSeconds: daily.retryAfterSeconds };
+    }
+    if (safeRequestId !== undefined) markQuotaRequestId(ip, safeRequestId);
   }
 
   // ── Stage 1: Routes API recompute ──────────────────────────────────────
@@ -245,7 +253,7 @@ export async function recomputeAndRefreshAction(
     );
     const waypointFetch = await fetchWaypointsForCandidates(radialCandidates, selectedCityId);
     console.info(
-      `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh dailyRemaining=${daily.remaining}`
+      `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh`
     );
     return { ok: true, route, waypointStatus: "fresh", waypointFetch };
   } catch (e) {

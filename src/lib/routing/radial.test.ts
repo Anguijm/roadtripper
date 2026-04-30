@@ -58,6 +58,12 @@ describe("bearingDeg", () => {
     expect(b).toBeGreaterThan(50);
     expect(b).toBeLessThan(90);
   });
+
+  it("returns 0 and does not throw when origin equals destination", () => {
+    // atan2(0, 0) = 0 in JavaScript — same-point is a degenerate but safe case.
+    expect(() => bearingDeg({ lat: 1, lng: 1 }, { lat: 1, lng: 1 })).not.toThrow();
+    expect(bearingDeg({ lat: 1, lng: 1 }, { lat: 1, lng: 1 })).toBe(0);
+  });
 });
 
 // ── snapToCompassPoint ────────────────────────────────────────────────────────
