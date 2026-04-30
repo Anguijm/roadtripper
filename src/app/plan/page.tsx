@@ -3,7 +3,7 @@ import Link from "next/link";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import type { CandidateMarker } from "@/components/RouteMap";
 import { computeRoute } from "@/lib/routing/directions";
-import { findCandidateCities } from "@/lib/routing/candidates";
+import { findCitiesInRadius } from "@/lib/routing/radial";
 import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
 import {
@@ -136,18 +136,16 @@ export default async function PlanPage({
 
   if (route) {
     try {
-      const validatedCandidates = await findCandidateCities(route.encodedPolyline, {
-        maxDetourMinutes,
-      });
-      candidateMarkers = validatedCandidates.map((c) => ({
+      const radialCandidates = await findCitiesInRadius(origin, destination, maxDetourMinutes);
+      candidateMarkers = radialCandidates.map((c) => ({
         id: c.city.id,
         name: c.city.name,
         lat: c.city.lat,
         lng: c.city.lng,
-        detourMinutes: c.roundTripDetourMinutes,
+        detourMinutes: c.driveMinutes,
       }));
 
-      waypointFetch = await fetchWaypointsForCandidates(validatedCandidates);
+      waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
     } catch (e) {
       console.error("[plan] candidate/waypoint pipeline failed:", e);
       // Non-fatal: still render the route, just without recommendations

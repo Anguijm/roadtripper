@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { neighborhoodsCacheKey, waypointsCacheKey, candidateCacheKey } from "./cache";
+import { neighborhoodsCacheKey, waypointsCacheKey, candidateCacheKey, radialCacheKey } from "./cache";
 
 describe("neighborhoodsCacheKey", () => {
   it("returns a string with the neighborhoods: prefix", () => {
@@ -78,6 +78,56 @@ describe("candidateCacheKey", () => {
   it("handles a Unicode polyline without throwing", () => {
     // Encoded polylines are ASCII in practice; this guards the surrogate-pair edge case
     expect(() => candidateCacheKey("🗺️route", 30)).not.toThrow();
+  });
+});
+
+describe("radialCacheKey", () => {
+  it("returns a string with the radial: prefix", () => {
+    expect(radialCacheKey(34.05, -118.24, 60, "NE")).toMatch(/^radial:/);
+  });
+
+  it("hash portion is 16 hex characters", () => {
+    const key = radialCacheKey(34.05, -118.24, 60, "NE");
+    const hash = key.replace("radial:", "");
+    expect(hash).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("is deterministic for the same inputs", () => {
+    expect(radialCacheKey(34.05, -118.24, 60, "NE")).toBe(
+      radialCacheKey(34.05, -118.24, 60, "NE")
+    );
+  });
+
+  it("produces distinct keys for different compass points", () => {
+    expect(radialCacheKey(34.05, -118.24, 60, "NE")).not.toBe(
+      radialCacheKey(34.05, -118.24, 60, "SW")
+    );
+  });
+
+  it("produces distinct keys for different max budgets", () => {
+    expect(radialCacheKey(34.05, -118.24, 60, "NE")).not.toBe(
+      radialCacheKey(34.05, -118.24, 90, "NE")
+    );
+  });
+
+  it("rounds lat/lng to 3dp so nearby origins share a key", () => {
+    // 34.050001 and 34.050499 both round to 34.050
+    expect(radialCacheKey(34.050001, -118.24, 60, "NE")).toBe(
+      radialCacheKey(34.050499, -118.24, 60, "NE")
+    );
+  });
+
+  it("different origins that differ beyond 3dp get distinct keys", () => {
+    expect(radialCacheKey(34.050, -118.24, 60, "NE")).not.toBe(
+      radialCacheKey(34.051, -118.24, 60, "NE")
+    );
+  });
+
+  it("namespace does not collide with candidates: prefix", () => {
+    const radial = radialCacheKey(34.05, -118.24, 60, "NE");
+    const candidate = candidateCacheKey("abc123", 60);
+    expect(radial.startsWith("radial:")).toBe(true);
+    expect(candidate.startsWith("candidates:")).toBe(true);
   });
 });
 

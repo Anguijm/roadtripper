@@ -13,7 +13,7 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-const MAX_ENTRIES = 200;
+const MAX_ENTRIES = 256;
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const store = new Map<string, CacheEntry<unknown>>();
@@ -38,6 +38,33 @@ export function cacheSet<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_M
     if (oldestKey !== undefined) store.delete(oldestKey);
   }
   store.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+/**
+ * Cache key for the radial candidate engine. Keyed by origin (3dp lat/lng),
+ * max drive budget in minutes, and the snapped compass heading — the full set
+ * of inputs that determine which cities fall within the semicircle.
+ *
+ * SHA-256 truncated to 16 hex chars (64 bits). Structured JSON input keeps
+ * the `radial:` namespace orthogonal to other key kinds by construction.
+ * Lat/lng are rounded to 3 decimal places (~100m precision) so small GPS
+ * jitter from the same stop doesn't generate distinct cache entries.
+ */
+export function radialCacheKey(
+  lat: number,
+  lng: number,
+  maxMinutes: number,
+  compassPoint: string
+): string {
+  const payload = JSON.stringify({
+    kind: "radial",
+    lat: Number(lat.toFixed(3)),
+    lng: Number(lng.toFixed(3)),
+    maxMinutes,
+    compassPoint,
+  });
+  const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
+  return `radial:${hash}`;
 }
 
 /**

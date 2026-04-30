@@ -61,7 +61,7 @@ interface DailyBucket {
 }
 
 const dailyBuckets = new Map<string, DailyBucket>();
-const MAX_DAILY_RECOMPUTE = 200;
+const MAX_DAILY_RECOMPUTE = 25;
 
 export function checkDailyQuota(ip: string): RateLimitResult {
   const today = Math.floor(Date.now() / 86_400_000);
