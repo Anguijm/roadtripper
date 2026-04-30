@@ -8,6 +8,9 @@ export interface DirectionsResult {
     northeast: { lat: number; lng: number };
     southwest: { lat: number; lng: number };
   };
+  /** Per-leg breakdown: legs[i] = drive from stop[i-1] (or origin) to stop[i].
+   *  The final element is the leg from the last intermediate stop to destination. */
+  legs: Array<{ durationSeconds: number; distanceMeters: number }>;
 }
 
 interface RoutesApiResponse {
@@ -19,6 +22,10 @@ interface RoutesApiResponse {
       low: { latitude: number; longitude: number };
       high: { latitude: number; longitude: number };
     };
+    legs?: Array<{
+      duration: string;
+      distanceMeters: number;
+    }>;
   }>;
   error?: { message: string };
 }
@@ -89,7 +96,7 @@ export async function computeRouteWithStops(
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
           "X-Goog-FieldMask":
-            "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.viewport",
+            "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.viewport,routes.legs.duration,routes.legs.distanceMeters",
         },
         body: JSON.stringify(body),
       }
@@ -128,6 +135,16 @@ export async function computeRouteWithStops(
       northeast: { lat: route.viewport.high.latitude, lng: route.viewport.high.longitude },
       southwest: { lat: route.viewport.low.latitude, lng: route.viewport.low.longitude },
     },
+    legs: (route.legs ?? []).map((l) => {
+      // Routes API returns duration as "1234s" (integer) or occasionally "1234.5s" (float).
+      // parseFloat handles both; Math.round normalises to whole seconds.
+      const raw = typeof l.duration === "string" ? parseFloat(l.duration) : NaN;
+      const durationSeconds = Number.isFinite(raw) ? Math.round(raw) : 0;
+      if (!Number.isFinite(raw)) {
+        console.warn("[computeRouteWithStops] malformed leg duration:", l.duration);
+      }
+      return { durationSeconds, distanceMeters: l.distanceMeters ?? 0 };
+    }),
   };
 }
 
