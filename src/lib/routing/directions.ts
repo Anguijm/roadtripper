@@ -135,10 +135,16 @@ export async function computeRouteWithStops(
       northeast: { lat: route.viewport.high.latitude, lng: route.viewport.high.longitude },
       southwest: { lat: route.viewport.low.latitude, lng: route.viewport.low.longitude },
     },
-    legs: (route.legs ?? []).map((l) => ({
-      durationSeconds: parseInt(l.duration.replace("s", ""), 10),
-      distanceMeters: l.distanceMeters,
-    })),
+    legs: (route.legs ?? []).map((l) => {
+      // Routes API returns duration as "1234s" (integer) or occasionally "1234.5s" (float).
+      // parseFloat handles both; Math.round normalises to whole seconds.
+      const raw = typeof l.duration === "string" ? parseFloat(l.duration) : NaN;
+      const durationSeconds = Number.isFinite(raw) ? Math.round(raw) : 0;
+      if (!Number.isFinite(raw)) {
+        console.warn("[computeRouteWithStops] malformed leg duration:", l.duration);
+      }
+      return { durationSeconds, distanceMeters: l.distanceMeters ?? 0 };
+    }),
   };
 }
 

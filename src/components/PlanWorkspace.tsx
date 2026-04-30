@@ -89,6 +89,8 @@ export default function PlanWorkspace({
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
 
   // Total trip budget derived from date range (stable for the life of this component).
+  // Default to 1 day when no date range is provided — ensures a non-zero budget is
+  // always available for calculation on legacy URLs that predate the date fields.
   const tripDays = startDate && endDate ? dateTotalDays({ startDate, endDate }) : 1;
   const totalBudgetMins = tripDays * budgetHours * 60;
 
@@ -359,12 +361,16 @@ export default function PlanWorkspace({
         // legs[i] = drive from stop[i-1] (or origin) to stop[i].
         // legs[N] = drive from last stop to destination = directMinutesToDestination.
         const routeLegs = result.route.legs;
+        // "__origin__" is the sentinel cityId for the trip's start point, which
+        // has no Urban Explorer city entry.
         const tripLegs: TripLeg[] = stopsForRequest.map((stop, i) => ({
           originCityId: i === 0 ? "__origin__" : stopsForRequest[i - 1].cityId,
           destinationCityId: stop.cityId,
           durationSeconds: routeLegs[i]?.durationSeconds ?? 0,
           distanceMeters: routeLegs[i]?.distanceMeters ?? 0,
         }));
+        // routeLegs[N] is the final leg (last stop → destination); fall back to
+        // the initial direct-route duration if per-leg data is unexpectedly absent.
         const directMinsToDest = routeLegs[stopsForRequest.length]
           ? routeLegs[stopsForRequest.length].durationSeconds / 60
           : initialDurationSeconds / 60;

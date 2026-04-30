@@ -117,7 +117,7 @@ export default function Itinerary({
                       </span>
                     )}
                     {legSecs !== undefined && !failed && (
-                      <span className="ml-2 text-[10px] font-mono text-[#4a5159]">
+                      <span className="ml-2 text-[10px] font-mono text-[#7d8590]">
                         · {formatDuration(legSecs)}
                       </span>
                     )}
@@ -146,7 +146,7 @@ export default function Itinerary({
                       </span>
                     )}
                     {legSecs !== undefined && !failed && (
-                      <span className="ml-2 text-[10px] font-mono text-[#4a5159]">
+                      <span className="ml-2 text-[10px] font-mono text-[#7d8590]">
                         · {formatDuration(legSecs)}
                       </span>
                     )}
