@@ -56,14 +56,14 @@ export const PERSONAS: Readonly<Record<PersonaId, PersonaConfig>> = {
   },
 } as const;
 
-export const DEFAULT_PERSONA_ID: PersonaId = "outdoorsman";
+export const DEFAULT_PERSONA_ID: PersonaId = "culture";
 
 export const PERSONA_ORDER: readonly PersonaId[] = [
-  "outdoorsman",
-  "foodie",
-  "gearhead",
   "culture",
+  "foodie",
   "nerd",
+  "gearhead",
+  "outdoorsman",
 ] as const;
 
 /**
