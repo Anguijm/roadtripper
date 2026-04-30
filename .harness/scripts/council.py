@@ -39,7 +39,18 @@ YOLO_LOG = HARNESS_DIR / "yolo_log.jsonl"
 HALT_FILE = REPO_ROOT / ".harness_halt"
 SESSION_STATE = HARNESS_DIR / "session_state.json"
 
-CALL_CAP = 15
+CALL_CAP = 20  # Hard upper bound on Gemini API calls per run. Sized for the
+               # canonical 7-angle reviewer set + 1 lead = 8 personas, each
+               # with worst-case (1 + MAX_RETRIES) attempts, plus headroom
+               # for one extra persona before bumping. To raise: also raise
+               # MONTHLY_CAP in council.yml to keep the per-run × runs/month
+               # ratio sane.
+MAX_RETRIES = 1  # Per-call retry budget. Set to 1 to handle transient API
+                 # flakes (one retry on failure) without doubling cost+runtime
+                 # on persistent failures. Raise only if the model returns
+                 # genuinely flaky output for some classes of prompts; lower
+                 # to 0 if cost is the binding constraint and you accept
+                 # rare incomplete reviews.
 DEFAULT_MODEL = os.environ.get("HARNESS_MODEL", "gemini-2.5-pro")
 EXCLUDED_PERSONAS = {"lead-architect.md", "README.md"}
 
@@ -258,8 +269,12 @@ def fetch_prior_round_context(pr_number: int) -> tuple[str, bool]:
         return "", True
 
     try:
+        # --slurp merges multi-page output into a single JSON document.
+        # Without it, --paginate concatenates one JSON array per page, which
+        # json.loads can't parse on PRs with comments spanning multiple pages.
+        # Caught by Codex on sportsdata #66 review.
         result = subprocess.run(
-            ["gh", "api", "--paginate", f"repos/{repo}/issues/{pr_number}/comments"],
+            ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/issues/{pr_number}/comments"],
             capture_output=True,
             text=True,
             cwd=REPO_ROOT,
@@ -272,8 +287,17 @@ def fetch_prior_round_context(pr_number: int) -> tuple[str, bool]:
                 file=sys.stderr,
             )
             return "", True
-        # --paginate outputs a single merged JSON array.
-        comments = json.loads(result.stdout)
+        # --paginate --slurp emits a single JSON array containing one entry
+        # per page (each entry being the page's own array). Flatten to a
+        # flat list of comments. Single-page result is `[[c1, c2]]` which
+        # flattens to `[c1, c2]`.
+        pages = json.loads(result.stdout)
+        if isinstance(pages, list) and pages and isinstance(pages[0], list):
+            comments = [c for page in pages for c in page]
+        else:
+            # Fallback: if --slurp wasn't honored or output shape is
+            # unexpected, treat it as a flat list directly.
+            comments = pages
     except Exception as e:
         print(f"[council] Warning: could not fetch PR comments ({e}); no prior context.", file=sys.stderr)
         return "", True
@@ -431,7 +455,7 @@ def call_gemini(
     model: str,
     prompt: str,
     budget: "RequestBudget",
-    retries: int = 2,
+    retries: int = MAX_RETRIES,
 ) -> str:
     last_err: Exception | None = None
     for attempt in range(retries + 1):
@@ -529,11 +553,20 @@ def main() -> int:
     source_label, source_text = get_plan_text(args)
     personas = load_personas()
 
-    total_calls = len(personas) + 1  # angles + lead
-    if total_calls > CALL_CAP:
+    # Pessimistic pre-flight budget check: refuse to start a run that
+    # cannot complete in the worst case (every call exhausts its retry
+    # budget). Without this, partial reviews can post mid-run aborts.
+    # Caught by the council on sportsdata #66 round 2.
+    total_personas = len(personas) + 1  # angles + lead
+    worst_case = total_personas * (MAX_RETRIES + 1)
+    if worst_case > CALL_CAP:
         die(
-            f"Persona count ({len(personas)}) + Lead Architect exceeds cap ({CALL_CAP}).\n"
-            f"Remove or disable angles in .harness/council/.",
+            f"Worst-case calls required ({worst_case}) exceed budget cap ({CALL_CAP}).\n"
+            f"  personas={len(personas)}, lead=1, max_retries={MAX_RETRIES}.\n"
+            f"To fix, choose one:\n"
+            f"  - Lower MAX_RETRIES in .harness/scripts/council.py.\n"
+            f"  - Raise CALL_CAP in .harness/scripts/council.py.\n"
+            f"  - Disable a persona by renaming <name>.md to <name>.md.disabled.",
             code=5,
         )
 
