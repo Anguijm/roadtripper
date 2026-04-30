@@ -48,6 +48,7 @@ interface PlanWorkspaceProps {
   maxDetourMinutes: number;
   startDate?: string;
   endDate?: string;
+  initialCandidateFetchFailed?: boolean;
 }
 
 // 7 stops balances itinerary richness against UI clarity and API cost per recompute.
@@ -77,6 +78,7 @@ export default function PlanWorkspace({
   fromName,
   toName,
   maxDetourMinutes,
+  initialCandidateFetchFailed = false,
 }: PlanWorkspaceProps) {
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
   const [activePersonaId, setActivePersonaId] = useState<PersonaId>(initialPersonaId);
@@ -344,6 +346,9 @@ export default function PlanWorkspace({
       lng: s.lng,
     }));
     const lastStopCityId = stopsForRequest[stopsForRequest.length - 1]?.cityId;
+    // Generated before the transition so any retry of this specific action
+    // reuses the same key — prevents double-charging daily quota on re-submits.
+    const actionRequestId = crypto.randomUUID();
 
     startTransition(async () => {
       const result = await recomputeAndRefreshAction(
@@ -351,7 +356,8 @@ export default function PlanWorkspace({
         { lat: destination.lat, lng: destination.lng },
         stopsForRequest,
         budgetHours,
-        lastStopCityId
+        lastStopCityId,
+        actionRequestId
       );
 
       // Stale-response guard — wraps BOTH state updates so a stale
@@ -591,6 +597,24 @@ export default function PlanWorkspace({
               </p>
             </div>
           )}
+
+          {/* Distinguish API error from genuine empty-radius result. */}
+          {initialCandidateFetchFailed && liveWaypointFetch === null && (
+            <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
+              <p className="text-xs text-[#f85149] leading-snug">
+                Couldn&apos;t load nearby cities — route is still available.
+              </p>
+            </div>
+          )}
+          {!initialCandidateFetchFailed &&
+            liveWaypointFetch === null &&
+            effectiveWaypointFetch.cities.length === 0 && (
+              <div className="px-3 py-2">
+                <p className="text-xs font-mono text-[#b0b9c2]">
+                  No nearby cities found within range.
+                </p>
+              </div>
+            )}
 
           {/* Council ISC-S7-PROD-2 — brief panel highlight on each
               successful refresh proves the list actually updated. */}

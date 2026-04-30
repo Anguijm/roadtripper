@@ -9,7 +9,7 @@ import {
 } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import type { VibeClass } from "@/lib/urban-explorer/types";
-import type { ValidatedCandidate } from "./candidates";
+import type { RadialCandidate } from "./radial";
 import { cacheGet, cacheSet, waypointsCacheKey, neighborhoodsCacheKey } from "./cache";
 import type {
   CityContext,
@@ -172,18 +172,23 @@ interface WaypointsCorePayload {
 }
 
 async function fetchWaypointsCore(
-  activeCandidates: ValidatedCandidate[],
-  cityById: Map<string, ValidatedCandidate>,
+  activeCandidates: RadialCandidate[],
+  cityById: Map<string, RadialCandidate>,
   uniqueCityIds: string[]
 ): Promise<{ payload: WaypointsCorePayload; failure?: WaypointFetchFailure }> {
   const cacheKey = waypointsCacheKey(uniqueCityIds);
   const cached = cacheGet<WaypointsCorePayload>(cacheKey);
 
   if (cached) {
-    const patchedCities = cached.cities.map((city) => {
-      const cand = cityById.get(city.id);
-      return cand ? { ...city, detourMinutes: cand.roundTripDetourMinutes } : city;
-    });
+    // Filter to current candidates — defensive guard against any cache-key
+    // collision that could surface cities no longer in the active set.
+    const patchedCities = cached.cities
+      .filter((city) => cityById.has(city.id))
+      .map((city) => {
+        const cand = cityById.get(city.id)!;
+        // Doubled: detourMinutes retains round-trip semantics for scoring/display compat.
+        return { ...city, detourMinutes: cand.oneWayDriveMinutes * 2 };
+      });
     return { payload: { cities: patchedCities, waypoints: cached.waypoints } };
   }
 
@@ -193,7 +198,8 @@ async function fetchWaypointsCore(
       id: cand.city.id,
       name: cand.city.name,
       vibeClass: (cand.city.vibeClass ?? null) as VibeClass | null,
-      detourMinutes: cand.roundTripDetourMinutes,
+      // Doubled: detourMinutes retains round-trip semantics for scoring/display compat.
+      detourMinutes: cand.oneWayDriveMinutes * 2,
       lat: cand.city.lat,
       lng: cand.city.lng,
     };
@@ -261,7 +267,7 @@ async function fetchWaypointsCore(
  * Extras (if ever passed) are logged and dropped.
  */
 export async function fetchWaypointsForCandidates(
-  candidates: ValidatedCandidate[],
+  candidates: RadialCandidate[],
   selectedCityId?: string
 ): Promise<WaypointFetchResult> {
   const activeCandidates = candidates.slice(0, MAX_WAYPOINT_CITIES);
@@ -270,7 +276,7 @@ export async function fetchWaypointsForCandidates(
     return { status: "fresh", cities: [], waypoints: [], neighborhoods: {} };
   }
 
-  const cityById = new Map<string, ValidatedCandidate>();
+  const cityById = new Map<string, RadialCandidate>();
   for (const c of activeCandidates) cityById.set(c.city.id, c);
   const uniqueCityIds = [...cityById.keys()];
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import type { CandidateMarker } from "@/components/RouteMap";
 import { computeRoute } from "@/lib/routing/directions";
-import { findCandidateCities } from "@/lib/routing/candidates";
+import { findCitiesInRadius } from "@/lib/routing/radial";
 import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
 import {
@@ -11,7 +11,7 @@ import {
   detourCapForBudget,
   InvalidRouteParamsError,
 } from "@/lib/routing/validation";
-import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
 import { totalDays, TripParamsSchema } from "@/lib/plan/types";
 
@@ -71,6 +71,15 @@ export default async function PlanPage({
       />
     );
   }
+  const daily = checkDailyQuota(ip);
+  if (!daily.ok) {
+    return (
+      <ErrorScreen
+        title="Daily Limit"
+        message={`Daily route quota reached. Try again in ${daily.retryAfterSeconds} seconds.`}
+      />
+    );
+  }
 
   // Validate ALL inputs before any API calls
   let validated;
@@ -121,6 +130,7 @@ export default async function PlanPage({
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;
   let candidateMarkers: CandidateMarker[] = [];
+  let candidateFetchFailed = false;
   let waypointFetch: WaypointFetchResult = {
     status: "fresh",
     cities: [],
@@ -136,21 +146,20 @@ export default async function PlanPage({
 
   if (route) {
     try {
-      const validatedCandidates = await findCandidateCities(route.encodedPolyline, {
-        maxDetourMinutes,
-      });
-      candidateMarkers = validatedCandidates.map((c) => ({
+      const radialCandidates = await findCitiesInRadius(origin, destination, maxDetourMinutes);
+      candidateMarkers = radialCandidates.map((c) => ({
         id: c.city.id,
         name: c.city.name,
         lat: c.city.lat,
         lng: c.city.lng,
-        detourMinutes: c.roundTripDetourMinutes,
+        // Doubled: detourMinutes retains round-trip semantics for display compat.
+        detourMinutes: c.oneWayDriveMinutes * 2,
       }));
 
-      waypointFetch = await fetchWaypointsForCandidates(validatedCandidates);
+      waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
     } catch (e) {
-      console.error("[plan] candidate/waypoint pipeline failed:", e);
-      // Non-fatal: still render the route, just without recommendations
+      console.error("[plan] candidate/waypoint pipeline failed:", e instanceof Error ? e.message : "unknown");
+      candidateFetchFailed = true;
     }
   }
 
@@ -185,6 +194,7 @@ export default async function PlanPage({
           maxDetourMinutes={maxDetourMinutes}
           startDate={startDate}
           endDate={endDate}
+          initialCandidateFetchFailed={candidateFetchFailed}
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">

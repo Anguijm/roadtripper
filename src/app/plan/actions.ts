@@ -8,12 +8,13 @@ import {
 } from "@/lib/routing/directions";
 import { haversineKm } from "@/lib/routing/polyline";
 import { z } from "zod/v4";
-import { findCandidateCities } from "@/lib/routing/candidates";
+import { findCitiesInRadius } from "@/lib/routing/radial";
 import { fetchWaypointsForCandidates, fetchNeighborhoods } from "@/lib/routing/recommend";
 import {
   detourCapForBudget,
   isBudgetHoursInRange,
 } from "@/lib/routing/validation";
+import { LatLngSchema } from "@/lib/plan/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
 import {
   checkRateLimit,
@@ -22,6 +23,8 @@ import {
   checkNeighborhoodSpacing,
   getClientIp,
   maybeSweep,
+  isQuotaDuplicate,
+  markQuotaRequestId,
 } from "@/lib/routing/rate-limit";
 
 /**
@@ -98,17 +101,6 @@ interface PlainLatLng {
   lng: number;
 }
 
-function isFiniteLatLng(p: unknown): p is PlainLatLng {
-  if (p === null || typeof p !== "object") return false;
-  const obj = p as Record<string, unknown>;
-  return (
-    typeof obj.lat === "number" &&
-    typeof obj.lng === "number" &&
-    Number.isFinite(obj.lat) &&
-    Number.isFinite(obj.lng)
-  );
-}
-
 function inNorthAmerica(p: PlainLatLng): boolean {
   return (
     p.lat >= NA_LAT_MIN &&
@@ -143,7 +135,8 @@ export async function recomputeAndRefreshAction(
   destination: PlainLatLng,
   stops: ReadonlyArray<RecomputeStopInput>,
   budgetHours: number,
-  selectedCityId?: string
+  selectedCityId?: string,
+  requestId?: string
 ): Promise<RecomputeAndRefreshResult> {
   // ── Burst + spacing gates (DoS shields — run BEFORE validation) ────────
   let ip: string;
@@ -165,10 +158,11 @@ export async function recomputeAndRefreshAction(
   }
 
   // ── Shape + range validation (BEFORE daily quota — Council S6 + S7-SEC-1) ──
-  if (!isFiniteLatLng(origin) || !inNorthAmerica(origin)) {
+  // Zod validates numeric range bounds; inNorthAmerica enforces the project bbox.
+  if (!LatLngSchema.safeParse(origin).success || !inNorthAmerica(origin)) {
     return { ok: false, error: "invalid_input" };
   }
-  if (!isFiniteLatLng(destination) || !inNorthAmerica(destination)) {
+  if (!LatLngSchema.safeParse(destination).success || !inNorthAmerica(destination)) {
     return { ok: false, error: "invalid_input" };
   }
   if (!isBudgetHoursInRange(budgetHours)) {
@@ -212,9 +206,19 @@ export async function recomputeAndRefreshAction(
   }
 
   // ── Daily quota (cost-amplification ceiling — single charge per call) ──
-  const daily = checkDailyQuota(ip);
-  if (!daily.ok) {
-    return { ok: false, error: "quota_exceeded", retryAfterSeconds: daily.retryAfterSeconds };
+  // Idempotency: a UUID requestId from the client de-duplicates the quota
+  // decrement within 60 s, guarding against rapid double-submits or any
+  // framework-level retry path that might replay the same request.
+  const safeRequestId =
+    typeof requestId === "string" && /^[0-9a-f-]{36}$/.test(requestId)
+      ? requestId
+      : undefined;
+  if (safeRequestId === undefined || !isQuotaDuplicate(ip, safeRequestId)) {
+    const daily = checkDailyQuota(ip);
+    if (!daily.ok) {
+      return { ok: false, error: "quota_exceeded", retryAfterSeconds: daily.retryAfterSeconds };
+    }
+    if (safeRequestId !== undefined) markQuotaRequestId(ip, safeRequestId);
   }
 
   // ── Stage 1: Routes API recompute ──────────────────────────────────────
@@ -233,16 +237,23 @@ export async function recomputeAndRefreshAction(
     return { ok: false, error: "internal_error" };
   }
 
-  // Stage 2: candidate refresh against the new polyline. If this fails,
-  // ship the route with `waypointStatus: "degraded"` so the client keeps
-  // its previous recommendations on screen (Council S7-ARCH-2 / PROD-1 / SEC-4).
+  // Stage 2: radial candidate refresh from current position. Radial origin is
+  // the last added stop (or the trip origin when no stops have been added yet).
+  // If this fails, ship the route with `waypointStatus: "degraded"` so the
+  // client keeps its previous recommendations on screen (S7-ARCH-2/PROD-1/SEC-4).
   try {
-    const validatedCandidates = await findCandidateCities(route.encodedPolyline, {
-      maxDetourMinutes: detourCapForBudget(budgetHours),
-    });
-    const waypointFetch = await fetchWaypointsForCandidates(validatedCandidates, selectedCityId);
+    const radialOrigin =
+      cleanStops.length > 0
+        ? cleanStops[cleanStops.length - 1]
+        : { lat: origin.lat, lng: origin.lng };
+    const radialCandidates = await findCitiesInRadius(
+      radialOrigin,
+      destination,
+      detourCapForBudget(budgetHours)
+    );
+    const waypointFetch = await fetchWaypointsForCandidates(radialCandidates, selectedCityId);
     console.info(
-      `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh dailyRemaining=${daily.remaining}`
+      `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh`
     );
     return { ok: true, route, waypointStatus: "fresh", waypointFetch };
   } catch (e) {
