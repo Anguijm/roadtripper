@@ -8,7 +8,9 @@ export type CompassPoint = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
 export interface RadialCandidate {
   city: City;
-  driveMinutes: number;
+  // One-way drive time from the current hop origin to this city. Not doubled —
+  // in the radial model the city IS the next destination, so there is no return leg.
+  oneWayDriveMinutes: number;
 }
 
 const COMPASS_BEARINGS: Record<CompassPoint, number> = {
@@ -116,15 +118,19 @@ async function fetchDriveTimes(
       el.destinationIndex < cities.length
     ) {
       const seconds = parseInt(el.duration.replace("s", ""), 10);
-      if (!Number.isNaN(seconds)) {
-        result.set(cities[el.destinationIndex].id, seconds / 60);
+      const minutes = parseFloat(el.duration.replace("s", "")) / 60;
+      if (Number.isFinite(minutes)) {
+        result.set(cities[el.destinationIndex].id, minutes);
       }
     }
   }
   return result;
 }
 
+// Expand the in-memory filter threshold by this amount on each retry.
+// No extra API calls — all retries reuse the same fetchDriveTimes response.
 const RETRY_INCREMENT_MINUTES = 15;
+// Cap at 2 retries: initial + 15 min + 30 min = maxMinutes + 30 worst-case.
 const MAX_RETRIES = 2;
 
 /**
@@ -156,13 +162,13 @@ export async function findCitiesInRadius(
     const threshold = maxMinutes + attempt * RETRY_INCREMENT_MINUTES;
     const candidates: RadialCandidate[] = [];
     for (const city of inSemicircle) {
-      const driveMinutes = driveTimes.get(city.id);
-      if (driveMinutes !== undefined && driveMinutes <= threshold) {
-        candidates.push({ city, driveMinutes });
+      const oneWayDriveMinutes = driveTimes.get(city.id);
+      if (oneWayDriveMinutes !== undefined && oneWayDriveMinutes <= threshold) {
+        candidates.push({ city, oneWayDriveMinutes });
       }
     }
     if (candidates.length > 0 || attempt === MAX_RETRIES) {
-      candidates.sort((a, b) => a.driveMinutes - b.driveMinutes);
+      candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
       cacheSet(cacheKey, candidates);
       return candidates;
     }

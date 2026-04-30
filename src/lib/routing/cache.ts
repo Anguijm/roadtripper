@@ -13,6 +13,8 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
+// 256 entries: covers radial engine's per-origin-per-heading cache (8 headings ×
+// ~32 common origins = 256 warm entries) plus existing candidate/waypoint/neighborhood keys.
 const MAX_ENTRIES = 256;
 const DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour
 

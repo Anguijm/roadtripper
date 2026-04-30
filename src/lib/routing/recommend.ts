@@ -182,7 +182,7 @@ async function fetchWaypointsCore(
   if (cached) {
     const patchedCities = cached.cities.map((city) => {
       const cand = cityById.get(city.id);
-      return cand ? { ...city, detourMinutes: cand.driveMinutes } : city;
+      return cand ? { ...city, detourMinutes: cand.oneWayDriveMinutes } : city;
     });
     return { payload: { cities: patchedCities, waypoints: cached.waypoints } };
   }
@@ -193,7 +193,7 @@ async function fetchWaypointsCore(
       id: cand.city.id,
       name: cand.city.name,
       vibeClass: (cand.city.vibeClass ?? null) as VibeClass | null,
-      detourMinutes: cand.driveMinutes,
+      detourMinutes: cand.oneWayDriveMinutes,
       lat: cand.city.lat,
       lng: cand.city.lng,
     };

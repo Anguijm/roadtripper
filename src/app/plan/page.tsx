@@ -11,7 +11,7 @@ import {
   detourCapForBudget,
   InvalidRouteParamsError,
 } from "@/lib/routing/validation";
-import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
 import { totalDays, TripParamsSchema } from "@/lib/plan/types";
 
@@ -71,6 +71,15 @@ export default async function PlanPage({
       />
     );
   }
+  const daily = checkDailyQuota(ip);
+  if (!daily.ok) {
+    return (
+      <ErrorScreen
+        title="Daily Limit"
+        message={`Daily route quota reached. Try again in ${daily.retryAfterSeconds} seconds.`}
+      />
+    );
+  }
 
   // Validate ALL inputs before any API calls
   let validated;
@@ -121,6 +130,7 @@ export default async function PlanPage({
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;
   let candidateMarkers: CandidateMarker[] = [];
+  let candidateFetchFailed = false;
   let waypointFetch: WaypointFetchResult = {
     status: "fresh",
     cities: [],
@@ -142,13 +152,13 @@ export default async function PlanPage({
         name: c.city.name,
         lat: c.city.lat,
         lng: c.city.lng,
-        detourMinutes: c.driveMinutes,
+        detourMinutes: c.oneWayDriveMinutes,
       }));
 
       waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
     } catch (e) {
       console.error("[plan] candidate/waypoint pipeline failed:", e);
-      // Non-fatal: still render the route, just without recommendations
+      candidateFetchFailed = true;
     }
   }
 
@@ -183,6 +193,7 @@ export default async function PlanPage({
           maxDetourMinutes={maxDetourMinutes}
           startDate={startDate}
           endDate={endDate}
+          initialCandidateFetchFailed={candidateFetchFailed}
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">

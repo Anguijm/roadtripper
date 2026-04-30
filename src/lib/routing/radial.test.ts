@@ -181,7 +181,7 @@ beforeEach(() => {
 
 describe("findCitiesInRadius", () => {
   it("returns cached result without calling getAllCities", async () => {
-    const cached = [{ city: LAS_VEGAS, driveMinutes: 30 }];
+    const cached = [{ city: LAS_VEGAS, oneWayDriveMinutes: 30 }];
     mockCacheGet.mockReturnValue(cached);
 
     const result = await findCitiesInRadius(LA, NY, 60);
@@ -212,7 +212,7 @@ describe("findCitiesInRadius", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].city.id).toBe("las-vegas");
-    expect(result[0].driveMinutes).toBeCloseTo(30, 1);
+    expect(result[0].oneWayDriveMinutes).toBeCloseTo(30, 1);
     expect(mockCacheSet).toHaveBeenCalledOnce();
   });
 
@@ -263,7 +263,7 @@ describe("findCitiesInRadius", () => {
     const result = await findCitiesInRadius(LA, NY, 60);
 
     expect(result).toHaveLength(1);
-    expect(result[0].driveMinutes).toBeCloseTo(70, 1);
+    expect(result[0].oneWayDriveMinutes).toBeCloseTo(70, 1);
   });
 
   it("throws on API error (non-200 response)", async () => {
@@ -341,7 +341,7 @@ describe("findCitiesInRadius", () => {
     fetchSpy.mockRestore();
   });
 
-  it("returns results sorted by driveMinutes ascending", async () => {
+  it("returns results sorted by oneWayDriveMinutes ascending", async () => {
     mockCacheGet.mockReturnValue(null);
     mockGetAllCities.mockResolvedValue([LAS_VEGAS, PORTLAND]);
 
@@ -370,7 +370,69 @@ describe("findCitiesInRadius", () => {
     // Both within budget — verify ascending sort
     expect(result.length).toBeGreaterThanOrEqual(1);
     for (let i = 1; i < result.length; i++) {
-      expect(result[i].driveMinutes).toBeGreaterThanOrEqual(result[i - 1].driveMinutes);
+      expect(result[i].oneWayDriveMinutes).toBeGreaterThanOrEqual(result[i - 1].oneWayDriveMinutes);
     }
+  });
+
+  it("oneWayDriveMinutes is NOT doubled — radial model has no return leg", async () => {
+    mockCacheGet.mockReturnValue(null);
+    mockGetAllCities.mockResolvedValue([LAS_VEGAS]);
+
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            originIndex: 0,
+            destinationIndex: 0,
+            condition: "ROUTE_EXISTS",
+            duration: "3600s", // 60 min one-way
+          },
+        ]),
+        { status: 200 }
+      )
+    );
+
+    const result = await findCitiesInRadius(LA, NY, 90);
+
+    expect(result).toHaveLength(1);
+    // oneWayDriveMinutes must be 60, not 120 (no round-trip doubling)
+    expect(result[0].oneWayDriveMinutes).toBeCloseTo(60, 1);
+  });
+
+  it("throws on API error so callers can distinguish from genuine empty results", async () => {
+    mockCacheGet.mockReturnValue(null);
+    mockGetAllCities.mockResolvedValue([LAS_VEGAS]);
+
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response("Internal Server Error", { status: 500 })
+    );
+
+    // Error must propagate — caller catches it and sets candidateFetchFailed=true.
+    // Empty results ([]) returned normally — callers treat as "no cities in range".
+    await expect(findCitiesInRadius(LA, NY, 60)).rejects.toThrow("500");
+  });
+
+  it("parses fractional duration strings without loss", async () => {
+    mockCacheGet.mockReturnValue(null);
+    mockGetAllCities.mockResolvedValue([LAS_VEGAS]);
+
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            originIndex: 0,
+            destinationIndex: 0,
+            condition: "ROUTE_EXISTS",
+            duration: "1800.5s",
+          },
+        ]),
+        { status: 200 }
+      )
+    );
+
+    const result = await findCitiesInRadius(LA, NY, 60);
+    expect(result).toHaveLength(1);
+    // 1800.5s / 60 = 30.008... minutes
+    expect(result[0].oneWayDriveMinutes).toBeCloseTo(30.008, 2);
   });
 });

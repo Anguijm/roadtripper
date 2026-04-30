@@ -61,6 +61,8 @@ interface DailyBucket {
 }
 
 const dailyBuckets = new Map<string, DailyBucket>();
+// Lowered from 200 → 25 in PR C: radial 1×N matrix call costs ~$1.29 vs the old
+// ~$0.005 diagonal call. At the old limit, a single IP could drive ~$258/day.
 const MAX_DAILY_RECOMPUTE = 25;
 
 export function checkDailyQuota(ip: string): RateLimitResult {
