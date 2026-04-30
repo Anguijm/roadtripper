@@ -71,7 +71,7 @@ findCitiesInRadius(
   destination: LatLng,
   maxMinutes: number
 ): Promise<City[]>
-  — check LRU cache first (key: SHA-256 of origin + maxMinutes + compassPoint)
+  — check LRU cache first (key: SHA-256({ lat: number (3dp), lng: number (3dp), maxMinutes: number, compassPoint: CompassPoint }), max-entries: 256)
   — on miss: compute Routes API matrix: origin → all 258 cities (city list
     itself is already in the 24h LRU via getAllCities(), no Firestore call)
   — filter by maxMinutes, apply semicircle filter, cache result
@@ -88,8 +88,9 @@ TripInputSchema: {
   destination: LatLngSchema,
   destinationName: string,
   startDate: z.string().date(),   // ISO YYYY-MM-DD
-  endDate: z.string().date(),
+  endDate: z.string().date(),     // must be >= startDate (validated via .refine)
   dailyBudgetHours: z.number().min(1).max(16),
+  // .refine: startDate <= endDate (prevents impossible trip durations)
 }
 
 TripLegSchema: {
@@ -102,13 +103,13 @@ TripLegSchema: {
 TripStateSchema: {
   input: TripInputSchema,
   legs: TripLegSchema[],          // grows as user picks stops
-  directMinutesToDestination: number | null,
 }
 ```
 
+// directMinutesToDestination is only valid in the planning state — never on TripStateSchema directly.
 Discriminated union for `TripStatus`:
 ```
-| { status: "planning"; currentPosition: LatLng; candidatePool: City[] }
+| { status: "planning"; currentPosition: LatLng; candidatePool: City[]; directMinutesToDestination: number }
 | { status: "complete"; legs: TripLeg[] }
 ```
 
@@ -157,7 +158,8 @@ Discriminated union for `TripStatus`:
 - New file `src/lib/routing/radial.ts`: `bearingDeg`, `snapToCompassPoint`, `bearingFromCompassPoint`, `withinSemicircle`, `findCitiesInRadius`
 - Delete `findCandidateCities` and geometric buffer from `candidates.ts`
 - Update `recomputeAndRefreshAction` in `actions.ts` to call `findCitiesInRadius`
-- Unit tests: all pure functions (bearing math, snap, semicircle inclusion/exclusion, wrap-around at 0°/360°)
+- **`recomputeAndRefreshAction` must Zod-validate all inputs at the function boundary** (specifically: the `newPosition` LatLng received from the client) before any downstream call — same invariant as all server actions in this codebase
+- Unit tests: all pure functions (bearing math, snap, semicircle inclusion/exclusion, wrap-around at 0°/360°); mock for Routes API matrix required to test `findCitiesInRadius` in isolation (error handling, empty result vs API failure, cache behavior)
 
 ### PR D — Trip state + budget tracking
 - `TripLeg`, `TripState`, `TripStatus` discriminated union
@@ -213,7 +215,7 @@ B, C, D can land in any order or in parallel. E gates on C+D. F gates on E.
 
 The matrix call (1×258 elements, ~$1.29/call) is the dominant cost driver. Mitigation layers:
 
-1. **LRU cache in `findCitiesInRadius`**: cache key = SHA-256(origin lat/lng rounded to 3dp + maxMinutes + compassPoint). A user who backtracks to the same city won't re-bill.
+1. **LRU cache in `findCitiesInRadius`**: cache key = SHA-256({ lat, lng (both rounded to 3dp), maxMinutes, compassPoint }) — must be a hash of a structured canonical object, not string concatenation. Hard cap: max-entries = 256 to prevent memory exhaustion. A user who backtracks to the same city won't re-bill.
 2. **City list already cached**: `getAllCities()` holds the 258 cities in a 24h LRU — no Firestore read on each leg.
 3. **Rate limit — daily quota MUST be lowered in PR C**: current quota is 200/IP/day, set when actions cost ~$0.005. At ~$1.29/matrix call, 200 actions = ~$258/IP/day ceiling. **PR C must lower this to 20–30/IP/day** before `findCitiesInRadius` ships. Hard gate, not a nice-to-have.
 4. **Double-click guard**: idempotency check in `PlanWorkspace` cancels in-flight calls before issuing a new one, preventing duplicate charges from rapid selection.
@@ -224,7 +226,7 @@ Worst-case unmitigated cost (no cache hits, 20 legs): ~$26/user/trip. With cache
 
 ## Open questions (defer to implementation)
 
-1. **Zero results**: `findCitiesInRadius` returns empty (rural origin, tight budget). Expand radius in 15-min increments, **max 2 retries** (each counts against rate limit), then surface a "no cities found" message. Hard cap prevents runaway API calls.
+1. **Zero results**: `findCitiesInRadius` returns empty (rural origin, tight budget). Expand radius in 15-min increments, **max 2 retries**, then surface a "no cities found" message. Hard cap prevents runaway API calls. The entire sequence (initial call + up to 2 retries) must consume **exactly one** charge from the daily rate-limit quota — deduct it before the first call, not per-retry. Also: distinguish between a genuine empty result (no cities in range) and an API error (network/5xx/429/malformed response) — surface different UI states for each, never mask an error as "no cities found".
 2. **Date input**: text inputs (ISO YYYY-MM-DD) for start/end date on landing page — no date picker complexity in V1.
 3. **Trip state persistence**: do NOT use localStorage (PII exposure, XSS surface). If cross-refresh persistence is needed, store in Firestore with a short TTL tied to the Clerk session. Defer to post-V1.
 4. **Semicircle arc rendering**: `google.maps.Circle` covers a full circle — need a custom polyline approximation of a semicircle arc (sample N points along a half-circle) or a Google Maps Data Layer polygon.
