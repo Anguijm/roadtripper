@@ -77,18 +77,16 @@ export default function RouteInput({
           value={to ?? undefined}
           onChange={setTo}
         />
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 flex flex-col gap-1">
             <label className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
               Start date
             </label>
             <input
-              type="text"
-              placeholder="YYYY-MM-DD"
+              type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              pattern="\d{4}-\d{2}-\d{2}"
-              className="py-2 px-3 text-sm font-mono bg-[#1c2128] border border-[#30363d] text-[#f0f6fc] placeholder-[#4a5159] focus:outline-none focus:border-[#6e7681]"
+              className="py-2 px-3 text-sm font-mono bg-[#1c2128] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#6e7681] [color-scheme:dark]"
             />
           </div>
           <div className="flex-1 flex flex-col gap-1">
@@ -96,12 +94,10 @@ export default function RouteInput({
               End date
             </label>
             <input
-              type="text"
-              placeholder="YYYY-MM-DD"
+              type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              pattern="\d{4}-\d{2}-\d{2}"
-              className="py-2 px-3 text-sm font-mono bg-[#1c2128] border border-[#30363d] text-[#f0f6fc] placeholder-[#4a5159] focus:outline-none focus:border-[#6e7681]"
+              className="py-2 px-3 text-sm font-mono bg-[#1c2128] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#6e7681] [color-scheme:dark]"
             />
           </div>
         </div>
@@ -110,11 +106,15 @@ export default function RouteInput({
             End date must be on or after start date.
           </p>
         )}
-        {tripDays !== null && budgetHrs !== null && (
-          <p className="text-xs font-mono text-[#4a5159]">
-            {tripDays} {tripDays === 1 ? "day" : "days"} · {budgetHrs} total drive hours budget
-          </p>
-        )}
+        <p
+          className="text-xs font-mono text-[#7d8590]"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {tripDays !== null && budgetHrs !== null
+            ? `${tripDays} ${tripDays === 1 ? "day" : "days"} · ${budget} hrs/day · ${budgetHrs} total drive hours`
+            : " "}
+        </p>
         <DriveBudgetSelector value={budget} onChange={setBudget} />
         <button
           type="submit"

@@ -14,6 +14,7 @@ export const TripInputSchema = z
     destinationName: z.string().min(1),
     startDate: z.string().date(),
     endDate: z.string().date(),
+    // Min 1h required to make progress; max 16h is a sanity limit for realistic planning.
     dailyBudgetHours: z.number().int().min(1).max(16),
   })
   .refine((data) => data.startDate <= data.endDate, {
@@ -23,10 +24,12 @@ export const TripInputSchema = z
 
 export type TripInput = z.infer<typeof TripInputSchema>;
 
+// Returns the number of calendar days in the trip, inclusive of both start
+// and end dates. A trip starting and ending on the same day is 1 day.
 export function totalDays(input: Pick<TripInput, "startDate" | "endDate">): number {
   const ms =
     new Date(input.endDate).getTime() - new Date(input.startDate).getTime();
-  return Math.round(ms / (1000 * 60 * 60 * 24));
+  return Math.round(ms / (1000 * 60 * 60 * 24)) + 1;
 }
 
 export function totalBudgetMinutes(input: Pick<TripInput, "startDate" | "endDate" | "dailyBudgetHours">): number {

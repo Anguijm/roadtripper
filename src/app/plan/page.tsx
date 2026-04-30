@@ -96,8 +96,30 @@ export default async function PlanPage({
   const toName = params.toName ?? "End";
   const maxDetourMinutes = detourCapForBudget(budgetHours);
   const activePersonaId = parsePersonaId(params.persona);
-  const startDate = DateSchema.safeParse(params.startDate).data;
-  const endDate = DateSchema.safeParse(params.endDate).data;
+
+  // Parse and validate trip dates. Both must be present and valid if either is supplied.
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+  if (params.startDate !== undefined || params.endDate !== undefined) {
+    const startParsed = DateSchema.safeParse(params.startDate);
+    const endParsed = DateSchema.safeParse(params.endDate);
+    if (!startParsed.success || !endParsed.success) {
+      return <ErrorScreen title="Invalid Parameters" message="Invalid date format. Use YYYY-MM-DD." />;
+    }
+    if (startParsed.data > endParsed.data) {
+      return <ErrorScreen title="Invalid Parameters" message="Start date must be on or before end date." />;
+    }
+    const tripDays =
+      Math.round(
+        (new Date(endParsed.data).getTime() - new Date(startParsed.data).getTime()) /
+          (1000 * 60 * 60 * 24)
+      ) + 1;
+    if (tripDays > 90) {
+      return <ErrorScreen title="Invalid Parameters" message="Trip duration cannot exceed 90 days." />;
+    }
+    startDate = startParsed.data;
+    endDate = endParsed.data;
+  }
 
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;

@@ -90,39 +90,43 @@ describe("TripInputSchema", () => {
 // ── Date math ─────────────────────────────────────────────────────────────────
 
 describe("totalDays", () => {
-  it("returns correct number of days", () => {
-    expect(totalDays({ startDate: "2026-06-01", endDate: "2026-06-08" })).toBe(7);
+  it("counts both start and end date (June 1–8 = 8 days)", () => {
+    expect(totalDays({ startDate: "2026-06-01", endDate: "2026-06-08" })).toBe(8);
   });
 
-  it("returns 0 for same-day trip", () => {
-    expect(totalDays({ startDate: "2026-06-01", endDate: "2026-06-01" })).toBe(0);
+  it("returns 1 for same-day trip", () => {
+    expect(totalDays({ startDate: "2026-06-01", endDate: "2026-06-01" })).toBe(1);
   });
 
-  it("returns 1 for overnight trip", () => {
-    expect(totalDays({ startDate: "2026-06-01", endDate: "2026-06-02" })).toBe(1);
+  it("returns 2 for consecutive-day trip", () => {
+    expect(totalDays({ startDate: "2026-06-01", endDate: "2026-06-02" })).toBe(2);
   });
 
   it("handles month boundary", () => {
-    expect(totalDays({ startDate: "2026-05-28", endDate: "2026-06-04" })).toBe(7);
+    expect(totalDays({ startDate: "2026-05-28", endDate: "2026-06-04" })).toBe(8);
+  });
+
+  it("handles year boundary", () => {
+    expect(totalDays({ startDate: "2026-12-31", endDate: "2027-01-01" })).toBe(2);
   });
 });
 
 describe("totalBudgetMinutes", () => {
-  it("computes correctly for 7-day 8h/day trip", () => {
+  it("computes correctly for 8-day 8h/day trip", () => {
     expect(
       totalBudgetMinutes({ startDate: "2026-06-01", endDate: "2026-06-08", dailyBudgetHours: 8 })
-    ).toBe(7 * 8 * 60);
+    ).toBe(8 * 8 * 60);
   });
 
   it("scales with dailyBudgetHours", () => {
-    const base = { startDate: "2026-06-01", endDate: "2026-06-04" };
-    expect(totalBudgetMinutes({ ...base, dailyBudgetHours: 4 })).toBe(3 * 4 * 60);
-    expect(totalBudgetMinutes({ ...base, dailyBudgetHours: 8 })).toBe(3 * 8 * 60);
+    const base = { startDate: "2026-06-01", endDate: "2026-06-04" }; // 4 days
+    expect(totalBudgetMinutes({ ...base, dailyBudgetHours: 4 })).toBe(4 * 4 * 60);
+    expect(totalBudgetMinutes({ ...base, dailyBudgetHours: 8 })).toBe(4 * 8 * 60);
   });
 
-  it("returns 0 for same-day trip regardless of budget", () => {
+  it("returns daily budget for same-day trip", () => {
     expect(
       totalBudgetMinutes({ startDate: "2026-06-01", endDate: "2026-06-01", dailyBudgetHours: 8 })
-    ).toBe(0);
+    ).toBe(1 * 8 * 60);
   });
 });
