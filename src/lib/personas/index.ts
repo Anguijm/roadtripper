@@ -56,8 +56,11 @@ export const PERSONAS: Readonly<Record<PersonaId, PersonaConfig>> = {
   },
 } as const;
 
+// Culture is the right default for a general road trip planner — most users
+// are looking for local history, interesting towns, and character, not hiking.
 export const DEFAULT_PERSONA_ID: PersonaId = "culture";
 
+// Culture leads because it matches the default; rest ordered by road-trip relevance.
 export const PERSONA_ORDER: readonly PersonaId[] = [
   "culture",
   "foodie",

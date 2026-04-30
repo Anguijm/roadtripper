@@ -215,7 +215,7 @@ The matrix call (1×258 elements, ~$1.29/call) is the dominant cost driver. Miti
 
 1. **LRU cache in `findCitiesInRadius`**: cache key = SHA-256(origin lat/lng rounded to 3dp + maxMinutes + compassPoint). A user who backtracks to the same city won't re-bill.
 2. **City list already cached**: `getAllCities()` holds the 258 cities in a 24h LRU — no Firestore read on each leg.
-3. **Rate limit applies per-action**: all three layers (burst + spacing + daily quota) wrap `recomputeAndRefreshAction`. The daily quota (currently 200/IP) will be re-evaluated in PR C once the per-call cost is confirmed — it may need to be tightened (e.g., 20–50 leg selections/IP/day).
+3. **Rate limit — daily quota MUST be lowered in PR C**: current quota is 200/IP/day, set when actions cost ~$0.005. At ~$1.29/matrix call, 200 actions = ~$258/IP/day ceiling. **PR C must lower this to 20–30/IP/day** before `findCitiesInRadius` ships. Hard gate, not a nice-to-have.
 4. **Double-click guard**: idempotency check in `PlanWorkspace` cancels in-flight calls before issuing a new one, preventing duplicate charges from rapid selection.
 
 Worst-case unmitigated cost (no cache hits, 20 legs): ~$26/user/trip. With cache hits on common origins and the rate limiter, practical cost is expected to be well under $5/user/trip.
@@ -224,7 +224,7 @@ Worst-case unmitigated cost (no cache hits, 20 legs): ~$26/user/trip. With cache
 
 ## Open questions (defer to implementation)
 
-1. **Zero results**: `findCitiesInRadius` returns empty (rural origin, tight budget). Expand radius in 15-min increments up to 2× budget, each expansion counts against rate limit.
+1. **Zero results**: `findCitiesInRadius` returns empty (rural origin, tight budget). Expand radius in 15-min increments, **max 2 retries** (each counts against rate limit), then surface a "no cities found" message. Hard cap prevents runaway API calls.
 2. **Date input**: text inputs (ISO YYYY-MM-DD) for start/end date on landing page — no date picker complexity in V1.
 3. **Trip state persistence**: do NOT use localStorage (PII exposure, XSS surface). If cross-refresh persistence is needed, store in Firestore with a short TTL tied to the Clerk session. Defer to post-V1.
 4. **Semicircle arc rendering**: `google.maps.Circle` covers a full circle — need a custom polyline approximation of a semicircle arc (sample N points along a half-circle) or a Google Maps Data Layer polygon.
