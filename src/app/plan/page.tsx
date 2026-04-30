@@ -152,7 +152,8 @@ export default async function PlanPage({
         name: c.city.name,
         lat: c.city.lat,
         lng: c.city.lng,
-        detourMinutes: c.oneWayDriveMinutes,
+        // Doubled: detourMinutes retains round-trip semantics for display compat.
+        detourMinutes: c.oneWayDriveMinutes * 2,
       }));
 
       waypointFetch = await fetchWaypointsForCandidates(radialCandidates);

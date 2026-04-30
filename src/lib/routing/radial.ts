@@ -2,7 +2,7 @@ import "server-only";
 import { getAllCities } from "@/lib/urban-explorer/cities";
 import type { City } from "@/lib/urban-explorer/types";
 import { cacheGet, cacheSet, radialCacheKey } from "./cache";
-import type { LatLng } from "./polyline";
+import { haversineKm, type LatLng } from "./polyline";
 
 export type CompassPoint = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
@@ -117,7 +117,6 @@ async function fetchDriveTimes(
       el.duration &&
       el.destinationIndex < cities.length
     ) {
-      const seconds = parseInt(el.duration.replace("s", ""), 10);
       const minutes = parseFloat(el.duration.replace("s", "")) / 60;
       if (Number.isFinite(minutes)) {
         result.set(cities[el.destinationIndex].id, minutes);
@@ -132,6 +131,10 @@ async function fetchDriveTimes(
 const RETRY_INCREMENT_MINUTES = 15;
 // Cap at 2 retries: initial + 15 min + 30 min = maxMinutes + 30 worst-case.
 const MAX_RETRIES = 2;
+// Hard cap on API elements per call. At $0.005/element, 50 cities = $0.25/call
+// vs ~$0.65/call for the full semicircle (~130 cities). Nearest cities by
+// haversine are selected first so the most reachable candidates are prioritised.
+const MAX_RADIAL_FAN_OUT = 50;
 
 /**
  * Find candidate cities reachable from `origin` within `maxMinutes` drive,
@@ -156,17 +159,24 @@ export async function findCitiesInRadius(
   const headingDeg = bearingFromCompassPoint(compassPoint);
   const inSemicircle = allCities.filter((c) => withinSemicircle(c, origin, headingDeg));
 
-  const driveTimes = await fetchDriveTimes(origin, inSemicircle);
+  // Sort by haversine then cap — keeps API cost bounded while prioritising
+  // the most geographically proximate (and therefore most likely reachable) cities.
+  const capped = [...inSemicircle]
+    .sort((a, b) => haversineKm(origin, a) - haversineKm(origin, b))
+    .slice(0, MAX_RADIAL_FAN_OUT);
+
+  const driveTimes = await fetchDriveTimes(origin, capped);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const threshold = maxMinutes + attempt * RETRY_INCREMENT_MINUTES;
     const candidates: RadialCandidate[] = [];
-    for (const city of inSemicircle) {
+    for (const city of capped) {
       const oneWayDriveMinutes = driveTimes.get(city.id);
       if (oneWayDriveMinutes !== undefined && oneWayDriveMinutes <= threshold) {
         candidates.push({ city, oneWayDriveMinutes });
       }
     }
+    // Exit when candidates found or this was the final retry — empty result is valid.
     if (candidates.length > 0 || attempt === MAX_RETRIES) {
       candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
       cacheSet(cacheKey, candidates);

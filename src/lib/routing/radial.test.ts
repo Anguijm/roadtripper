@@ -374,7 +374,7 @@ describe("findCitiesInRadius", () => {
     }
   });
 
-  it("oneWayDriveMinutes is NOT doubled — radial model has no return leg", async () => {
+  it("oneWayDriveMinutes holds the raw one-way value; doubling for detourMinutes happens in recommend.ts", async () => {
     mockCacheGet.mockReturnValue(null);
     mockGetAllCities.mockResolvedValue([LAS_VEGAS]);
 
@@ -395,7 +395,7 @@ describe("findCitiesInRadius", () => {
     const result = await findCitiesInRadius(LA, NY, 90);
 
     expect(result).toHaveLength(1);
-    // oneWayDriveMinutes must be 60, not 120 (no round-trip doubling)
+    // Raw one-way value in RadialCandidate; recommend.ts maps to detourMinutes * 2
     expect(result[0].oneWayDriveMinutes).toBeCloseTo(60, 1);
   });
 
