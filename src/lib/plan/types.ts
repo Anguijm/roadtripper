@@ -26,9 +26,11 @@ export type TripInput = z.infer<typeof TripInputSchema>;
 
 // Returns the number of calendar days in the trip, inclusive of both start
 // and end dates. A trip starting and ending on the same day is 1 day.
+// Uses explicit UTC midnight parsing to avoid DST boundary errors.
 export function totalDays(input: Pick<TripInput, "startDate" | "endDate">): number {
   const ms =
-    new Date(input.endDate).getTime() - new Date(input.startDate).getTime();
+    new Date(input.endDate + "T00:00:00Z").getTime() -
+    new Date(input.startDate + "T00:00:00Z").getTime();
   return Math.round(ms / (1000 * 60 * 60 * 24)) + 1;
 }
 

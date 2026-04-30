@@ -15,7 +15,30 @@ import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limi
 import { parsePersonaId } from "@/lib/personas";
 import { z } from "zod/v4";
 
-const DateSchema = z.string().date();
+// Maximum trip duration enforced server-side to prevent resource exhaustion
+// from unbounded date ranges passed via URL params.
+const MAX_TRIP_DAYS = 90;
+
+const PlanDatesSchema = z
+  .object({
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+  })
+  .refine((d) => d.startDate <= d.endDate, {
+    message: "Start date must be on or before end date.",
+    path: ["endDate"],
+  })
+  .refine(
+    (d) =>
+      Math.round(
+        (new Date(d.endDate + "T00:00:00Z").getTime() -
+          new Date(d.startDate + "T00:00:00Z").getTime()) /
+          (1000 * 60 * 60 * 24)
+      ) +
+        1 <=
+      MAX_TRIP_DAYS,
+    { message: `Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`, path: ["endDate"] }
+  );
 
 interface PlanSearchParams {
   from?: string;
@@ -94,32 +117,37 @@ export default async function PlanPage({
   const { origin, destination, budgetHours } = validated;
   const fromName = params.fromName ?? "Start";
   const toName = params.toName ?? "End";
-  const maxDetourMinutes = detourCapForBudget(budgetHours);
   const activePersonaId = parsePersonaId(params.persona);
 
-  // Parse and validate trip dates. Both must be present and valid if either is supplied.
+  // Parse and validate trip dates via consolidated schema.
+  // Both params must be present and valid if either is supplied.
   let startDate: string | undefined;
   let endDate: string | undefined;
   if (params.startDate !== undefined || params.endDate !== undefined) {
-    const startParsed = DateSchema.safeParse(params.startDate);
-    const endParsed = DateSchema.safeParse(params.endDate);
-    if (!startParsed.success || !endParsed.success) {
-      return <ErrorScreen title="Invalid Parameters" message="Invalid date format. Use YYYY-MM-DD." />;
+    const datesParsed = PlanDatesSchema.safeParse({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    if (!datesParsed.success) {
+      const msg = datesParsed.error.issues[0]?.message ?? "Invalid date parameters.";
+      return <ErrorScreen title="Invalid Parameters" message={msg} />;
     }
-    if (startParsed.data > endParsed.data) {
-      return <ErrorScreen title="Invalid Parameters" message="Start date must be on or before end date." />;
-    }
-    const tripDays =
-      Math.round(
-        (new Date(endParsed.data).getTime() - new Date(startParsed.data).getTime()) /
-          (1000 * 60 * 60 * 24)
-      ) + 1;
-    if (tripDays > 90) {
-      return <ErrorScreen title="Invalid Parameters" message="Trip duration cannot exceed 90 days." />;
-    }
-    startDate = startParsed.data;
-    endDate = endParsed.data;
+    startDate = datesParsed.data.startDate;
+    endDate = datesParsed.data.endDate;
   }
+
+  // Use total trip days × daily budget as the effective budget signal so that
+  // longer trips receive proportionally more generous per-stop detour caps.
+  // Falls back to daily budget alone when dates are absent (legacy URLs).
+  const tripDays =
+    startDate && endDate
+      ? Math.round(
+          (new Date(endDate + "T00:00:00Z").getTime() -
+            new Date(startDate + "T00:00:00Z").getTime()) /
+            (1000 * 60 * 60 * 24)
+        ) + 1
+      : 1;
+  const maxDetourMinutes = detourCapForBudget(tripDays * budgetHours);
 
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;

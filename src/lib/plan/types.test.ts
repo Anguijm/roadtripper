@@ -109,6 +109,11 @@ describe("totalDays", () => {
   it("handles year boundary", () => {
     expect(totalDays({ startDate: "2026-12-31", endDate: "2027-01-01" })).toBe(2);
   });
+
+  it("handles US spring-forward DST boundary (Mar 8 2026)", () => {
+    // Clocks spring forward at 2 AM on Mar 8 — UTC parsing must not lose a day.
+    expect(totalDays({ startDate: "2026-03-07", endDate: "2026-03-15" })).toBe(9);
+  });
 });
 
 describe("totalBudgetMinutes", () => {
