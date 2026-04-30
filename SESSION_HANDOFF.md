@@ -2,7 +2,13 @@
 
 ## Start here next session
 
-**Current branch: `main`**. Local and origin/main are in sync at `4d54462`.
+**Current branch: `feat/radial-candidate-engine`** (PR #19 open, council running). Local at `47e41ff`.
+
+**PR #19 in flight** (`feat/radial-candidate-engine`) — council will run automatically. Check `gh pr checks 19`. Merge when Proceed. Use `git stash && gh pr merge 19 --squash && git stash drop` due to post-commit hook.
+
+**After PR #19 merges:** Start PR D — trip state + budget tracking (`TripLeg`, `TripState`, `TripStatus` DU, `remainingBudgetMinutes`, `directMinutesToDestination`). No deps on B or C.
+
+**Main is at `05086fc`** (last merged: PR #17 feat/trip-input).
 
 **PR #13 in flight** (`feat/culture-default-persona`) — R3 council running as of session close. Check `gh pr checks 13` first thing. If Proceed: merge with `git stash && gh pr merge 13 --squash && git stash drop`. If Revise: read the new comment on the PR and fix.
 
