@@ -1,0 +1,34 @@
+import { z } from "zod/v4";
+
+export const LatLngSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+export type LatLng = z.infer<typeof LatLngSchema>;
+
+export const TripInputSchema = z
+  .object({
+    origin: LatLngSchema,
+    originName: z.string().min(1),
+    destination: LatLngSchema,
+    destinationName: z.string().min(1),
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+    dailyBudgetHours: z.number().int().min(1).max(16),
+  })
+  .refine((data) => data.startDate <= data.endDate, {
+    message: "startDate must be before or equal to endDate",
+    path: ["endDate"],
+  });
+
+export type TripInput = z.infer<typeof TripInputSchema>;
+
+export function totalDays(input: Pick<TripInput, "startDate" | "endDate">): number {
+  const ms =
+    new Date(input.endDate).getTime() - new Date(input.startDate).getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+export function totalBudgetMinutes(input: Pick<TripInput, "startDate" | "endDate" | "dailyBudgetHours">): number {
+  return totalDays(input) * input.dailyBudgetHours * 60;
+}

@@ -46,6 +46,8 @@ interface PlanWorkspaceProps {
   fromName: string;
   toName: string;
   maxDetourMinutes: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 const MAX_TRIP_STOPS = 7;

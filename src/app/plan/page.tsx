@@ -13,6 +13,9 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
+import { z } from "zod/v4";
+
+const DateSchema = z.string().date();
 
 interface PlanSearchParams {
   from?: string;
@@ -25,6 +28,8 @@ interface PlanSearchParams {
   toLng?: string;
   budget?: string;
   persona?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -91,6 +96,8 @@ export default async function PlanPage({
   const toName = params.toName ?? "End";
   const maxDetourMinutes = detourCapForBudget(budgetHours);
   const activePersonaId = parsePersonaId(params.persona);
+  const startDate = DateSchema.safeParse(params.startDate).data;
+  const endDate = DateSchema.safeParse(params.endDate).data;
 
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;
@@ -157,6 +164,8 @@ export default async function PlanPage({
           fromName={fromName}
           toName={toName}
           maxDetourMinutes={maxDetourMinutes}
+          startDate={startDate}
+          endDate={endDate}
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">
