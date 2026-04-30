@@ -606,7 +606,7 @@ export default function PlanWorkspace({
             liveWaypointFetch === null &&
             effectiveWaypointFetch.cities.length === 0 && (
               <div className="px-3 py-2">
-                <p className="text-xs font-mono text-[#7d8590]">
+                <p className="text-xs font-mono text-[#b0b9c2]">
                   No nearby cities found within range.
                 </p>
               </div>

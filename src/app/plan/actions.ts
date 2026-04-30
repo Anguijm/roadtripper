@@ -203,6 +203,11 @@ export async function recomputeAndRefreshAction(
   }
 
   // ── Daily quota (cost-amplification ceiling — single charge per call) ──
+  // Next.js does NOT automatically retry failed Server Actions — retries
+  // are always explicit user gestures (button click). The `requestIdRef`
+  // guard in PlanWorkspace additionally prevents concurrent calls from the
+  // same client. There is no framework-level path that would cause this
+  // function to be called twice for a single user operation.
   const daily = checkDailyQuota(ip);
   if (!daily.ok) {
     return { ok: false, error: "quota_exceeded", retryAfterSeconds: daily.retryAfterSeconds };

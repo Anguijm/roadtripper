@@ -128,6 +128,8 @@ async function fetchDriveTimes(
 
 // Expand the in-memory filter threshold by this amount on each retry.
 // No extra API calls — all retries reuse the same fetchDriveTimes response.
+// 15 min chosen because it's a meaningful short-hop increment (one gas-stop
+// worth of extra drive time) while keeping worst-case overshoot to 30 min.
 const RETRY_INCREMENT_MINUTES = 15;
 // Cap at 2 retries: initial + 15 min + 30 min = maxMinutes + 30 worst-case.
 const MAX_RETRIES = 2;
