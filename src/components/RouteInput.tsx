@@ -79,25 +79,25 @@ export default function RouteInput({
         />
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 flex flex-col gap-1">
-            <label className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
+            <label className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">
               Start date
             </label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="py-3 px-3 text-sm font-mono bg-[#1c2128] border border-[#6e7681] text-[#f0f6fc] focus:outline-none focus:border-[#b0b9c2] [color-scheme:dark]"
+              className="min-h-[44px] py-3 px-3 text-sm font-mono bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
             />
           </div>
           <div className="flex-1 flex flex-col gap-1">
-            <label className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
+            <label className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">
               End date
             </label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="py-3 px-3 text-sm font-mono bg-[#1c2128] border border-[#6e7681] text-[#f0f6fc] focus:outline-none focus:border-[#b0b9c2] [color-scheme:dark]"
+              className="min-h-[44px] py-3 px-3 text-sm font-mono bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
             />
           </div>
         </div>
@@ -107,7 +107,7 @@ export default function RouteInput({
           </p>
         )}
         <p
-          className="text-xs font-mono text-[#7d8590]"
+          className="text-xs font-mono text-[#b0b9c2]"
           aria-live="polite"
           aria-atomic="true"
         >
