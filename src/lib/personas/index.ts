@@ -56,14 +56,17 @@ export const PERSONAS: Readonly<Record<PersonaId, PersonaConfig>> = {
   },
 } as const;
 
-export const DEFAULT_PERSONA_ID: PersonaId = "outdoorsman";
+// TEMPORARY: Default persona set to 'culture' for the Radial Hop Planner harness test.
+// This line must be reverted to 'outdoorsman' after the feature is fully launched.
+export const DEFAULT_PERSONA_ID: PersonaId = "culture";
 
+// TEMPORARY: Reordered to match the harness test default. Must be reverted with the default.
 export const PERSONA_ORDER: readonly PersonaId[] = [
-  "outdoorsman",
-  "foodie",
-  "gearhead",
   "culture",
+  "foodie",
   "nerd",
+  "gearhead",
+  "outdoorsman",
 ] as const;
 
 /**
