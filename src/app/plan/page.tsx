@@ -13,38 +13,7 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
-import { z } from "zod";
-
-// Maximum trip duration enforced server-side to prevent resource exhaustion
-// from unbounded date ranges passed via URL params.
-const MAX_TRIP_DAYS = 90;
-
-// Comprehensive Zod schema for all trip-planning URL params (dates + budget).
-// Coordinate params (fromLat/fromLng/toLat/toLng) are validated separately by
-// validateRouteParams, which also enforces geometry constraints (haversine,
-// North America bbox). Both schemas must pass before any API call is made.
-const TripParamsSchema = z
-  .object({
-    startDate: z.string().date(),
-    endDate: z.string().date(),
-    // Daily driving hours: min 1h to make progress, max 16h sanity limit.
-    dailyBudgetHours: z.number().int().min(1).max(16),
-  })
-  .refine((d) => d.startDate <= d.endDate, {
-    message: "Start date must be on or before end date.",
-    path: ["endDate"],
-  })
-  .refine(
-    (d) =>
-      Math.round(
-        (new Date(d.endDate + "T00:00:00Z").getTime() -
-          new Date(d.startDate + "T00:00:00Z").getTime()) /
-          (1000 * 60 * 60 * 24)
-      ) +
-        1 <=
-      MAX_TRIP_DAYS,
-    { message: `Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`, path: ["endDate"] }
-  );
+import { totalDays, TripParamsSchema } from "@/lib/plan/types";
 
 interface PlanSearchParams {
   from?: string;
@@ -143,17 +112,10 @@ export default async function PlanPage({
     endDate = tripParsed.data.endDate;
   }
 
-  // Use total trip days × daily budget as the effective budget signal so that
-  // longer trips receive proportionally more generous per-stop detour caps.
-  // Falls back to daily budget alone when dates are absent (legacy URLs).
-  const tripDays =
-    startDate && endDate
-      ? Math.round(
-          (new Date(endDate + "T00:00:00Z").getTime() -
-            new Date(startDate + "T00:00:00Z").getTime()) /
-            (1000 * 60 * 60 * 24)
-        ) + 1
-      : 1;
+  // Total trip days scales the per-stop detour cap so longer trips can reach
+  // further stops. Falls back to 1 day for legacy URLs without date params.
+  // detourCapForBudget already hard-caps at 120 min regardless of input size.
+  const tripDays = startDate && endDate ? totalDays({ startDate, endDate }) : 1;
   const maxDetourMinutes = detourCapForBudget(tripDays * budgetHours);
 
   let routeError: string | null = null;

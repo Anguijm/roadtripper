@@ -37,3 +37,25 @@ export function totalDays(input: Pick<TripInput, "startDate" | "endDate">): numb
 export function totalBudgetMinutes(input: Pick<TripInput, "startDate" | "endDate" | "dailyBudgetHours">): number {
   return totalDays(input) * input.dailyBudgetHours * 60;
 }
+
+// Maximum trip duration enforced at the server boundary to prevent resource
+// exhaustion from unbounded date ranges passed via URL params.
+export const MAX_TRIP_DAYS = 90;
+
+// Validates the trip-planning URL params that arrive as raw strings from the
+// request. Coordinate params are handled separately by validateRouteParams.
+export const TripParamsSchema = z
+  .object({
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+    // Daily driving hours: min 1h to make progress, max 16h sanity limit.
+    dailyBudgetHours: z.number().int().min(1).max(16),
+  })
+  .refine((d) => d.startDate <= d.endDate, {
+    message: "Start date must be on or before end date.",
+    path: ["endDate"],
+  })
+  .refine((d) => totalDays({ startDate: d.startDate, endDate: d.endDate }) <= MAX_TRIP_DAYS, {
+    message: `Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`,
+    path: ["endDate"],
+  });

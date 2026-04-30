@@ -86,7 +86,7 @@ export default function RouteInput({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="py-2 px-3 text-sm font-mono bg-[#1c2128] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#6e7681] [color-scheme:dark]"
+              className="py-3 px-3 text-sm font-mono bg-[#1c2128] border border-[#6e7681] text-[#f0f6fc] focus:outline-none focus:border-[#b0b9c2] [color-scheme:dark]"
             />
           </div>
           <div className="flex-1 flex flex-col gap-1">
@@ -97,7 +97,7 @@ export default function RouteInput({
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="py-2 px-3 text-sm font-mono bg-[#1c2128] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#6e7681] [color-scheme:dark]"
+              className="py-3 px-3 text-sm font-mono bg-[#1c2128] border border-[#6e7681] text-[#f0f6fc] focus:outline-none focus:border-[#b0b9c2] [color-scheme:dark]"
             />
           </div>
         </div>

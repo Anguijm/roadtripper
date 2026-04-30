@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LatLngSchema, TripInputSchema, totalDays, totalBudgetMinutes } from "./types";
+import { LatLngSchema, TripInputSchema, TripParamsSchema, MAX_TRIP_DAYS, totalDays, totalBudgetMinutes } from "./types";
 
 const VALID_INPUT = {
   origin: { lat: 34.05, lng: -118.24 },
@@ -133,5 +133,53 @@ describe("totalBudgetMinutes", () => {
     expect(
       totalBudgetMinutes({ startDate: "2026-06-01", endDate: "2026-06-01", dailyBudgetHours: 8 })
     ).toBe(1 * 8 * 60);
+  });
+});
+
+// ── TripParamsSchema ──────────────────────────────────────────────────────────
+
+const VALID_PARAMS = { startDate: "2026-06-01", endDate: "2026-06-08", dailyBudgetHours: 8 };
+
+describe("TripParamsSchema", () => {
+  it("accepts valid params", () => {
+    expect(TripParamsSchema.safeParse(VALID_PARAMS).success).toBe(true);
+  });
+
+  it("accepts a trip of exactly MAX_TRIP_DAYS", () => {
+    // Start 2026-06-01, add MAX_TRIP_DAYS-1 days to get the inclusive end date.
+    const end = new Date("2026-06-01T00:00:00Z");
+    end.setUTCDate(end.getUTCDate() + MAX_TRIP_DAYS - 1);
+    const endDate = end.toISOString().slice(0, 10);
+    expect(TripParamsSchema.safeParse({ ...VALID_PARAMS, startDate: "2026-06-01", endDate }).success).toBe(true);
+  });
+
+  it("rejects a trip of MAX_TRIP_DAYS + 1", () => {
+    const end = new Date("2026-06-01T00:00:00Z");
+    end.setUTCDate(end.getUTCDate() + MAX_TRIP_DAYS);
+    const endDate = end.toISOString().slice(0, 10);
+    const result = TripParamsSchema.safeParse({ ...VALID_PARAMS, startDate: "2026-06-01", endDate });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a valid leap day (2024-02-29)", () => {
+    expect(
+      TripParamsSchema.safeParse({ ...VALID_PARAMS, startDate: "2024-02-28", endDate: "2024-02-29" }).success
+    ).toBe(true);
+  });
+
+  it("rejects an invalid leap day (2025-02-29)", () => {
+    expect(
+      TripParamsSchema.safeParse({ ...VALID_PARAMS, startDate: "2025-02-28", endDate: "2025-02-29" }).success
+    ).toBe(false);
+  });
+
+  it("rejects startDate after endDate", () => {
+    const result = TripParamsSchema.safeParse({ ...VALID_PARAMS, startDate: "2026-06-10", endDate: "2026-06-01" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects dailyBudgetHours out of range", () => {
+    expect(TripParamsSchema.safeParse({ ...VALID_PARAMS, dailyBudgetHours: 0 }).success).toBe(false);
+    expect(TripParamsSchema.safeParse({ ...VALID_PARAMS, dailyBudgetHours: 17 }).success).toBe(false);
   });
 });
