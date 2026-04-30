@@ -28,6 +28,8 @@ import {
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
 import type { DirectionsResult } from "@/lib/routing/directions";
+import { buildTripState, type TripState, type TripLeg } from "@/lib/plan/trip-state";
+import { totalDays as dateTotalDays } from "@/lib/plan/types";
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -78,16 +80,28 @@ export default function PlanWorkspace({
   fromName,
   toName,
   maxDetourMinutes,
+  startDate,
+  endDate,
   initialCandidateFetchFailed = false,
 }: PlanWorkspaceProps) {
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
   const [activePersonaId, setActivePersonaId] = useState<PersonaId>(initialPersonaId);
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
 
+  // Total trip budget derived from date range (stable for the life of this component).
+  const tripDays = startDate && endDate ? dateTotalDays({ startDate, endDate }) : 1;
+  const totalBudgetMins = tripDays * budgetHours * 60;
+
   // Trip + recompute state.
   // `liveRoute === null` / `liveWaypointFetch === null` means "use the
   // initial server-rendered values" (Council ISC-S6-ARCH-3, S7-ARCH-2).
   const [tripStops, setTripStops] = useState<TripStopMarker[]>([]);
+  // TripState tracks accumulated leg times + budget status. Built from
+  // route legs returned by recomputeAndRefreshAction; empty until first stop.
+  const [tripState, setTripState] = useState<TripState>(() =>
+    buildTripState([], totalBudgetMins, initialDurationSeconds / 60)
+  );
+  const [candidatePoolAnnouncement, setCandidatePoolAnnouncement] = useState("");
   const [liveRoute, setLiveRoute] = useState<DirectionsResult | null>(null);
   const [liveWaypointFetch, setLiveWaypointFetch] =
     useState<WaypointFetchResult | null>(null);
@@ -197,8 +211,6 @@ export default function PlanWorkspace({
   const liveDuration = liveRoute?.totalDurationSeconds ?? initialDurationSeconds;
   const totalDistanceText = formatDistance(liveDistance);
   const totalDurationText = formatDuration(liveDuration);
-  const totalDays =
-    budgetHours > 0 ? Math.ceil(liveDuration / 3600 / budgetHours) : 0;
 
   // The recommendation set the user actually sees — refreshed when present,
   // initial server prop otherwise (Council ISC-S7-ARCH-2).
@@ -232,34 +244,6 @@ export default function PlanWorkspace({
     () => new Set(tripStops.map((s) => s.cityId)),
     [tripStops]
   );
-
-  // Stops no longer near the refreshed corridor. Uses liveWaypointFetch (not
-  // effectiveWaypointFetch) so degraded fallback data never triggers false badges.
-  // Empty cities array = degraded/failed response — treat same as null to avoid
-  // marking every stop a detour when the recompute itself failed.
-  const offCorridorStopIds = useMemo<ReadonlySet<string>>(() => {
-    const cities = liveWaypointFetch?.cities;
-    if (!cities || cities.length === 0) return new Set();
-    const candidateIds = new Set(cities.map((c) => c.id));
-    return new Set(tripStops.map((s) => s.cityId).filter((id) => !candidateIds.has(id)));
-  }, [liveWaypointFetch, tripStops]);
-
-  // Announce newly off-corridor stops to screen readers after each recompute.
-  const [corridorAnnouncement, setCorridorAnnouncement] = useState("");
-  const prevOffCorridorRef = useRef<ReadonlySet<string>>(new Set());
-  useEffect(() => {
-    const prev = prevOffCorridorRef.current;
-    const newlyOff = [...offCorridorStopIds].filter((id) => !prev.has(id));
-    if (newlyOff.length > 0) {
-      const names = newlyOff
-        .map((id) => tripStops.find((s) => s.cityId === id)?.cityName ?? id)
-        .join(", ");
-      setCorridorAnnouncement(
-        `Route updated. ${names} ${newlyOff.length === 1 ? "is" : "are"} now a detour.`
-      );
-    }
-    prevOffCorridorRef.current = offCorridorStopIds;
-  }, [offCorridorStopIds, tripStops]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -336,6 +320,7 @@ export default function PlanWorkspace({
       if (recomputeError !== null) setRecomputeError(null);
       if (recommendationsDegraded) setRecommendationsDegraded(false);
       if (failedStopId !== null) setFailedStopId(null);
+      setTripState(buildTripState([], totalBudgetMins, initialDurationSeconds / 60));
       return;
     }
 
@@ -369,10 +354,30 @@ export default function PlanWorkspace({
         // lines after the final await with NO intervening await. React 19
         // batches into a single render commit.
         setLiveRoute(result.route);
+
+        // Build TripState from per-leg route data.
+        // legs[i] = drive from stop[i-1] (or origin) to stop[i].
+        // legs[N] = drive from last stop to destination = directMinutesToDestination.
+        const routeLegs = result.route.legs;
+        const tripLegs: TripLeg[] = stopsForRequest.map((stop, i) => ({
+          originCityId: i === 0 ? "__origin__" : stopsForRequest[i - 1].cityId,
+          destinationCityId: stop.cityId,
+          durationSeconds: routeLegs[i]?.durationSeconds ?? 0,
+          distanceMeters: routeLegs[i]?.distanceMeters ?? 0,
+        }));
+        const directMinsToDest = routeLegs[stopsForRequest.length]
+          ? routeLegs[stopsForRequest.length].durationSeconds / 60
+          : initialDurationSeconds / 60;
+        setTripState(buildTripState(tripLegs, totalBudgetMins, directMinsToDest));
+
         if (result.waypointStatus === "fresh") {
           setLiveWaypointFetch(result.waypointFetch);
           setRecommendationsDegraded(false);
           setRefreshTick((t) => t + 1);
+          const count = result.waypointFetch.cities.length;
+          setCandidatePoolAnnouncement(
+            `Candidate pool updated: ${count} cit${count === 1 ? "y" : "ies"} found.`
+          );
         } else {
           // Degraded — keep the prior liveWaypointFetch (Council S7-ARCH-2).
           setRecommendationsDegraded(true);
@@ -461,7 +466,7 @@ export default function PlanWorkspace({
     <div className="flex flex-1 min-h-0">
       {/* Screen-reader live regions */}
       <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
-      <div aria-live="polite" className="sr-only">{corridorAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{candidatePoolAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{sheetAnnouncement}</div>
 
       {/* Side panel / mobile bottom sheet */}
@@ -510,9 +515,22 @@ export default function PlanWorkspace({
             </div>
             <div>
               <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Days @ {budgetHours}h
+                Budget left
               </p>
-              <p className="text-[#f0f6fc] mt-0.5">{totalDays}</p>
+              <p className={[
+                "mt-0.5",
+                tripState.status.kind === "over_budget"
+                  ? "text-[#f85149]"
+                  : tripState.status.kind === "warning"
+                  ? "text-[#d29922]"
+                  : "text-[#f0f6fc]",
+              ].join(" ")}>
+                {tripState.status.kind === "empty"
+                  ? formatDuration(totalBudgetMins * 60)
+                  : tripState.status.kind === "over_budget"
+                  ? `−${formatDuration(tripState.status.overageMinutes * 60)}`
+                  : formatDuration(tripState.status.remainingBudgetMinutes * 60)}
+              </p>
             </div>
           </div>
           <div className="flex items-center justify-between gap-2">
@@ -538,9 +556,9 @@ export default function PlanWorkspace({
               fromName={fromName}
               toName={toName}
               stops={tripStops}
+              legDurations={tripState.legs.map((l) => l.durationSeconds)}
               failedStopId={failedStopId}
               selectedCityId={panelCityId}
-              offCorridorStopIds={offCorridorStopIds}
               pending={isPending}
               onRemoveStop={handleRemoveCity}
               onStopClick={handleStopClick}
@@ -594,6 +612,29 @@ export default function PlanWorkspace({
             <div className="px-3 py-2 border border-[#d29922] bg-[#161b22]">
               <p className="text-xs text-[#d29922] leading-snug">
                 Couldn&apos;t refresh recommendations — showing previous.
+              </p>
+            </div>
+          )}
+
+          {/* Budget warning — assertive so screen readers interrupt current speech
+              (time-sensitive: user needs to know before adding more stops). */}
+          {(tripState.status.kind === "warning" || tripState.status.kind === "over_budget") && (
+            <div
+              role="alert"
+              className={`px-3 py-2 border bg-[#161b22] ${
+                tripState.status.kind === "over_budget"
+                  ? "border-[#f85149]"
+                  : "border-[#d29922]"
+              }`}
+            >
+              <p className={`text-xs leading-snug ${
+                tripState.status.kind === "over_budget"
+                  ? "text-[#f85149]"
+                  : "text-[#d29922]"
+              }`}>
+                {tripState.status.kind === "over_budget"
+                  ? `Over budget by ${formatDuration(tripState.status.overageMinutes * 60)}.`
+                  : `Budget tight — ${formatDuration(tripState.status.directMinutesToDestination * 60)} direct to ${toName} with ${formatDuration(tripState.status.remainingBudgetMinutes * 60)} remaining.`}
               </p>
             </div>
           )}
