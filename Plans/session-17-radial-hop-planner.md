@@ -71,13 +71,14 @@ findCitiesInRadius(
   destination: LatLng,
   maxMinutes: number
 ): Promise<City[]>
-  — compute Routes API matrix: origin → all 258 cities
-  — filter by maxMinutes
-  — apply semicircle filter (bearing origin→destination, snapped)
+  — check LRU cache first (key: SHA-256 of origin + maxMinutes + compassPoint)
+  — on miss: compute Routes API matrix: origin → all 258 cities (city list
+    itself is already in the 24h LRU via getAllCities(), no Firestore call)
+  — filter by maxMinutes, apply semicircle filter, cache result
   — return filtered list
 ```
 
-All pure functions are unit-testable without network. `findCitiesInRadius` is server-only.
+All pure functions are unit-testable without network. `findCitiesInRadius` is server-only (`import "server-only"`; must not appear in any client barrel export).
 
 ### New Zod schemas (`cityAtlas.ts` or `plan/types.ts`)
 ```
@@ -95,7 +96,7 @@ TripLegSchema: {
   from: LatLngSchema,
   fromName: string,
   driveMinutes: number,           // actual drive time for this leg
-  chosenCity: CitySchema | null,  // null = leg in progress
+  chosenCity: CitySchema,         // non-nullable — only completed legs enter the array
 }
 
 TripStateSchema: {
@@ -169,12 +170,17 @@ Discriminated union for `TripStatus`:
 - City selection → append leg → next candidate fetch
 - Budget counter display + soft warning banner
 - Remove: `offCorridorStopIds`, detour badge, `corridorAnnouncement`
+- Replace `corridorAnnouncement` with `candidatePoolAnnouncement` aria-live region: announces when the candidate pool refreshes after a leg selection ("Now showing X cities within Y hours towards the southwest")
+- Budget warning banner must be announced via `aria-live="assertive"` (not polite — it's time-sensitive)
+- City selection: cancels any in-flight `recomputeAndRefreshAction` call before issuing a new one (idempotency guard against double-click)
 - Update Itinerary to show legs (from → to + drive time)
 
 ### PR F — Semicircle map overlay *(depends on E)*
 - Effect 5 in PolylineRenderer: draws arc for current search radius + heading
 - New prop to `RouteMap`: `searchArc: { center: LatLng; radiusMeters: number; headingDeg: number } | null`
 - `PlanWorkspace` passes current arc data down on each leg change
+- Effect cleanup: when `searchArc` is null or component unmounts, the arc object must be explicitly removed from the map (`arc.setMap(null)`) to prevent leaks
+- Fit-bounds invariant: the arc does NOT trigger a map re-fit; `hasFitOnceRef` stays as-is
 
 ---
 
@@ -203,15 +209,22 @@ B, C, D can land in any order or in parallel. E gates on C+D. F gates on E.
 
 ---
 
-## Routes API budget note
+## Routes API cost and caching
 
-The new model makes a matrix call per leg selection (current position → all 258 cities). This replaces the single matrix call per full route load. Cost per call is the same; frequency depends on how many legs the user makes. Rate limit layers already protect against abuse. Daily quota guard covers the burst case.
+The matrix call (1×258 elements, ~$1.29/call) is the dominant cost driver. Mitigation layers:
+
+1. **LRU cache in `findCitiesInRadius`**: cache key = SHA-256(origin lat/lng rounded to 3dp + maxMinutes + compassPoint). A user who backtracks to the same city won't re-bill.
+2. **City list already cached**: `getAllCities()` holds the 258 cities in a 24h LRU — no Firestore read on each leg.
+3. **Rate limit applies per-action**: all three layers (burst + spacing + daily quota) wrap `recomputeAndRefreshAction`. The daily quota (currently 200/IP) will be re-evaluated in PR C once the per-call cost is confirmed — it may need to be tightened (e.g., 20–50 leg selections/IP/day).
+4. **Double-click guard**: idempotency check in `PlanWorkspace` cancels in-flight calls before issuing a new one, preventing duplicate charges from rapid selection.
+
+Worst-case unmitigated cost (no cache hits, 20 legs): ~$26/user/trip. With cache hits on common origins and the rate limiter, practical cost is expected to be well under $5/user/trip.
 
 ---
 
 ## Open questions (defer to implementation)
 
-1. How to handle the case where `findCitiesInRadius` returns zero cities (very rural origin, very tight budget)? Probably expand radius in 15-min increments up to 2× budget.
-2. Date pickers vs free-text input for start/end date on landing page.
-3. Whether to persist `TripState` in localStorage so a browser refresh doesn't reset the trip in progress.
-4. Semicircle arc on map: `google.maps.Circle` covers full circle — will need a custom polyline arc or SVG overlay for a true semicircle.
+1. **Zero results**: `findCitiesInRadius` returns empty (rural origin, tight budget). Expand radius in 15-min increments up to 2× budget, each expansion counts against rate limit.
+2. **Date input**: text inputs (ISO YYYY-MM-DD) for start/end date on landing page — no date picker complexity in V1.
+3. **Trip state persistence**: do NOT use localStorage (PII exposure, XSS surface). If cross-refresh persistence is needed, store in Firestore with a short TTL tied to the Clerk session. Defer to post-V1.
+4. **Semicircle arc rendering**: `google.maps.Circle` covers a full circle — need a custom polyline approximation of a semicircle arc (sample N points along a half-circle) or a Google Maps Data Layer polygon.
