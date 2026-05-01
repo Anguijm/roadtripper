@@ -1,9 +1,11 @@
 "use server";
 import "server-only";
 
+import { headers } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { roadtripperDb } from "@/lib/firebaseAdmin";
+import { checkRateLimit, getClientIp } from "@/lib/routing/rate-limit";
 import {
   SaveTripInputSchema,
   TripIdSchema,
@@ -11,9 +13,9 @@ import {
   type SavedTrip,
 } from "@/lib/trips/types";
 
-export type SaveTripError = "not_authenticated" | "invalid_input" | "internal_error";
-export type LoadTripsError = "not_authenticated" | "internal_error";
-export type DeleteTripError = "not_authenticated" | "not_found" | "internal_error";
+export type SaveTripError = "not_authenticated" | "rate_limited" | "invalid_input" | "internal_error";
+export type LoadTripsError = "not_authenticated" | "rate_limited" | "internal_error";
+export type DeleteTripError = "not_authenticated" | "rate_limited" | "not_found" | "internal_error";
 
 function tripsCollection(userId: string) {
   return roadtripperDb.collection(`users/${userId}/saved_trips`);
@@ -29,6 +31,9 @@ export async function saveTrip(
   input: SaveTripInput,
   tripId: string
 ): Promise<{ ok: true; tripId: string } | { ok: false; error: SaveTripError }> {
+  const ip = getClientIp(await headers());
+  if (!checkRateLimit(ip).ok) return { ok: false, error: "rate_limited" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "not_authenticated" };
 
@@ -52,8 +57,12 @@ export async function saveTrip(
 }
 
 export async function loadTrips(): Promise<
-  { ok: true; trips: SavedTrip[] } | { ok: false; error: LoadTripsError }
+  | { ok: true; trips: SavedTrip[]; failedToLoadCount: number }
+  | { ok: false; error: LoadTripsError }
 > {
+  const ip = getClientIp(await headers());
+  if (!checkRateLimit(ip).ok) return { ok: false, error: "rate_limited" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "not_authenticated" };
 
@@ -65,6 +74,8 @@ export async function loadTrips(): Promise<
       .get();
 
     const trips: SavedTrip[] = [];
+    let failedToLoadCount = 0;
+
     for (const doc of snap.docs) {
       const d = doc.data();
       const parsed = SaveTripInputSchema.safeParse({
@@ -82,19 +93,23 @@ export async function loadTrips(): Promise<
       });
       if (!parsed.success) {
         console.error(`[loadTrips] doc ${doc.id} failed schema validation — skipping`);
+        failedToLoadCount++;
         continue;
       }
-      const toIso = (v: unknown) =>
-        v instanceof Timestamp ? v.toDate().toISOString() : new Date(0).toISOString();
+      const toIso = (v: unknown, field: string) => {
+        if (v instanceof Timestamp) return v.toDate().toISOString();
+        console.warn(`[loadTrips] doc ${doc.id} field "${field}" is not a Timestamp`);
+        return new Date(0).toISOString();
+      };
       trips.push({
         id: doc.id,
         ...parsed.data,
-        createdAt: toIso(d.createdAt),
-        updatedAt: toIso(d.updatedAt),
+        createdAt: toIso(d.createdAt, "createdAt"),
+        updatedAt: toIso(d.updatedAt, "updatedAt"),
       });
     }
 
-    return { ok: true, trips };
+    return { ok: true, trips, failedToLoadCount };
   } catch (err) {
     console.error("[loadTrips] Firestore read failed:", (err as Error).message);
     return { ok: false, error: "internal_error" };
@@ -104,6 +119,9 @@ export async function loadTrips(): Promise<
 export async function deleteTrip(
   tripId: string
 ): Promise<{ ok: true } | { ok: false; error: DeleteTripError }> {
+  const ip = getClientIp(await headers());
+  if (!checkRateLimit(ip).ok) return { ok: false, error: "rate_limited" };
+
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "not_authenticated" };
 
