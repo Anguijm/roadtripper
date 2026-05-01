@@ -20,13 +20,14 @@ function tripsCollection(userId: string) {
 }
 
 /**
- * Saves a trip for the authenticated user. Idempotent: pass the same `tripId`
- * on retry to overwrite the same document rather than creating a duplicate.
- * If `tripId` is omitted or invalid, a new UUID is generated server-side.
+ * Saves a trip for the authenticated user. Idempotent: the caller must supply
+ * a stable `tripId` (e.g., `crypto.randomUUID()` generated once before the
+ * first attempt). Retrying with the same `tripId` overwrites the same document
+ * instead of creating a duplicate.
  */
 export async function saveTrip(
   input: SaveTripInput,
-  tripId?: string
+  tripId: string
 ): Promise<{ ok: true; tripId: string } | { ok: false; error: SaveTripError }> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "not_authenticated" };
@@ -34,18 +35,18 @@ export async function saveTrip(
   const parsed = SaveTripInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "invalid_input" };
 
-  const parsedId = tripId ? TripIdSchema.safeParse(tripId) : null;
-  const docId = parsedId?.success ? parsedId.data : crypto.randomUUID();
+  const parsedId = TripIdSchema.safeParse(tripId);
+  if (!parsedId.success) return { ok: false, error: "invalid_input" };
 
   try {
-    await tripsCollection(userId).doc(docId).set({
+    await tripsCollection(userId).doc(parsedId.data).set({
       ...parsed.data,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { ok: true, tripId: docId };
+    return { ok: true, tripId: parsedId.data };
   } catch (err) {
-    console.error("[saveTrip] Firestore write failed:", (err as Error).constructor.name);
+    console.error("[saveTrip] Firestore write failed:", (err as Error).message);
     return { ok: false, error: "internal_error" };
   }
 }
@@ -95,7 +96,7 @@ export async function loadTrips(): Promise<
 
     return { ok: true, trips };
   } catch (err) {
-    console.error("[loadTrips] Firestore read failed:", (err as Error).constructor.name);
+    console.error("[loadTrips] Firestore read failed:", (err as Error).message);
     return { ok: false, error: "internal_error" };
   }
 }
@@ -117,7 +118,7 @@ export async function deleteTrip(
     await ref.delete();
     return { ok: true };
   } catch (err) {
-    console.error("[deleteTrip] Firestore delete failed:", (err as Error).constructor.name);
+    console.error("[deleteTrip] Firestore delete failed:", (err as Error).message);
     return { ok: false, error: "internal_error" };
   }
 }
