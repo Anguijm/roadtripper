@@ -11,7 +11,6 @@ import { z } from "zod/v4";
 import { findCitiesInRadius } from "@/lib/routing/radial";
 import { fetchWaypointsForCandidates, fetchNeighborhoods } from "@/lib/routing/recommend";
 import {
-  detourCapForBudget,
   isBudgetHoursInRange,
 } from "@/lib/routing/validation";
 import { LatLngSchema } from "@/lib/plan/types";
@@ -249,7 +248,7 @@ export async function recomputeAndRefreshAction(
     const radialCandidates = await findCitiesInRadius(
       radialOrigin,
       destination,
-      detourCapForBudget(budgetHours)
+      Math.min(Math.round(budgetHours * 60), 480)
     );
     const waypointFetch = await fetchWaypointsForCandidates(radialCandidates, selectedCityId);
     console.info(
