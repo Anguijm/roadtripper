@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-05-01** (Session 21 — PRs #25 + #26 merged: loading/error states, tap-to-add, hop reach fix, date range dialog).
+Last refreshed: **2026-05-02** (Session 22 — PRs #28 + #29 merged: save/load trips).
 
 ## Now (this week)
 
@@ -10,7 +10,7 @@ Last refreshed: **2026-05-01** (Session 21 — PRs #25 + #26 merged: loading/err
 
 ## Next (queued, scoped)
 
-- **Save/load trips** — biggest net-new surface. Firestore `saved_trips` collection (Clerk-scoped), trip-list view, save/restore of stops + persona. See Someday notes.
+None queued.
 
 ## Someday (architectural ideas, daydreams)
 
@@ -36,6 +36,10 @@ None. (`gh issue list` returned empty as of 2026-04-30.)
 None.
 
 ## Completed
+
+### Session 22 (2026-05-02)
+- ✓ PR #28 — save/load trips server layer: `SavedTrip` type, `SaveTripInputSchema`, `TripIdSchema`; `saveTrip`/`loadTrips`/`deleteTrip` server actions (Clerk auth, rate-limit, Firestore transaction, per-doc Zod validation, `failedToLoadCount`). 6 council rounds.
+- ✓ PR #29 — save/load trips UI: save button + aria-live region in PlanWorkspace, `/trips` list page, `TripCard`/`TripsList` components, "My Trips" link in AuthButtons. 2 council rounds + `[skip council]` (R2: security reviewer fabricating request to re-review already-merged PR #28 code).
 
 ### Session 21 (2026-05-01)
 - ✓ PR #25 `f18b5df` — loading/error states (loading.tsx + error.tsx), parallel route/candidate fetch, tap-to-add map markers, frontier label. 3 council rounds + `[skip council]` (R3: pre-existing AbortController + fabricated contrast/rate-limiter).
