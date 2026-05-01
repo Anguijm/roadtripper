@@ -230,4 +230,17 @@ describe("computeDeadlinePressure", () => {
     expect(dp!.daysLate).toBeGreaterThan(0);
     expect(dp!.requiredMinutesPerDay).toBe(Infinity);
   });
+
+  it("returns null when budgetHours is 0 (avoid divide-by-zero)", () => {
+    expect(computeDeadlinePressure([LEG_300], 4, 0, 600)).toBeNull();
+  });
+
+  it("returns null when directMinutesToDestination is negative", () => {
+    expect(computeDeadlinePressure([LEG_300], 4, 5, -1)).toBeNull();
+  });
+
+  it("returns null when directMinutesToDestination is non-finite", () => {
+    expect(computeDeadlinePressure([LEG_300], 4, 5, Infinity)).toBeNull();
+    expect(computeDeadlinePressure([LEG_300], 4, 5, NaN)).toBeNull();
+  });
 });

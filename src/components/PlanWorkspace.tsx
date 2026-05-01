@@ -704,13 +704,13 @@ export default function PlanWorkspace({
           {deadlinePressure && deadlinePressure.daysLate >= 0.25 && (
             <div
               role="alert"
-              className={`px-3 py-2 border bg-[#161b22] ${
+              className={`px-3 py-2 border bg-[#161b22] overflow-hidden ${
                 deadlinePressure.daysLate >= 1
                   ? "border-[#f85149]"
                   : "border-[#d29922]"
               }`}
             >
-              <p className={`text-xs leading-snug ${
+              <p className={`text-xs leading-snug break-words ${
                 deadlinePressure.daysLate >= 1 ? "text-[#f85149]" : "text-[#d29922]"
               }`}>
                 {deadlinePressure.daysRemaining <= 0
