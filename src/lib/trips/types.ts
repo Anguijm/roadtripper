@@ -11,6 +11,7 @@ export const SavedTripStopSchema = z.object({
 export type SavedTripStop = z.infer<typeof SavedTripStopSchema>;
 
 export const SaveTripInputSchema = z.object({
+  // 200-char limit matches city/address name lengths returned by the Maps API.
   fromName: z.string().min(1).max(200),
   toName: z.string().min(1).max(200),
   fromLat: z.number().min(-90).max(90),
@@ -21,6 +22,7 @@ export const SaveTripInputSchema = z.object({
   budgetHours: z.number().int().min(1).max(24),
   startDate: z.string().date().optional(),
   endDate: z.string().date().optional(),
+  // 100 chars is well above any current personaId length; prevents outsized Firestore writes.
   personaId: z.string().min(1).max(100),
   // Max 7 stops — matches MAX_TRIP_STOPS in PlanWorkspace; Routes API waypoint cap.
   stops: z.array(SavedTripStopSchema).max(7),

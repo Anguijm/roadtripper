@@ -15,7 +15,7 @@ import {
 
 export type SaveTripError = "not_authenticated" | "rate_limited" | "invalid_input" | "internal_error";
 export type LoadTripsError = "not_authenticated" | "rate_limited" | "internal_error";
-export type DeleteTripError = "not_authenticated" | "rate_limited" | "not_found" | "internal_error";
+export type DeleteTripError = "not_authenticated" | "rate_limited" | "invalid_input" | "not_found" | "internal_error";
 
 function tripsCollection(userId: string) {
   return roadtripperDb.collection(`users/${userId}/saved_trips`);
@@ -69,7 +69,9 @@ export async function loadTrips(): Promise<
   try {
     const snap = await tripsCollection(userId)
       .orderBy("updatedAt", "desc")
-      // 50 most recent trips — keeps payload size and list render time reasonable.
+      // 50 most recent trips — keeps JSON payload under ~50 KB and list render
+      // time fast on mobile. If raised, verify trips-list scroll performance and
+      // total serialization size before deploying.
       .limit(50)
       .get();
 
@@ -92,12 +94,14 @@ export async function loadTrips(): Promise<
         stops: d.stops ?? [],
       });
       if (!parsed.success) {
-        console.error(`[loadTrips] doc ${doc.id} failed schema validation — skipping`);
+        console.error(`[loadTrips] doc ${doc.id} failed schema validation — skipping`, parsed.error.issues);
         failedToLoadCount++;
         continue;
       }
       const toIso = (v: unknown, field: string) => {
         if (v instanceof Timestamp) return v.toDate().toISOString();
+        // Fall back to epoch so the field is always a valid ISO string for the
+        // client — avoids a type error at the cost of a misleading date.
         console.warn(`[loadTrips] doc ${doc.id} field "${field}" is not a Timestamp`);
         return new Date(0).toISOString();
       };
@@ -127,7 +131,7 @@ export async function deleteTrip(
 
   // Firestore IDs are 20 chars; UUIDs 36; 128-char cap blocks oversized/malicious inputs.
   const parsedId = TripIdSchema.safeParse(tripId);
-  if (!parsedId.success) return { ok: false, error: "not_found" };
+  if (!parsedId.success) return { ok: false, error: "invalid_input" };
 
   try {
     const ref = tripsCollection(userId).doc(parsedId.data);
