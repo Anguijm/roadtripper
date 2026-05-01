@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SaveTripInputSchema, SavedTripStopSchema } from "./types";
+import { SaveTripInputSchema, SavedTripStopSchema, TripIdSchema } from "./types";
 
 // ── SavedTripStopSchema ───────────────────────────────────────────────────────
 
@@ -83,5 +83,30 @@ describe("SaveTripInputSchema", () => {
     expect(
       SaveTripInputSchema.safeParse({ ...valid, startDate: "not-a-date" }).success
     ).toBe(false);
+  });
+});
+
+// ── TripIdSchema ──────────────────────────────────────────────────────────────
+
+describe("TripIdSchema", () => {
+  it("accepts a UUID", () => {
+    expect(TripIdSchema.safeParse("550e8400-e29b-41d4-a716-446655440000").success).toBe(true);
+  });
+
+  it("accepts a Firestore auto-id (20 alphanumeric chars)", () => {
+    expect(TripIdSchema.safeParse("abcdefghij1234567890").success).toBe(true);
+  });
+
+  it("rejects empty string", () => {
+    expect(TripIdSchema.safeParse("").success).toBe(false);
+  });
+
+  it("rejects string longer than 128 chars", () => {
+    expect(TripIdSchema.safeParse("a".repeat(129)).success).toBe(false);
+  });
+
+  it("rejects strings with path-traversal characters", () => {
+    expect(TripIdSchema.safeParse("../secret").success).toBe(false);
+    expect(TripIdSchema.safeParse("id with spaces").success).toBe(false);
   });
 });

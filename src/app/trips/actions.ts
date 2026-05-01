@@ -4,7 +4,12 @@ import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { roadtripperDb } from "@/lib/firebaseAdmin";
-import { SaveTripInputSchema, type SaveTripInput, type SavedTrip } from "@/lib/trips/types";
+import {
+  SaveTripInputSchema,
+  TripIdSchema,
+  type SaveTripInput,
+  type SavedTrip,
+} from "@/lib/trips/types";
 
 export type SaveTripError = "not_authenticated" | "invalid_input" | "internal_error";
 export type LoadTripsError = "not_authenticated" | "internal_error";
@@ -14,8 +19,14 @@ function tripsCollection(userId: string) {
   return roadtripperDb.collection(`users/${userId}/saved_trips`);
 }
 
+/**
+ * Saves a trip for the authenticated user. Idempotent: pass the same `tripId`
+ * on retry to overwrite the same document rather than creating a duplicate.
+ * If `tripId` is omitted or invalid, a new UUID is generated server-side.
+ */
 export async function saveTrip(
-  input: SaveTripInput
+  input: SaveTripInput,
+  tripId?: string
 ): Promise<{ ok: true; tripId: string } | { ok: false; error: SaveTripError }> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "not_authenticated" };
@@ -23,14 +34,18 @@ export async function saveTrip(
   const parsed = SaveTripInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "invalid_input" };
 
+  const parsedId = tripId ? TripIdSchema.safeParse(tripId) : null;
+  const docId = parsedId?.success ? parsedId.data : crypto.randomUUID();
+
   try {
-    const ref = await tripsCollection(userId).add({
+    await tripsCollection(userId).doc(docId).set({
       ...parsed.data,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { ok: true, tripId: ref.id };
-  } catch {
+    return { ok: true, tripId: docId };
+  } catch (err) {
+    console.error("[saveTrip] Firestore write failed:", (err as Error).constructor.name);
     return { ok: false, error: "internal_error" };
   }
 }
@@ -44,13 +59,14 @@ export async function loadTrips(): Promise<
   try {
     const snap = await tripsCollection(userId)
       .orderBy("updatedAt", "desc")
+      // 50 most recent trips — keeps payload size and list render time reasonable.
       .limit(50)
       .get();
 
-    const trips: SavedTrip[] = snap.docs.map((doc) => {
+    const trips: SavedTrip[] = [];
+    for (const doc of snap.docs) {
       const d = doc.data();
-      return {
-        id: doc.id,
+      const parsed = SaveTripInputSchema.safeParse({
         fromName: d.fromName,
         toName: d.toName,
         fromLat: d.fromLat,
@@ -62,13 +78,24 @@ export async function loadTrips(): Promise<
         endDate: d.endDate,
         personaId: d.personaId,
         stops: d.stops ?? [],
-        createdAt: (d.createdAt as Timestamp).toDate().toISOString(),
-        updatedAt: (d.updatedAt as Timestamp).toDate().toISOString(),
-      };
-    });
+      });
+      if (!parsed.success) {
+        console.error(`[loadTrips] doc ${doc.id} failed schema validation — skipping`);
+        continue;
+      }
+      const toIso = (v: unknown) =>
+        v instanceof Timestamp ? v.toDate().toISOString() : new Date(0).toISOString();
+      trips.push({
+        id: doc.id,
+        ...parsed.data,
+        createdAt: toIso(d.createdAt),
+        updatedAt: toIso(d.updatedAt),
+      });
+    }
 
     return { ok: true, trips };
-  } catch {
+  } catch (err) {
+    console.error("[loadTrips] Firestore read failed:", (err as Error).constructor.name);
     return { ok: false, error: "internal_error" };
   }
 }
@@ -79,17 +106,18 @@ export async function deleteTrip(
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "not_authenticated" };
 
-  if (!tripId || typeof tripId !== "string" || tripId.length > 200) {
-    return { ok: false, error: "not_found" };
-  }
+  // Firestore IDs are 20 chars; UUIDs 36; 128-char cap blocks oversized/malicious inputs.
+  const parsedId = TripIdSchema.safeParse(tripId);
+  if (!parsedId.success) return { ok: false, error: "not_found" };
 
   try {
-    const ref = tripsCollection(userId).doc(tripId);
+    const ref = tripsCollection(userId).doc(parsedId.data);
     const snap = await ref.get();
     if (!snap.exists) return { ok: false, error: "not_found" };
     await ref.delete();
     return { ok: true };
-  } catch {
+  } catch (err) {
+    console.error("[deleteTrip] Firestore delete failed:", (err as Error).constructor.name);
     return { ok: false, error: "internal_error" };
   }
 }
