@@ -10,12 +10,12 @@ export default function PlanLoading() {
         >
           ← Roadtripper
         </Link>
-        <div className="text-xs font-mono uppercase tracking-widest text-[#7d8590] animate-pulse">
+        <div className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2] motion-safe:animate-pulse">
           Planning route…
         </div>
       </header>
-      <main className="flex-1 flex items-center justify-center">
-        <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] animate-pulse">
+      <main className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
+        <p className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2] motion-safe:animate-pulse">
           Calculating route…
         </p>
       </main>

@@ -705,7 +705,7 @@ export default function PlanWorkspace({
           {/* Frontier label — tells the user which stop the next candidates
               are radiating from so the changing list makes sense. */}
           {effectiveWaypointFetch.cities.length > 0 && (
-            <p className="text-[10px] font-mono uppercase tracking-widest text-[#4a5159] px-1 pt-1">
+            <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] px-1 pt-1">
               {tripStops.length > 0
                 ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
                 : `First stop from ${fromName}`}
