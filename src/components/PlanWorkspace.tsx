@@ -30,7 +30,7 @@ import {
 } from "@/app/plan/actions";
 import { HOP_REACH_MAX_MINUTES } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
-import { buildTripState, type TripState, type TripLeg } from "@/lib/plan/trip-state";
+import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
 
 // ~80 km/h avg road speed: 80,000 m / 60 min ≈ 1333 m/min
@@ -266,6 +266,19 @@ export default function PlanWorkspace({
     () => new Set(tripStops.map((s) => s.cityId)),
     [tripStops]
   );
+
+  // Deadline pressure: how much harder the user needs to drive each remaining
+  // day to reach the destination by the end date. Only shown when a date range
+  // was provided and at least one stop has been added.
+  const deadlinePressure = useMemo(() => {
+    if (!startDate || !endDate) return null;
+    return computeDeadlinePressure(
+      tripState.legs,
+      tripDays,
+      budgetHours,
+      tripState.directMinutesToDestination
+    );
+  }, [tripState, tripDays, budgetHours, startDate, endDate]);
 
   // Arc shows the search semicircle ahead of the frontier stop (last added, or origin).
   const searchArc = useMemo<SearchArc>(() => {
@@ -682,6 +695,31 @@ export default function PlanWorkspace({
                 {tripState.status.kind === "over_budget"
                   ? `Over budget by ${formatDuration(tripState.status.overageMinutes * 60)}.`
                   : `Budget tight — ${formatDuration(tripState.status.directMinutesToDestination * 60)} direct to ${toName} with ${formatDuration(tripState.status.remainingBudgetMinutes * 60)} remaining.`}
+              </p>
+            </div>
+          )}
+
+          {/* Deadline pressure — fires earlier than the budget warning, as soon
+              as the required daily pace exceeds what the user budgeted.
+              ≥0.25 days late → amber (early, correctable by adjusting stops).
+              ≥1.0  days late → red   (unrecoverable without skipping stops).
+              Thresholds are documented in computeDeadlinePressure. */}
+          {deadlinePressure && deadlinePressure.daysLate >= 0.25 && (
+            <div
+              role="alert"
+              className={`px-3 py-2 border bg-[#161b22] overflow-hidden ${
+                deadlinePressure.daysLate >= 1
+                  ? "border-[#f85149]"
+                  : "border-[#d29922]"
+              }`}
+            >
+              <p className={`text-xs leading-snug break-words ${
+                deadlinePressure.daysLate >= 1 ? "text-[#f85149]" : "text-[#d29922]"
+              }`}>
+                {/* daysRemaining ≤ 0: deadline already passed, pivot to direct-drive message. */}
+                {deadlinePressure.daysRemaining <= 0
+                  ? `No days left — ${formatDuration(tripState.directMinutesToDestination * 60)} still needed to reach ${toName}.`
+                  : `Won't make ${toName} on time — need ${formatDuration(deadlinePressure.requiredMinutesPerDay * 60)}/day for ${Math.ceil(deadlinePressure.daysRemaining)} day${Math.ceil(deadlinePressure.daysRemaining) === 1 ? "" : "s"}, ${formatDuration((deadlinePressure.requiredMinutesPerDay - deadlinePressure.budgetMinutesPerDay) * 60)} over budget.`}
               </p>
             </div>
           )}

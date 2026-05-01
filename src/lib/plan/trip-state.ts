@@ -32,7 +32,63 @@ export type TripStatus =
 export interface TripState {
   legs: TripLeg[];
   totalBudgetMinutes: number;
+  directMinutesToDestination: number;
   status: TripStatus;
+}
+
+/**
+ * How far off-pace the trip is relative to the end-date deadline.
+ * Only meaningful when a date range is provided (tripDays > 0).
+ *
+ * `daysLate`             — how many extra days of driving are needed beyond
+ *                          the remaining budget days (0 when on track).
+ * `requiredMinutesPerDay`— pace needed each remaining day to arrive on time.
+ * `budgetMinutesPerDay`  — user's stated daily limit.
+ */
+export interface DeadlinePressure {
+  daysRemaining: number;
+  requiredMinutesPerDay: number;
+  budgetMinutesPerDay: number;
+  daysLate: number;
+}
+
+/**
+ * Returns deadline pressure for the current trip position, or null when there
+ * are no legs yet or the inputs are degenerate (budgetHours=0, invalid
+ * directMinutesToDestination). Uses only data already computed by the Routes
+ * API — makes no additional calls.
+ *
+ * daysLate formula: (daysAlreadyUsed + drivingDaysStillNeeded) − tripDays
+ *   where drivingDaysStillNeeded = directMinutesToDestination / budgetPerDay
+ *
+ * requiredMinutesPerDay = Infinity when daysRemaining = 0 — callers must
+ * guard this case before formatting or comparing to budget.
+ *
+ * Thresholds used by PlanWorkspace:
+ *   ≥ 0.25 days late → amber (a quarter-day gives the user time to react)
+ *   ≥ 1.0  days late → red   (a full day over is unrecoverable without skipping stops)
+ */
+export function computeDeadlinePressure(
+  legs: readonly TripLeg[],
+  tripDays: number,
+  budgetHours: number,
+  directMinutesToDestination: number
+): DeadlinePressure | null {
+  if (legs.length === 0) return null;
+  if (budgetHours <= 0) return null; // avoid divide-by-zero
+  if (!Number.isFinite(directMinutesToDestination) || directMinutesToDestination < 0) return null;
+  const budgetMinutesPerDay = budgetHours * 60;
+  const daysUsed = legsTotalMinutes(legs) / budgetMinutesPerDay;
+  const daysRemaining = Math.max(0, tripDays - daysUsed);
+  // Infinity signals to callers that no pace can meet the deadline — guard before formatting.
+  const requiredMinutesPerDay =
+    daysRemaining > 0 ? directMinutesToDestination / daysRemaining : Infinity;
+  // daysLate = daysUsed + drivingDaysStillNeeded − tripDays; clamped at 0 when on or ahead of pace.
+  const daysLate = Math.max(
+    0,
+    daysUsed + directMinutesToDestination / budgetMinutesPerDay - tripDays
+  );
+  return { daysRemaining, requiredMinutesPerDay, budgetMinutesPerDay, daysLate };
 }
 
 /** Total drive minutes accumulated across all legs. */
@@ -83,6 +139,7 @@ export function buildTripState(
   return {
     legs: [...legs],
     totalBudgetMinutes,
+    directMinutesToDestination,
     status: computeTripStatus(legs, totalBudgetMinutes, directMinutesToDestination),
   };
 }

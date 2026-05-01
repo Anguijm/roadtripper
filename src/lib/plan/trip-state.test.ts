@@ -5,6 +5,7 @@ import {
   computeTripStatus,
   buildTripState,
   appendLeg,
+  computeDeadlinePressure,
   WARNING_BUFFER_MINUTES,
   type TripLeg,
   type TripStatus,
@@ -179,5 +180,67 @@ describe("appendLeg", () => {
     const s0 = buildTripState([], 60, 10);
     const s1 = appendLeg(s0, LEG_90, 10); // 90 min leg on 60 min budget
     expect(s1.status.kind).toBe("over_budget");
+  });
+
+  it("stores directMinutesToDestination on TripState", () => {
+    const s = buildTripState([LEG_30], 300, 42);
+    expect(s.directMinutesToDestination).toBe(42);
+  });
+});
+
+// ── computeDeadlinePressure ──────────────────────────────────────────────────
+
+const LEG_300 = leg(300 * 60); // one full 5h/day budget leg
+
+describe("computeDeadlinePressure", () => {
+  it("returns null when no legs yet", () => {
+    expect(computeDeadlinePressure([], 4, 5, 900)).toBeNull();
+  });
+
+  it("returns on-track when pace is within budget", () => {
+    // 1 day used (300 min), 3 days remaining, 600 min to dest → 200 min/day needed
+    const dp = computeDeadlinePressure([LEG_300], 4, 5, 600);
+    expect(dp).not.toBeNull();
+    expect(dp!.daysLate).toBe(0);
+    expect(dp!.requiredMinutesPerDay).toBeCloseTo(200);
+    expect(dp!.budgetMinutesPerDay).toBe(300);
+  });
+
+  it("returns daysLate > 0 when pace exceeds budget", () => {
+    // 1 day used (300 min), 3 days remaining, 1200 min to dest → needs 400/day vs 300 budget
+    // daysLate = (1 + 1200/300) - 4 = (1 + 4) - 4 = 1
+    const dp = computeDeadlinePressure([LEG_300], 4, 5, 1200);
+    expect(dp).not.toBeNull();
+    expect(dp!.daysLate).toBeCloseTo(1);
+    expect(dp!.requiredMinutesPerDay).toBeCloseTo(400);
+  });
+
+  it("returns daysLate = 0 when exactly on pace", () => {
+    // 1 day used, 3 days remaining, 900 min to dest → 300 min/day exactly
+    const dp = computeDeadlinePressure([LEG_300], 4, 5, 900);
+    expect(dp!.daysLate).toBe(0);
+    expect(dp!.requiredMinutesPerDay).toBeCloseTo(300);
+  });
+
+  it("handles no days remaining gracefully", () => {
+    // 4 days used but still 600 min to destination
+    const fourLegs = [LEG_300, LEG_300, LEG_300, LEG_300];
+    const dp = computeDeadlinePressure(fourLegs, 4, 5, 600);
+    expect(dp!.daysRemaining).toBe(0);
+    expect(dp!.daysLate).toBeGreaterThan(0);
+    expect(dp!.requiredMinutesPerDay).toBe(Infinity);
+  });
+
+  it("returns null when budgetHours is 0 (avoid divide-by-zero)", () => {
+    expect(computeDeadlinePressure([LEG_300], 4, 0, 600)).toBeNull();
+  });
+
+  it("returns null when directMinutesToDestination is negative", () => {
+    expect(computeDeadlinePressure([LEG_300], 4, 5, -1)).toBeNull();
+  });
+
+  it("returns null when directMinutesToDestination is non-finite", () => {
+    expect(computeDeadlinePressure([LEG_300], 4, 5, Infinity)).toBeNull();
+    expect(computeDeadlinePressure([LEG_300], 4, 5, NaN)).toBeNull();
   });
 });
