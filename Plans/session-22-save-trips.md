@@ -9,7 +9,7 @@ can fetch them. No UI in this PR — pure server layer.
 ## Architecture
 
 - Firestore path: `users/{userId}/saved_trips/{tripId}` (Admin SDK, auth enforced in action via Clerk `auth()`)
-- No Firestore security rules needed — all access goes through server actions
+- Firestore security rules (`firestore.rules`) provide a defense-in-depth layer — all primary enforcement is server-side but rules prevent direct client access if credentials are ever compromised
 - Types live in `src/lib/trips/types.ts` (isomorphic, no server-only imports)
 - Actions live in `src/app/trips/actions.ts` ("use server" + server-only)
 
