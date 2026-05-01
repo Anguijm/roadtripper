@@ -32,7 +32,48 @@ export type TripStatus =
 export interface TripState {
   legs: TripLeg[];
   totalBudgetMinutes: number;
+  directMinutesToDestination: number;
   status: TripStatus;
+}
+
+/**
+ * How far off-pace the trip is relative to the end-date deadline.
+ * Only meaningful when a date range is provided (tripDays > 0).
+ *
+ * `daysLate`             — how many extra days of driving are needed beyond
+ *                          the remaining budget days (0 when on track).
+ * `requiredMinutesPerDay`— pace needed each remaining day to arrive on time.
+ * `budgetMinutesPerDay`  — user's stated daily limit.
+ */
+export interface DeadlinePressure {
+  daysRemaining: number;
+  requiredMinutesPerDay: number;
+  budgetMinutesPerDay: number;
+  daysLate: number;
+}
+
+/**
+ * Returns deadline pressure for the current trip position, or null when there
+ * are no legs yet (nothing to warn about). Uses only data already computed by
+ * the Routes API — makes no additional calls.
+ */
+export function computeDeadlinePressure(
+  legs: readonly TripLeg[],
+  tripDays: number,
+  budgetHours: number,
+  directMinutesToDestination: number
+): DeadlinePressure | null {
+  if (legs.length === 0) return null;
+  const budgetMinutesPerDay = budgetHours * 60;
+  const daysUsed = legsTotalMinutes(legs) / budgetMinutesPerDay;
+  const daysRemaining = Math.max(0, tripDays - daysUsed);
+  const requiredMinutesPerDay =
+    daysRemaining > 0 ? directMinutesToDestination / daysRemaining : Infinity;
+  const daysLate = Math.max(
+    0,
+    daysUsed + directMinutesToDestination / budgetMinutesPerDay - tripDays
+  );
+  return { daysRemaining, requiredMinutesPerDay, budgetMinutesPerDay, daysLate };
 }
 
 /** Total drive minutes accumulated across all legs. */
@@ -83,6 +124,7 @@ export function buildTripState(
   return {
     legs: [...legs],
     totalBudgetMinutes,
+    directMinutesToDestination,
     status: computeTripStatus(legs, totalBudgetMinutes, directMinutesToDestination),
   };
 }
