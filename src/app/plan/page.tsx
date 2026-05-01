@@ -138,27 +138,39 @@ export default async function PlanPage({
     neighborhoods: {},
   };
 
-  try {
-    route = await computeRoute(origin, destination);
-  } catch (e) {
-    routeError = e instanceof Error ? e.message : "Failed to compute route";
+  // computeRoute and findCitiesInRadius are independent — run in parallel.
+  const [routeResult, candidateResult] = await Promise.allSettled([
+    computeRoute(origin, destination),
+    findCitiesInRadius(origin, destination, maxDetourMinutes),
+  ]);
+
+  if (routeResult.status === "fulfilled") {
+    route = routeResult.value;
+  } else {
+    routeError = routeResult.reason instanceof Error
+      ? routeResult.reason.message
+      : "Failed to compute route";
   }
 
   if (route) {
-    try {
-      const radialCandidates = await findCitiesInRadius(origin, destination, maxDetourMinutes);
-      candidateMarkers = radialCandidates.map((c) => ({
-        id: c.city.id,
-        name: c.city.name,
-        lat: c.city.lat,
-        lng: c.city.lng,
-        // Doubled: detourMinutes retains round-trip semantics for display compat.
-        detourMinutes: c.oneWayDriveMinutes * 2,
-      }));
-
-      waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
-    } catch (e) {
-      console.error("[plan] candidate/waypoint pipeline failed:", e instanceof Error ? e.message : "unknown");
+    if (candidateResult.status === "fulfilled") {
+      try {
+        const radialCandidates = candidateResult.value;
+        candidateMarkers = radialCandidates.map((c) => ({
+          id: c.city.id,
+          name: c.city.name,
+          lat: c.city.lat,
+          lng: c.city.lng,
+          // Doubled: detourMinutes retains round-trip semantics for display compat.
+          detourMinutes: c.oneWayDriveMinutes * 2,
+        }));
+        waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
+      } catch (e) {
+        console.error("[plan] waypoint pipeline failed:", e instanceof Error ? e.message : "unknown");
+        candidateFetchFailed = true;
+      }
+    } else {
+      console.error("[plan] candidate search failed:", candidateResult.reason instanceof Error ? candidateResult.reason.message : "unknown");
       candidateFetchFailed = true;
     }
   }
