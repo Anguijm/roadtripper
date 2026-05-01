@@ -50,7 +50,7 @@ import {
  *   S6-ARCH-4 return type is JSON-safe (numbers + strings + nested plain objects)
  *   S7-SEC-1  budgetHours validated in same shape/range block
  *   S7-SEC-2  single-charge documentation (above)
- *   S7-SEC-4  catch around candidates pipeline returns ONLY {degraded:true}
+ *   S7-SEC-4  catch around candidates pipeline: ship route with waypointStatus:"degraded", waypointFetch:null
  *   S7-ARCH-2 partial-failure path: route still ships, recommendations marked degraded
  *   S7-ARCH-3 explicit `waypointStatus` discriminator
  */
