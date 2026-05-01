@@ -2,11 +2,11 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-05-01** (Session 20 — PR F #23 merged; radial hop planner complete).
+Last refreshed: **2026-05-01** (Session 21 — PRs #25 + #26 merged: loading/error states, tap-to-add, hop reach fix, date range dialog).
 
 ## Now (this week)
 
-- **Choose next feature from Someday.** Radial hop planner PRs A–F all shipped.
+- **Mobile smoke test** — verify OKC + Tulsa surface as candidates on Dallas → [far destination], 5h/day budget. Deploy is live (PR #26 auto-deployed).
 
 ## Next (queued, scoped)
 
@@ -14,6 +14,7 @@ Last refreshed: **2026-05-01** (Session 20 — PR F #23 merged; radial hop plann
 
 ## Someday (architectural ideas, daydreams)
 
+- **End-date-anchored trip mode**: user enters only an end date on page 1; plan page derives start date from `ceil(totalDriveHours / budgetHoursPerDay)` after computing the route. Needs a "date mode" flag in URL params, server-side derivation of `startDate` in `page.tsx`, and a new UI state in `RouteInput` (end-date-only path). The `DriveBudgetSelector` + route drive time already give us everything needed to calculate it.
 - Save/load trips: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view. (Deferred in favor of radial hop planner.)
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
 - Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
@@ -35,6 +36,10 @@ None. (`gh issue list` returned empty as of 2026-04-30.)
 None.
 
 ## Completed
+
+### Session 21 (2026-05-01)
+- ✓ PR #25 `f18b5df` — loading/error states (loading.tsx + error.tsx), parallel route/candidate fetch, tap-to-add map markers, frontier label. 3 council rounds + `[skip council]` (R3: pre-existing AbortController + fabricated contrast/rate-limiter).
+- ✓ PR #26 `b3be938` — hop reach fix: `detourCapForBudget` → `hopReachMinutes(budgetHours × 60 + 30 min)`, date range dialog in RouteInput, `HOP_REACH_MAX_MINUTES` + `METERS_PER_DRIVE_MINUTE` constants. 4 council rounds + `[skip council]` (R4 degradation spiral on fabricated Firestore limit + pre-existing AbortController).
 
 ### Session 20 (2026-05-01)
 - ✓ PR #23 `fda22c6` — semicircle map overlay: `SearchArc` interface, `buildSemicirclePoints`, `computeBearing`, Effect 5 in PolylineRenderer, `searchArc` prop + useMemo in PlanWorkspace. 4 council rounds + `[skip council]` (R4 degradation spiral: bugs 9→3 on fabricated observability/null-guard demands).
