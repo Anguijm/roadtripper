@@ -272,8 +272,8 @@ export default function PlanWorkspace({
     return {
       center: arcCenter,
       // ~80 km/h avg road speed; must stay in sync with backend search-radius logic.
-      // Capped at 240 min to keep the rendered arc within a sensible geographic bound.
-      radiusMeters: Math.min(maxDetourMinutes, 240) * 1333,
+      // [0, 240] clamps negative/extreme inputs as a client-side performance guardrail.
+      radiusMeters: Math.max(0, Math.min(maxDetourMinutes, 240)) * 1333,
       headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
     };
   }, [tripStops, origin, destination, maxDetourMinutes]);
