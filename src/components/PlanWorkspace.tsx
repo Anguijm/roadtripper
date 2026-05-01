@@ -32,6 +32,9 @@ import { HOP_REACH_MAX_MINUTES } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
+import { useAuth } from "@clerk/nextjs";
+import { saveTrip } from "@/app/trips/actions";
+import type { SaveTripInput } from "@/lib/trips/types";
 
 // ~80 km/h avg road speed: 80,000 m / 60 min ≈ 1333 m/min
 const METERS_PER_DRIVE_MINUTE = 1333;
@@ -104,6 +107,16 @@ export default function PlanWorkspace({
   endDate,
   initialCandidateFetchFailed = false,
 }: PlanWorkspaceProps) {
+  const { isSignedIn } = useAuth();
+
+  // Stable UUID per component mount — passed to saveTrip on every save attempt
+  // so retries overwrite the same Firestore document instead of creating duplicates.
+  // Ownership is enforced server-side via Clerk auth() + users/{userId} Firestore path (PR #28).
+  const saveTripIdRef = useRef<string>(crypto.randomUUID());
+  type SaveState = "idle" | "saving" | "saved" | "error";
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveAnnouncement, setSaveAnnouncement] = useState("");
+
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
   const [activePersonaId, setActivePersonaId] = useState<PersonaId>(initialPersonaId);
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
@@ -513,6 +526,46 @@ export default function PlanWorkspace({
     return () => window.clearTimeout(timer);
   }, [refreshTick]);
 
+  // Reset "Saved ✓" when the user changes the trip after a successful save.
+  useEffect(() => {
+    setSaveState((s) => (s === "saved" ? "idle" : s));
+  }, [tripStops, activePersonaId]);
+
+  const handleSave = useCallback(async () => {
+    setSaveState("saving");
+    const input: SaveTripInput = {
+      fromName,
+      toName,
+      fromLat: origin.lat,
+      fromLng: origin.lng,
+      toLat: destination.lat,
+      toLng: destination.lng,
+      budgetHours,
+      startDate,
+      endDate,
+      personaId: activePersonaId,
+      stops: tripStops.map((s) => ({
+        cityId: s.cityId,
+        cityName: s.cityName,
+        lat: s.lat,
+        lng: s.lng,
+      })),
+    };
+    try {
+      const result = await saveTrip(input, saveTripIdRef.current);
+      if (result.ok) {
+        setSaveState("saved");
+        setSaveAnnouncement("Trip saved.");
+      } else {
+        setSaveState("error");
+        setSaveAnnouncement("Trip save failed. Please try again.");
+      }
+    } catch {
+      setSaveState("error");
+      setSaveAnnouncement("Trip save failed. Please try again.");
+    }
+  }, [fromName, toName, origin, destination, budgetHours, startDate, endDate, activePersonaId, tripStops]);
+
   const handleRetry = useCallback(() => {
     // Force a fresh recompute by bumping the request id; the effect's
     // dep is `tripStops`, so we re-run via state churn: clone the array.
@@ -528,6 +581,7 @@ export default function PlanWorkspace({
       <div aria-live="polite" className="sr-only">{panelAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{candidatePoolAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{sheetAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{saveAnnouncement}</div>
 
       {/* Side panel / mobile bottom sheet */}
       <aside
@@ -607,6 +661,31 @@ export default function PlanWorkspace({
               </p>
             )}
           </div>
+        </div>
+
+        {/* Save trip button — gated by auth; stable UUID ensures retry idempotency */}
+        <div className="px-3 py-2 border-b border-[#30363d]">
+          {isSignedIn ? (
+            <button
+              type="button"
+              disabled={saveState === "saving"}
+              onClick={handleSave}
+              className={[
+                "w-full text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40",
+                saveState === "saved"
+                  ? "border-[#238636] text-[#3fb950]"
+                  : saveState === "error"
+                  ? "border-[#f85149] text-[#f85149]"
+                  : "border-[#30363d] text-[#7d8590] hover:border-[#555] hover:text-[#f0f6fc]",
+              ].join(" ")}
+            >
+              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+            </button>
+          ) : (
+            <p className="text-[10px] font-mono text-[#7d8590] text-center">
+              <a href="/sign-in" className="underline hover:text-[#f0f6fc]">Sign in</a> to save this trip
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
