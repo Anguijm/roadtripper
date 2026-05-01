@@ -90,6 +90,8 @@ export function validateRouteParams(
 // beyond what findCitiesInRadius already bounds via MAX_RADIAL_FAN_OUT.
 export const HOP_REACH_MAX_MINUTES = 480;
 
+// +30 min buffer: surface cities slightly beyond the daily budget (a user
+// willing to drive 5h will often stretch to 5h30m for a compelling stop).
 export function hopReachMinutes(budgetHours: number): number {
-  return Math.min(Math.round(budgetHours * 60), HOP_REACH_MAX_MINUTES);
+  return Math.min(Math.round(budgetHours * 60) + 30, HOP_REACH_MAX_MINUTES);
 }

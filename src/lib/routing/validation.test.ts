@@ -2,19 +2,19 @@ import { describe, it, expect } from "vitest";
 import { validateLatLng, validateBudget, hopReachMinutes, HOP_REACH_MAX_MINUTES, InvalidRouteParamsError } from "./validation";
 
 describe("hopReachMinutes", () => {
-  it("converts budget hours to minutes", () => {
-    expect(hopReachMinutes(3)).toBe(180);
-    expect(hopReachMinutes(5)).toBe(300);
+  it("converts budget hours to minutes with +30 buffer", () => {
+    expect(hopReachMinutes(3)).toBe(210);  // 180 + 30
+    expect(hopReachMinutes(5)).toBe(330);  // 300 + 30
   });
 
   it("caps at HOP_REACH_MAX_MINUTES (480 min = 8h)", () => {
-    expect(hopReachMinutes(8)).toBe(480);
+    expect(hopReachMinutes(8)).toBe(480);  // 510 capped to 480
     expect(hopReachMinutes(10)).toBe(480);
     expect(hopReachMinutes(100)).toBe(HOP_REACH_MAX_MINUTES);
   });
 
-  it("rounds fractional hours", () => {
-    expect(hopReachMinutes(1.5)).toBe(90);
+  it("rounds fractional hours before adding buffer", () => {
+    expect(hopReachMinutes(1.5)).toBe(120);  // 90 + 30
   });
 });
 
