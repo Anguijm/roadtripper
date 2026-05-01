@@ -11,7 +11,6 @@ Last refreshed: **2026-05-01** (Session 20 — PR F #23 merged; radial hop plann
 ## Next (queued, scoped)
 
 - **Save/load trips** — biggest net-new surface. Firestore `saved_trips` collection (Clerk-scoped), trip-list view, save/restore of stops + persona. See Someday notes.
-- **Stale `actions.ts` ISC anchor comments** — references old corridor pipeline + removed `WaypointFetchResult.degraded`; fix on next `actions.ts` touch.
 
 ## Someday (architectural ideas, daydreams)
 
