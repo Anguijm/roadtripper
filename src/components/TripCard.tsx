@@ -5,6 +5,9 @@ import Link from "next/link";
 import { deleteTrip } from "@/app/trips/actions";
 import type { SavedTrip } from "@/lib/trips/types";
 
+// V1: stops are intentionally excluded from the resume URL.
+// The /plan page initialises with empty stops; users re-add them interactively.
+// Full stop serialisation can be added once the V1 flow is validated.
 function resumeUrl(trip: SavedTrip): string {
   const p = new URLSearchParams({
     fromLat: trip.fromLat.toString(),
@@ -42,13 +45,19 @@ interface TripCardProps {
 export default function TripCard({ trip, onDeleted }: TripCardProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
 
   const handleDelete = () => {
     startTransition(async () => {
-      const result = await deleteTrip(trip.id);
-      if (result.ok) {
-        onDeleted(trip.id);
-      } else {
+      try {
+        const result = await deleteTrip(trip.id);
+        if (result.ok) {
+          setAnnouncement(`Trip from ${trip.fromName} to ${trip.toName} deleted.`);
+          onDeleted(trip.id);
+        } else {
+          setError("Couldn't delete trip. Try again.");
+        }
+      } catch {
         setError("Couldn't delete trip. Try again.");
       }
     });
@@ -56,6 +65,8 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
 
   return (
     <div className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3">
+      <div aria-live="polite" className="sr-only">{announcement}</div>
+
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-[#f0f6fc] font-mono truncate">
@@ -76,7 +87,7 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
           onClick={handleDelete}
           disabled={isPending}
           aria-label={`Delete trip from ${trip.fromName} to ${trip.toName}`}
-          className="text-[10px] font-mono uppercase tracking-widest text-[#4a5159] hover:text-[#f85149] disabled:opacity-40 transition-colors whitespace-nowrap flex-shrink-0 min-h-[44px] flex items-center"
+          className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 transition-colors whitespace-nowrap flex-shrink-0 min-h-[44px] flex items-center"
         >
           {isPending ? "…" : "Delete"}
         </button>
