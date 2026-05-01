@@ -11,6 +11,7 @@ import React, {
 import RouteMap, {
   type CandidateMarker,
   type TripStopMarker,
+  type SearchArc,
 } from "@/components/RouteMap";
 import PersonaSelector from "@/components/PersonaSelector";
 import RecommendationList, {
@@ -65,6 +66,21 @@ const ERROR_LABELS: Record<RecomputeErrorCode, string> = {
   upstream_unavailable: "Routes service is unavailable. Retry in a moment.",
   internal_error: "Something went wrong recomputing the route.",
 };
+
+function computeBearing(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): number {
+  const lat1 = (from.lat * Math.PI) / 180;
+  const lat2 = (to.lat * Math.PI) / 180;
+  // Normalise to [-180, 180] so routes crossing the antimeridian point the right way.
+  const dLngDeg = ((to.lng - from.lng + 540) % 360) - 180;
+  const dLng = (dLngDeg * Math.PI) / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
 
 export default function PlanWorkspace({
   origin,
@@ -246,6 +262,21 @@ export default function PlanWorkspace({
     () => new Set(tripStops.map((s) => s.cityId)),
     [tripStops]
   );
+
+  // Arc shows the search semicircle ahead of the frontier stop (last added, or origin).
+  const searchArc = useMemo<SearchArc>(() => {
+    const arcCenter =
+      tripStops.length > 0
+        ? { lat: tripStops[tripStops.length - 1].lat, lng: tripStops[tripStops.length - 1].lng }
+        : { lat: origin.lat, lng: origin.lng };
+    return {
+      center: arcCenter,
+      // ~80 km/h avg road speed; must stay in sync with backend search-radius logic.
+      // [0, 240] clamps negative/extreme inputs as a client-side performance guardrail.
+      radiusMeters: Math.max(0, Math.min(maxDetourMinutes, 240)) * 1333,
+      headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
+    };
+  }, [tripStops, origin, destination, maxDetourMinutes]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -701,6 +732,7 @@ export default function PlanWorkspace({
           onCandidateClick={handleMapClick}
           tripStops={tripStops}
           pending={isPending}
+          searchArc={searchArc}
         />
       </main>
     </div>

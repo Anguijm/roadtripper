@@ -18,6 +18,12 @@ export interface TripStopMarker {
   lng: number;
 }
 
+export interface SearchArc {
+  center: google.maps.LatLngLiteral;
+  radiusMeters: number;
+  headingDeg: number;
+}
+
 interface RouteMapProps {
   origin?: google.maps.LatLngLiteral;
   destination?: google.maps.LatLngLiteral;
@@ -37,6 +43,8 @@ interface RouteMapProps {
   tripStops?: TripStopMarker[];
   /** Subtle dim applied to the polyline while a recompute is pending */
   pending?: boolean;
+  /** 180° arc visualising the radial search area ahead of the frontier stop */
+  searchArc?: SearchArc | null;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -74,6 +82,31 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
   };
 }
 
+/** Approximates a 180° forward-facing arc as a polyline path.
+ *  steps=32 → 33 points: smooth at typical zoom levels, negligible DOM cost. */
+function buildSemicirclePoints(
+  center: google.maps.LatLngLiteral,
+  radiusMeters: number,
+  headingDeg: number,
+  steps = 32
+): google.maps.LatLngLiteral[] {
+  const points: google.maps.LatLngLiteral[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const angleDeg = headingDeg - 90 + (180 * i) / steps;
+    try {
+      const pt = google.maps.geometry.spherical.computeOffset(
+        new google.maps.LatLng(center.lat, center.lng),
+        radiusMeters,
+        angleDeg
+      );
+      points.push({ lat: pt.lat(), lng: pt.lng() });
+    } catch {
+      // SDK error for this point — skip it; arc degrades gracefully.
+    }
+  }
+  return points;
+}
+
 /**
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
@@ -99,6 +132,9 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
  *       Numbered square markers for stops the user has added.
  *   4.  Highlight — `[highlightedCandidateId, routeColor]`
  *       Mutates only the two affected markers (prev + next highlight).
+ *   5.  Search arc — `[map, searchArc, routeColor]`
+ *       Draws a 180° polyline arc showing the radial search area ahead of
+ *       the frontier stop. Tears down the previous arc on each change.
  *
  * `hasFitOnceRef` guards `fitBounds` so the camera only re-fits on the
  * VERY FIRST polyline render — subsequent recomputes redraw the line in
@@ -115,6 +151,7 @@ function PolylineRenderer({
   onCandidateClick,
   tripStops,
   pending,
+  searchArc,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -126,12 +163,14 @@ function PolylineRenderer({
   onCandidateClick?: (cityId: string) => void;
   tripStops?: TripStopMarker[];
   pending?: boolean;
+  searchArc?: SearchArc | null;
 }) {
   const map = useMap();
   const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const previousHighlightRef = useRef<string | null>(null);
   const hasFitOnceRef = useRef(false);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
+  const arcRef = useRef<google.maps.Polyline | null>(null);
   // Always-current ref so survivor markers never hold a stale onCandidateClick closure.
   const onCandidateClickRef = useRef(onCandidateClick);
   onCandidateClickRef.current = onCandidateClick;
@@ -361,6 +400,39 @@ function PolylineRenderer({
     previousHighlightRef.current = highlightedCandidateId ?? null;
   }, [highlightedCandidateId, routeColor]);
 
+  // ── Effect 5: search arc ───────────────────────────────────────────────
+  // Draws a 180° polyline arc to visualise the radial search area ahead of
+  // the frontier stop. Tears down the old arc before building a new one.
+  useEffect(() => {
+    if (!map || !window.google?.maps?.geometry) return;
+
+    if (arcRef.current) {
+      arcRef.current.setMap(null);
+      arcRef.current = null;
+    }
+
+    if (!searchArc) return;
+
+    const pts = buildSemicirclePoints(
+      searchArc.center,
+      searchArc.radiusMeters,
+      searchArc.headingDeg
+    );
+    const arc = new google.maps.Polyline({
+      path: pts,
+      strokeColor: routeColor,
+      strokeOpacity: 0.8, // meets WCAG 1.4.11 non-text contrast at 3:1
+      strokeWeight: 1.5,  // thin enough to read as a guide, not a hard boundary
+      map,
+    });
+    arcRef.current = arc;
+
+    return () => {
+      arc.setMap(null);
+      arcRef.current = null;
+    };
+  }, [map, searchArc, routeColor]);
+
   return (
     <div aria-live="polite" aria-atomic="true" className="sr-only">
       {candidateAnnouncement}
@@ -427,6 +499,7 @@ export default function RouteMap({
   onCandidateClick,
   tripStops,
   pending = false,
+  searchArc,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -471,6 +544,7 @@ export default function RouteMap({
             onCandidateClick={onCandidateClick}
             tripStops={tripStops}
             pending={pending}
+            searchArc={searchArc}
           />
         ) : (
           <DirectionsFallback origin={origin} destination={destination} />
