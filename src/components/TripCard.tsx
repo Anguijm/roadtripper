@@ -99,7 +99,7 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
 
       <Link
         href={resumeUrl(trip)}
-        className="text-xs font-mono uppercase tracking-widest border border-[#30363d] text-[#b0b9c2] px-3 py-2 text-center hover:border-[#555] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        className="text-xs font-mono uppercase tracking-widest border border-[#30363d] text-[#b0b9c2] px-3 min-h-[44px] flex items-center justify-center hover:border-[#555] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
       >
         Resume →
       </Link>

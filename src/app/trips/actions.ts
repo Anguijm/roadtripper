@@ -13,7 +13,9 @@ import {
   type SavedTrip,
 } from "@/lib/trips/types";
 
-export type SaveTripError = "not_authenticated" | "rate_limited" | "invalid_input" | "internal_error";
+const MAX_SAVED_TRIPS = 50;
+
+export type SaveTripError = "not_authenticated" | "rate_limited" | "invalid_input" | "limit_exceeded" | "internal_error";
 export type LoadTripsError = "not_authenticated" | "rate_limited" | "internal_error";
 export type DeleteTripError = "not_authenticated" | "rate_limited" | "invalid_input" | "not_found" | "internal_error";
 
@@ -43,8 +45,13 @@ export async function saveTrip(
   const parsedId = TripIdSchema.safeParse(tripId);
   if (!parsedId.success) return { ok: false, error: "invalid_input" };
 
+  const ref = tripsCollection(userId).doc(parsedId.data);
+  // Read count before the transaction (advisory — V1 TOCTOU acceptable; the cap
+  // may be exceeded by a small margin if concurrent saves race).
+  const countSnap = await tripsCollection(userId).count().get();
+  const existingCount = countSnap.data().count;
+
   try {
-    const ref = tripsCollection(userId).doc(parsedId.data);
     // Transaction: preserve createdAt on re-saves; use update() to avoid
     // clobbering fields added by newer app versions on an existing doc.
     await roadtripperDb.runTransaction(async (txn) => {
@@ -52,6 +59,9 @@ export async function saveTrip(
       if (existing.exists) {
         txn.update(ref, { ...parsed.data, updatedAt: FieldValue.serverTimestamp() });
       } else {
+        if (existingCount >= MAX_SAVED_TRIPS) {
+          throw Object.assign(new Error("limit_exceeded"), { limitExceeded: true });
+        }
         txn.set(ref, {
           ...parsed.data,
           createdAt: FieldValue.serverTimestamp(),
@@ -61,6 +71,9 @@ export async function saveTrip(
     });
     return { ok: true, tripId: parsedId.data };
   } catch (err) {
+    if ((err as { limitExceeded?: boolean }).limitExceeded) {
+      return { ok: false, error: "limit_exceeded" };
+    }
     console.error("[saveTrip] Firestore write failed:", (err as Error).message);
     return { ok: false, error: "internal_error" };
   }

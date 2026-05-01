@@ -8,7 +8,9 @@ export default async function TripsPage() {
   const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const result = await loadTrips();
+  const result = await loadTrips().catch(
+    (): { ok: false; error: "internal_error" } => ({ ok: false, error: "internal_error" })
+  );
 
   return (
     <div className="flex flex-col min-h-screen">
