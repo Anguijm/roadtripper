@@ -32,6 +32,9 @@ import { HOP_REACH_MAX_MINUTES } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
+import { useAuth } from "@clerk/nextjs";
+import { saveTrip } from "@/app/trips/actions";
+import type { SaveTripInput } from "@/lib/trips/types";
 
 // ~80 km/h avg road speed: 80,000 m / 60 min ≈ 1333 m/min
 const METERS_PER_DRIVE_MINUTE = 1333;
@@ -104,6 +107,14 @@ export default function PlanWorkspace({
   endDate,
   initialCandidateFetchFailed = false,
 }: PlanWorkspaceProps) {
+  const { isSignedIn } = useAuth();
+
+  // Stable UUID per component mount — passed to saveTrip on every save attempt
+  // so retries overwrite the same Firestore document instead of creating duplicates.
+  const saveTripIdRef = useRef<string>(crypto.randomUUID());
+  type SaveState = "idle" | "saving" | "saved" | "error";
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
   const [activePersonaId, setActivePersonaId] = useState<PersonaId>(initialPersonaId);
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
@@ -607,6 +618,53 @@ export default function PlanWorkspace({
               </p>
             )}
           </div>
+        </div>
+
+        {/* Save trip button — gated by auth; stable UUID ensures retry idempotency */}
+        <div className="px-3 py-2 border-b border-[#30363d]">
+          {isSignedIn ? (
+            <button
+              type="button"
+              disabled={saveState === "saving"}
+              onClick={async () => {
+                setSaveState("saving");
+                const input: SaveTripInput = {
+                  fromName,
+                  toName,
+                  fromLat: origin.lat,
+                  fromLng: origin.lng,
+                  toLat: destination.lat,
+                  toLng: destination.lng,
+                  budgetHours,
+                  startDate,
+                  endDate,
+                  personaId: activePersonaId,
+                  stops: tripStops.map((s) => ({
+                    cityId: s.cityId,
+                    cityName: s.cityName,
+                    lat: s.lat,
+                    lng: s.lng,
+                  })),
+                };
+                const result = await saveTrip(input, saveTripIdRef.current);
+                setSaveState(result.ok ? "saved" : "error");
+              }}
+              className={[
+                "w-full text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40",
+                saveState === "saved"
+                  ? "border-[#238636] text-[#3fb950]"
+                  : saveState === "error"
+                  ? "border-[#f85149] text-[#f85149]"
+                  : "border-[#30363d] text-[#7d8590] hover:border-[#555] hover:text-[#f0f6fc]",
+              ].join(" ")}
+            >
+              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+            </button>
+          ) : (
+            <p className="text-[10px] font-mono text-[#4a5159] text-center">
+              <a href="/sign-in" className="underline hover:text-[#7d8590]">Sign in</a> to save this trip
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
