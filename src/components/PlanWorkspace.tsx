@@ -700,7 +700,10 @@ export default function PlanWorkspace({
           )}
 
           {/* Deadline pressure — fires earlier than the budget warning, as soon
-              as the required daily pace exceeds what the user budgeted. */}
+              as the required daily pace exceeds what the user budgeted.
+              ≥0.25 days late → amber (early, correctable by adjusting stops).
+              ≥1.0  days late → red   (unrecoverable without skipping stops).
+              Thresholds are documented in computeDeadlinePressure. */}
           {deadlinePressure && deadlinePressure.daysLate >= 0.25 && (
             <div
               role="alert"
@@ -713,6 +716,7 @@ export default function PlanWorkspace({
               <p className={`text-xs leading-snug break-words ${
                 deadlinePressure.daysLate >= 1 ? "text-[#f85149]" : "text-[#d29922]"
               }`}>
+                {/* daysRemaining ≤ 0: deadline already passed, pivot to direct-drive message. */}
                 {deadlinePressure.daysRemaining <= 0
                   ? `No days left — ${formatDuration(tripState.directMinutesToDestination * 60)} still needed to reach ${toName}.`
                   : `Won't make ${toName} on time — need ${formatDuration(deadlinePressure.requiredMinutesPerDay * 60)}/day for ${Math.ceil(deadlinePressure.daysRemaining)} day${Math.ceil(deadlinePressure.daysRemaining) === 1 ? "" : "s"}, ${formatDuration((deadlinePressure.requiredMinutesPerDay - deadlinePressure.budgetMinutesPerDay) * 60)} over budget.`}
