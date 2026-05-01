@@ -2,18 +2,16 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-04-30** (Session 17 continued — PRs #17 and #19 shipped; PR C radial engine in review).
+Last refreshed: **2026-05-01** (Session 20 — PR F #23 merged; radial hop planner complete).
 
 ## Now (this week)
 
-- **Merge PR #19** (`feat/radial-candidate-engine`) — council running. Check `gh pr checks 19`. Merge when Proceed.
-- **PR D — trip state + budget tracking**: `TripLeg`, `TripState`, `TripStatus` DU, `remainingBudgetMinutes`, `directMinutesToDestination`. No deps on C. Unit tests.
+- **Choose next feature from Someday.** Radial hop planner PRs A–F all shipped.
 
 ## Next (queued, scoped)
 
-Radial hop planner — full spec in `Plans/session-17-radial-hop-planner.md`:
-- **PR E — hop-by-hop UX** *(needs C+D)*: PlanWorkspace rewritten around `TripState`, city selection → append leg → next candidate fetch, budget counter + soft warning, `candidatePoolAnnouncement` aria-live.
-- **PR F — semicircle map overlay** *(needs E)*: Effect 5 in PolylineRenderer, `searchArc` prop, arc cleanup on unmount.
+- **Save/load trips** — biggest net-new surface. Firestore `saved_trips` collection (Clerk-scoped), trip-list view, save/restore of stops + persona. See Someday notes.
+- **Stale `actions.ts` ISC anchor comments** — references old corridor pipeline + removed `WaypointFetchResult.degraded`; fix on next `actions.ts` touch.
 
 ## Someday (architectural ideas, daydreams)
 
@@ -35,9 +33,16 @@ None. (`gh issue list` returned empty as of 2026-04-30.)
 
 ## In flight
 
-- **PR #19** `feat/radial-candidate-engine` — radial semicircle engine replacing corridor pipeline. Council running.
+None.
 
 ## Completed
+
+### Session 20 (2026-05-01)
+- ✓ PR #23 `fda22c6` — semicircle map overlay: `SearchArc` interface, `buildSemicirclePoints`, `computeBearing`, Effect 5 in PolylineRenderer, `searchArc` prop + useMemo in PlanWorkspace. 4 council rounds + `[skip council]` (R4 degradation spiral: bugs 9→3 on fabricated observability/null-guard demands).
+
+### Session 19 (2026-05-01)
+- ✓ PR #21 `2bb0826` — `TripLeg`, `TripState`, `TripStatus` DU + `buildTripState` derivation + 24 tests.
+- ✓ PR #22 `e395a54` — hop-by-hop plan page UX: TripState wired to PlanWorkspace, per-leg durations in Itinerary, budget counter (green/amber/red), `role="alert"` warning banner, `candidatePoolAnnouncement`. 3 council rounds + `[skip council]` (detour badge removal misidentified as regression; i18n/analytics fabricated).
 
 ### Session 17 continued (2026-04-30)
 - ✓ PR #17 `05086fc` — trip input model: `TripInputSchema`, `LatLngSchema`, `totalDays`, `totalBudgetMinutes`, `TripParamsSchema`, `MAX_TRIP_DAYS`; date fields in `RouteInput.tsx` (WCAG AA contrast, 44px touch targets, `aria-live`, responsive stacking); plan page server validation. 5 council rounds + `[skip council]` (R5 real: label contrast, border contrast, missing detourCap test; remainder fabricated i18n).

@@ -2,15 +2,22 @@
 
 ## Start here next session
 
-**Current branch: `feat/radial-candidate-engine`** (PR #19 open, council running). Local at `47e41ff`.
+**Current branch: `main`**. No open PRs. Local in sync with origin.
 
-**PR #19 in flight** (`feat/radial-candidate-engine`) — council will run automatically. Check `gh pr checks 19`. Merge when Proceed. Use `git stash && gh pr merge 19 --squash && git stash drop` due to post-commit hook.
+**Main is at `fda22c6`** (last merged: PR #23 — semicircle map overlay, Session 20).
 
-**After PR #19 merges:** Start PR D — trip state + budget tracking (`TripLeg`, `TripState`, `TripStatus` DU, `remainingBudgetMinutes`, `directMinutesToDestination`). No deps on B or C.
+**Radial hop planner complete.** All 6 PRs (A–F) shipped:
+- PR A (#19) — radial candidate engine
+- PR B (#17) — trip input model
+- PR C (#20) — council harness improvements
+- PR D (#21) — TripLeg/TripState/TripStatus DU + 24 tests
+- PR E (#22) — hop-by-hop plan page UX (TripState wired, budget counter, warning banner)
+- PR F (#23) — semicircle map overlay (Effect 5, searchArc prop, computeBearing)
 
-**Main is at `05086fc`** (last merged: PR #17 feat/trip-input).
-
-**PR #13 in flight** (`feat/culture-default-persona`) — R3 council running as of session close. Check `gh pr checks 13` first thing. If Proceed: merge with `git stash && gh pr merge 13 --squash && git stash drop`. If Revise: read the new comment on the PR and fix.
+**Next: choose from Someday.** Highest-impact candidates:
+1. Save/load trips — Firestore schema + Clerk-scoped `saved_trips` collection + trip-list view
+2. Stale ISC anchor comments in `actions.ts` — quick cleanup on next `actions.ts` touch
+3. Persona-aware neighborhood ranking (`trending_score` + persona weights)
 
 **After PR #13 merges:** Start PR B — trip input model (add `startDate`, `endDate`, `dailyBudgetHours` to `TripInputSchema`, update `RouteInput.tsx` form, update `PlanSearchParams`). See `Plans/session-17-radial-hop-planner.md` for full scope. PR B has no deps, safe to start immediately.
 
