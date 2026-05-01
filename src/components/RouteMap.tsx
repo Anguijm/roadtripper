@@ -93,12 +93,16 @@ function buildSemicirclePoints(
   const points: google.maps.LatLngLiteral[] = [];
   for (let i = 0; i <= steps; i++) {
     const angleDeg = headingDeg - 90 + (180 * i) / steps;
-    const pt = google.maps.geometry.spherical.computeOffset(
-      new google.maps.LatLng(center.lat, center.lng),
-      radiusMeters,
-      angleDeg
-    );
-    points.push({ lat: pt.lat(), lng: pt.lng() });
+    try {
+      const pt = google.maps.geometry.spherical.computeOffset(
+        new google.maps.LatLng(center.lat, center.lng),
+        radiusMeters,
+        angleDeg
+      );
+      points.push({ lat: pt.lat(), lng: pt.lng() });
+    } catch {
+      // SDK error for this point — skip it; arc degrades gracefully.
+    }
   }
   return points;
 }
@@ -417,7 +421,7 @@ function PolylineRenderer({
     const arc = new google.maps.Polyline({
       path: pts,
       strokeColor: routeColor,
-      strokeOpacity: 0.5,
+      strokeOpacity: 0.8,
       strokeWeight: 1.5,
       map,
     });
