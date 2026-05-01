@@ -307,10 +307,6 @@ export default function PlanWorkspace({
     }
   }, []);
 
-  const handleMapClick = useCallback((cityId: string) => {
-    setHighlightedCityId((curr) => (curr === cityId ? null : cityId));
-  }, []);
-
   // ── Trip add/remove ────────────────────────────────────────────────────
   const handleAddCity = useCallback((city: AddCityPayload) => {
     setTripStops((curr) => {
@@ -338,6 +334,18 @@ export default function PlanWorkspace({
   const handleStopClick = useCallback((cityId: string) => {
     setPanelCityId(cityId);
   }, []);
+
+  // Tap a candidate marker → add to trip.
+  // Tap an already-added stop marker → open its neighborhood panel.
+  const handleMapClick = useCallback((cityId: string) => {
+    if (addedCityIds.has(cityId)) {
+      handleStopClick(cityId);
+      return;
+    }
+    const marker = liveCandidateMarkers.find((m) => m.id === cityId);
+    if (!marker) return;
+    handleAddCity({ cityId: marker.id, cityName: marker.name, lat: marker.lat, lng: marker.lng });
+  }, [addedCityIds, liveCandidateMarkers, handleAddCity, handleStopClick]);
 
   // ── Recompute + refresh effect ─────────────────────────────────────────
   // Fires whenever the user changes the trip-stops list.
@@ -693,6 +701,16 @@ export default function PlanWorkspace({
                 </p>
               </div>
             )}
+
+          {/* Frontier label — tells the user which stop the next candidates
+              are radiating from so the changing list makes sense. */}
+          {effectiveWaypointFetch.cities.length > 0 && (
+            <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] px-1 pt-1">
+              {tripStops.length > 0
+                ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
+                : `First stop from ${fromName}`}
+            </p>
+          )}
 
           {/* Council ISC-S7-PROD-2 — brief panel highlight on each
               successful refresh proves the list actually updated. */}
