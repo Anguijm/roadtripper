@@ -44,10 +44,20 @@ export async function saveTrip(
   if (!parsedId.success) return { ok: false, error: "invalid_input" };
 
   try {
-    await tripsCollection(userId).doc(parsedId.data).set({
-      ...parsed.data,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+    const ref = tripsCollection(userId).doc(parsedId.data);
+    // Transaction: preserve createdAt on re-saves; use update() to avoid
+    // clobbering fields added by newer app versions on an existing doc.
+    await roadtripperDb.runTransaction(async (txn) => {
+      const existing = await txn.get(ref);
+      if (existing.exists) {
+        txn.update(ref, { ...parsed.data, updatedAt: FieldValue.serverTimestamp() });
+      } else {
+        txn.set(ref, {
+          ...parsed.data,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
     });
     return { ok: true, tripId: parsedId.data };
   } catch (err) {
@@ -98,19 +108,25 @@ export async function loadTrips(): Promise<
         failedToLoadCount++;
         continue;
       }
-      const toIso = (v: unknown, field: string) => {
+      // Returns ISO string or null if the value can't be parsed as a date.
+      // Null causes the doc to be skipped — silently returning a corrupt date
+      // (e.g. epoch) is worse than treating the doc as unloadable.
+      const toIso = (v: unknown, field: string): string | null => {
         if (v instanceof Timestamp) return v.toDate().toISOString();
-        // Fall back to epoch so the field is always a valid ISO string for the
-        // client — avoids a type error at the cost of a misleading date.
-        console.warn(`[loadTrips] doc ${doc.id} field "${field}" is not a Timestamp`);
-        return new Date(0).toISOString();
+        if (typeof v === "string") {
+          const d = new Date(v);
+          if (!isNaN(d.getTime())) return d.toISOString();
+        }
+        console.warn(`[loadTrips] doc ${doc.id} field "${field}" is not a valid Timestamp or ISO string`);
+        return null;
       };
-      trips.push({
-        id: doc.id,
-        ...parsed.data,
-        createdAt: toIso(d.createdAt, "createdAt"),
-        updatedAt: toIso(d.updatedAt, "updatedAt"),
-      });
+      const createdAt = toIso(d.createdAt, "createdAt");
+      const updatedAt = toIso(d.updatedAt, "updatedAt");
+      if (createdAt === null || updatedAt === null) {
+        failedToLoadCount++;
+        continue;
+      }
+      trips.push({ id: doc.id, ...parsed.data, createdAt, updatedAt });
     }
 
     return { ok: true, trips, failedToLoadCount };
