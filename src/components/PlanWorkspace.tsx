@@ -28,9 +28,13 @@ import {
   fetchNeighborhoodsAction,
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
+import { HOP_REACH_MAX_MINUTES } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
+
+// ~80 km/h avg road speed: 80,000 m / 60 min ≈ 1333 m/min
+const METERS_PER_DRIVE_MINUTE = 1333;
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -271,8 +275,7 @@ export default function PlanWorkspace({
         : { lat: origin.lat, lng: origin.lng };
     return {
       center: arcCenter,
-      // ~80 km/h avg road speed; must stay in sync with hopReachMinutes() cap (480 min).
-      radiusMeters: Math.max(0, Math.min(maxDetourMinutes, 480)) * 1333,
+      radiusMeters: Math.max(0, Math.min(maxDetourMinutes, HOP_REACH_MAX_MINUTES)) * METERS_PER_DRIVE_MINUTE,
       headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
     };
   }, [tripStops, origin, destination, maxDetourMinutes]);
