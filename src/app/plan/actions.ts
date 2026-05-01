@@ -12,6 +12,7 @@ import { findCitiesInRadius } from "@/lib/routing/radial";
 import { fetchWaypointsForCandidates, fetchNeighborhoods } from "@/lib/routing/recommend";
 import {
   isBudgetHoursInRange,
+  hopReachMinutes,
 } from "@/lib/routing/validation";
 import { LatLngSchema } from "@/lib/plan/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
@@ -248,7 +249,7 @@ export async function recomputeAndRefreshAction(
     const radialCandidates = await findCitiesInRadius(
       radialOrigin,
       destination,
-      Math.min(Math.round(budgetHours * 60), 480)
+      hopReachMinutes(budgetHours)
     );
     const waypointFetch = await fetchWaypointsForCandidates(radialCandidates, selectedCityId);
     console.info(

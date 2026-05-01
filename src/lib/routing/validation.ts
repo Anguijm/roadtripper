@@ -83,3 +83,13 @@ export function validateRouteParams(
 
   return { origin, destination, budgetHours };
 }
+
+// Maximum one-way drive time (minutes) the radial hop search will consider.
+// This is the daily drive budget, not a detour tolerance. 8h hard cap keeps
+// the haversine pre-filter and the 50-city Route Matrix fan-out from growing
+// beyond what findCitiesInRadius already bounds via MAX_RADIAL_FAN_OUT.
+export const HOP_REACH_MAX_MINUTES = 480;
+
+export function hopReachMinutes(budgetHours: number): number {
+  return Math.min(Math.round(budgetHours * 60), HOP_REACH_MAX_MINUTES);
+}
