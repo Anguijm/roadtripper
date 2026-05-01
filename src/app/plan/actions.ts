@@ -40,7 +40,7 @@ import {
  *   it fans out to internally. Do NOT add per-service charges in
  *   future refactors.
  *
- * Council ISC anchors (Sessions 6 + 7 pre-EXECUTE gates):
+ * Council ISC anchors (S6+S7 pre-EXECUTE gates; radial pipeline added PR #19):
  *   S6-SEC-1  every stop coord validated (finite + range + NA bbox)
  *   S6-SEC-2  server-side max-stops cap, dedupe, payload-shape rejection
  *   S6-SEC-3  per-IP daily quota
@@ -50,9 +50,9 @@ import {
  *   S6-ARCH-4 return type is JSON-safe (numbers + strings + nested plain objects)
  *   S7-SEC-1  budgetHours validated in same shape/range block
  *   S7-SEC-2  single-charge documentation (above)
- *   S7-SEC-4  catch around candidates pipeline: ship route with waypointStatus:"degraded", waypointFetch:null
+ *   S7-SEC-4  catch around radial+waypoint pipeline: ship route with waypointStatus:"degraded", waypointFetch:null
  *   S7-ARCH-2 partial-failure path: route still ships, recommendations marked degraded
- *   S7-ARCH-3 explicit `waypointStatus` discriminator
+ *   S7-ARCH-3 explicit `waypointStatus` discriminator on RecomputeAndRefreshResult
  */
 
 const MAX_STOPS = 7;
@@ -73,13 +73,6 @@ export type RecomputeErrorCode =
   | "quota_exceeded"
   | "upstream_unavailable"
   | "internal_error";
-
-/** Discriminator for the recommendation refresh half of the response.
- *  - "fresh"    : recommendations were re-fetched against the new corridor
- *  - "degraded" : recommendations could NOT be refreshed; client should
- *                 keep its prior `liveWaypointFetch` and surface a notice
- *                 (Council ISC-S7-ARCH-2 / S7-PROD-1) */
-export type WaypointRefreshStatus = "fresh" | "degraded";
 
 export type RecomputeAndRefreshResult =
   | {
