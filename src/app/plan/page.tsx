@@ -138,7 +138,8 @@ export default async function PlanPage({
     neighborhoods: {},
   };
 
-  // computeRoute and findCitiesInRadius are independent — run in parallel.
+  // allSettled: if candidate fetching fails we still render the primary route
+  // rather than a full error page. The two calls are independent (same inputs).
   const [routeResult, candidateResult] = await Promise.allSettled([
     computeRoute(origin, destination),
     findCitiesInRadius(origin, destination, maxDetourMinutes),
@@ -147,9 +148,7 @@ export default async function PlanPage({
   if (routeResult.status === "fulfilled") {
     route = routeResult.value;
   } else {
-    routeError = routeResult.reason instanceof Error
-      ? routeResult.reason.message
-      : "Failed to compute route";
+    routeError = "Could not compute route. Please try again.";
   }
 
   if (route) {
@@ -166,11 +165,11 @@ export default async function PlanPage({
         }));
         waypointFetch = await fetchWaypointsForCandidates(radialCandidates);
       } catch (e) {
-        console.error("[plan] waypoint pipeline failed:", e instanceof Error ? e.message : "unknown");
+        console.error("[plan] waypoint pipeline failed:", e instanceof Error ? e.constructor.name : "unknown");
         candidateFetchFailed = true;
       }
     } else {
-      console.error("[plan] candidate search failed:", candidateResult.reason instanceof Error ? candidateResult.reason.message : "unknown");
+      console.error("[plan] candidate search failed:", candidateResult.reason instanceof Error ? candidateResult.reason.constructor.name : "unknown");
       candidateFetchFailed = true;
     }
   }
