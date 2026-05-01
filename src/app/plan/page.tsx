@@ -8,7 +8,7 @@ import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
 import {
   validateRouteParams,
-  detourCapForBudget,
+  hopReachMinutes,
   InvalidRouteParamsError,
 } from "@/lib/routing/validation";
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
@@ -121,11 +121,10 @@ export default async function PlanPage({
     endDate = tripParsed.data.endDate;
   }
 
-  // Total trip days scales the per-stop detour cap so longer trips can reach
-  // further stops. Falls back to 1 day for legacy URLs without date params.
-  // detourCapForBudget already hard-caps at 120 min regardless of input size.
-  const tripDays = startDate && endDate ? totalDays({ startDate, endDate }) : 1;
-  const maxDetourMinutes = detourCapForBudget(tripDays * budgetHours);
+  // Hop reach = daily drive budget in minutes. The radial planner finds the
+  // NEXT city to stop at — the right radius is how far you'll drive today,
+  // not a detour tolerance. tripDays is unused: per-hop reach is per-day.
+  const maxDetourMinutes = hopReachMinutes(budgetHours);
 
   let routeError: string | null = null;
   let route: Awaited<ReturnType<typeof computeRoute>> | null = null;

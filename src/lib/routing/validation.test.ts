@@ -1,23 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { detourCapForBudget, validateLatLng, validateBudget, InvalidRouteParamsError } from "./validation";
+import { validateLatLng, validateBudget, hopReachMinutes, HOP_REACH_MAX_MINUTES, InvalidRouteParamsError } from "./validation";
 
-describe("detourCapForBudget", () => {
-  it("returns 45 min floor for small budgets", () => {
-    expect(detourCapForBudget(1)).toBe(45);
-    expect(detourCapForBudget(2)).toBe(45);
+describe("hopReachMinutes", () => {
+  it("converts budget hours to minutes with +30 buffer", () => {
+    expect(hopReachMinutes(3)).toBe(210);  // 180 + 30
+    expect(hopReachMinutes(5)).toBe(330);  // 300 + 30
   });
 
-  it("scales linearly between floor and cap", () => {
-    expect(detourCapForBudget(4)).toBe(60);
-    expect(detourCapForBudget(6)).toBe(90);
-    expect(detourCapForBudget(8)).toBe(120);
+  it("caps at HOP_REACH_MAX_MINUTES (480 min = 8h)", () => {
+    expect(hopReachMinutes(8)).toBe(480);  // 510 capped to 480
+    expect(hopReachMinutes(10)).toBe(480);
+    expect(hopReachMinutes(100)).toBe(HOP_REACH_MAX_MINUTES);
   });
 
-  it("hard-caps at 120 min for large inputs", () => {
-    // 90-day trip × 16 h/day = 1440 h — must not blow past the 120 min ceiling.
-    expect(detourCapForBudget(90 * 16)).toBe(120);
-    expect(detourCapForBudget(1440)).toBe(120);
-    expect(detourCapForBudget(10000)).toBe(120);
+  it("rounds fractional hours before adding buffer", () => {
+    expect(hopReachMinutes(1.5)).toBe(120);  // 90 + 30
   });
 });
 

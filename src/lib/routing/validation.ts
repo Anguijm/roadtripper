@@ -84,16 +84,14 @@ export function validateRouteParams(
   return { origin, destination, budgetHours };
 }
 
-/**
- * Compute the maximum allowed round-trip detour minutes based on the user's
- * daily drive budget. Tuned so a 4h-budget trip surfaces ~30-60 min detour
- * stops (e.g., NYC→Miami picks up DC at ~57 min round-trip).
- *
- * 2h budget → 45 min cap
- * 4h budget → 60 min cap
- * 6h budget → 90 min cap
- * 8h budget → 120 min cap
- */
-export function detourCapForBudget(budgetHours: number): number {
-  return Math.min(120, Math.max(45, budgetHours * 15));
+// Maximum one-way drive time (minutes) the radial hop search will consider.
+// This is the daily drive budget, not a detour tolerance. 8h hard cap keeps
+// the haversine pre-filter and the 50-city Route Matrix fan-out from growing
+// beyond what findCitiesInRadius already bounds via MAX_RADIAL_FAN_OUT.
+export const HOP_REACH_MAX_MINUTES = 480;
+
+// +30 min buffer: surface cities slightly beyond the daily budget (a user
+// willing to drive 5h will often stretch to 5h30m for a compelling stop).
+export function hopReachMinutes(budgetHours: number): number {
+  return Math.min(Math.round(budgetHours * 60) + 30, HOP_REACH_MAX_MINUTES);
 }
