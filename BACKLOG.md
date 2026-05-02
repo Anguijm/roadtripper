@@ -15,7 +15,6 @@ None queued.
 ## Someday (architectural ideas, daydreams)
 
 - **End-date-anchored trip mode**: user enters only an end date on page 1; plan page derives start date from `ceil(totalDriveHours / budgetHoursPerDay)` after computing the route. Needs a "date mode" flag in URL params, server-side derivation of `startDate` in `page.tsx`, and a new UI state in `RouteInput` (end-date-only path). The `DriveBudgetSelector` + route drive time already give us everything needed to calculate it.
-- Save/load trips: biggest net-new surface. Needs Firestore schema + Clerk-scoped storage in `saved_hunts` + trip-list view. (Deferred in favor of radial hop planner.)
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
 - Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
 - Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
@@ -24,8 +23,6 @@ None queued.
 - Persona-aware neighborhood ranking (trending_score + persona weights, S8 deferred).
 - CitySchema: reconcile local nested `location.{latitude,longitude}` divergence with upstream (deferred from city-atlas-service#26).
 - `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
-- `actions.ts` ISC anchor comment stale — references removed `WaypointFetchResult.degraded`; fix on next `actions.ts` touch.
-- `actions.ts` ISC anchor comment still references old candidate pipeline (stale since PR #19); fix on next `actions.ts` touch.
 
 ## Open issues
 
