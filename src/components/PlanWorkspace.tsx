@@ -28,16 +28,13 @@ import {
   fetchNeighborhoodsAction,
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
-import { HOP_REACH_MAX_MINUTES } from "@/lib/routing/validation";
+import { HOP_REACH_MAX_MINUTES, METERS_PER_DRIVE_MINUTE } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
 import { useAuth } from "@clerk/nextjs";
 import { saveTrip } from "@/app/trips/actions";
 import type { SaveTripInput } from "@/lib/trips/types";
-
-// ~80 km/h avg road speed: 80,000 m / 60 min ≈ 1333 m/min
-const METERS_PER_DRIVE_MINUTE = 1333;
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;

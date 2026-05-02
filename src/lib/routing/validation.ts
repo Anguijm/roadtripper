@@ -84,6 +84,10 @@ export function validateRouteParams(
   return { origin, destination, budgetHours };
 }
 
+// Average highway driving speed used to convert hop reach minutes → meters for
+// the map search arc radius. 1333 m/min ≈ 80 km/h (50 mph).
+export const METERS_PER_DRIVE_MINUTE = 1333;
+
 // Maximum one-way drive time (minutes) the radial hop search will consider.
 // This is the daily drive budget, not a detour tolerance. 8h hard cap keeps
 // the haversine pre-filter and the 50-city Route Matrix fan-out from growing

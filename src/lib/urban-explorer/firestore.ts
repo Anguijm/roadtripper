@@ -77,62 +77,82 @@ function parseDocs<T>(
 // Acceptable at this scale; if the collection grows beyond ~10k cities, add a
 // server-side `.where("isArchived", "==", false)` or an aggregation document.
 export async function listCities(): Promise<LoadResult<City>> {
-  const snap = await urbanExplorerDb.collection(CITIES).get();
-  const result = parseDocs(CitySchema, snap.docs, "city");
-  // Filter archived at the application layer, consistent with getCity().
-  // Archived cities are intentionally excluded — not counted as dropped.
-  return { items: result.items.filter((c) => !c.isArchived), dropped: result.dropped };
+  try {
+    const snap = await urbanExplorerDb.collection(CITIES).get();
+    const result = parseDocs(CitySchema, snap.docs, "city");
+    // Filter archived at the application layer, consistent with getCity().
+    // Archived cities are intentionally excluded — not counted as dropped.
+    return { items: result.items.filter((c) => !c.isArchived), dropped: result.dropped };
+  } catch (err) {
+    console.error("[firestore] listCities read failed:", (err as Error).message);
+    throw err;
+  }
 }
 
 export async function getCity(cityId: string): Promise<City | null> {
-  const snap = await urbanExplorerDb.collection(CITIES).doc(cityId).get();
-  if (!snap.exists) return null;
-  const result = CitySchema.safeParse({ id: snap.id, ...snap.data() });
-  if (!result.success) {
-    console.warn(
-      `[urban-explorer/firestore] dropped city ${cityId}: ${summarizeIssues(result.error)}`
-    );
-    return null;
+  try {
+    const snap = await urbanExplorerDb.collection(CITIES).doc(cityId).get();
+    if (!snap.exists) return null;
+    const result = CitySchema.safeParse({ id: snap.id, ...snap.data() });
+    if (!result.success) {
+      console.warn(
+        `[urban-explorer/firestore] dropped city ${cityId}: ${summarizeIssues(result.error)}`
+      );
+      return null;
+    }
+    // Match the JSON-cache `cities.ts:getAllCities` filter so callers see a
+    // consistent "archived = invisible" model regardless of which path
+    // produced the City object. Bugs reviewer R2.
+    //
+    // Note on neighborhoods/waypoints: those schemas use `is_active`
+    // (different field, different semantics — runtime open/closed signal,
+    // not editorial archival). Filtering them by default would drop
+    // legitimate "currently closed but exists" venues; consumers handle
+    // that explicitly when needed.
+    if (result.data.isArchived) return null;
+    return result.data;
+  } catch (err) {
+    console.error(`[firestore] getCity(${cityId}) read failed:`, (err as Error).message);
+    throw err;
   }
-  // Match the JSON-cache `cities.ts:getAllCities` filter so callers see a
-  // consistent "archived = invisible" model regardless of which path
-  // produced the City object. Bugs reviewer R2.
-  //
-  // Note on neighborhoods/waypoints: those schemas use `is_active`
-  // (different field, different semantics — runtime open/closed signal,
-  // not editorial archival). Filtering them by default would drop
-  // legitimate "currently closed but exists" venues; consumers handle
-  // that explicitly when needed.
-  if (result.data.isArchived) return null;
-  return result.data;
 }
 
 export async function listNeighborhoods(
   cityId: string
 ): Promise<LoadResult<Neighborhood>> {
-  const snap = await urbanExplorerDb
-    .collection(CITIES)
-    .doc(cityId)
-    .collection(NEIGHBORHOODS)
-    .get();
-  return parseDocs(NeighborhoodSchema, snap.docs, "neighborhood", cityId);
+  try {
+    const snap = await urbanExplorerDb
+      .collection(CITIES)
+      .doc(cityId)
+      .collection(NEIGHBORHOODS)
+      .get();
+    return parseDocs(NeighborhoodSchema, snap.docs, "neighborhood", cityId);
+  } catch (err) {
+    console.error(`[firestore] listNeighborhoods(${cityId}) read failed:`, (err as Error).message);
+    throw err;
+  }
 }
 
 export async function listWaypoints(
   cityId: string,
   neighborhoodId: string
 ): Promise<LoadResult<Waypoint>> {
-  const snap = await urbanExplorerDb
-    .collection(CITIES)
-    .doc(cityId)
-    .collection(NEIGHBORHOODS)
-    .doc(neighborhoodId)
-    .collection(WAYPOINTS)
-    .get();
-  return parseDocs(
-    WaypointSchema,
-    snap.docs,
-    "waypoint",
-    `${cityId}/${neighborhoodId}`
-  );
+  try {
+    const snap = await urbanExplorerDb
+      .collection(CITIES)
+      .doc(cityId)
+      .collection(NEIGHBORHOODS)
+      .doc(neighborhoodId)
+      .collection(WAYPOINTS)
+      .get();
+    return parseDocs(
+      WaypointSchema,
+      snap.docs,
+      "waypoint",
+      `${cityId}/${neighborhoodId}`
+    );
+  } catch (err) {
+    console.error(`[firestore] listWaypoints(${cityId}/${neighborhoodId}) read failed:`, (err as Error).message);
+    throw err;
+  }
 }
