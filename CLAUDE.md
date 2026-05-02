@@ -20,23 +20,32 @@ bun run test:watch   # vitest watch mode
 
 ## Council — mandatory pre-EXECUTE gate
 
+**ALL changes go through a PR — no exceptions, no direct pushes to main.**
+`[skip council]` skips the council *job*, not the PR. Even docs/chore commits
+need a branch + PR. GitHub branch protection now enforces this at the API
+level; the local pre-push hook (`.git/hooks/pre-push`) blocks it locally.
+
 Standard flow — **always use CI diff review, not the local runner**:
 
 ```bash
-# 1. Save plan to Plans/session-N-<slug>.md and commit it
+# 1. Save plan to Plans/session-N-<slug>.md and commit it on a feature branch
+git checkout -b feat/my-feature
 git add Plans/... && git commit -m "docs: session N plan [skip council]"
 
-# 2. Create feature branch, implement, open PR
+# 2. Implement, push branch, open PR
 gh pr create ...
 
 # 3. CI runs the council automatically on push (council.yml).
 #    Check the <!-- council-report --> comment on the PR.
 #    Proceed → merge. Revise → fix, push, wait for next run.
+
+# 4. Merge via PR (never git push origin main directly)
+git stash && gh pr merge <N> --squash && git stash drop
 ```
 
 `GEMINI_API_KEY` lives in GitHub Actions secrets. Never ask to set it locally — always use the CI path above.
 
-The CI workflow (`.github/workflows/council.yml`) re-runs automatically on every PR push and posts a single re-edited comment. Add `[skip council]` to the PR title to skip on trivial/docs-only pushes.
+The CI workflow (`.github/workflows/council.yml`) re-runs automatically on every PR push and posts a single re-edited comment. Add `[skip council]` to the PR title to skip the council job for trivial/docs-only changes — the PR is still required.
 
 **The AI writing code cannot self-approve.** Proceed from the council runner is the gate, not a judgment call in conversation.
 
