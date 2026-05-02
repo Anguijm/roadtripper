@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   legsTotalMinutes,
+  legsQuantizedDays,
   remainingBudgetMinutes,
   computeTripStatus,
   buildTripState,
@@ -38,6 +39,36 @@ describe("legsTotalMinutes", () => {
 
   it("handles fractional seconds correctly", () => {
     expect(legsTotalMinutes([leg(90)])).toBeCloseTo(1.5);
+  });
+});
+
+// ── legsQuantizedDays ─────────────────────────────────────────────────────────
+
+describe("legsQuantizedDays", () => {
+  it("returns 0 for empty leg list", () => {
+    expect(legsQuantizedDays([], 300)).toBe(0);
+  });
+
+  it("counts an exact-budget leg as 1 day", () => {
+    // 5h leg on a 5h/day budget = exactly 1 day
+    expect(legsQuantizedDays([leg(300 * 60)], 300)).toBe(1);
+  });
+
+  it("rounds a sub-budget leg up to 1 day", () => {
+    // 4h leg on a 5h/day budget: ceil(240/300) = 1, not 0.8
+    expect(legsQuantizedDays([leg(240 * 60)], 300)).toBe(1);
+  });
+
+  it("rounds an over-budget leg up to 2 days", () => {
+    // 6h leg on a 5h/day budget: ceil(360/300) = 2, not 1.2
+    expect(legsQuantizedDays([leg(360 * 60)], 300)).toBe(2);
+  });
+
+  it("sums quantized days across multiple legs", () => {
+    // 4h + 3h + 6h on 5h budget: ceil(0.8)+ceil(0.6)+ceil(1.2) = 1+1+2 = 4
+    expect(
+      legsQuantizedDays([leg(240 * 60), leg(180 * 60), leg(360 * 60)], 300)
+    ).toBe(4);
   });
 });
 
@@ -242,5 +273,33 @@ describe("computeDeadlinePressure", () => {
   it("returns null when directMinutesToDestination is non-finite", () => {
     expect(computeDeadlinePressure([LEG_300], 4, 5, Infinity)).toBeNull();
     expect(computeDeadlinePressure([LEG_300], 4, 5, NaN)).toBeNull();
+  });
+
+  it("quantizes a sub-budget leg to 1 full day used", () => {
+    // 4h leg on 5h budget: daysUsed=ceil(240/300)=1, not 0.8
+    // tripDays=4, daysRemaining=3, dest=600min → requiredMinutesPerDay=200
+    const dp = computeDeadlinePressure([leg(240 * 60)], 4, 5, 600);
+    expect(dp!.daysRemaining).toBe(3);
+    expect(dp!.daysLate).toBe(0);
+    expect(dp!.requiredMinutesPerDay).toBeCloseTo(200);
+  });
+
+  it("quantizes an over-budget leg to 2 days used", () => {
+    // 6h leg on 5h budget: daysUsed=ceil(360/300)=2, not 1.2
+    // tripDays=4, daysRemaining=2, dest=300min → on pace
+    const dp = computeDeadlinePressure([leg(360 * 60)], 4, 5, 300);
+    expect(dp!.daysRemaining).toBe(2);
+    expect(dp!.daysLate).toBe(0);
+  });
+
+  it("flags late when remaining drive also needs an extra overnight", () => {
+    // 4h+3h+6h legs on 5h budget: daysUsed=1+1+2=4, tripDays=4
+    // dest=360min (6h): ceil(360/300)=2 days still needed → daysLate=2
+    const dp = computeDeadlinePressure(
+      [leg(240 * 60), leg(180 * 60), leg(360 * 60)],
+      4, 5, 360
+    );
+    expect(dp!.daysLate).toBe(2);
+    expect(dp!.daysRemaining).toBe(0);
   });
 });

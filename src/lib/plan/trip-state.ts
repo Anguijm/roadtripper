@@ -58,8 +58,13 @@ export interface DeadlinePressure {
  * directMinutesToDestination). Uses only data already computed by the Routes
  * API — makes no additional calls.
  *
+ * Overnight quantization: each leg is an overnight stay, so a 6h leg on a
+ * 5h budget costs 2 days, not 1.2. Both daysUsed and drivingDaysStillNeeded
+ * use ceil() — you can't spend half a night at a stop.
+ *
  * daysLate formula: (daysAlreadyUsed + drivingDaysStillNeeded) − tripDays
- *   where drivingDaysStillNeeded = directMinutesToDestination / budgetPerDay
+ *   where daysAlreadyUsed      = Σ ceil(leg_minutes / budgetPerDay)
+ *   and   drivingDaysStillNeeded = ceil(directMinutesToDestination / budgetPerDay)
  *
  * requiredMinutesPerDay = Infinity when daysRemaining = 0 — callers must
  * guard this case before formatting or comparing to budget.
@@ -78,7 +83,8 @@ export function computeDeadlinePressure(
   if (budgetHours <= 0) return null; // avoid divide-by-zero
   if (!Number.isFinite(directMinutesToDestination) || directMinutesToDestination < 0) return null;
   const budgetMinutesPerDay = budgetHours * 60;
-  const daysUsed = legsTotalMinutes(legs) / budgetMinutesPerDay;
+  // Each leg is an overnight stay — ceil so a 6h leg on a 5h budget costs 2 days.
+  const daysUsed = legsQuantizedDays(legs, budgetMinutesPerDay);
   const daysRemaining = Math.max(0, tripDays - daysUsed);
   // Infinity signals to callers that no pace can meet the deadline — guard before formatting.
   const requiredMinutesPerDay =
@@ -86,7 +92,7 @@ export function computeDeadlinePressure(
   // daysLate = daysUsed + drivingDaysStillNeeded − tripDays; clamped at 0 when on or ahead of pace.
   const daysLate = Math.max(
     0,
-    daysUsed + directMinutesToDestination / budgetMinutesPerDay - tripDays
+    daysUsed + Math.ceil(directMinutesToDestination / budgetMinutesPerDay) - tripDays
   );
   return { daysRemaining, requiredMinutesPerDay, budgetMinutesPerDay, daysLate };
 }
@@ -94,6 +100,21 @@ export function computeDeadlinePressure(
 /** Total drive minutes accumulated across all legs. */
 export function legsTotalMinutes(legs: readonly TripLeg[]): number {
   return legs.reduce((sum, leg) => sum + leg.durationSeconds / 60, 0);
+}
+
+/**
+ * Overnight-quantized day count: each leg costs ceil(leg_minutes / budget)
+ * days because you spend a night at every stop. A 6h leg on a 5h budget = 2
+ * days, not 1.2. Used for deadline tracking and end-date derivation.
+ */
+export function legsQuantizedDays(
+  legs: readonly TripLeg[],
+  budgetMinutesPerDay: number
+): number {
+  return legs.reduce(
+    (sum, leg) => sum + Math.ceil(leg.durationSeconds / 60 / budgetMinutesPerDay),
+    0
+  );
 }
 
 /** Budget minutes remaining after all current legs. May be negative if over budget. */
