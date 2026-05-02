@@ -128,6 +128,7 @@ export default function PlanWorkspace({
   // `liveRoute === null` / `liveWaypointFetch === null` means "use the
   // initial server-rendered values" (Council ISC-S6-ARCH-3, S7-ARCH-2).
   const [tripStops, setTripStops] = useState<TripStopMarker[]>([]);
+  const [routeSealed, setRouteSealed] = useState(false);
   // TripState tracks accumulated leg times + budget status. Built from
   // route legs returned by recomputeAndRefreshAction; empty until first stop.
   const [tripState, setTripState] = useState<TripState>(() =>
@@ -291,7 +292,9 @@ export default function PlanWorkspace({
   }, [tripState, tripDays, budgetHours, startDate, endDate]);
 
   // Arc shows the search semicircle ahead of the frontier stop (last added, or origin).
-  const searchArc = useMemo<SearchArc>(() => {
+  // Suppressed when the route is sealed — user is done exploring candidates.
+  const searchArc = useMemo<SearchArc | null>(() => {
+    if (routeSealed) return null;
     const arcCenter =
       tripStops.length > 0
         ? { lat: tripStops[tripStops.length - 1].lat, lng: tripStops[tripStops.length - 1].lng }
@@ -301,7 +304,7 @@ export default function PlanWorkspace({
       radiusMeters: Math.max(0, Math.min(maxDetourMinutes, HOP_REACH_MAX_MINUTES)) * METERS_PER_DRIVE_MINUTE,
       headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
     };
-  }, [tripStops, origin, destination, maxDetourMinutes]);
+  }, [routeSealed, tripStops, origin, destination, maxDetourMinutes]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -528,6 +531,11 @@ export default function PlanWorkspace({
     setSaveState((s) => (s === "saved" ? "idle" : s));
   }, [tripStops, activePersonaId]);
 
+  // Unseal when stops change — user is back to planning mode.
+  useEffect(() => {
+    setRouteSealed(false);
+  }, [tripStops]);
+
   const handleSave = useCallback(async () => {
     setSaveState("saving");
     const input: SaveTripInput = {
@@ -693,11 +701,14 @@ export default function PlanWorkspace({
               toName={toName}
               stops={tripStops}
               legDurations={tripState.legs.map((l) => l.durationSeconds)}
+              finalLegSeconds={Math.round(tripState.directMinutesToDestination * 60)}
               failedStopId={failedStopId}
               selectedCityId={panelCityId}
+              destinationSelected={routeSealed}
               pending={isPending}
               onRemoveStop={handleRemoveCity}
               onStopClick={handleStopClick}
+              onDestinationClick={() => setRouteSealed((s) => !s)}
               accent={accent}
             />
           )}
@@ -800,56 +811,64 @@ export default function PlanWorkspace({
             </div>
           )}
 
-          {/* Distinguish API error from genuine empty-radius result. */}
-          {initialCandidateFetchFailed && liveWaypointFetch === null && (
-            <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
-              <p className="text-xs text-[#f85149] leading-snug">
-                Couldn&apos;t load nearby cities — route is still available.
-              </p>
-            </div>
-          )}
-          {!initialCandidateFetchFailed &&
-            liveWaypointFetch === null &&
-            effectiveWaypointFetch.cities.length === 0 && (
-              <div className="px-3 py-2">
-                <p className="text-xs font-mono text-[#b0b9c2]">
-                  No nearby cities found within range.
-                </p>
-              </div>
-            )}
-
-          {/* Frontier label — tells the user which stop the next candidates
-              are radiating from so the changing list makes sense. */}
-          {effectiveWaypointFetch.cities.length > 0 && (
-            <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] px-1 pt-1">
-              {tripStops.length > 0
-                ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
-                : `First stop from ${fromName}`}
+          {routeSealed ? (
+            <p className="text-[10px] font-mono text-[#7d8590] px-1 py-2 text-center">
+              Route locked · tap destination to explore more stops
             </p>
-          )}
+          ) : (
+            <>
+              {/* Distinguish API error from genuine empty-radius result. */}
+              {initialCandidateFetchFailed && liveWaypointFetch === null && (
+                <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
+                  <p className="text-xs text-[#f85149] leading-snug">
+                    Couldn&apos;t load nearby cities — route is still available.
+                  </p>
+                </div>
+              )}
+              {!initialCandidateFetchFailed &&
+                liveWaypointFetch === null &&
+                effectiveWaypointFetch.cities.length === 0 && (
+                  <div className="px-3 py-2">
+                    <p className="text-xs font-mono text-[#b0b9c2]">
+                      No nearby cities found within range.
+                    </p>
+                  </div>
+                )}
 
-          {/* Council ISC-S7-PROD-2 — brief panel highlight on each
-              successful refresh proves the list actually updated. */}
-          <div
-            className={
-              highlightRefresh
-                ? "transition-shadow duration-700 shadow-[0_0_0_1px_rgba(210,153,34,0.6)]"
-                : "transition-shadow duration-700"
-            }
-          >
-            <RecommendationList
-              fetchResult={effectiveWaypointFetch}
-              activePersonaId={activePersonaId}
-              highlightedCityId={highlightedCityId}
-              onCityHover={setHighlightedCityId}
-              cityCoords={cityCoords}
-              addedCityIds={addedCityIds}
-              onAddCity={handleAddCity}
-              onRemoveCity={handleRemoveCity}
-              pending={isPending}
-              atCap={tripCount >= MAX_TRIP_STOPS}
-            />
-          </div>
+              {/* Frontier label — tells the user which stop the next candidates
+                  are radiating from so the changing list makes sense. */}
+              {effectiveWaypointFetch.cities.length > 0 && (
+                <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] px-1 pt-1">
+                  {tripStops.length > 0
+                    ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
+                    : `First stop from ${fromName}`}
+                </p>
+              )}
+
+              {/* Council ISC-S7-PROD-2 — brief panel highlight on each
+                  successful refresh proves the list actually updated. */}
+              <div
+                className={
+                  highlightRefresh
+                    ? "transition-shadow duration-700 shadow-[0_0_0_1px_rgba(210,153,34,0.6)]"
+                    : "transition-shadow duration-700"
+                }
+              >
+                <RecommendationList
+                  fetchResult={effectiveWaypointFetch}
+                  activePersonaId={activePersonaId}
+                  highlightedCityId={highlightedCityId}
+                  onCityHover={setHighlightedCityId}
+                  cityCoords={cityCoords}
+                  addedCityIds={addedCityIds}
+                  onAddCity={handleAddCity}
+                  onRemoveCity={handleRemoveCity}
+                  pending={isPending}
+                  atCap={tripCount >= MAX_TRIP_STOPS}
+                />
+              </div>
+            </>
+          )}
         </div>
       </aside>
 

@@ -9,11 +9,15 @@ export interface ItineraryProps {
   stops: TripStopMarker[];
   /** Drive time in seconds for each leg: legDurations[i] = origin/stop[i-1] → stop[i]. */
   legDurations?: number[];
+  /** Drive time in seconds for the final leg: last stop → destination. */
+  finalLegSeconds?: number;
   failedStopId?: string | null;
   selectedCityId?: string | null;
+  destinationSelected?: boolean;
   pending?: boolean;
   onRemoveStop: (cityId: string) => void;
   onStopClick?: (cityId: string) => void;
+  onDestinationClick?: () => void;
   accent: string;
 }
 
@@ -30,11 +34,14 @@ export default function Itinerary({
   toName,
   stops,
   legDurations,
+  finalLegSeconds,
   failedStopId,
   selectedCityId,
+  destinationSelected = false,
   pending = false,
   onRemoveStop,
   onStopClick,
+  onDestinationClick,
   accent,
 }: ItineraryProps) {
   if (stops.length === 0) {
@@ -167,20 +174,53 @@ export default function Itinerary({
           );
         })}
 
-        <li className="px-3 py-2 flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono"
-            style={{ color: "#f85149" }}
-          >
-            ●
-          </span>
-          <span className="text-sm text-[#f0f6fc] truncate flex-1">
-            {toName}
-          </span>
-          <span className="text-[10px] font-mono uppercase tracking-widest text-[#4a5159]">
-            End
-          </span>
+        <li
+          className={onDestinationClick
+            ? `flex items-center${destinationSelected ? " bg-[#161b22]" : ""}`
+            : "px-3 py-2 flex items-center gap-2"
+          }
+          style={onDestinationClick && destinationSelected ? { borderLeft: "2px solid #f85149" } : undefined}
+        >
+          {onDestinationClick ? (
+            <button
+              type="button"
+              onClick={onDestinationClick}
+              aria-label={destinationSelected ? `${toName} — tap to resume planning` : `Select ${toName} as final destination`}
+              className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7d8590]"
+            >
+              <span aria-hidden className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono shrink-0" style={{ color: "#f85149" }}>
+                ●
+              </span>
+              <span className="text-sm text-[#f0f6fc] truncate flex-1">
+                {toName}
+                {finalLegSeconds !== undefined && (
+                  <span className="ml-2 text-[10px] font-mono text-[#b0b9c2]">
+                    · {formatDuration(finalLegSeconds)}
+                  </span>
+                )}
+              </span>
+              <span className={`text-[10px] font-mono uppercase tracking-widest whitespace-nowrap ${destinationSelected ? "text-[#3fb950]" : "text-[#7d8590]"}`}>
+                {destinationSelected ? "Done ✓" : "End"}
+              </span>
+            </button>
+          ) : (
+            <>
+              <span aria-hidden className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono" style={{ color: "#f85149" }}>
+                ●
+              </span>
+              <span className="text-sm text-[#f0f6fc] truncate flex-1">
+                {toName}
+                {finalLegSeconds !== undefined && (
+                  <span className="ml-2 text-[10px] font-mono text-[#b0b9c2]">
+                    · {formatDuration(finalLegSeconds)}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#4a5159]">
+                End
+              </span>
+            </>
+          )}
         </li>
       </ol>
     </div>
