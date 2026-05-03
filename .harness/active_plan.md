@@ -2,26 +2,21 @@
 
 ## Goal
 
-PR F — Semicircle map overlay: visualise the radial hop search area as a 180° arc
-on the map, pointing from the frontier stop (or origin) toward the destination.
-Effect 5 in PolylineRenderer; `searchArc` prop on RouteMap; arc cleanup on unmount.
+End-date-anchored trip mode: user enters only an arrival date; `plan/page.tsx`
+derives the departure date from the direct route duration using overnight
+quantization (`ceil(directMinutes / budgetMinutes)` days).
 
 ## Risk surface
 
-- Files / modules touched: `src/components/RouteMap.tsx`, `src/components/PlanWorkspace.tsx`
-- Cross-system effects: visual only — no API calls, no new state beyond `searchArc` useMemo
-- Rollback plan: revert `searchArc` prop + Effect 5 in RouteMap, remove computeBearing + useMemo + prop in PlanWorkspace
+- Files / modules touched: `src/lib/plan/types.ts`, `src/components/RouteInput.tsx`, `src/app/plan/page.tsx`
+- Cross-system effects: visual + URL shape only — no new API calls, no Firestore
+- Rollback: revert `dateMode` param handling in page.tsx, remove toggle from RouteInput, remove `deriveStartDate`
 
 ## Steps
 
-1. Update active_plan.md + Plans/session-20-map-arc.md, commit [skip council]
-2. Create branch `feat/map-arc`
-3. Add `SearchArc` interface + `buildSemicirclePoints` + `searchArc` prop + `arcRef` + Effect 5 to RouteMap.tsx
-4. Add `computeBearing` helper + `searchArc` useMemo to PlanWorkspace.tsx, pass to RouteMap
-5. Type-check + test + commit + push + PR
-
-## Success criteria
-
-- Test: `bun run type-check` passes; `bun run test` green
-- Observable signal: arc visible on map centered on last trip stop (or origin), pointing toward destination; repaints on each stop add/remove
-- Council verdict expected: 🟢
+1. Commit plan [skip council] ✓
+2. Add `deriveStartDate` to `types.ts` + unit tests
+3. Update `RouteInput.tsx` — mode toggle + arrival submit path
+4. Update `plan/page.tsx` — arrival mode derivation
+5. Type-check + full test run
+6. Push branch, open PR, await council
