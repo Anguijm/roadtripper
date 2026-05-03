@@ -59,3 +59,31 @@ export const TripParamsSchema = z
     message: `Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`,
     path: ["endDate"],
   });
+
+// Validates URL params for arrival-mode planning (endDate only; startDate is
+// derived server-side after route computation).
+export const ArrivalTripParamsSchema = z.object({
+  endDate: z.string().date(),
+  // Daily driving hours: min 1h to make progress, max 16h sanity limit.
+  dailyBudgetHours: z.number().int().min(1).max(16),
+});
+export type ArrivalTripParams = z.infer<typeof ArrivalTripParamsSchema>;
+
+// Derives the trip start date from a fixed arrival (end) date using overnight
+// quantization: each leg costs ceil(leg_minutes / budget_minutes) days, so a
+// 6 h drive on a 5 h budget costs 2 days, not 1.2. `daysNeeded` is at least 1
+// (even a zero-length route needs a departure day). The departure date is
+// endDate − (daysNeeded − 1) because the arrival day itself counts as day 1.
+// UTC midnight parsing avoids DST boundary errors.
+export function deriveStartDate(
+  endDate: string,
+  directDurationSeconds: number,
+  dailyBudgetHours: number
+): string {
+  if (dailyBudgetHours <= 0) throw new Error("dailyBudgetHours must be positive");
+  const budgetMinutes = dailyBudgetHours * 60;
+  const daysNeeded = Math.max(1, Math.ceil(directDurationSeconds / 60 / budgetMinutes));
+  const d = new Date(endDate + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - (daysNeeded - 1));
+  return d.toISOString().split("T")[0];
+}

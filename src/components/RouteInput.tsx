@@ -38,13 +38,16 @@ export default function RouteInput({
   const [endDate, setEndDate] = useState(initialEndDate);
   const [submitting, setSubmitting] = useState(false);
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
+  const [dateMode, setDateMode] = useState<"range" | "arrival">("range");
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const dateOrderValid = !startDate || !endDate || startDate <= endDate;
-  const canSubmit = from && to && startDate && endDate && dateOrderValid && !submitting;
+  const canSubmit =
+    from && to && !submitting &&
+    (dateMode === "arrival" ? !!endDate : !!(startDate && endDate && dateOrderValid));
 
   const tripDays =
-    startDate && endDate && dateOrderValid
+    dateMode === "range" && startDate && endDate && dateOrderValid
       ? totalDays({ startDate, endDate })
       : null;
   const budgetHrs =
@@ -62,7 +65,9 @@ export default function RouteInput({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!from || !to || !startDate || !endDate) return;
+    if (!from || !to) return;
+    if (dateMode === "range" && (!startDate || !endDate)) return;
+    if (dateMode === "arrival" && !endDate) return;
     setSubmitting(true);
 
     const params = new URLSearchParams({
@@ -75,18 +80,25 @@ export default function RouteInput({
       toLat: to.lat.toString(),
       toLng: to.lng.toString(),
       budget: budget.toString(),
-      startDate,
-      endDate,
     });
+    if (dateMode === "arrival") {
+      params.set("dateMode", "arrival");
+      params.set("endDate", endDate);
+    } else {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    }
     router.push(`/plan?${params.toString()}`);
   }
 
   const dateLabel =
-    startDate && endDate
-      ? `${formatDateLabel(startDate)} → ${formatDateLabel(endDate)}`
-      : startDate
-      ? `${formatDateLabel(startDate)} → ?`
-      : "Select dates";
+    dateMode === "arrival"
+      ? endDate ? `Arrive by ${formatDateLabel(endDate)}` : "Select arrival date"
+      : startDate && endDate
+        ? `${formatDateLabel(startDate)} → ${formatDateLabel(endDate)}`
+        : startDate
+        ? `${formatDateLabel(startDate)} → ?`
+        : "Select dates";
 
   return (
     <APIProvider apiKey={apiKey} libraries={["places"]}>
@@ -140,39 +152,93 @@ export default function RouteInput({
               <p className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">
                 Trip dates
               </p>
-              <div className="flex gap-3">
-                <div className="flex-1 flex flex-col gap-1">
+
+              {/* Mode toggle — keyboard-accessible radio group */}
+              <fieldset className="flex gap-2">
+                <legend className="sr-only">Date mode</legend>
+                {(["range", "arrival"] as const).map((mode) => (
                   <label
-                    htmlFor="trip-start-date"
-                    className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
+                    key={mode}
+                    className={`flex-1 min-h-[44px] flex items-center justify-center text-xs font-mono uppercase tracking-widest cursor-pointer border transition-colors ${
+                      dateMode === mode
+                        ? "border-[#f0f6fc] text-[#f0f6fc] bg-[#21262d]"
+                        : "border-[#30363d] text-[#7d8590] hover:border-[#6e7681]"
+                    }`}
                   >
-                    Start
+                    <input
+                      type="radio"
+                      name="dateMode"
+                      value={mode}
+                      checked={dateMode === mode}
+                      onChange={() => setDateMode(mode)}
+                      className="sr-only"
+                    />
+                    {mode === "range" ? "Date range" : "Arrival date"}
                   </label>
-                  <input
-                    id="trip-start-date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
-                  />
+                ))}
+              </fieldset>
+              {/* Announce mode change to screen readers */}
+              <p className="sr-only" aria-live="polite" aria-atomic="true">
+                {dateMode === "arrival"
+                  ? "Arrival date mode: enter only your arrival date. Departure date will be calculated."
+                  : "Date range mode: enter a start and end date."}
+              </p>
+
+              {dateMode === "range" ? (
+                <div className="flex gap-3">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label
+                      htmlFor="trip-start-date"
+                      className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
+                    >
+                      Start
+                    </label>
+                    <input
+                      id="trip-start-date"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label
+                      htmlFor="trip-end-date"
+                      className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
+                    >
+                      End
+                    </label>
+                    <input
+                      id="trip-end-date"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
+                    />
+                  </div>
                 </div>
-                <div className="flex-1 flex flex-col gap-1">
+              ) : (
+                <div className="flex flex-col gap-1">
                   <label
-                    htmlFor="trip-end-date"
+                    htmlFor="trip-arrive-date"
                     className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
                   >
-                    End
+                    Arrive by
                   </label>
                   <input
-                    id="trip-end-date"
+                    id="trip-arrive-date"
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
                   />
+                  <p className="text-xs font-mono text-[#7d8590] mt-1">
+                    Departure date calculated from route length.
+                  </p>
                 </div>
-              </div>
-              {!dateOrderValid && (
+              )}
+
+              {dateMode === "range" && !dateOrderValid && (
                 <p className="text-xs font-mono text-[#f85149]" role="alert">
                   End date must be on or after start date.
                 </p>
