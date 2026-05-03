@@ -62,6 +62,9 @@ export const TripParamsSchema = z
 
 // Validates URL params for arrival-mode planning (endDate only; startDate is
 // derived server-side after route computation).
+// NOTE: MAX_TRIP_DAYS is intentionally not validated here — the start date is
+// unknown until the route is computed. This check must be performed imperatively
+// in /app/plan/page.tsx after deriveStartDate() resolves the start date.
 export const ArrivalTripParamsSchema = z.object({
   endDate: z.string().date(),
   // Daily driving hours: min 1h to make progress, max 16h sanity limit.

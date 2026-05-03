@@ -13,7 +13,7 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
-import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate } from "@/lib/plan/types";
+import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 
 interface PlanSearchParams {
   from?: string;
@@ -169,6 +169,16 @@ export default async function PlanPage({
     // Derive startDate from the direct route duration in arrival mode.
     if (isArrivalMode && endDate) {
       startDate = deriveStartDate(endDate, route.totalDurationSeconds, budgetHours);
+      // MAX_TRIP_DAYS check deferred from ArrivalTripParamsSchema — enforce now
+      // that startDate is known.
+      if (totalDays({ startDate, endDate }) > MAX_TRIP_DAYS) {
+        return (
+          <ErrorScreen
+            title="Invalid Parameters"
+            message={`Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`}
+          />
+        );
+      }
     }
   } else {
     controller.abort();
