@@ -165,10 +165,21 @@ export default async function PlanPage({
   ]);
 
   if (routeResult.status === "fulfilled") {
-    route = routeResult.value;
+    const routeValue = routeResult.value;
+    // Verify semantic success: a navigable route always carries an encodedPolyline.
+    // An empty string here means the Routes API returned a result with no geometry
+    // (e.g., a degenerate ZERO_RESULTS edge case not caught by computeRoute's own
+    // guard), which must be treated as a failure rather than an empty-map render.
+    if (!routeValue.encodedPolyline) {
+      routeError = isArrivalMode
+        ? "Could not compute route — departure date cannot be derived. Please try again."
+        : "Could not compute route. Please try again.";
+    } else {
+      route = routeValue;
+    }
     // Derive startDate from the direct route duration in arrival mode.
     if (isArrivalMode && endDate) {
-      if (!Number.isFinite(route.totalDurationSeconds)) {
+      if (!route || !Number.isFinite(route.totalDurationSeconds)) {
         // Malformed Routes API response — treat as a route failure rather than
         // passing a NaN duration to deriveStartDate, which would crash SSR.
         route = null;

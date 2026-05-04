@@ -42,6 +42,8 @@ export default function RouteInput({
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const dateOrderValid = !startDate || !endDate || startDate <= endDate;
+  // arrival mode: only endDate required (startDate derived server-side from route)
+  // range mode: both dates required and must be in order
   const canSubmit =
     from && to && !submitting &&
     (dateMode === "arrival" ? !!endDate : !!(startDate && endDate && dateOrderValid));
