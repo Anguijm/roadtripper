@@ -13,7 +13,7 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
-import { totalDays, TripParamsSchema } from "@/lib/plan/types";
+import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 
 interface PlanSearchParams {
   from?: string;
@@ -28,6 +28,7 @@ interface PlanSearchParams {
   persona?: string;
   startDate?: string;
   endDate?: string;
+  dateMode?: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -103,11 +104,26 @@ export default async function PlanPage({
   const toName = params.toName ?? "End";
   const activePersonaId = parsePersonaId(params.persona);
 
-  // Parse and validate trip params (dates + budget) via comprehensive schema.
-  // Both date params must be present and valid if either is supplied.
+  // Parse and validate date params. Three modes:
+  //   arrival — endDate only; startDate derived after route computation
+  //   range   — both startDate + endDate present (existing behaviour)
+  //   none    — no dates; workspace shows without deadline pressure
+  const isArrivalMode = params.dateMode === "arrival";
   let startDate: string | undefined;
   let endDate: string | undefined;
-  if (params.startDate !== undefined || params.endDate !== undefined) {
+
+  if (isArrivalMode) {
+    const arrivalParsed = ArrivalTripParamsSchema.safeParse({
+      endDate: params.endDate,
+      dailyBudgetHours: budgetHours,
+    });
+    if (!arrivalParsed.success) {
+      const msg = arrivalParsed.error.issues[0]?.message ?? "Invalid trip parameters.";
+      return <ErrorScreen title="Invalid Parameters" message={msg} />;
+    }
+    endDate = arrivalParsed.data.endDate;
+    // startDate derived after route computation below
+  } else if (params.startDate !== undefined || params.endDate !== undefined) {
     const tripParsed = TripParamsSchema.safeParse({
       startDate: params.startDate,
       endDate: params.endDate,
@@ -137,6 +153,10 @@ export default async function PlanPage({
     neighborhoods: {},
   };
 
+  // AbortController for the parallel fetch pair. findCitiesInRadius does not yet
+  // propagate the signal, but the controller is wired in for future cancellation.
+  const controller = new AbortController();
+
   // allSettled: if candidate fetching fails we still render the primary route
   // rather than a full error page. The two calls are independent (same inputs).
   const [routeResult, candidateResult] = await Promise.allSettled([
@@ -145,9 +165,44 @@ export default async function PlanPage({
   ]);
 
   if (routeResult.status === "fulfilled") {
-    route = routeResult.value;
+    const routeValue = routeResult.value;
+    // Verify semantic success: a navigable route always carries an encodedPolyline.
+    // An empty string here means the Routes API returned a result with no geometry
+    // (e.g., a degenerate ZERO_RESULTS edge case not caught by computeRoute's own
+    // guard), which must be treated as a failure rather than an empty-map render.
+    if (!routeValue.encodedPolyline) {
+      routeError = isArrivalMode
+        ? "Could not compute route — departure date cannot be derived. Please try again."
+        : "Could not compute route. Please try again.";
+    } else {
+      route = routeValue;
+    }
+    // Derive startDate from the direct route duration in arrival mode.
+    if (isArrivalMode && endDate) {
+      if (!route || !Number.isFinite(route.totalDurationSeconds)) {
+        // Malformed Routes API response — treat as a route failure rather than
+        // passing a NaN duration to deriveStartDate, which would crash SSR.
+        route = null;
+        routeError = "Could not compute route — departure date cannot be derived. Please try again.";
+      } else {
+        startDate = deriveStartDate(endDate, route.totalDurationSeconds, budgetHours);
+        // MAX_TRIP_DAYS check deferred from ArrivalTripParamsSchema — enforce now
+        // that startDate is known.
+        if (totalDays({ startDate, endDate }) > MAX_TRIP_DAYS) {
+          return (
+            <ErrorScreen
+              title="Invalid Parameters"
+              message={`Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`}
+            />
+          );
+        }
+      }
+    }
   } else {
-    routeError = "Could not compute route. Please try again.";
+    controller.abort();
+    routeError = isArrivalMode
+      ? "Could not compute route — departure date cannot be derived. Please try again."
+      : "Could not compute route. Please try again.";
   }
 
   if (route) {

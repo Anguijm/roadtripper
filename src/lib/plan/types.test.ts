@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LatLngSchema, TripInputSchema, TripParamsSchema, MAX_TRIP_DAYS, totalDays, totalBudgetMinutes } from "./types";
+import { LatLngSchema, TripInputSchema, TripParamsSchema, MAX_TRIP_DAYS, totalDays, totalBudgetMinutes, deriveStartDate } from "./types";
 
 const VALID_INPUT = {
   origin: { lat: 34.05, lng: -118.24 },
@@ -181,5 +181,58 @@ describe("TripParamsSchema", () => {
   it("rejects dailyBudgetHours out of range", () => {
     expect(TripParamsSchema.safeParse({ ...VALID_PARAMS, dailyBudgetHours: 0 }).success).toBe(false);
     expect(TripParamsSchema.safeParse({ ...VALID_PARAMS, dailyBudgetHours: 17 }).success).toBe(false);
+  });
+});
+
+// ── deriveStartDate ───────────────────────────────────────────────────────────
+
+describe("deriveStartDate", () => {
+  it("returns endDate when route has zero duration (depart = arrive)", () => {
+    expect(deriveStartDate("2026-06-10", 0, 5)).toBe("2026-06-10");
+  });
+
+  it("returns endDate when route fits exactly within one budget day", () => {
+    // 5 h budget, 5 h route → ceil(300/300) = 1 → same day
+    expect(deriveStartDate("2026-06-10", 5 * 3600, 5)).toBe("2026-06-10");
+  });
+
+  it("returns one day earlier when route barely exceeds one budget day", () => {
+    // 5 h budget, 5 h 1 s route → ceil(300.017/300) = 2 → 1 day earlier
+    expect(deriveStartDate("2026-06-10", 5 * 3600 + 1, 5)).toBe("2026-06-09");
+  });
+
+  it("rolls back correct number of days for a multi-day route", () => {
+    // 8 h budget, 25 h route → ceil(1500/480) = ceil(3.125) = 4 → 3 days earlier
+    expect(deriveStartDate("2026-06-10", 25 * 3600, 8)).toBe("2026-06-07");
+  });
+
+  it("crosses month boundary correctly (March 1 → Feb 28)", () => {
+    // 5 h budget, 6 h route → 2 days → back to Feb 28
+    expect(deriveStartDate("2026-03-01", 6 * 3600, 5)).toBe("2026-02-28");
+  });
+
+  it("crosses year boundary correctly (Jan 1 → Dec 31)", () => {
+    // 5 h budget, 6 h route → 2 days → back to Dec 31
+    expect(deriveStartDate("2026-01-01", 6 * 3600, 5)).toBe("2025-12-31");
+  });
+
+  it("throws when dailyBudgetHours is zero", () => {
+    expect(() => deriveStartDate("2026-06-10", 3600, 0)).toThrow("dailyBudgetHours must be positive");
+  });
+
+  it("throws when dailyBudgetHours is negative", () => {
+    expect(() => deriveStartDate("2026-06-10", 3600, -1)).toThrow("dailyBudgetHours must be positive");
+  });
+
+  it("throws when directDurationSeconds is NaN", () => {
+    expect(() => deriveStartDate("2026-06-10", NaN, 5)).toThrow("directDurationSeconds must be a non-negative finite number");
+  });
+
+  it("throws when directDurationSeconds is negative", () => {
+    expect(() => deriveStartDate("2026-06-10", -1, 5)).toThrow("directDurationSeconds must be a non-negative finite number");
+  });
+
+  it("throws when directDurationSeconds is Infinity", () => {
+    expect(() => deriveStartDate("2026-06-10", Infinity, 5)).toThrow("directDurationSeconds must be a non-negative finite number");
   });
 });
