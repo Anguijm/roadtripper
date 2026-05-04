@@ -168,16 +168,23 @@ export default async function PlanPage({
     route = routeResult.value;
     // Derive startDate from the direct route duration in arrival mode.
     if (isArrivalMode && endDate) {
-      startDate = deriveStartDate(endDate, route.totalDurationSeconds, budgetHours);
-      // MAX_TRIP_DAYS check deferred from ArrivalTripParamsSchema — enforce now
-      // that startDate is known.
-      if (totalDays({ startDate, endDate }) > MAX_TRIP_DAYS) {
-        return (
-          <ErrorScreen
-            title="Invalid Parameters"
-            message={`Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`}
-          />
-        );
+      if (!Number.isFinite(route.totalDurationSeconds)) {
+        // Malformed Routes API response — treat as a route failure rather than
+        // passing a NaN duration to deriveStartDate, which would crash SSR.
+        route = null;
+        routeError = "Could not compute route — departure date cannot be derived. Please try again.";
+      } else {
+        startDate = deriveStartDate(endDate, route.totalDurationSeconds, budgetHours);
+        // MAX_TRIP_DAYS check deferred from ArrivalTripParamsSchema — enforce now
+        // that startDate is known.
+        if (totalDays({ startDate, endDate }) > MAX_TRIP_DAYS) {
+          return (
+            <ErrorScreen
+              title="Invalid Parameters"
+              message={`Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`}
+            />
+          );
+        }
       }
     }
   } else {

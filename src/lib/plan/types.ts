@@ -84,6 +84,8 @@ export function deriveStartDate(
   dailyBudgetHours: number
 ): string {
   if (dailyBudgetHours <= 0) throw new Error("dailyBudgetHours must be positive");
+  if (!Number.isFinite(directDurationSeconds) || directDurationSeconds < 0)
+    throw new Error("directDurationSeconds must be a non-negative finite number");
   const budgetMinutes = dailyBudgetHours * 60;
   const daysNeeded = Math.max(1, Math.ceil(directDurationSeconds / 60 / budgetMinutes));
   const d = new Date(endDate + "T00:00:00Z");

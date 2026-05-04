@@ -223,4 +223,16 @@ describe("deriveStartDate", () => {
   it("throws when dailyBudgetHours is negative", () => {
     expect(() => deriveStartDate("2026-06-10", 3600, -1)).toThrow("dailyBudgetHours must be positive");
   });
+
+  it("throws when directDurationSeconds is NaN", () => {
+    expect(() => deriveStartDate("2026-06-10", NaN, 5)).toThrow("directDurationSeconds must be a non-negative finite number");
+  });
+
+  it("throws when directDurationSeconds is negative", () => {
+    expect(() => deriveStartDate("2026-06-10", -1, 5)).toThrow("directDurationSeconds must be a non-negative finite number");
+  });
+
+  it("throws when directDurationSeconds is Infinity", () => {
+    expect(() => deriveStartDate("2026-06-10", Infinity, 5)).toThrow("directDurationSeconds must be a non-negative finite number");
+  });
 });
