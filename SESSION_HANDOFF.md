@@ -4,16 +4,18 @@
 
 **Current branch: `main`**. No open PRs. Local in sync with origin.
 
-**Main is at `8747edf`** (last merged: PR #29 — save/load trips UI, Session 22).
+**Main is at `3d1500f`** (last merged: PR #31 — end-date-anchored trip mode, Session 23).
 
-**Save/load trips complete.** Both slices shipped:
-- PR #28 — server layer: `SavedTrip` type, `saveTrip`/`loadTrips`/`deleteTrip` server actions (Clerk + Firestore transaction)
-- PR #29 — UI: save button in PlanWorkspace, `/trips` list page, `TripCard`/`TripsList`, "My Trips" link
+**End-date-anchored trip mode shipped (PR #31):**
+- `deriveStartDate(endDate, durationSeconds, budgetHours)` in `types.ts` — overnight quantization, NaN/negative guards
+- `ArrivalTripParamsSchema` for arrival-mode URL validation; `MAX_TRIP_DAYS` enforced imperatively post-derivation
+- `RouteInput.tsx` — Date range / Arrival date mode toggle (fieldset/radio, 44px, aria-live)
+- `plan/page.tsx` — arrival mode path: derives startDate after route, encodedPolyline semantic check, AbortController wired
 
 **Next: choose from Someday.** Highest-impact candidates:
-1. End-date-anchored trip mode — user enters only end date; plan page derives start date from route drive time
-2. Persona-aware neighborhood ranking — `trending_score` + persona weights
-3. Stale ISC anchor comments in `actions.ts` — quick cleanup
+1. Persona-aware neighborhood ranking — `trending_score` + persona weights (deferred since S8)
+2. "Optimize stop order" toggle — `optimizeWaypointOrder` Routes API flag, small/self-contained
+3. Dynamic start-date recalculation in arrival mode as stops are added (V2 of PR #31)
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
