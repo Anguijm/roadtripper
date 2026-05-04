@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-05-02** (Session 22 — PRs #28 + #29 merged: save/load trips).
+Last refreshed: **2026-05-04** (Session 23 — PR #31 merged: end-date-anchored trip mode).
 
 ## Now (this week)
 
@@ -14,7 +14,7 @@ None queued.
 
 ## Someday (architectural ideas, daydreams)
 
-- **End-date-anchored trip mode**: user enters only an end date on page 1; plan page derives start date from `ceil(totalDriveHours / budgetHoursPerDay)` after computing the route. Needs a "date mode" flag in URL params, server-side derivation of `startDate` in `page.tsx`, and a new UI state in `RouteInput` (end-date-only path). The `DriveBudgetSelector` + route drive time already give us everything needed to calculate it.
+- **Dynamic start-date recalculation (arrival mode V2)**: as stops are added in arrival mode, re-derive `startDate` from the full routed distance. Deadline pressure already signals if you're falling behind; this would keep the displayed date range accurate. Needs `recomputeAndRefreshAction` to return updated `totalDurationSeconds` and `plan/page.tsx`-derived date to propagate via PlanWorkspace state.
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
 - Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
 - Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
