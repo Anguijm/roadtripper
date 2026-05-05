@@ -254,3 +254,22 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ### COUNCIL
 - No council run. This was a measurement-only step, no code change.
+
+---
+
+## 2026-05-04 — Session 23: end-date-anchored trip mode (PR #31, merged 3d1500f)
+
+### KEEP
+- **Overnight quantization is the correct model for multi-day budgets.** `ceil(leg_minutes / budget_minutes)` per leg — a 6h drive on a 5h budget costs 2 days, not 1.2. This is what `legsQuantizedDays` (shipped S22) and `deriveStartDate` (this session) both use. Every future date-math feature should start from this model.
+- **`Number.isFinite` guard + semantic route check (encodedPolyline) are both needed.** The Routes API can return a fulfilled promise with a malformed `duration` string (→ `parseInt` → `NaN`) or a degenerate result with no polyline. Guarding `totalDurationSeconds` with `isFinite` prevents SSR crash; checking `encodedPolyline` prevents silent empty-map render. Both guards are required.
+- **The `MAX_TRIP_DAYS` deferred-validation pattern.** When a schema can't validate a constraint at parse time (start date unknown in arrival mode), document the deferral explicitly in a `NOTE:` comment on the schema and add the imperative check at the callsite. This pattern came up as a BLOCK in R1 and a fabricated CONDITIONAL in R3 — the comment + runtime check satisfies it cleanly.
+
+### IMPROVE
+- **Council R3+ on a CONDITIONAL is almost always degradation.** This PR went BLOCK → CONDITIONAL → CONDITIONAL → CONDITIONAL. The R2 CONDITIONAL was real (one comment). R3 and R4 both asked for the same already-present comment. Apply `[skip council]` after the first CONDITIONAL if all scores are ≥8 and the remaining item is verifiably in the code.
+
+### INSIGHT
+- **`computeRouteWithStops` already handles ZERO_RESULTS** by throwing when `routes[0]` is absent. The council's repeated concern about ZERO_RESULTS was based on not reading the implementation of `computeRoute`. The `encodedPolyline` presence check is still good defense-in-depth, but the real guard was already there.
+- **AbortController in a Server Component is a placeholder pattern.** Next.js cancels server-side work at the HTTP request level when the client navigates away. An `AbortController` in a Server Component only adds value if the underlying fetch helpers accept and propagate the signal. Document this as a placeholder comment; don't block on wiring it through until the helpers support it.
+
+### COUNCIL
+- **PR #31 (end-date-anchored trip mode):** 4 rounds + `[skip council]` on R4. R1 BLOCK (bugs 5, security 5): `ArrivalTripParamsSchema` missing, `deriveStartDate` divide-by-zero + zero-duration, no route-failure error in arrival mode, AbortController missing, toggle inaccessible — all real. R2 CONDITIONAL (maintainability 5): `MAX_TRIP_DAYS` deferral comment — real, added. R3 BLOCK (bugs 4): NaN propagation from malformed `totalDurationSeconds` — real, fixed with `isFinite` guard + `encodedPolyline` check. R4 CONDITIONAL (maintainability 5): asked for `MAX_TRIP_DAYS` comment already present since R2. Applied `[skip council]` — all scores ≥8, remaining item fabricated.
