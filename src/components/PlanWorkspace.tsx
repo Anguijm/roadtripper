@@ -464,11 +464,11 @@ export default function PlanWorkspace({
           // Degraded — keep the prior liveWaypointFetch (Council S7-ARCH-2).
           setRecommendationsDegraded(true);
         }
-        if (result.derivedStartDate) {
-          setEffectiveStartDate(result.derivedStartDate);
+        if (result.dateDerivation?.status === "ok") {
+          setEffectiveStartDate(result.dateDerivation.date);
           setStartDateDerivationFailed(false);
-          setStartDateAnnouncement(`Departure date updated to ${result.derivedStartDate}`);
-        } else if (result.dateDerivationFailed) {
+          setStartDateAnnouncement(`Departure date updated to ${result.dateDerivation.date}`);
+        } else if (result.dateDerivation?.status === "failed") {
           setStartDateDerivationFailed(true);
         }
         setRecomputeError(null);
