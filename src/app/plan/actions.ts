@@ -253,7 +253,11 @@ export async function recomputeAndRefreshAction(
         const date = deriveStartDate(endParsed.data, route.totalDurationSeconds, budgetHours);
         dateDerivation = { status: "ok", date };
       } catch (err) {
-        console.error("[recomputeAndRefreshAction] deriveStartDate failed:", err);
+        console.error(
+          "[recomputeAndRefreshAction] deriveStartDate failed:",
+          err,
+          { endDate, totalDurationSeconds: route.totalDurationSeconds, budgetHours }
+        );
         dateDerivation = { status: "failed" };
       }
     } else {
