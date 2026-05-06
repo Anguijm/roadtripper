@@ -123,6 +123,8 @@ export default function PlanWorkspace({
   // In arrival mode, startDate is re-derived after each recompute as stops are
   // added. In range mode it's fixed for the component's lifetime.
   const [effectiveStartDate, setEffectiveStartDate] = useState<string | undefined>(startDate);
+  const [startDateAnnouncement, setStartDateAnnouncement] = useState("");
+  const [startDateDerivationFailed, setStartDateDerivationFailed] = useState(false);
 
   // Total trip budget derived from date range.
   // Default to 1 day when no date range is provided — ensures a non-zero budget is
@@ -462,7 +464,13 @@ export default function PlanWorkspace({
           // Degraded — keep the prior liveWaypointFetch (Council S7-ARCH-2).
           setRecommendationsDegraded(true);
         }
-        if (result.derivedStartDate) setEffectiveStartDate(result.derivedStartDate);
+        if (result.derivedStartDate) {
+          setEffectiveStartDate(result.derivedStartDate);
+          setStartDateDerivationFailed(false);
+          setStartDateAnnouncement(`Departure date updated to ${result.derivedStartDate}`);
+        } else if (result.dateDerivationFailed) {
+          setStartDateDerivationFailed(true);
+        }
         setRecomputeError(null);
         setFailedStopId(null);
       } else {
@@ -595,6 +603,7 @@ export default function PlanWorkspace({
       <div aria-live="polite" className="sr-only">{candidatePoolAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{sheetAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{saveAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{startDateAnnouncement}</div>
 
       {/* Side panel / mobile bottom sheet */}
       <aside
@@ -790,6 +799,18 @@ export default function PlanWorkspace({
                 {tripState.status.kind === "over_budget"
                   ? `Over budget by ${formatDuration(tripState.status.overageMinutes * 60)}.`
                   : `Budget tight — ${formatDuration(tripState.status.directMinutesToDestination * 60)} direct to ${toName} with ${formatDuration(tripState.status.remainingBudgetMinutes * 60)} remaining.`}
+              </p>
+            </div>
+          )}
+
+          {/* Arrival mode: warn when departure date could not be re-derived after recompute. */}
+          {startDateDerivationFailed && (
+            <div
+              role="alert"
+              className="px-3 py-2 border border-[#d29922] bg-[#161b22]"
+            >
+              <p className="text-xs text-[#d29922]">
+                Departure date could not be updated — showing last known date.
               </p>
             </div>
           )}

@@ -82,6 +82,8 @@ export type RecomputeAndRefreshResult =
       waypointFetch: WaypointFetchResult;
       /** Derived departure date — populated only in arrival mode when an endDate was supplied. */
       derivedStartDate?: string;
+      /** True when endDate was supplied but derivation failed; client should warn user. */
+      dateDerivationFailed?: boolean;
     }
   | {
       ok: true;
@@ -89,6 +91,7 @@ export type RecomputeAndRefreshResult =
       waypointStatus: "degraded";
       waypointFetch: null;
       derivedStartDate?: string;
+      dateDerivationFailed?: boolean;
     }
   | { ok: false; error: RecomputeErrorCode; retryAfterSeconds?: number };
 
@@ -235,16 +238,21 @@ export async function recomputeAndRefreshAction(
   }
 
   // In arrival mode, re-derive the departure date from the recomputed total
-  // duration. Non-fatal: if derivation fails, the caller keeps its prior startDate.
+  // duration. Non-fatal: if derivation fails, the caller keeps its prior startDate
+  // but is told via dateDerivationFailed so it can warn the user.
   let derivedStartDate: string | undefined;
+  let dateDerivationFailed: boolean | undefined;
   if (endDate !== undefined) {
     const endParsed = z.string().date().safeParse(endDate);
     if (endParsed.success && Number.isFinite(route.totalDurationSeconds)) {
       try {
         derivedStartDate = deriveStartDate(endParsed.data, route.totalDurationSeconds, budgetHours);
-      } catch {
-        // deriveStartDate throws on invalid inputs — swallow and leave undefined.
+      } catch (err) {
+        console.error("[recomputeAndRefreshAction] deriveStartDate failed:", err);
+        dateDerivationFailed = true;
       }
+    } else {
+      dateDerivationFailed = true;
     }
   }
 
@@ -266,11 +274,11 @@ export async function recomputeAndRefreshAction(
     console.info(
       `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh`
     );
-    return { ok: true, route, waypointStatus: "fresh", waypointFetch, derivedStartDate };
+    return { ok: true, route, waypointStatus: "fresh", waypointFetch, derivedStartDate, dateDerivationFailed };
   } catch (e) {
     // SEC-4: log server-side; surface ONLY the degraded flag to the client.
     console.error("[recomputeAndRefreshAction] candidate refresh failed:", e);
-    return { ok: true, route, waypointStatus: "degraded", waypointFetch: null, derivedStartDate };
+    return { ok: true, route, waypointStatus: "degraded", waypointFetch: null, derivedStartDate, dateDerivationFailed };
   }
 }
 
