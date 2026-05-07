@@ -55,6 +55,7 @@ interface PlanWorkspaceProps {
   maxDetourMinutes: number;
   startDate?: string;
   endDate?: string;
+  dateMode?: string;
   initialCandidateFetchFailed?: boolean;
 }
 
@@ -102,6 +103,7 @@ export default function PlanWorkspace({
   maxDetourMinutes,
   startDate,
   endDate,
+  dateMode,
   initialCandidateFetchFailed = false,
 }: PlanWorkspaceProps) {
   const { isSignedIn } = useAuth();
@@ -118,10 +120,16 @@ export default function PlanWorkspace({
   const [activePersonaId, setActivePersonaId] = useState<PersonaId>(initialPersonaId);
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
 
-  // Total trip budget derived from date range (stable for the life of this component).
+  // In arrival mode, startDate is re-derived after each recompute as stops are
+  // added. In range mode it's fixed for the component's lifetime.
+  const [effectiveStartDate, setEffectiveStartDate] = useState<string | undefined>(startDate);
+  const [startDateAnnouncement, setStartDateAnnouncement] = useState("");
+  const [startDateDerivationFailed, setStartDateDerivationFailed] = useState(false);
+
+  // Total trip budget derived from date range.
   // Default to 1 day when no date range is provided — ensures a non-zero budget is
   // always available for calculation on legacy URLs that predate the date fields.
-  const tripDays = startDate && endDate ? dateTotalDays({ startDate, endDate }) : 1;
+  const tripDays = effectiveStartDate && endDate ? dateTotalDays({ startDate: effectiveStartDate, endDate }) : 1;
   const totalBudgetMins = tripDays * budgetHours * 60;
 
   // Trip + recompute state.
@@ -282,14 +290,14 @@ export default function PlanWorkspace({
   // day to reach the destination by the end date. Only shown when a date range
   // was provided and at least one stop has been added.
   const deadlinePressure = useMemo(() => {
-    if (!startDate || !endDate) return null;
+    if (!effectiveStartDate || !endDate) return null;
     return computeDeadlinePressure(
       tripState.legs,
       tripDays,
       budgetHours,
       tripState.directMinutesToDestination
     );
-  }, [tripState, tripDays, budgetHours, startDate, endDate]);
+  }, [tripState, tripDays, budgetHours, effectiveStartDate, endDate]);
 
   // Arc shows the search semicircle ahead of the frontier stop (last added, or origin).
   // Suppressed when the route is sealed — user is done exploring candidates.
@@ -411,7 +419,8 @@ export default function PlanWorkspace({
         stopsForRequest,
         budgetHours,
         lastStopCityId,
-        actionRequestId
+        actionRequestId,
+        dateMode === "arrival" ? endDate : undefined
       );
 
       // Stale-response guard — wraps BOTH state updates so a stale
@@ -454,6 +463,13 @@ export default function PlanWorkspace({
         } else {
           // Degraded — keep the prior liveWaypointFetch (Council S7-ARCH-2).
           setRecommendationsDegraded(true);
+        }
+        if (result.dateDerivation?.status === "ok") {
+          setEffectiveStartDate(result.dateDerivation.date);
+          setStartDateDerivationFailed(false);
+          setStartDateAnnouncement(`Departure date updated to ${result.dateDerivation.date}`);
+        } else if (result.dateDerivation?.status === "failed") {
+          setStartDateDerivationFailed(true);
         }
         setRecomputeError(null);
         setFailedStopId(null);
@@ -546,7 +562,7 @@ export default function PlanWorkspace({
       toLat: destination.lat,
       toLng: destination.lng,
       budgetHours,
-      startDate,
+      startDate: effectiveStartDate,
       endDate,
       personaId: activePersonaId,
       stops: tripStops.map((s) => ({
@@ -569,7 +585,7 @@ export default function PlanWorkspace({
       setSaveState("error");
       setSaveAnnouncement("Trip save failed. Please try again.");
     }
-  }, [fromName, toName, origin, destination, budgetHours, startDate, endDate, activePersonaId, tripStops]);
+  }, [fromName, toName, origin, destination, budgetHours, effectiveStartDate, endDate, activePersonaId, tripStops]);
 
   const handleRetry = useCallback(() => {
     // Force a fresh recompute by bumping the request id; the effect's
@@ -587,6 +603,7 @@ export default function PlanWorkspace({
       <div aria-live="polite" className="sr-only">{candidatePoolAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{sheetAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{saveAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{startDateAnnouncement}</div>
 
       {/* Side panel / mobile bottom sheet */}
       <aside
@@ -782,6 +799,18 @@ export default function PlanWorkspace({
                 {tripState.status.kind === "over_budget"
                   ? `Over budget by ${formatDuration(tripState.status.overageMinutes * 60)}.`
                   : `Budget tight — ${formatDuration(tripState.status.directMinutesToDestination * 60)} direct to ${toName} with ${formatDuration(tripState.status.remainingBudgetMinutes * 60)} remaining.`}
+              </p>
+            </div>
+          )}
+
+          {/* Arrival mode: warn when departure date could not be re-derived after recompute. */}
+          {startDateDerivationFailed && (
+            <div
+              role="alert"
+              className="px-3 py-2 border border-[#d29922] bg-[#161b22]"
+            >
+              <p className="text-xs text-[#d29922]">
+                Departure date could not be updated — showing last known date.
               </p>
             </div>
           )}

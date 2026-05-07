@@ -14,7 +14,7 @@ import {
   isBudgetHoursInRange,
   hopReachMinutes,
 } from "@/lib/routing/validation";
-import { LatLngSchema } from "@/lib/plan/types";
+import { LatLngSchema, deriveStartDate } from "@/lib/plan/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
 import {
   checkRateLimit,
@@ -74,18 +74,29 @@ export type RecomputeErrorCode =
   | "upstream_unavailable"
   | "internal_error";
 
+/** Result of the server-side departure date re-derivation in arrival mode.
+ *  null  — endDate was not supplied (range mode); no derivation attempted.
+ *  ok    — derivation succeeded; `date` is the new departure date.
+ *  failed — endDate was supplied but derivation failed; client should warn user. */
+export type DateDerivationResult =
+  | { status: "ok"; date: string }
+  | { status: "failed" }
+  | null;
+
 export type RecomputeAndRefreshResult =
   | {
       ok: true;
       route: DirectionsResult;
       waypointStatus: "fresh";
       waypointFetch: WaypointFetchResult;
+      dateDerivation: DateDerivationResult;
     }
   | {
       ok: true;
       route: DirectionsResult;
       waypointStatus: "degraded";
       waypointFetch: null;
+      dateDerivation: DateDerivationResult;
     }
   | { ok: false; error: RecomputeErrorCode; retryAfterSeconds?: number };
 
@@ -129,7 +140,8 @@ export async function recomputeAndRefreshAction(
   stops: ReadonlyArray<RecomputeStopInput>,
   budgetHours: number,
   selectedCityId?: string,
-  requestId?: string
+  requestId?: string,
+  endDate?: string
 ): Promise<RecomputeAndRefreshResult> {
   // ── Burst + spacing gates (DoS shields — run BEFORE validation) ────────
   let ip: string;
@@ -230,6 +242,29 @@ export async function recomputeAndRefreshAction(
     return { ok: false, error: "internal_error" };
   }
 
+  // In arrival mode, re-derive the departure date from the recomputed total
+  // duration. Non-fatal: if derivation fails, the caller keeps its prior startDate
+  // but receives dateDerivation: { status: "failed" } so it can warn the user.
+  let dateDerivation: DateDerivationResult = null;
+  if (endDate !== undefined) {
+    const endParsed = z.string().date().safeParse(endDate);
+    if (endParsed.success && Number.isFinite(route.totalDurationSeconds)) {
+      try {
+        const date = deriveStartDate(endParsed.data, route.totalDurationSeconds, budgetHours);
+        dateDerivation = { status: "ok", date };
+      } catch (err) {
+        console.error(
+          "[recomputeAndRefreshAction] deriveStartDate failed:",
+          err,
+          { endDate, totalDurationSeconds: route.totalDurationSeconds, budgetHours }
+        );
+        dateDerivation = { status: "failed" };
+      }
+    } else {
+      dateDerivation = { status: "failed" };
+    }
+  }
+
   // Stage 2: radial candidate refresh from current position. Radial origin is
   // the last added stop (or the trip origin when no stops have been added yet).
   // If this fails, ship the route with `waypointStatus: "degraded"` so the
@@ -248,11 +283,11 @@ export async function recomputeAndRefreshAction(
     console.info(
       `[recomputeAndRefreshAction] ok stops=${cleanStops.length} status=fresh`
     );
-    return { ok: true, route, waypointStatus: "fresh", waypointFetch };
+    return { ok: true, route, waypointStatus: "fresh", waypointFetch, dateDerivation };
   } catch (e) {
     // SEC-4: log server-side; surface ONLY the degraded flag to the client.
     console.error("[recomputeAndRefreshAction] candidate refresh failed:", e);
-    return { ok: true, route, waypointStatus: "degraded", waypointFetch: null };
+    return { ok: true, route, waypointStatus: "degraded", waypointFetch: null, dateDerivation };
   }
 }
 

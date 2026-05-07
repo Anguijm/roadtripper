@@ -259,6 +259,7 @@ export default async function PlanPage({
           maxDetourMinutes={maxDetourMinutes}
           startDate={startDate}
           endDate={endDate}
+          dateMode={isArrivalMode ? "arrival" : undefined}
           initialCandidateFetchFailed={candidateFetchFailed}
         />
       ) : (
