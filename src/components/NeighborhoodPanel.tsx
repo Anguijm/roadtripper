@@ -8,6 +8,8 @@
 import { useMemo } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
+import { scoreNeighborhood } from "@/lib/routing/scoring";
+import { getPersona } from "@/lib/personas";
 import type {
   LiteWaypoint,
   NeighborhoodLoadState,
@@ -23,6 +25,7 @@ interface NeighborhoodPanelProps {
   loadState: NeighborhoodLoadState;
   waypoints: LiteWaypoint[];
   failures: WaypointFetchFailure[];
+  personaId: unknown;
 }
 
 export default function NeighborhoodPanel({
@@ -31,7 +34,9 @@ export default function NeighborhoodPanel({
   loadState,
   waypoints,
   failures,
+  personaId,
 }: NeighborhoodPanelProps) {
+  const persona = useMemo(() => getPersona(personaId), [personaId]);
   const hasNeighborhoodFailure =
     loadState.kind === "failed" ||
     failures.some((f) => f.kind === "neighborhoods" && f.cityId === cityId);
@@ -43,9 +48,6 @@ export default function NeighborhoodPanel({
         byNeighborhoodId: new Map<string | null, LiteWaypoint[]>(),
       };
     }
-    const sorted = [...loadState.data].sort(
-      (a, b) => b.trending_score - a.trending_score
-    );
     const byId = new Map<string | null, LiteWaypoint[]>();
     for (const w of waypoints) {
       const key = w.neighborhoodId;
@@ -53,8 +55,13 @@ export default function NeighborhoodPanel({
       if (list) list.push(w);
       else byId.set(key, [w]);
     }
+    const sorted = [...loadState.data].sort((a, b) => {
+      const sa = scoreNeighborhood(a.trending_score, byId.get(a.id) ?? [], persona);
+      const sb = scoreNeighborhood(b.trending_score, byId.get(b.id) ?? [], persona);
+      return sb - sa;
+    });
     return { sorted, byNeighborhoodId: byId };
-  }, [loadState, waypoints]);
+  }, [loadState, waypoints, persona]);
 
   const useGroupedLayout = useMemo(
     () =>
