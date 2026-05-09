@@ -69,7 +69,7 @@ export default function NeighborhoodPanel({
       const sb = scoreNeighborhood(Number(b.trending_score ?? 0) || 0, byId.get(b.id) ?? [], persona);
       // Secondary sort on id ensures a stable order for equal scores across renders.
       if (sb !== sa) return sb - sa;
-      return a.id < b.id ? -1 : 1;
+      return (a.id ?? "").localeCompare(b.id ?? "");
     });
     return { sorted, byNeighborhoodId: byId };
   }, [loadState, waypoints, persona]);
@@ -114,6 +114,18 @@ export default function NeighborhoodPanel({
       <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
         <p className="text-xs text-[#b0b9c2] mb-2">
           Showing all stops in {cityName}.
+        </p>
+        <FlatWaypointList waypoints={waypoints} />
+      </div>
+    );
+  }
+
+  // Loaded — no neighborhood records returned (distinct from kind:"empty")
+  if (sorted.length === 0) {
+    return (
+      <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
+        <p className="text-xs text-[#b0b9c2] mb-2">
+          No neighborhoods found in {cityName}.
         </p>
         <FlatWaypointList waypoints={waypoints} />
       </div>

@@ -16,7 +16,7 @@ re-sort using existing `typeWeight` infrastructure.
 
 | File | Change |
 |------|--------|
-| `src/lib/routing/scoring.ts` | Add `scoreNeighborhood(neighborhood, waypoints, persona)` |
+| `src/lib/routing/scoring.ts` | Add `scoreNeighborhood(trendingScore, waypoints, persona)` |
 | `src/components/NeighborhoodPanel.tsx` | Add `personaId` prop; use `scoreNeighborhood` in sort |
 | `src/components/PlanWorkspace.tsx` | Pass `activePersonaId` to `NeighborhoodPanel` |
 
@@ -27,7 +27,7 @@ re-sort using existing `typeWeight` infrastructure.
 // Falls back to the "other" weight (0.2) when the neighborhood has no
 // waypoints (not yet fetched or genuinely empty).
 export function scoreNeighborhood(
-  neighborhood: NeighborhoodLite,
+  trendingScore: number,        // neighborhood.trending_score, pre-extracted
   waypoints: LiteWaypoint[],   // already filtered to this neighborhood
   persona: PersonaConfig
 ): number {
@@ -35,7 +35,7 @@ export function scoreNeighborhood(
     const tier = tierForType(w.type, persona);
     return Math.max(best, typeWeight(tier));
   }, typeWeight("other"));  // floor = 0.2
-  return neighborhood.trending_score * bestWeight;
+  return trendingScore * bestWeight;
 }
 ```
 
