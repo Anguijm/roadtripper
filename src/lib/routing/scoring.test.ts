@@ -168,6 +168,15 @@ describe("scoreNeighborhood", () => {
     expect(scoreNeighborhood(50, waypoints, outdoorsman)).toBeCloseTo(50 * 1.0);
   });
 
+  it("returns 0 and not NaN when trending_score is coerced from a non-numeric value", () => {
+    // Simulates Number("bad-firestore-value") || 0 applied in NeighborhoodPanel
+    // before calling scoreNeighborhood — ensures no NaN propagates into the sort.
+    const coerced = Number("not-a-number" as unknown as number) || 0;
+    const result = scoreNeighborhood(coerced, [makeWaypoint({ type: "nature" })], outdoorsman);
+    expect(result).not.toBeNaN();
+    expect(result).toBeCloseTo(0);
+  });
+
   it("changes ranking order when persona changes", () => {
     // outdoorsman: nature=primary(1.0), food=other(0.2)
     // foodie: food=primary(1.0), nature=secondary(0.5)

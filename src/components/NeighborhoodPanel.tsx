@@ -122,7 +122,14 @@ export default function NeighborhoodPanel({
 
   // Loaded — grouped layout when ≥1 neighborhood has GROUP_THRESHOLD+ waypoints
   if (useGroupedLayout) {
-    const ungrouped = byNeighborhoodId.get(null) ?? [];
+    // Collect waypoints that have no neighborhood OR whose neighborhoodId doesn't
+    // match any neighborhood returned by the server. Without this, those waypoints
+    // would be silently dropped from the grouped view.
+    const knownIds = new Set(sorted.map((nb) => nb.id));
+    const ungrouped: LiteWaypoint[] = [];
+    for (const [key, ws] of byNeighborhoodId.entries()) {
+      if (key === null || !knownIds.has(key)) ungrouped.push(...ws);
+    }
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2">
         {/* aria-live regions don't announce initial content — only changes.
