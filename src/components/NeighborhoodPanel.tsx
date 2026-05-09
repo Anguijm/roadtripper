@@ -5,7 +5,7 @@
 // (plain text). The dangerouslySetInnerHTML prop is forbidden in this file;
 // CI grep on council.yml enforces the ban on every PR.
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import { scoreNeighborhood } from "@/lib/routing/scoring";
@@ -16,7 +16,11 @@ import type {
   WaypointFetchFailure,
 } from "@/lib/routing/scoring";
 
-/** Only render grouped layout when at least one neighborhood reaches this. */
+/**
+ * Switch to grouped layout when any neighborhood has at least this many stops.
+ * 3 is the point where a flat list with inline chips becomes hard to scan and
+ * a header-per-neighbourhood grouping gives clearer spatial structure.
+ */
 const GROUP_THRESHOLD = 3;
 
 interface NeighborhoodPanelProps {
@@ -60,8 +64,8 @@ export default function NeighborhoodPanel({
       else byId.set(key, [w]);
     }
     const sorted = [...loadState.data].sort((a, b) => {
-      const sa = scoreNeighborhood(a.trending_score, byId.get(a.id) ?? [], persona);
-      const sb = scoreNeighborhood(b.trending_score, byId.get(b.id) ?? [], persona);
+      const sa = scoreNeighborhood(a.trending_score ?? 0, byId.get(a.id) ?? [], persona);
+      const sb = scoreNeighborhood(b.trending_score ?? 0, byId.get(b.id) ?? [], persona);
       return sb - sa;
     });
     return { sorted, byNeighborhoodId: byId };
@@ -75,12 +79,16 @@ export default function NeighborhoodPanel({
     [sorted, byNeighborhoodId]
   );
 
-  // Announce sort order changes to screen readers when persona changes.
+  // Announce sort order changes to screen readers only when persona changes,
+  // not on every waypoint load that happens to re-sort the list.
+  const initialMountRef = useRef(true);
   useEffect(() => {
-    if (sorted.length > 0) {
-      setSortAnnouncement("Neighborhood list reordered for selected travel style.");
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
     }
-  }, [sorted]);
+    setSortAnnouncement("Neighborhood list reordered for selected travel style.");
+  }, [personaId]);
 
   // Failed state — PROD-3
   if (hasNeighborhoodFailure) {
