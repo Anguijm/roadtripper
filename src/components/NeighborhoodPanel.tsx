@@ -64,9 +64,12 @@ export default function NeighborhoodPanel({
       else byId.set(key, [w]);
     }
     const sorted = [...loadState.data].sort((a, b) => {
+      // Number() coerces strings; || 0 collapses NaN from non-numeric Firestore values.
       const sa = scoreNeighborhood(Number(a.trending_score ?? 0) || 0, byId.get(a.id) ?? [], persona);
       const sb = scoreNeighborhood(Number(b.trending_score ?? 0) || 0, byId.get(b.id) ?? [], persona);
-      return sb - sa;
+      // Secondary sort on id ensures a stable order for equal scores across renders.
+      if (sb !== sa) return sb - sa;
+      return a.id < b.id ? -1 : 1;
     });
     return { sorted, byNeighborhoodId: byId };
   }, [loadState, waypoints, persona]);
