@@ -145,18 +145,17 @@ describe("buildRankedGroups", () => {
 
 describe("scoreNeighborhood", () => {
   it("uses floor weight when no waypoints are present", () => {
-    // floor = typeWeight("other") = 0.2
-    expect(scoreNeighborhood(100, [], outdoorsman)).toBeCloseTo(100 * 0.2);
+    expect(scoreNeighborhood(100, [], outdoorsman)).toBeCloseTo(100 * typeWeight("other"));
   });
 
   it("uses primary weight for a primary-type waypoint", () => {
-    // nature is primary for outdoorsman → weight 1.0
-    expect(scoreNeighborhood(80, [makeWaypoint({ type: "nature" })], outdoorsman)).toBeCloseTo(80 * 1.0);
+    // nature is primary for outdoorsman
+    expect(scoreNeighborhood(80, [makeWaypoint({ type: "nature" })], outdoorsman)).toBeCloseTo(80 * typeWeight("primary"));
   });
 
   it("uses secondary weight for a secondary-type waypoint", () => {
-    // landmark is secondary for outdoorsman → weight 0.5
-    expect(scoreNeighborhood(60, [makeWaypoint({ type: "landmark" })], outdoorsman)).toBeCloseTo(60 * 0.5);
+    // landmark is secondary for outdoorsman
+    expect(scoreNeighborhood(60, [makeWaypoint({ type: "landmark" })], outdoorsman)).toBeCloseTo(60 * typeWeight("secondary"));
   });
 
   it("takes the best weight from a mixed set of waypoints", () => {

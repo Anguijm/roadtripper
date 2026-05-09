@@ -5,7 +5,7 @@
 // (plain text). The dangerouslySetInnerHTML prop is forbidden in this file;
 // CI grep on council.yml enforces the ban on every PR.
 
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import { scoreNeighborhood } from "@/lib/routing/scoring";
@@ -44,7 +44,6 @@ export default function NeighborhoodPanel({
   // persona for any null / unrecognised id, so no crash path exists here.
   const persona = useMemo(() => getPersona(personaId), [personaId]);
 
-  const [sortAnnouncement, setSortAnnouncement] = useState("");
   const hasNeighborhoodFailure =
     loadState.kind === "failed" ||
     failures.some((f) => f.kind === "neighborhoods" && f.cityId === cityId);
@@ -81,17 +80,6 @@ export default function NeighborhoodPanel({
       ),
     [sorted, byNeighborhoodId]
   );
-
-  // Announce sort order changes to screen readers only when persona changes,
-  // not on every waypoint load that happens to re-sort the list.
-  const initialMountRef = useRef(true);
-  useEffect(() => {
-    if (initialMountRef.current) {
-      initialMountRef.current = false;
-      return;
-    }
-    setSortAnnouncement("Neighborhood list reordered for selected travel style.");
-  }, [personaId]);
 
   // Failed state — PROD-3
   if (hasNeighborhoodFailure) {
@@ -137,7 +125,12 @@ export default function NeighborhoodPanel({
     const ungrouped = byNeighborhoodId.get(null) ?? [];
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2">
-        <div aria-live="polite" className="sr-only">{sortAnnouncement}</div>
+        {/* aria-live regions don't announce initial content — only changes.
+            Keying the span on personaId causes a remount on persona switch,
+            which is treated as a new insertion and announced. */}
+        <div aria-live="polite" className="sr-only">
+          <span key={personaId ?? ""}>{sorted.length > 0 ? "Neighborhood list reordered for selected travel style." : ""}</span>
+        </div>
         <PanelHeader cityName={cityName} label="Neighborhoods" />
         <div className="divide-y divide-[#30363d]">
           {sorted.map((nb) => {
@@ -167,7 +160,9 @@ export default function NeighborhoodPanel({
   // Loaded — flat list with neighborhood chip per item (below threshold)
   return (
     <div className="border border-[#30363d] bg-[#0d1117] mt-2">
-      <div aria-live="polite" className="sr-only">{sortAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">
+        <span key={personaId ?? ""}>{sorted.length > 0 ? "Neighborhood list reordered for selected travel style." : ""}</span>
+      </div>
       <PanelHeader cityName={cityName} label="Stops" />
       <div className="divide-y divide-[#30363d]">
         {waypoints.map((w) => {
