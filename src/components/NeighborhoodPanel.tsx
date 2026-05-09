@@ -64,8 +64,8 @@ export default function NeighborhoodPanel({
       else byId.set(key, [w]);
     }
     const sorted = [...loadState.data].sort((a, b) => {
-      const sa = scoreNeighborhood(a.trending_score ?? 0, byId.get(a.id) ?? [], persona);
-      const sb = scoreNeighborhood(b.trending_score ?? 0, byId.get(b.id) ?? [], persona);
+      const sa = scoreNeighborhood(Number(a.trending_score ?? 0) || 0, byId.get(a.id) ?? [], persona);
+      const sb = scoreNeighborhood(Number(b.trending_score ?? 0) || 0, byId.get(b.id) ?? [], persona);
       return sb - sa;
     });
     return { sorted, byNeighborhoodId: byId };
