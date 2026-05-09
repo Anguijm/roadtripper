@@ -5,7 +5,7 @@
 // (plain text). The dangerouslySetInnerHTML prop is forbidden in this file;
 // CI grep on council.yml enforces the ban on every PR.
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import { scoreNeighborhood } from "@/lib/routing/scoring";
@@ -25,7 +25,7 @@ interface NeighborhoodPanelProps {
   loadState: NeighborhoodLoadState;
   waypoints: LiteWaypoint[];
   failures: WaypointFetchFailure[];
-  personaId: unknown;
+  personaId: string | null;
 }
 
 export default function NeighborhoodPanel({
@@ -36,7 +36,11 @@ export default function NeighborhoodPanel({
   failures,
   personaId,
 }: NeighborhoodPanelProps) {
+  // getPersona always returns a valid config — it falls back to the default
+  // persona for any null / unrecognised id, so no crash path exists here.
   const persona = useMemo(() => getPersona(personaId), [personaId]);
+
+  const [sortAnnouncement, setSortAnnouncement] = useState("");
   const hasNeighborhoodFailure =
     loadState.kind === "failed" ||
     failures.some((f) => f.kind === "neighborhoods" && f.cityId === cityId);
@@ -71,6 +75,13 @@ export default function NeighborhoodPanel({
     [sorted, byNeighborhoodId]
   );
 
+  // Announce sort order changes to screen readers when persona changes.
+  useEffect(() => {
+    if (sorted.length > 0) {
+      setSortAnnouncement("Neighborhood list reordered for selected travel style.");
+    }
+  }, [sorted]);
+
   // Failed state — PROD-3
   if (hasNeighborhoodFailure) {
     return (
@@ -103,6 +114,7 @@ export default function NeighborhoodPanel({
     const ungrouped = byNeighborhoodId.get(null) ?? [];
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2">
+        <div aria-live="polite" className="sr-only">{sortAnnouncement}</div>
         <PanelHeader cityName={cityName} label="Neighborhoods" />
         <div className="divide-y divide-[#30363d]">
           {sorted.map((nb) => {
@@ -132,6 +144,7 @@ export default function NeighborhoodPanel({
   // Loaded — flat list with neighborhood chip per item (below threshold)
   return (
     <div className="border border-[#30363d] bg-[#0d1117] mt-2">
+      <div aria-live="polite" className="sr-only">{sortAnnouncement}</div>
       <PanelHeader cityName={cityName} label="Stops" />
       <div className="divide-y divide-[#30363d]">
         {waypoints.map((w) => {

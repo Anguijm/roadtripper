@@ -77,6 +77,15 @@ export function tierForType(
   return "other";
 }
 
+/**
+ * Scoring multiplier for a waypoint's tier relative to a persona.
+ *
+ * The ratio between tiers controls how strongly persona preference affects
+ * ranking versus raw trendingScore. The `other` tier intentionally returns a
+ * non-zero floor (0.2) so that non-matching items still appear in ranked lists
+ * (e.g. NeighborhoodPanel). A floor of 0 would cause those items to score 0
+ * and silently disappear.
+ */
 export function typeWeight(tier: ScoringTier): number {
   switch (tier) {
     case "primary":
