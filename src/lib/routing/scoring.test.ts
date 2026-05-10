@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   tierForType,
   scoreWaypoint,
+  scoreNeighborhood,
   buildRankedGroups,
   TOP_WAYPOINTS_PER_CITY,
+  typeWeight,
 } from "./scoring";
 import { PERSONAS } from "@/lib/personas";
 import type { LiteWaypoint, WaypointFetchResult } from "./scoring";
@@ -138,5 +140,56 @@ describe("buildRankedGroups", () => {
       [makeWaypoint()]
     );
     expect(() => buildRankedGroups(result, "unknown-persona-xyz")).not.toThrow();
+  });
+});
+
+describe("scoreNeighborhood", () => {
+  it("uses floor weight when no waypoints are present", () => {
+    expect(scoreNeighborhood(100, [], outdoorsman)).toBeCloseTo(100 * typeWeight("other"));
+  });
+
+  it("uses primary weight for a primary-type waypoint", () => {
+    // nature is primary for outdoorsman
+    expect(scoreNeighborhood(80, [makeWaypoint({ type: "nature" })], outdoorsman)).toBeCloseTo(80 * typeWeight("primary"));
+  });
+
+  it("uses secondary weight for a secondary-type waypoint", () => {
+    // landmark is secondary for outdoorsman
+    expect(scoreNeighborhood(60, [makeWaypoint({ type: "landmark" })], outdoorsman)).toBeCloseTo(60 * typeWeight("secondary"));
+  });
+
+  it("takes the best weight from a mixed set of waypoints", () => {
+    // primary (nature, 1.0) beats secondary (landmark, 0.5) and other (nightlife, 0.2)
+    const waypoints = [
+      makeWaypoint({ id: "a", type: "nightlife" }),
+      makeWaypoint({ id: "b", type: "landmark" }),
+      makeWaypoint({ id: "c", type: "nature" }),
+    ];
+    expect(scoreNeighborhood(50, waypoints, outdoorsman)).toBeCloseTo(50 * 1.0);
+  });
+
+  it("returns 0 and not NaN when trending_score is coerced from a non-numeric value", () => {
+    // Simulates Number("bad-firestore-value") || 0 applied in NeighborhoodPanel
+    // before calling scoreNeighborhood — ensures no NaN propagates into the sort.
+    const coerced = Number("not-a-number" as unknown as number) || 0;
+    const result = scoreNeighborhood(coerced, [makeWaypoint({ type: "nature" })], outdoorsman);
+    expect(result).not.toBeNaN();
+    expect(result).toBeCloseTo(0);
+  });
+
+  it("changes ranking order when persona changes", () => {
+    // outdoorsman: nature=primary(1.0), food=other(0.2)
+    // foodie: food=primary(1.0), nature=secondary(0.5)
+    const natureWaypoint = [makeWaypoint({ type: "nature" })];
+    const foodWaypoint = [makeWaypoint({ type: "food" })];
+    const trendingScore = 100;
+
+    const outdoorsmanNature = scoreNeighborhood(trendingScore, natureWaypoint, outdoorsman);
+    const outdoorsmanFood = scoreNeighborhood(trendingScore, foodWaypoint, outdoorsman);
+    expect(outdoorsmanNature).toBeGreaterThan(outdoorsmanFood);
+
+    const foodieNature = scoreNeighborhood(trendingScore, natureWaypoint, foodie);
+    const foodieFood = scoreNeighborhood(trendingScore, foodWaypoint, foodie);
+    expect(foodieFood).toBeGreaterThan(foodieNature);
   });
 });

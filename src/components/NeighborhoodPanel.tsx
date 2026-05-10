@@ -8,13 +8,19 @@
 import { useMemo } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
+import { scoreNeighborhood } from "@/lib/routing/scoring";
+import { getPersona } from "@/lib/personas";
 import type {
   LiteWaypoint,
   NeighborhoodLoadState,
   WaypointFetchFailure,
 } from "@/lib/routing/scoring";
 
-/** Only render grouped layout when at least one neighborhood reaches this. */
+/**
+ * Switch to grouped layout when any neighborhood has at least this many stops.
+ * 3 is the point where a flat list with inline chips becomes hard to scan and
+ * a header-per-neighbourhood grouping gives clearer spatial structure.
+ */
 const GROUP_THRESHOLD = 3;
 
 interface NeighborhoodPanelProps {
@@ -23,6 +29,7 @@ interface NeighborhoodPanelProps {
   loadState: NeighborhoodLoadState;
   waypoints: LiteWaypoint[];
   failures: WaypointFetchFailure[];
+  personaId: string | null;
 }
 
 export default function NeighborhoodPanel({
@@ -31,7 +38,12 @@ export default function NeighborhoodPanel({
   loadState,
   waypoints,
   failures,
+  personaId,
 }: NeighborhoodPanelProps) {
+  // getPersona always returns a valid config — it falls back to the default
+  // persona for any null / unrecognised id, so no crash path exists here.
+  const persona = useMemo(() => getPersona(personaId), [personaId]);
+
   const hasNeighborhoodFailure =
     loadState.kind === "failed" ||
     failures.some((f) => f.kind === "neighborhoods" && f.cityId === cityId);
@@ -43,9 +55,6 @@ export default function NeighborhoodPanel({
         byNeighborhoodId: new Map<string | null, LiteWaypoint[]>(),
       };
     }
-    const sorted = [...loadState.data].sort(
-      (a, b) => b.trending_score - a.trending_score
-    );
     const byId = new Map<string | null, LiteWaypoint[]>();
     for (const w of waypoints) {
       const key = w.neighborhoodId;
@@ -53,8 +62,16 @@ export default function NeighborhoodPanel({
       if (list) list.push(w);
       else byId.set(key, [w]);
     }
+    const sorted = [...loadState.data].sort((a, b) => {
+      // Number() coerces strings; || 0 collapses NaN from non-numeric Firestore values.
+      const sa = scoreNeighborhood(Number(a.trending_score ?? 0) || 0, byId.get(a.id) ?? [], persona);
+      const sb = scoreNeighborhood(Number(b.trending_score ?? 0) || 0, byId.get(b.id) ?? [], persona);
+      // Secondary sort on id ensures a stable order for equal scores across renders.
+      if (sb !== sa) return sb - sa;
+      return (a.id ?? "").localeCompare(b.id ?? "");
+    });
     return { sorted, byNeighborhoodId: byId };
-  }, [loadState, waypoints]);
+  }, [loadState, waypoints, persona]);
 
   const useGroupedLayout = useMemo(
     () =>
@@ -91,11 +108,36 @@ export default function NeighborhoodPanel({
     );
   }
 
+  // Loaded — no neighborhood records returned (distinct from kind:"empty")
+  if (sorted.length === 0) {
+    return (
+      <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
+        <p className="text-xs text-[#b0b9c2] mb-2">
+          No neighborhoods found in {cityName}.
+        </p>
+        <FlatWaypointList waypoints={waypoints} />
+      </div>
+    );
+  }
+
   // Loaded — grouped layout when ≥1 neighborhood has GROUP_THRESHOLD+ waypoints
   if (useGroupedLayout) {
-    const ungrouped = byNeighborhoodId.get(null) ?? [];
+    // Collect waypoints that have no neighborhood OR whose neighborhoodId doesn't
+    // match any neighborhood returned by the server. Without this, those waypoints
+    // would be silently dropped from the grouped view.
+    const knownIds = new Set(sorted.map((nb) => nb.id));
+    const ungrouped: LiteWaypoint[] = [];
+    for (const [key, ws] of byNeighborhoodId.entries()) {
+      if (key === null || !knownIds.has(key)) ungrouped.push(...ws);
+    }
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2">
+        {/* aria-live regions don't announce initial content — only changes.
+            Keying the span on personaId causes a remount on persona switch,
+            which is treated as a new insertion and announced. */}
+        <div aria-live="polite" className="sr-only">
+          <span key={personaId ?? ""}>{sorted.length > 0 ? "Neighborhood list reordered for selected travel style." : ""}</span>
+        </div>
         <PanelHeader cityName={cityName} label="Neighborhoods" />
         <div className="divide-y divide-[#30363d]">
           {sorted.map((nb) => {
@@ -125,6 +167,9 @@ export default function NeighborhoodPanel({
   // Loaded — flat list with neighborhood chip per item (below threshold)
   return (
     <div className="border border-[#30363d] bg-[#0d1117] mt-2">
+      <div aria-live="polite" className="sr-only">
+        <span key={personaId ?? ""}>{sorted.length > 0 ? "Neighborhood list reordered for selected travel style." : ""}</span>
+      </div>
       <PanelHeader cityName={cityName} label="Stops" />
       <div className="divide-y divide-[#30363d]">
         {waypoints.map((w) => {

@@ -77,7 +77,16 @@ export function tierForType(
   return "other";
 }
 
-function typeWeight(tier: ScoringTier): number {
+/**
+ * Scoring multiplier for a waypoint's tier relative to a persona.
+ *
+ * The ratio between tiers controls how strongly persona preference affects
+ * ranking versus raw trendingScore. The `other` tier intentionally returns a
+ * non-zero floor (0.2) so that non-matching items still appear in ranked lists
+ * (e.g. NeighborhoodPanel). A floor of 0 would cause those items to score 0
+ * and silently disappear.
+ */
+export function typeWeight(tier: ScoringTier): number {
   switch (tier) {
     case "primary":
       return 1.0;
@@ -113,6 +122,26 @@ export function scoreWaypoint(
   const clampedDetour = Math.max(detourMinutes, MIN_DETOUR_CLAMP_MINUTES);
   const score = (waypoint.trendingScore * weight * vibe) / clampedDetour;
   return { score, tier };
+}
+
+/**
+ * Score a neighborhood for persona-aware sorting in the drill-down panel.
+ *
+ * trending_score × max(typeWeight of contained waypoints). The max avoids
+ * bias toward dense neighborhoods — one perfect-match waypoint is as good
+ * as many. Falls back to typeWeight("other") = 0.2 so neighborhoods with no
+ * waypoints (not yet fetched or genuinely empty) stay visible but rank last.
+ */
+export function scoreNeighborhood(
+  trendingScore: number,
+  waypoints: LiteWaypoint[],
+  persona: PersonaConfig
+): number {
+  const floor = typeWeight("other");
+  const bestWeight = waypoints.reduce((best, w) => {
+    return Math.max(best, typeWeight(tierForType(w.type, persona)));
+  }, floor);
+  return trendingScore * bestWeight;
 }
 
 export interface RankedCityGroup {

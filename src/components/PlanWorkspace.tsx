@@ -751,6 +751,7 @@ export default function PlanWorkspace({
                     ? effectiveWaypointFetch.failures
                     : []
                 }
+                personaId={activePersonaId}
               />
             )
           )}
