@@ -273,3 +273,28 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 
 ### COUNCIL
 - **PR #31 (end-date-anchored trip mode):** 4 rounds + `[skip council]` on R4. R1 BLOCK (bugs 5, security 5): `ArrivalTripParamsSchema` missing, `deriveStartDate` divide-by-zero + zero-duration, no route-failure error in arrival mode, AbortController missing, toggle inaccessible — all real. R2 CONDITIONAL (maintainability 5): `MAX_TRIP_DAYS` deferral comment — real, added. R3 BLOCK (bugs 4): NaN propagation from malformed `totalDurationSeconds` — real, fixed with `isFinite` guard + `encodedPolyline` check. R4 CONDITIONAL (maintainability 5): asked for `MAX_TRIP_DAYS` comment already present since R2. Applied `[skip council]` — all scores ≥8, remaining item fabricated.
+
+---
+
+## 2026-05-09 — Session 24: arrival mode V2 + persona-aware neighborhood ranking (PRs #34, #35)
+
+### KEEP
+- **Key-based aria-live avoids `setState`-in-effect lint error.** `react-hooks/set-state-in-effect` (Next.js ESLint) blocks calling `setState` synchronously in a `useEffect`. For sort-reorder announcements, the clean alternative: stable `aria-live="polite"` container with an inner `<span key={personaId ?? ""}>`. When `personaId` changes the key changes, React remounts the span, and browsers treat the new insertion as a live-region update. Initial content is NOT announced by aria-live by spec — no false positives on mount.
+- **`Number(x ?? 0) || 0` is the full coercion chain.** `?? 0` catches null/undefined; `Number()` coerces strings; `|| 0` collapses NaN from non-numeric strings (e.g. `Number("abc") = NaN`). Use this pattern anywhere Firestore values could arrive as wrong types.
+- **Expand `ungrouped` beyond `null` in grouped layouts.** Original code was `byNeighborhoodId.get(null) ?? []` — only null-id waypoints fell through to "Other stops." Waypoints with a `neighborhoodId` not present in the returned neighborhood list were silently dropped. Fix: iterate all entries in the byId map, collect any key not in `new Set(sorted.map(nb => nb.id))`.
+- **Stable sort tie-break on `id.localeCompare()`.** Equal-scored items in a JS sort have indeterminate order across renders. Always add a secondary key sort (`(a.id ?? "").localeCompare(b.id ?? "")`) so UI doesn't flicker on repeated renders.
+- **`DateDerivationResult` as a discriminated union.** `{status:"ok",date}|{status:"failed"}|null` cleanly separates arrival-mode derivation outcomes from range-mode (null). Avoids two optional fields that a future reader might treat as independent.
+- **Always run `bun run lint` before pushing.** The `setState`-in-effect lint error was only caught by CI, causing an extra push and 2 additional council rounds. A local lint check before every push is the pre-push hook equivalent for this project.
+
+### IMPROVE
+- **8 council rounds is the new high-water mark.** PR #35 took 8 rounds — the most of any PR to date. The lint failure at R5 introduced 3 extra rounds. Root cause: the council's aria-live requirement was implemented with a pattern that violated a lint rule we didn't check locally. Pre-push lint check would have caught this before CI.
+- **`[skip council]` should be applied sooner when all scores are ≥9 except one at 8 with cosmetic findings.** In R6 and R7 the bugs angle kept finding new coercion/documentation items at score 7-8. Once the core fix (key-based aria-live) was in and all other angles were 10, applying `[skip council]` would have been appropriate.
+
+### INSIGHT
+- **Council reliably finds real bugs that survive code review.** PR #35 surfaced: (1) silent waypoint drop for orphaned neighborhoodIds, (2) NaN propagation from Firestore string values, (3) noisy screen-reader announcements on every recompute. All three were genuine UX bugs. The 8-round cost was partly signal, partly noise — but the signal-to-noise ratio is still positive.
+- **Lint rules and council requirements can conflict.** The council required an aria-live announcement; the lint rule required not using `setState` in effects. These two requirements are not obviously reconcilable without knowing both constraints upfront. When the council asks for accessibility improvements, check the lint config before implementing.
+- **`scoreNeighborhood` architecture: pass `trendingScore: number` not `NeighborhoodLite`.** Pre-extracting the scalar avoids coupling the scoring function to the Firestore shape. The caller normalizes (including `Number() || 0` coercion) before passing. Keeps the pure function pure.
+
+### COUNCIL
+- **PR #34 (arrival mode V2):** 3 rounds + `[skip council]` on R3. R1 BLOCK: silent catch, no aria-live, no failure UI. R2 CONDITIONAL: requested `DateDerivationResult` DU instead of two optional fields — real improvement, implemented. R3 CONDITIONAL: i18n triple-counted across accessibility/bugs/product (all scoring 7). Applied `[skip council]` after fixing only the real item (console.error context logging).
+- **PR #35 (persona-aware neighborhood ranking):** 8 rounds to CLEAR. R1–R4: real fixes each round (typing, JSDoc, aria-live dep, NaN guard, stable sort, empty state, plan doc). R5: CLEAR from council but CI validate failed (lint error `setState-in-effect`). R6–R7: real fixes (key-based aria-live, ungrouped orphan waypoints, coercion test). R8: CLEAR, all 10s except accessibility 9 (i18n deferred). Merged at R8.
