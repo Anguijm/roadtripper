@@ -4,18 +4,16 @@
 
 **Current branch: `main`**. No open PRs. Local in sync with origin.
 
-**Main is at `3d1500f`** (last merged: PR #31 — end-date-anchored trip mode, Session 23).
+**Main is at `8e321ea`** (last merged: PR #35 — persona-aware neighborhood ranking, Session 24).
 
-**End-date-anchored trip mode shipped (PR #31):**
-- `deriveStartDate(endDate, durationSeconds, budgetHours)` in `types.ts` — overnight quantization, NaN/negative guards
-- `ArrivalTripParamsSchema` for arrival-mode URL validation; `MAX_TRIP_DAYS` enforced imperatively post-derivation
-- `RouteInput.tsx` — Date range / Arrival date mode toggle (fieldset/radio, 44px, aria-live)
-- `plan/page.tsx` — arrival mode path: derives startDate after route, encodedPolyline semantic check, AbortController wired
+**Session 24 shipped (PRs #34, #35 — 2026-05-10):**
+- PR #34: Arrival mode V2 — dynamic `startDate` re-derivation as stops are added. `recomputeAndRefreshAction` accepts optional `endDate`, returns `DateDerivationResult` DU (`{status:"ok",date}|{status:"failed"}|null`). `PlanWorkspace` holds `effectiveStartDate` state + aria-live announcement + amber failure banner.
+- PR #35: Persona-aware neighborhood ranking. `scoreNeighborhood(trendingScore, waypoints, persona)` in `scoring.ts`; `NeighborhoodPanel` accepts `personaId: string|null` and sorts by `trending_score × bestTypeWeight(persona)`. `Number(x??0)||0` coercion guards Firestore schema drift. Key-based `aria-live` for reorder announcements (no setState-in-effect). 8 council rounds; CLEAR at R8.
 
 **Next: choose from Someday.** Highest-impact candidates:
-1. Persona-aware neighborhood ranking — `trending_score` + persona weights (deferred since S8)
-2. "Optimize stop order" toggle — `optimizeWaypointOrder` Routes API flag, small/self-contained
-3. Dynamic start-date recalculation in arrival mode as stops are added (V2 of PR #31)
+1. "Optimize stop order" toggle — `optimizeWaypointOrder` Routes API flag, small/self-contained
+2. Map polygon rendering for neighborhoods (schema doesn't carry polygons today — schema change needed first)
+3. CitySchema reconciliation: nested `location.{latitude,longitude}` vs flat `lat/lng` (deferred from city-atlas-service#26)
 
 **Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
 
@@ -37,6 +35,14 @@
 ---
 
 ## Historical log
+
+### Session 24 (2026-05-09–10) — PRs #34, #35
+
+**Shipped 2 PRs:**
+- PR #34 — Arrival mode V2: `DateDerivationResult` DU in `actions.ts`; `recomputeAndRefreshAction` re-derives startDate on every recompute in arrival mode; `PlanWorkspace` holds `effectiveStartDate`, aria-live announcement, amber failure banner. [skip council] on R3 (i18n triple-counted across a11y/bugs/product).
+- PR #35 — Persona-aware neighborhood ranking: `scoreNeighborhood` + `typeWeight` export in `scoring.ts`; `NeighborhoodPanel` prop `personaId: string|null`, persona-weighted sort, `Number(x??0)||0` coercion, stable `localeCompare` tie-break, key-based aria-live, explicit empty state for `loaded` with 0 records, ungrouped orphan waypoints fix. 8 council rounds to CLEAR.
+
+**Bugs fixed en route (real council catches in PR #35):** silent waypoint drop for orphaned neighborhoodIds (only `null` was collected as "ungrouped"); `trending_score` NaN propagation from Firestore string values.
 
 ### Session 22 (2026-05-02) — PRs #28, #29
 

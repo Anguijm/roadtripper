@@ -2,11 +2,11 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-05-04** (Session 23 — PR #31 merged: end-date-anchored trip mode).
+Last refreshed: **2026-05-11** (Session 24 — PRs #34, #35 merged: arrival mode V2 + persona-aware neighborhood ranking).
 
 ## Now (this week)
 
-- **Mobile smoke test** — verify OKC + Tulsa surface as candidates on Dallas → [far destination], 5h/day budget. Deploy is live (PR #26 auto-deployed).
+- **Mobile smoke test** — verify OKC + Tulsa surface as candidates on Dallas → [far destination], 5h/day budget. Deploy is live (PR #26 auto-deployed). Still pending from S21.
 
 ## Next (queued, scoped)
 
@@ -14,13 +14,11 @@ None queued.
 
 ## Someday (architectural ideas, daydreams)
 
-- **Dynamic start-date recalculation (arrival mode V2)**: as stops are added in arrival mode, re-derive `startDate` from the full routed distance. Deadline pressure already signals if you're falling behind; this would keep the displayed date range accurate. Needs `recomputeAndRefreshAction` to return updated `totalDurationSeconds` and `plan/page.tsx`-derived date to propagate via PlanWorkspace state.
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
 - Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
 - Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
 - External CAS state for council monthly-budget counter (documented cross-PR race in GH Actions cache; GCP budget alert is current backstop).
 - Move post-commit hook artifacts off the working tree so `gh pr merge` stops requiring a pre-merge stash.
-- Persona-aware neighborhood ranking (trending_score + persona weights, S8 deferred).
 - CitySchema: reconcile local nested `location.{latitude,longitude}` divergence with upstream (deferred from city-atlas-service#26).
 - `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
 
@@ -33,6 +31,10 @@ None. (`gh issue list` returned empty as of 2026-04-30.)
 None.
 
 ## Completed
+
+### Session 24 (2026-05-09–10)
+- ✓ PR #34 — Arrival mode V2: dynamic `startDate` re-derivation on each recompute. `DateDerivationResult` DU (`{status:"ok",date}|{status:"failed"}|null`) in `actions.ts`. `effectiveStartDate` state + aria-live + amber failure banner in PlanWorkspace. [skip council] R3 (i18n fabricated).
+- ✓ PR #35 — Persona-aware neighborhood ranking: `scoreNeighborhood(trendingScore, waypoints, persona)` in `scoring.ts`. `NeighborhoodPanel` sorts by `trending_score × bestTypeWeight(persona)`, `Number(x??0)||0` coercion, stable sort, key-based aria-live, empty state, orphan-waypoint fix. 8 council rounds.
 
 ### Session 22 (2026-05-02)
 - ✓ PR #28 — save/load trips server layer: `SavedTrip` type, `SaveTripInputSchema`, `TripIdSchema`; `saveTrip`/`loadTrips`/`deleteTrip` server actions (Clerk auth, rate-limit, Firestore transaction, per-doc Zod validation, `failedToLoadCount`). 6 council rounds.
