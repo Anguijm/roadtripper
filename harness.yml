@@ -30,7 +30,7 @@ council:
   resolver: lead-architect
   # The model the council runs on. Override via HARNESS_MODEL env var or
   # --model CLI flag.
-  default_model: gemini-2.5-pro
+  default_model: gemini-3.5-flash
   # Hard cap on Gemini calls per council run (includes retries). Source of
   # truth is `CALL_CAP` in .harness/scripts/council.py; this value is
   # documentation. Worst case = (num_personas + 1) * (MAX_RETRIES + 1).
