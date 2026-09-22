@@ -40,3 +40,33 @@ pass after the change. Full suite and `tsc --noEmit` stay clean.
 Ship rule met. Reverting only the fixed line reproduces
 `ReferenceError: google is not defined` in 2 of 4 new tests. With the fix: 231
 tests pass across 12 files (227 before, 4 added), `tsc --noEmit` exits 0.
+
+## Added after the first commit: the monitoring that would have caught this
+
+Nothing in `roadtripper-planner` was monitored. No uptime checks, no alert
+policies, no notification channels.
+
+A status-code check would not have caught this bug. Next streams the response,
+so the 200 is flushed before the render throws. The live broken page returns
+`http=200` in 12.4s and ends with `$RX("B:0","875195463")`, React's error
+boundary abort carrying the same digest as the Cloud Run logs. That string is
+the reliable signal.
+
+Created outside the repo, in GCP:
+
+- Email notification channel to the owner.
+- Uptime check on a real `/plan` URL, 900s period, 3 US regions, matching
+  `NOT_CONTAINS_STRING "$RX("` plus a 2xx requirement.
+- Alert policy binding the two, auto-close 24h.
+
+Added in the repo:
+
+- `src/app/health/page.tsx`: renders the same tree as `/plan` from fixed props
+  and makes no Routes API, Firestore or Places calls. The uptime check moves
+  here once deployed, because checking a real `/plan` URL costs about $0.25 per
+  cache miss in Route Matrix calls and this costs nothing.
+- `src/components/__tests__/PlanWorkspace.ssr.test.tsx`: server-render guard for
+  the whole workspace tree, not just the map.
+
+Reintroducing the bug fails all three SSR tests. Full suite 232 passing across
+13 files, `tsc --noEmit` exits 0.
