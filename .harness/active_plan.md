@@ -134,3 +134,25 @@ both worth more than the fix:
 Gate 1 could not have caught either, because it runs on this laptop where the
 native module was already built by bun and Node is 25. The general lesson:
 a local gate cannot verify the environment it is not running in.
+
+## Council round 2 (CONDITIONAL), and what changed
+
+Three required inline explanations, all added: the 256 MB `mmap_size` (an
+address-space reservation, not an allocation, so it does not fight the 512 MiB
+container limit), why inactive waypoints are filtered at export rather than at
+query time, and that `UE_PROJECT` / `UE_DB` are overridable for staging drift
+checks.
+
+Two deferred items taken because they were not cosmetic:
+
+- **Atomic export.** Writes to `atlas.sqlite.tmp` and `rename(2)`s over the
+  target, so a crashed or concurrent export cannot leave a half-written atlas
+  where a reader will open it.
+- **Staleness is now sayable.** `atlasStaleness()` and `warnIfAtlasStale()`;
+  `/health` renders the export date and age, and the first open logs a warning
+  past 30 days. This directly addresses the weakness declared above. It does not
+  *solve* it, since nothing pages on it, but it stops the snapshot from being
+  silently ancient.
+
+Not taken: prepared-statement caching. The query being optimised measures
+0.07 ms warm, so the cache would cost complexity to save nothing measurable.

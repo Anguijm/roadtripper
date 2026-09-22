@@ -18,12 +18,20 @@
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import Database from "better-sqlite3";
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync, statSync, renameSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 
 const OUT = process.env.ATLAS_OUT ?? "data/atlas.sqlite";
-const UE_PROJECT = "urban-explorer-483600";
-const UE_DB = "urbanexplorer";
+// Written here first and renamed over OUT at the end. rename(2) is atomic
+// within a filesystem, so a reader sees either the previous complete atlas or
+// the new complete one, never a half-written file.
+const TMP = `${OUT}.tmp`;
+// Project and database names, not credentials: auth is Application Default
+// Credentials. Overridable so the export can be aimed at a staging copy to
+// check for schema drift before it touches the real file:
+//   UE_PROJECT=urban-explorer-staging ATLAS_OUT=/tmp/probe.sqlite bun run atlas:export
+const UE_PROJECT = process.env.UE_PROJECT ?? "urban-explorer-483600";
+const UE_DB = process.env.UE_DB ?? "urbanexplorer";
 
 const app = initializeApp(
   { credential: applicationDefault(), projectId: UE_PROJECT },
@@ -42,7 +50,8 @@ const coords = (v) => [
 const en = (t) => (typeof t === "string" ? t : (t?.en ?? null));
 
 mkdirSync(dirname(OUT), { recursive: true });
-const db = new Database(OUT);
+for (const stale of [TMP, `${TMP}-wal`, `${TMP}-shm`]) rmSync(stale, { force: true });
+const db = new Database(TMP);
 db.pragma("journal_mode = WAL");
 
 db.exec(`
@@ -135,6 +144,11 @@ db.transaction(() => {
     const v = d.data();
     const [lat, lng] = coords(v);
     if (!v.city_id || !v.type || typeof lat !== "number" || typeof lng !== "number") { skipped.waypoints++; continue; }
+    // Filtered at export rather than at query time. A retired waypoint is not
+    // something Road Tripper ever wants, so dropping it here keeps every runtime
+    // query free of a predicate each caller would otherwise have to remember,
+    // and keeps the shipped file smaller. The cost is that reactivating one
+    // upstream needs a re-export, which is equally true of every other field.
     if (v.is_active === false) { skipped.waypoints++; continue; }
     const info = insWp.run({
       id: d.id, city_id: v.city_id, neighborhood_id: v.neighborhood_id ?? null,
@@ -159,6 +173,7 @@ const counts = ["cities", "neighborhoods", "waypoints"].map(
   (t) => `${t} ${db.prepare(`select count(*) c from ${t}`).get().c}`
 ).join("  ");
 db.close();
+renameSync(TMP, OUT);
 console.log(`wrote ${OUT}: ${counts}`);
 console.log(`  size ${(statSync(OUT).size / 1e6).toFixed(1)} MB, took ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);

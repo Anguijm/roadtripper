@@ -1,4 +1,5 @@
 import PlanWorkspace from "@/components/PlanWorkspace";
+import { atlasStaleness, warnIfAtlasStale } from "@/lib/atlas/db";
 
 /**
  * Zero-cost render health check.
@@ -31,8 +32,19 @@ const ORIGIN = { lat: 40.7127753, lng: -74.0059728 };
 const DESTINATION = { lat: 34.0549076, lng: -118.242643 };
 
 export default function HealthPage() {
+  // Surfaced here because /health is the page something already watches every
+  // minute. The uptime check keys on "Budget left", not on this line, so a
+  // stale atlas does not page anyone; it is here to be seen by a human and to
+  // reach the logs on first open.
+  warnIfAtlasStale();
+  const atlas = atlasStaleness();
   return (
     <div aria-hidden className="h-screen w-screen overflow-hidden">
+      <p style={{ position: "absolute", bottom: 0, left: 0, fontSize: 10, opacity: 0.5, zIndex: 50 }}>
+        atlas exported {atlas.exportedAt ?? "unknown"}
+        {atlas.ageDays !== null ? ` (${Math.floor(atlas.ageDays)}d)` : ""}
+        {atlas.stale ? " STALE" : ""}
+      </p>
       <PlanWorkspace
         origin={ORIGIN}
         destination={DESTINATION}
