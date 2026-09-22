@@ -15,6 +15,13 @@ import PlanWorkspace from "@/components/PlanWorkspace";
  * 200 is flushed before the render can throw. React then emits an `$RX(` error
  * boundary abort into the body, which is what the uptime check matches on.
  *
+ * Limitation worth knowing: because the props are fixed, this catches
+ * render-path bugs but NOT data-dependent ones. A crash that only fires on a
+ * particular Firestore shape, an empty candidate set or a malformed polyline
+ * will pass here. The SSR unit tests cover zero-state; anything data-shaped
+ * needs the real /plan check, which is why that one is kept rather than
+ * replaced.
+ *
  * Keep the props here static. The moment this page fetches anything, it stops
  * being free and starts being another thing that can go down on its own.
  */

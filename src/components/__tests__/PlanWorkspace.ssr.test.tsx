@@ -66,4 +66,26 @@ describe("PlanWorkspace server rendering", () => {
       )
     ).not.toThrow();
   });
+  it("renders zero-state (no candidates, no waypoints) without throwing", () => {
+    // Council R1 (bugs): guards the branches a populated fixture skips.
+    expect(() =>
+      renderToString(
+        <PlanWorkspace
+          origin={{ lat: 40.7127753, lng: -74.0059728 }}
+          destination={{ lat: 34.0549076, lng: -118.242643 }}
+          encodedPolyline=""
+          candidateMarkers={[]}
+          waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }}
+          initialPersonaId="culture"
+          budgetHours={4}
+          initialDistanceMeters={0}
+          initialDurationSeconds={0}
+          fromName="New York"
+          toName="Los Angeles"
+          maxDetourMinutes={270}
+          initialCandidateFetchFailed
+        />
+      )
+    ).not.toThrow();
+  });
 });

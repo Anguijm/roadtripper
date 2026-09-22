@@ -55,6 +55,23 @@ describe("RouteMap server rendering", () => {
     expect(() => renderToString(<RouteMap />)).not.toThrow();
   });
 
+  it("renders zero-state (empty candidates and stops) without throwing", () => {
+    // Council R1 (bugs): the populated cases would not catch an unguarded
+    // array[0] on a render path. Empty arrays exercise those branches.
+    expect(() =>
+      renderToString(
+        <RouteMap
+          origin={{ lat: 40.7128, lng: -74.006 }}
+          destination={{ lat: 34.0549, lng: -118.2426 }}
+          encodedPolyline=""
+          candidates={[]}
+          tripStops={[]}
+          searchArc={null}
+        />
+      )
+    ).not.toThrow();
+  });
+
   it("renders the missing-key placeholder without touching the google global", () => {
     const saved = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
     delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;

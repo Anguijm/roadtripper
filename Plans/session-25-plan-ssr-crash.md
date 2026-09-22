@@ -70,3 +70,34 @@ Added in the repo:
 
 Reintroducing the bug fails all three SSR tests. Full suite 232 passing across
 13 files, `tsc --noEmit` exits 0.
+
+## Council round 1: BLOCK, and what changed
+
+Maintainability scored 3. Three required remediations, all inline documentation
+on `src/components/RouteMap.tsx`, all now added:
+
+1. Why `defaultZoom={7}` (frames one day's drive; only governs first paint
+   because `PolylineRenderer` calls `fitBounds` once a route exists).
+2. Why `gestureHandling="greedy"` (the map is the main interaction surface and
+   should not fight the user for scroll).
+3. Why `ControlPosition` comes from the library and must never be
+   `google.maps.ControlPosition`, with the date and the error it caused.
+
+The council was right that it had asked once already and been ignored: the
+second push added the health page without reading the first report.
+
+Two deferred items taken anyway because they were cheap:
+
+- Zero-state SSR cases on both test files, guarding the `array[0]` branches a
+  populated fixture skips. 234 tests now, up from 232.
+- A caveat in `health/page.tsx` that static props cannot catch data-dependent
+  SSR bugs, which is why the real `/plan` check is kept rather than replaced.
+
+## Known limitation, accepted
+
+The uptime check matches on `$RX(`, React's internal error-boundary
+serialization. A React upgrade could change that token and the check would
+silently stop catching anything. Mitigation deferred until `/health` is
+deployed: capture a successful response body and add a positive
+`CONTAINS_STRING` matcher alongside the negative one, so the check fails if the
+success marker disappears for any reason.
