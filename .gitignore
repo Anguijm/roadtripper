@@ -38,3 +38,10 @@ npm-debug.log*
 # CI council monthly-budget counter (lives in GH Actions cache, not the repo;
 # this guard prevents accidental commit of the local copy)
 .budget/
+
+# Written by .harness/hooks/post-commit after every commit. Tracking local
+# session state meant every commit left the tree dirty, which blocked
+# `git checkout` and `gh pr merge`. CLAUDE.md documented that as a known gotcha
+# with a stash/unstash workaround for two years instead of ignoring the files.
+.harness/session_state.json
+.harness/yolo_log.jsonl
