@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // better-sqlite3 is a native addon. Next must not try to bundle it, and the
+  // atlas file it opens has to survive output tracing into the deployed image.
+  serverExternalPackages: ["better-sqlite3"],
+  outputFileTracingIncludes: {
+    "/**": ["./data/atlas.sqlite"],
+  },
   // Server Action origin allowlist (Council ISC-S6-SEC-5).
   // Next.js compares the request Origin / Host headers against this list
   // before invoking any "use server" function. Same-origin requests

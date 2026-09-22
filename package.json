@@ -10,11 +10,13 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare": "bash .harness/scripts/install_hooks.sh || true"
+    "prepare": "bash .harness/scripts/install_hooks.sh || true",
+    "atlas:export": "node scripts/export-atlas.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.8",
     "@vis.gl/react-google-maps": "^1.8.2",
+    "better-sqlite3": "^13.0.3",
     "firebase": "^12.11.0",
     "firebase-admin": "^13.7.0",
     "next": "16.2.2",
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -33,5 +36,8 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

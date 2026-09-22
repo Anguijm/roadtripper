@@ -3,7 +3,6 @@ import { initializeApp, getApp, cert, type App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 const ROADTRIPPER_PROJECT_ID = "roadtripper-planner";
-const URBAN_EXPLORER_PROJECT_ID = "urban-explorer-483600";
 
 function getOrCreateApp(name: string, projectId: string): App {
   try {
@@ -27,6 +26,6 @@ function getOrCreateApp(name: string, projectId: string): App {
 const roadtripperApp = getOrCreateApp("roadtripper", ROADTRIPPER_PROJECT_ID);
 export const roadtripperDb = getFirestore(roadtripperApp);
 
-// Urban Explorer's Firestore (named DB "urbanexplorer") — read-only
-const urbanExplorerApp = getOrCreateApp("urban-explorer", URBAN_EXPLORER_PROJECT_ID);
-export const urbanExplorerDb = getFirestore(urbanExplorerApp, "urbanexplorer");
+// Urban Explorer's Firestore handle used to live here. The atlas is now a local
+// SQLite file exported by scripts/export-atlas.mjs, so this app no longer reads
+// across a project boundary at runtime. See src/lib/atlas/db.ts.

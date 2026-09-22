@@ -1,69 +1,73 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-
-vi.mock("@/lib/firebaseAdmin", () => ({
-  urbanExplorerDb: { collection: vi.fn() },
-}));
-
-vi.mock("./cache", () => ({
-  cacheGet: vi.fn(),
-  cacheSet: vi.fn(),
-  waypointsCacheKey: vi.fn().mockReturnValue("waypoints:test-key"),
-  neighborhoodsCacheKey: vi.fn().mockReturnValue("nbhd:test-key"),
-}));
-
-import { fetchWaypointsForCandidates } from "./recommend";
-import { cacheGet, cacheSet } from "./cache";
+import { describe, it, expect } from "vitest";
+import { fetchWaypointsForCandidates, fetchNeighborhoods } from "./recommend";
+import { allCities } from "@/lib/atlas/queries";
 import type { RadialCandidate } from "./radial";
-import type { City } from "@/lib/urban-explorer/types";
 
-const mockCacheGet = vi.mocked(cacheGet);
-const mockCacheSet = vi.mocked(cacheSet);
+/**
+ * Replaces the previous suite, which mocked `urbanExplorerDb` and asserted
+ * Firestore query shapes and cache keys. Both are gone: the atlas is local and
+ * the in-process waypoint cache was removed with it.
+ *
+ * These run against the real atlas for the same reason the atlas tests do. The
+ * old suite passed for years while the production read path was capped at 10
+ * cities by a Firestore `in` limit nobody tested against.
+ */
+const candidate = (id: string, name: string, lat: number, lng: number, mins: number): RadialCandidate => ({
+  city: { id, name, country: "US", region: "x", tier: "tier2", lat, lng },
+  oneWayDriveMinutes: mins,
+});
 
-function makeCity(id: string, lat: number, lng: number): City {
-  return { id, name: id, lat, lng, country: "US", region: "CA", tier: "tier1" } as City;
-}
+const realCandidates = (n: number) =>
+  allCities()
+    .slice(0, n)
+    .map((c, i) => candidate(c.id, c.name, c.lat, c.lng, 30 + i * 5));
 
-function makeCandidate(id: string, lat: number, lng: number): RadialCandidate {
-  return { city: makeCity(id, lat, lng), oneWayDriveMinutes: 30 };
-}
-
-describe("fetchWaypointsForCandidates — cache staleness filter", () => {
-  beforeEach(() => {
-    mockCacheGet.mockReset();
-    mockCacheSet.mockReset();
+describe("fetchWaypointsForCandidates", () => {
+  it("returns fresh data with cities and waypoints for real candidates", async () => {
+    const res = await fetchWaypointsForCandidates(realCandidates(8));
+    expect(res.status).toBe("fresh");
+    expect(res.cities.length).toBe(8);
+    expect(res.waypoints.length).toBeGreaterThan(0);
+    for (const w of res.waypoints) {
+      expect(res.cities.some((c) => c.id === w.cityId)).toBe(true);
+    }
   });
 
-  test("cache hit: only returns cities present in current candidates", async () => {
-    const candidateA = makeCandidate("city-a", 37.0, -122.0);
-
-    // Cache contains city-a AND a stale city-b not in current candidates.
-    mockCacheGet.mockReturnValueOnce({
-      cities: [
-        { id: "city-a", name: "city-a", detourMinutes: 60, lat: 37.0, lng: -122.0, vibeClass: null },
-        { id: "city-b", name: "city-b", detourMinutes: 90, lat: 36.0, lng: -121.0, vibeClass: null },
-      ],
-      waypoints: [],
-    });
-
-    const result = await fetchWaypointsForCandidates([candidateA]);
-
-    expect(result.status).toBe("fresh");
-    expect(result.cities.map((c) => c.id)).toEqual(["city-a"]);
-    expect(result.cities).not.toContainEqual(expect.objectContaining({ id: "city-b" }));
+  it("doubles one-way drive time into the round-trip detour the scorer expects", async () => {
+    const cands = realCandidates(3);
+    const res = await fetchWaypointsForCandidates(cands);
+    for (const c of cands) {
+      const ctx = res.cities.find((x) => x.id === c.city.id);
+      expect(ctx?.detourMinutes).toBe(c.oneWayDriveMinutes * 2);
+    }
   });
 
-  test("cache hit: detourMinutes re-derived from current candidate, not stale cache value", async () => {
-    const candidateA = makeCandidate("city-a", 37.0, -122.0);
-    // oneWayDriveMinutes = 30 → expected detourMinutes = 60
+  it("caps at MAX_WAYPOINT_CITIES rather than fetching every candidate", async () => {
+    const res = await fetchWaypointsForCandidates(realCandidates(40));
+    expect(res.cities.length).toBe(10);
+  });
 
-    mockCacheGet.mockReturnValueOnce({
-      cities: [
-        { id: "city-a", name: "city-a", detourMinutes: 999, lat: 37.0, lng: -122.0, vibeClass: null },
-      ],
-      waypoints: [],
-    });
+  it("handles an empty candidate list", async () => {
+    const res = await fetchWaypointsForCandidates([]);
+    expect(res).toEqual({ status: "fresh", cities: [], waypoints: [], neighborhoods: {} });
+  });
 
-    const result = await fetchWaypointsForCandidates([candidateA]);
-    expect(result.cities[0]?.detourMinutes).toBe(60); // 30 * 2
+  it("loads neighborhoods only for the one selected city", async () => {
+    const cands = realCandidates(6);
+    const target = cands[0].city.id;
+    const res = await fetchWaypointsForCandidates(cands, target);
+    expect(Object.keys(res.neighborhoods)).toEqual([target]);
+  });
+
+  it("rejects a malformed cityId at the boundary instead of querying with it", async () => {
+    const res = await fetchNeighborhoods("../../etc/passwd");
+    expect(res.loadState.kind).toBe("failed");
+    expect(res.failure?.reason).toMatch(/invalid cityId/i);
+  });
+
+  it("reports empty rather than failed for a city with no neighborhoods", async () => {
+    const res = await fetchNeighborhoods("definitely-not-a-city-id");
+    expect(res.loadState.kind).toBe("empty");
+    expect(res.failure).toBeUndefined();
   });
 });

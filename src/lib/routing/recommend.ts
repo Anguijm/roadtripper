@@ -1,16 +1,12 @@
 import "server-only";
-import { z } from "zod/v4";
-import { urbanExplorerDb } from "@/lib/firebaseAdmin";
 import {
-  WaypointSchema,
-  NeighborhoodLiteSchema,
   MAX_NEIGHBORHOODS_PER_CITY,
   localizedText,
 } from "@/lib/urban-explorer/cityAtlas";
+import { waypointsForCities, neighborhoodsForCity } from "@/lib/atlas/queries";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import type { VibeClass } from "@/lib/urban-explorer/types";
 import type { RadialCandidate } from "./radial";
-import { cacheGet, cacheSet, waypointsCacheKey, neighborhoodsCacheKey } from "./cache";
 import type {
   CityContext,
   LiteWaypoint,
@@ -37,18 +33,6 @@ const MAX_NEIGHBORHOOD_CITIES = 1;
 
 /** SEC boundary: cityId passed to fetchNeighborhoods must match this. */
 const CITY_ID_REGEX = /^[a-z0-9-]+$/;
-
-// ---------- Schema ----------
-
-const LiteWaypointShape = WaypointSchema.pick({
-  name: true,
-  type: true,
-  city_id: true,
-  trending_score: true,
-}).extend({
-  // Optional — projection now requests it but legacy docs may not carry it.
-  neighborhood_id: z.string().optional(),
-});
 
 // ---------- Neighborhood helpers ----------
 
@@ -92,7 +76,7 @@ function dedupeNeighborhoods(
  * Fetch and cache NeighborhoodLite[] for a single city. SEC-3 caps callers
  * to MAX_NEIGHBORHOOD_CITIES = 1. Validates cityId at this boundary.
  *
- * @server-only — this function imports firebase-admin via `urbanExplorerDb`.
+ * @server-only — this function opens the local atlas via better-sqlite3.
  * It MUST NOT be imported from any client component or barrel file that is
  * bundled for the browser. Only call it from Server Actions or Server Components.
  */
@@ -107,52 +91,17 @@ export async function fetchNeighborhoods(cityId: string): Promise<{
     };
   }
 
-  const cacheKey = neighborhoodsCacheKey(cityId);
-  const cached = cacheGet<NeighborhoodLite[]>(cacheKey);
-  if (cached) {
-    return {
-      loadState:
-        cached.length === 0
-          ? { kind: "empty" }
-          : { kind: "loaded", data: cached },
-    };
-  }
-
   try {
-    const snapshot = await urbanExplorerDb
-      .collection("vibe_neighborhoods")
-      .where("city_id", "==", cityId)
-      .select("name.en", "summary.en", "trending_score")
-      .limit(MAX_NEIGHBORHOODS_PER_CITY)
-      .get();
-
-    const raw: NeighborhoodLite[] = [];
-    for (const doc of snapshot.docs) {
-      const parsed = NeighborhoodLiteSchema.safeParse({ id: doc.id, ...doc.data() });
-      if (!parsed.success) {
-        console.warn(
-          `[recommend] neighborhood parse fail cityId=${cityId} neighborhoodId=${doc.id}`,
-          parsed.error
-        );
-        continue;
-      }
-      raw.push(parsed.data);
-    }
-
-    const deduped = dedupeNeighborhoods(raw, cityId);
-    cacheSet(cacheKey, deduped);
-
+    const deduped = dedupeNeighborhoods(
+      neighborhoodsForCity(cityId, MAX_NEIGHBORHOODS_PER_CITY),
+      cityId
+    );
     return {
       loadState:
-        deduped.length === 0
-          ? { kind: "empty" }
-          : { kind: "loaded", data: deduped },
+        deduped.length === 0 ? { kind: "empty" } : { kind: "loaded", data: deduped },
     };
   } catch (err) {
-    console.error(
-      `[recommend] vibe_neighborhoods query failed cityId=${cityId}:`,
-      err
-    );
+    console.error(`[recommend] atlas neighborhood read failed cityId=${cityId}:`, err);
     return {
       loadState: { kind: "failed" },
       failure: {
@@ -171,27 +120,11 @@ interface WaypointsCorePayload {
   waypoints: LiteWaypoint[];
 }
 
-async function fetchWaypointsCore(
-  activeCandidates: RadialCandidate[],
+function fetchWaypointsCore(
+  _activeCandidates: RadialCandidate[],
   cityById: Map<string, RadialCandidate>,
   uniqueCityIds: string[]
-): Promise<{ payload: WaypointsCorePayload; failure?: WaypointFetchFailure }> {
-  const cacheKey = waypointsCacheKey(uniqueCityIds);
-  const cached = cacheGet<WaypointsCorePayload>(cacheKey);
-
-  if (cached) {
-    // Filter to current candidates — defensive guard against any cache-key
-    // collision that could surface cities no longer in the active set.
-    const patchedCities = cached.cities
-      .filter((city) => cityById.has(city.id))
-      .map((city) => {
-        const cand = cityById.get(city.id)!;
-        // Doubled: detourMinutes retains round-trip semantics for scoring/display compat.
-        return { ...city, detourMinutes: cand.oneWayDriveMinutes * 2 };
-      });
-    return { payload: { cities: patchedCities, waypoints: cached.waypoints } };
-  }
-
+): { payload: WaypointsCorePayload; failure?: WaypointFetchFailure } {
   const cities: CityContext[] = uniqueCityIds.map((id) => {
     const cand = cityById.get(id)!;
     return {
@@ -205,46 +138,25 @@ async function fetchWaypointsCore(
     };
   });
 
-  const waypoints: LiteWaypoint[] = [];
-  let droppedByParse = 0;
-
   try {
-    // Nested field projection — dot-notation supported in firebase-admin@11+.
-    // `neighborhood_id` added for S8 panel grouping (Step 5).
-    const snapshot = await urbanExplorerDb
-      .collection("vibe_waypoints")
-      .where("city_id", "in", uniqueCityIds)
-      .select("name.en", "type", "city_id", "trending_score", "neighborhood_id")
-      .limit(MAX_WAYPOINTS_FETCHED)
-      .get();
-
-    for (const doc of snapshot.docs) {
-      const parsed = LiteWaypointShape.safeParse(doc.data());
-      if (!parsed.success) {
-        droppedByParse++;
-        continue;
-      }
-      waypoints.push({
-        id: doc.id,
-        cityId: parsed.data.city_id,
-        name: parsed.data.name.en,
-        type: parsed.data.type,
-        trendingScore: parsed.data.trending_score,
-        neighborhoodId: parsed.data.neighborhood_id ?? null,
-      });
-    }
-
-    if (droppedByParse > 0) {
-      console.warn(
-        `[recommend] dropped ${droppedByParse} waypoints that failed WaypointSchema validation`
-      );
-    }
-
-    const payload: WaypointsCorePayload = { cities, waypoints };
-    cacheSet(cacheKey, payload);
-    return { payload };
+    // The Firestore version was capped at 10 cities by the `in` operator and at
+    // MAX_WAYPOINTS_FETCHED rows overall. SQLite has neither limit, so the only
+    // bound left is MAX_WAYPOINT_CITIES applied by the caller.
+    //
+    // No cache here on purpose. This read is a local indexed lookup measured at
+    // well under a millisecond, so an in-process cache would spend memory and
+    // add a staleness class of bug to save nothing.
+    const waypoints: LiteWaypoint[] = waypointsForCities(uniqueCityIds).map((w) => ({
+      id: w.id,
+      cityId: w.cityId,
+      name: w.name,
+      type: w.type,
+      trendingScore: w.trendingScore,
+      neighborhoodId: w.neighborhoodId,
+    }));
+    return { payload: { cities, waypoints } };
   } catch (err) {
-    console.error("[recommend] vibe_waypoints query failed:", err);
+    console.error("[recommend] atlas waypoint read failed:", err);
     return {
       payload: { cities, waypoints: [] },
       failure: {
@@ -289,12 +201,11 @@ export async function fetchWaypointsForCandidates(
     resolvedCityId = undefined;
   }
 
-  const [waypointsResult, neighborhoodsResult] = await Promise.all([
-    fetchWaypointsCore(activeCandidates, cityById, uniqueCityIds),
-    resolvedCityId !== undefined
-      ? fetchNeighborhoods(resolvedCityId)
-      : Promise.resolve(null),
-  ]);
+  // fetchWaypointsCore is synchronous now that it reads the local atlas, so
+  // there is nothing left to parallelise against the neighborhood read.
+  const waypointsResult = fetchWaypointsCore(activeCandidates, cityById, uniqueCityIds);
+  const neighborhoodsResult =
+    resolvedCityId !== undefined ? await fetchNeighborhoods(resolvedCityId) : null;
 
   const { payload } = waypointsResult;
   const failures: WaypointFetchFailure[] = [];
