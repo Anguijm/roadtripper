@@ -117,3 +117,20 @@ committed. Every re-export writes another 7.3 MB blob into git history. That is
 fine for now and will not be fine at a weekly refresh. Git LFS or a build-time
 export is the answer when it starts hurting; I am not doing it pre-emptively,
 but it should not come as a surprise later.
+
+## CI caught what Gate 1 could not
+
+`validate` failed on the first push while everything passed locally. Two causes,
+both worth more than the fix:
+
+1. **CI ran Node 20; production builds on `google-22-full`, which is Node 22.**
+   CI has been validating against a different Node major than the app ships on,
+   independent of this change. Fixed by moving CI to 22 and pinning
+   `engines.node: ">=22"` so it cannot drift silently again.
+2. **Two lockfiles, one source of truth.** `bun add` updated `bun.lock` and
+   `package.json`; CI installs with `npm ci` against `package-lock.json`, which
+   was left stale. Synced.
+
+Gate 1 could not have caught either, because it runs on this laptop where the
+native module was already built by bun and Node is 25. The general lesson:
+a local gate cannot verify the environment it is not running in.
