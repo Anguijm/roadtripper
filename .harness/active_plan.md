@@ -4,65 +4,75 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/atlas-hardening`
+Branch: `feat/remove-clerk`
 
 ## Goal
 
-Land the council's round-3 remediations on PR #42, which merged at its
-round-2 commit before they were applied.
+Remove authentication. Saved trips move to the browser.
 
-The verdict on that round was BLOCK. The operator merged past it on
-2026-09-22, which is his call; this PR carries the four items so main stops
-being without them. Code only: the re-exported atlas binary from that commit
-is deliberately left out, and so is a `storage.ts` that leaked in by a careless
-`git add -A` and belongs to the Clerk-removal branch.
+The operator's call on 2026-09-23, after finding that every Clerk key in the
+system is a development key: Secret Manager holds `pk_test` and `sk_test`, and
+`next.config.ts` hardcoded a third `pk_test` that would have overridden any
+production secret anyway, because Next inlines `env` values at build time.
+
+That key belongs to Urban Explorer's dev instance. Road Tripper was borrowing
+another app's development auth to gate a feature used by two people.
 
 ## Change
 
-1. **R-tree integrity gate in the export.** `insert or replace` assigns a new
-   rowid on conflict while the R-tree row was written against the old one.
-   Cannot happen today (Firestore ids are unique); would return wrong corridor
-   results with no error if it ever did. Now deduped by id first, and the
-   export verifies the join and refuses to publish a desynced file.
-2. **Enum narrowing** on `type` and `tier` reads, with a logged fallback, so an
-   upstream tag added before a redeploy surfaces as a warning rather than an
-   unknown string inside a switch.
-3. **Bound-parameter ceiling** asserted beside the query it protects.
-4. **`allCities` degrades** to "no candidates" on a locked or truncated file
-   rather than an error page.
+- Deleted: `app/trips/actions.ts`, `components/AuthButtons.tsx`,
+  `lib/firebaseAdmin.ts`, `lib/firebase.ts` (dead, no importers), `src/proxy.ts`.
+- `lib/trips/storage.ts`: localStorage, keeping the Zod schemas, upserting by id
+  so a retry cannot duplicate, and exposing a `useSyncExternalStore` interface.
+- `/trips` is now a static page reading that store. It was server-rendered.
+- Save button loses its auth gate and reports why a save failed rather than
+  "try again".
+- `@clerk/nextjs` removed. `firebase-admin` moved to devDependencies: only the
+  export script uses it now, so it no longer ships in the runtime image.
+- Clerk secrets dropped from `apphosting.yaml`; Clerk origins dropped from CSP.
 
-Plus the two comment requests (30-day staleness threshold, 250-city test floor).
+## Risk surface
+
+- Trips no longer follow you between devices, and clearing site data clears
+  them. Named in the UI rather than discovered.
+- The 50-trip ceiling and idempotent save carry over from the Firestore version.
+- Rollback: revert the commit. Nothing external changed; the Clerk secrets are
+  still in Secret Manager, unused.
 
 ## Ship rule (declared before the work)
 
-The diff contains no binary and no trip-storage code. Lint, types, and the
-full suite green against main's own atlas.
+1. No `clerk` reference remains in `src/`, proven by grep.
+2. The trips page and the save path have test coverage at least as good as the
+   175-line server action they replace, including the failure modes that action
+   could not have (storage off, quota full, corrupt entry).
+3. A production build succeeds and `/trips` renders.
+4. Lint, types, and the full suite green.
 
-**Cost:** $0. No API calls, no data change.
+**Cost:** $0, and it removes spend. No Clerk instance to outgrow, no Firestore
+reads or writes for trips, one fewer runtime dependency in the image. The two
+Clerk secrets stay in Secret Manager costing nothing until deliberately deleted.
 
-**Weakest part:** The integrity gate runs at export time and so is exercised
-only when someone re-exports. Nothing in CI runs the export, because it needs
-Firestore. So the one check this PR most cares about has no automated proof
-beyond the run I did by hand.
+**Weakest part:** I still have not observed a successful Save in a real browser,
+and I tried. Two things blocked it, neither of them this change:
 
-## Council round 4 (CONDITIONAL), and what changed
+1. Serving the build over plain HTTP on a LAN address makes Chrome treat the
+   origin as insecure and **deny localStorage outright** (`SecurityError: Access
+   is denied for this document`). The storage layer handled that correctly, by
+   reporting `unavailable` rather than throwing, which is evidence for the
+   design but not evidence the happy path works.
+2. `/plan` never finished hydrating in the browser: it sat on the loading
+   fallback with the real content in a hidden template and no React fiber on the
+   button. `/` and `/trips` both hydrated normally on the same build, and a
+   `curl` of the same `/plan` URL returned the complete 213 KB page in 1.36s, so
+   the server is fine. Loading the **production** `/plan` in the same browser
+   then froze the renderer outright, matching screenshot timeouts seen on that
+   page earlier the same evening.
 
-Four items, all applied:
+So: 18 unit tests cover the logic, the build is clean, and the auth gate is
+provably gone (`curl` shows "Save trip" where "Sign in to save this trip" used
+to be). "Saving works end to end" remains inference, not observation. Confirming
+it needs an HTTPS or localhost origin the browser extension can reach.
 
-1. `allCities` no longer swallows errors. Round 3 asked for the try/catch; round
-   4 correctly observed it masks a broken atlas as an empty result. The caller
-   already runs under `Promise.allSettled` and renders a visible failure, so
-   letting it throw is the honest behaviour. Recorded here because the two
-   rounds contradict each other and a future reader should know which won.
-2. `safeWaypointType` / `safeCityTier` take `unknown`. `safeParse` already
-   handled any input; the type now says so.
-3. The bound-parameter comment names the file that defines the caller's cap.
-4. EXDEV fallback: if present on this branch, copies to a sibling on the
-   destination filesystem and renames, which is atomic there.
-
-## Council round 5 (CONDITIONAL), and what changed
-
-- safeCityTier warns on an unknown tier instead of silently downgrading
-- MAX_BOUND_CITY_IDS comment names the real ceiling, the paired constant, and the test
-- description documented as untrusted, text-only at render
-- EXDEV fallback cleans up both temp files in a finally
+**Follow-up, unrelated to this branch:** the plan page can leave the browser
+stuck on its loading state and can freeze the renderer. It reproduces against
+production, so it predates this work.

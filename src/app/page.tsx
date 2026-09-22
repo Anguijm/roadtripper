@@ -1,4 +1,4 @@
-import AuthButtons from "@/components/AuthButtons";
+import Link from "next/link";
 import RouteInput from "@/components/RouteInput";
 
 export default function Home() {
@@ -8,7 +8,12 @@ export default function Home() {
         <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-[#b0b9c2]">
           Roadtripper
         </h1>
-        <AuthButtons />
+        <Link
+          href="/trips"
+          className="text-xs font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        >
+          Saved trips
+        </Link>
       </header>
 
       <main className="flex-1 flex items-center justify-center p-6">

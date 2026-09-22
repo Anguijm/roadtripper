@@ -10,7 +10,3 @@ env:
     secret: GOOGLE_MAPS_KEY
   - variable: NEXT_PUBLIC_GOOGLE_MAPS_KEY
     secret: NEXT_PUBLIC_GOOGLE_MAPS_KEY
-  - variable: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-    secret: CLERK_PUBLISHABLE_KEY
-  - variable: CLERK_SECRET_KEY
-    secret: CLERK_SECRET_KEY
