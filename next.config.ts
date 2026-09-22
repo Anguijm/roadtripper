@@ -20,18 +20,6 @@ const nextConfig: NextConfig = {
       ],
     },
   },
-  env: {
-    // Roadtripper's own Firebase project (client-side)
-    NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyAxsr1QKIZhIHn7kZstTdRCArfdvCZ4RtQ",
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "roadtripper-planner.firebaseapp.com",
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: "roadtripper-planner",
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "roadtripper-planner.firebasestorage.app",
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "49481373471",
-    NEXT_PUBLIC_FIREBASE_APP_ID: "1:49481373471:web:7a7c70b6035e4534be422a",
-    // Clerk (using UE dev keys for now — separate Clerk app for production)
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
-      "pk_test_aW1wcm92ZWQtaG91bmQtNzEuY2xlcmsuYWNjb3VudHMuZGV2JA",
-  },
   async headers() {
     return [
       {
@@ -41,12 +29,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline' ${process.env.NODE_ENV === "development" ? "'unsafe-eval'" : ""} https://apis.google.com https://maps.googleapis.com https://*.clerk.accounts.dev`,
+              `script-src 'self' 'unsafe-inline' ${process.env.NODE_ENV === "development" ? "'unsafe-eval'" : ""} https://apis.google.com https://maps.googleapis.com`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://maps.gstatic.com https://img.clerk.com",
+              "img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://maps.gstatic.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.clerk.accounts.dev https://api.clerk.com",
-              "frame-src 'self' https://accounts.google.com https://*.clerk.accounts.dev https://*.firebaseapp.com",
+              "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com",
+              "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

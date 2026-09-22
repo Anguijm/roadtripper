@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { deleteTrip } from "@/app/trips/actions";
+import { deleteTrip } from "@/lib/trips/storage";
 import type { SavedTrip } from "@/lib/trips/types";
 
 // V1: stops are intentionally excluded from the resume URL.
@@ -43,24 +43,19 @@ interface TripCardProps {
 }
 
 export default function TripCard({ trip, onDeleted }: TripCardProps) {
-  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  // Deleting is a synchronous localStorage write, so there is no pending state
+  // to show and no transition to run. It can still fail when storage is
+  // unavailable, which is why the error branch stays.
 
   const handleDelete = () => {
-    startTransition(async () => {
-      try {
-        const result = await deleteTrip(trip.id);
-        if (result.ok) {
-          setAnnouncement(`Trip from ${trip.fromName} to ${trip.toName} deleted.`);
-          onDeleted(trip.id);
-        } else {
-          setError("Couldn't delete trip. Try again.");
-        }
-      } catch {
-        setError("Couldn't delete trip. Try again.");
-      }
-    });
+    if (deleteTrip(trip.id)) {
+      setAnnouncement(`Trip from ${trip.fromName} to ${trip.toName} deleted.`);
+      onDeleted(trip.id);
+    } else {
+      setError("Couldn't delete trip. Storage may be unavailable in this browser.");
+    }
   };
 
   return (
@@ -85,11 +80,10 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
         <button
           type="button"
           onClick={handleDelete}
-          disabled={isPending}
           aria-label={`Delete trip from ${trip.fromName} to ${trip.toName}`}
           className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 transition-colors whitespace-nowrap flex-shrink-0 min-h-[44px] flex items-center"
         >
-          {isPending ? "…" : "Delete"}
+          {"Delete"}
         </button>
       </div>
 

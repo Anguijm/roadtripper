@@ -1,15 +1,29 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { loadTrips } from "@/app/trips/actions";
 import TripsList from "@/components/TripsList";
+import {
+  deleteTrip,
+  subscribeToTrips,
+  getTripsSnapshot,
+  getTripsServerSnapshot,
+} from "@/lib/trips/storage";
 
-export default async function TripsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/");
-
-  const result = await loadTrips().catch(
-    (): { ok: false; error: "internal_error" } => ({ ok: false, error: "internal_error" })
+/**
+ * Saved trips live in this browser. No sign-in, no server call.
+ *
+ * Read through `useSyncExternalStore` rather than an effect that calls
+ * `setState`: localStorage is an external store, that is the hook built for
+ * one, and it keeps the server render (empty) and the first client render in
+ * agreement without a hydration mismatch. It also picks up a delete made in
+ * another tab, which an effect-on-mount would miss.
+ */
+export default function TripsPage() {
+  const trips = useSyncExternalStore(
+    subscribeToTrips,
+    getTripsSnapshot,
+    getTripsServerSnapshot
   );
 
   return (
@@ -26,31 +40,17 @@ export default async function TripsPage() {
         </h1>
       </header>
 
-      <main className="flex-1 p-6 max-w-2xl mx-auto w-full">
-        {!result.ok ? (
-          <p className="text-sm text-[#f85149] font-mono" role="alert">
-            Couldn&apos;t load trips. Try refreshing.
+      <main className="flex-1 p-4">
+        {trips.length === 0 ? (
+          <p className="text-xs font-mono text-[#7d8590]">
+            No saved trips in this browser yet. Plan one and press Save.
           </p>
-        ) : result.trips.length === 0 ? (
-          <div className="text-center mt-16">
-            <p className="text-sm text-[#7d8590] font-mono mb-4">No saved trips yet.</p>
-            <Link
-              href="/"
-              className="text-xs font-mono uppercase tracking-widest border border-[#30363d] text-[#b0b9c2] px-4 py-2 hover:border-[#555] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-            >
-              Plan a trip →
-            </Link>
-          </div>
         ) : (
-          <>
-            {result.failedToLoadCount > 0 && (
-              <p className="text-xs text-[#d29922] font-mono mb-4" role="alert">
-                {result.failedToLoadCount} trip{result.failedToLoadCount === 1 ? "" : "s"} couldn&apos;t be loaded.
-              </p>
-            )}
-            <TripsList initialTrips={result.trips} />
-          </>
+          <TripsList trips={trips} onDelete={deleteTrip} />
         )}
+        <p className="mt-6 text-[10px] font-mono text-[#555]">
+          Trips are stored in this browser only. Clearing site data clears them.
+        </p>
       </main>
     </div>
   );
