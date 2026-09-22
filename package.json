@@ -9,7 +9,8 @@
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepare": "bash .harness/scripts/install_hooks.sh || true"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.8",

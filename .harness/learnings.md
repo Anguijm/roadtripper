@@ -298,3 +298,62 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 ### COUNCIL
 - **PR #34 (arrival mode V2):** 3 rounds + `[skip council]` on R3. R1 BLOCK: silent catch, no aria-live, no failure UI. R2 CONDITIONAL: requested `DateDerivationResult` DU instead of two optional fields — real improvement, implemented. R3 CONDITIONAL: i18n triple-counted across accessibility/bugs/product (all scoring 7). Applied `[skip council]` after fixing only the real item (console.error context logging).
 - **PR #35 (persona-aware neighborhood ranking):** 8 rounds to CLEAR. R1–R4: real fixes each round (typing, JSDoc, aria-live dep, NaN guard, stable sort, empty state, plan doc). R5: CLEAR from council but CI validate failed (lint error `setState-in-effect`). R6–R7: real fixes (key-based aria-live, ungrouped orphan waypoints, coercion test). R8: CLEAR, all 10s except accessibility 9 (i18n deferred). Merged at R8.
+
+---
+
+## 2026-09-23 — Session 25: plan page SSR crash (PR #40) + Gate 1 enforcement
+
+### KEEP
+- **`"use client"` does not mean client-only.** App Router still server-renders a
+  client component for the first HTML. Any browser-only global read on a render
+  path (not inside an effect) throws on the server. `RouteMap` passed
+  `google.maps.ControlPosition.RIGHT_CENTER` in `<GMap>`'s JSX props and took the
+  whole plan page down. Use the `ControlPosition` constant exported by
+  `@vis.gl/react-google-maps`; it is a documented copy of the same values.
+- **A status-code check cannot detect a thrown server render.** Next streams, so
+  the 200 flushes before the render throws. The broken page returned `http=200`
+  in 12.4s. Monitor on *rendered text* ("Budget left"), never on status alone and
+  never on React's internal `$RX(` error token, which an upgrade can rename.
+  Verified: "Budget left" appeared 0 times broken, 1 time fixed.
+- **Client-side navigation hides server-render bugs.** Entering via the form is a
+  client transition, so the map first rendered in the browser. Only a direct URL,
+  a refresh or a shared link hit the server path. The bug was months old and
+  invisible because nobody loads `/plan` cold.
+
+### IMPROVE
+- **Session 24's lint lesson did not survive into Session 25.** "Always run
+  `bun run lint` before pushing" was written in this file and ignored. Prose in a
+  learnings file is not a control. Fixed by putting lint in `.harness/hooks/pre-push`.
+- **The pre-push hook protecting `main` was dead.** It lived in `.git/hooks/`
+  while `core.hooksPath` pointed at `.harness/hooks`. `CLAUDE.md` still described
+  it as active. Any hook that matters must live in `.harness/hooks/` and be
+  installed by `install_hooks.sh`.
+- **Pushed a second commit onto a PR without reading the council report already
+  on it.** The next round blocked for the same three items. Read the report
+  before the next push, always.
+- **Built monitoring without pricing it.** The first uptime check pointed at a
+  real `/plan` URL, 288 runs/day, each cache miss paying for a route matrix:
+  roughly $7 to $22 a month to watch an app used by two people. Deleted and
+  replaced with a `/health` page that makes no external calls. Price the
+  monitoring before shipping the monitoring.
+
+### INSIGHT
+- **Measured Routes API volume, 24h: 13 `ComputeRouteMatrix` + 28 `ComputeRoutes`.**
+  At 50 destinations per matrix that is 650 elements, about $3.25, plus $0.14.
+  Nearly all of it was development traffic. Matrix elements, not request count,
+  are what cost money here.
+- **Firestore is the wrong store for the roadside work.** It has no spatial
+  query, and stage 4 is a corridor buffer against a 2,777 mile polyline. Atlas
+  and roadside points belong in SQLite with an R-tree, shipped with the build.
+  Mutable shared data (route cache, saved trips) stays in Firestore.
+- **`ABIU: Disabled`.** Auto-deploy is off; merging to `main` deploys nothing.
+  Before 2026-09-23 the serving revision was built 2026-07-10. Releases need an
+  explicit build then rollout via the App Hosting API.
+
+### COUNCIL
+- **PR #40 (plan page SSR crash):** 2 rounds. R1 BLOCK (maintainability 3): three
+  inline comments requested on `RouteMap.tsx` (`defaultZoom`, `gestureHandling`,
+  and why `ControlPosition` comes from the library). All real; the last one is
+  load-bearing, since without it someone reverts the fix as a simplification.
+  R2 CLEAR, all 10s. Took two deferred items as well: zero-state SSR cases and a
+  caveat that `/health`'s static props cannot catch data-dependent bugs.

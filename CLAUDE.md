@@ -111,13 +111,19 @@ Plans/                        — tracked plan files (required for council)
 
 Session-start hook (`.claude/hooks/session-start.sh`) surfaces branch, last commit, active plan, and last council verdict at the start of every Claude Code session.
 
-## Known gotcha — post-commit hook
+## Hooks
 
-The post-commit hook writes `.harness/session_state.json` and `.harness/yolo_log.jsonl` after every commit, leaving the working tree dirty. This causes `gh pr merge` to abort. Workaround:
+`.harness/hooks/` is the live hook directory (`core.hooksPath`), installed by
+`.harness/scripts/install_hooks.sh`, which `npm install` runs via `prepare`.
+Anything placed in `.git/hooks/` is ignored.
 
-```bash
-git stash && gh pr merge <N> --squash && git stash drop
-```
+- `pre-push` — Gate 1: blocks pushes to main, runs lint/type-check/tests, and
+  requires `.harness/active_plan.md` to name the branch and carry `Cost:` and
+  `Weakest part:` lines. `SKIP_GATE1=1` bypasses it loudly.
+- `post-commit` — writes `.harness/session_state.json` and
+  `.harness/yolo_log.jsonl`. Both are gitignored; they used to be tracked, which
+  left the tree dirty after every commit and broke `git checkout` and
+  `gh pr merge`.
 
 ## Slicing strategy
 
