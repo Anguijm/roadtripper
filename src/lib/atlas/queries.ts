@@ -3,6 +3,39 @@ import { atlasDb } from "./db";
 import type { City } from "@/lib/urban-explorer/cityAtlas";
 import type { LiteWaypoint } from "@/lib/routing/scoring";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
+import { WaypointTypeSchema, CityTierSchema } from "@/lib/urban-explorer/cityAtlas";
+
+/**
+ * R1 #2: the atlas is produced by our own export, but "our own" is not the same
+ * as "guaranteed in step with this code". If the upstream pipeline adds a
+ * waypoint type and the atlas is re-exported before this app is redeployed, an
+ * unvalidated cast would put an unknown string into code that switches on the
+ * enum, and the failure would surface as a scoring oddity rather than an error.
+ * These narrow at the boundary and fall back to the value the rest of the app
+ * treats as "nothing special".
+ */
+const FALLBACK_TYPE = "landmark" as const;
+const FALLBACK_TIER = "tier3" as const;
+
+function safeWaypointType(v: string) {
+  const parsed = WaypointTypeSchema.safeParse(v);
+  if (parsed.success) return parsed.data;
+  console.warn(`[atlas] unknown waypoint type ${JSON.stringify(v)}, treating as ${FALLBACK_TYPE}`);
+  return FALLBACK_TYPE;
+}
+
+function safeCityTier(v: string | null) {
+  const parsed = CityTierSchema.safeParse(v);
+  return parsed.success ? parsed.data : FALLBACK_TIER;
+}
+
+/**
+ * R1 #4: every id becomes one bound parameter. SQLite's compiled limit is far
+ * above anything this app produces (callers cap at MAX_WAYPOINT_CITIES = 10),
+ * but the bound is asserted here so the guarantee lives next to the query
+ * rather than in a constant two files away.
+ */
+const MAX_BOUND_CITY_IDS = 100;
 
 /**
  * Every query the app needs against the local atlas.
@@ -19,17 +52,26 @@ interface CityRow {
 
 /** All cities. 277 rows, so there is no reason to filter in SQL. */
 export function allCities(): City[] {
-  const rows = atlasDb()
-    .prepare<[], CityRow>(
-      `select id, name, country, region, tier, vibe_class, lat, lng from cities`
-    )
-    .all();
+  // R1 #5: a locked or truncated file throws here. Cities drive the whole plan
+  // page, so an empty list renders "no candidates" rather than an error page,
+  // which is the same graceful degradation the Firestore path had.
+  let rows: CityRow[];
+  try {
+    rows = atlasDb()
+      .prepare<[], CityRow>(
+        `select id, name, country, region, tier, vibe_class, lat, lng from cities`
+      )
+      .all();
+  } catch (err) {
+    console.error("[atlas] city read failed:", err);
+    return [];
+  }
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     country: r.country ?? "",
     region: r.region ?? "",
-    tier: (r.tier ?? "tier3") as City["tier"],
+    tier: safeCityTier(r.tier),
     lat: r.lat,
     lng: r.lng,
     ...(r.vibe_class ? { vibeClass: r.vibe_class as NonNullable<City["vibeClass"]> } : {}),
@@ -46,7 +88,7 @@ const toLite = (r: WaypointRow): LiteWaypoint & { description: string | null; la
   id: r.id,
   cityId: r.city_id,
   name: r.name,
-  type: r.type as LiteWaypoint["type"],
+  type: safeWaypointType(r.type),
   trendingScore: r.trending_score ?? 0,
   neighborhoodId: r.neighborhood_id,
   description: r.description,
@@ -61,6 +103,11 @@ const toLite = (r: WaypointRow): LiteWaypoint & { description: string | null; la
  */
 export function waypointsForCities(cityIds: readonly string[]) {
   if (cityIds.length === 0) return [];
+  if (cityIds.length > MAX_BOUND_CITY_IDS) {
+    throw new Error(
+      `waypointsForCities called with ${cityIds.length} ids, above the ${MAX_BOUND_CITY_IDS} bound-parameter ceiling`
+    );
+  }
   const holes = cityIds.map(() => "?").join(",");
   return atlasDb()
     .prepare<string[], WaypointRow>(

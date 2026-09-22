@@ -156,3 +156,28 @@ Two deferred items taken because they were not cosmetic:
 
 Not taken: prepared-statement caching. The query being optimised measures
 0.07 ms warm, so the cache would cost complexity to save nothing measurable.
+
+## Council round 3 (BLOCK), and what changed
+
+Seven required remediations, all applied. The substantive one:
+
+**R-tree desync on a REPLACE.** `insert or replace into waypoints` assigns a new
+rowid on conflict, while the R-tree row was already written against the old one.
+I checked the current file first: 15,185 waypoints, 15,185 R-tree rows, 0
+orphans, so nothing is wrong today, because Firestore document ids are unique
+and no conflict occurs. The council is still right that the pattern fails
+*silently* if that ever changes: corridor queries would return the wrong places
+with no error anywhere. Now deduped by id before the transaction, and the export
+verifies the join and refuses to publish the file if it does not hold. Taking
+the related deferred item was the real fix; the dedupe alone would not have
+caught a desync from any other cause.
+
+Also: enum narrowing with a logged fallback on `type` and `tier` reads, a bound
+parameter ceiling asserted next to the query, a try/catch in `allCities` so a
+locked file degrades to "no candidates" rather than an error page, and comments
+on the 30 day staleness threshold and the 250 city test floor.
+
+On EXDEV: `TMP` is always `${OUT}.tmp`, same directory and therefore same
+filesystem, so a cross-device rename is not reachable by construction. Handled
+anyway, with a comment saying so, because a future `ATLAS_OUT` could change it
+and the failure would otherwise be a lost export.
