@@ -1,3 +1,7 @@
+<!-- WARNING: .harness/hooks/pre-push greps this file for the current branch
+     name and for lines beginning 'Cost:' and 'Weakest part:'. Renaming or
+     removing those labels turns the pre-push gate into a no-op. -->
+
 # Active plan — roadtripper
 
 Branch: `harness/gate1-enforcement`

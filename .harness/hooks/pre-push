@@ -34,22 +34,29 @@ fi
 
 RUN="bun run"; command -v bun >/dev/null 2>&1 || RUN="npm run"
 
-# 1. Lint. Warnings are tolerated; errors are not.
-OUT=$($RUN lint 2>&1) || fail $'lint could not run\n'"$OUT"
-echo "$OUT" | grep -qE '✖ .* problems? \([1-9][0-9]* errors?' && fail $'lint errors\n'"$(echo "$OUT" | tail -20)"
+# 1. Lint. ESLint exits 1 when there are errors and 0 when there are only
+# warnings, so the exit code is the whole check. An earlier version also grepped
+# stdout for an error count, which was redundant and would silently stop working
+# whenever ESLint changed its output format.
+OUT=$($RUN lint 2>&1) || fail $'lint errors\n'"$(echo "$OUT" | tail -20)"
 pass "lint"
 
-# 2. Types.
+# 2. Types. tail -20 shows the immediate error without flooding the terminal;
+# run `bun run type-check` directly for the full list.
 OUT=$($RUN type-check 2>&1) || fail $'type-check\n'"$(echo "$OUT" | tail -20)"
 pass "type-check"
 
-# 3. Tests.
+# 3. Tests. tail -25 rather than -20: vitest spends the last few lines on its
+# own summary, so a smaller window can cut off the actual failure.
 OUT=$($RUN test 2>&1) || fail $'tests\n'"$(echo "$OUT" | tail -25)"
 pass "tests"
 
 # 4/5. The two judgement calls, made checkable by requiring them in writing.
 # A human still decides what goes on these lines; the gate only refuses to let
 # the question go unanswered.
+# These three greps are a contract with .harness/active_plan.md. The labels
+# "Cost:" and "Weakest part:" are matched literally; renaming either in the plan
+# template silently turns the check into a no-op that always passes.
 PLAN=.harness/active_plan.md
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 [ -f "$PLAN" ] || fail "$PLAN is missing"
