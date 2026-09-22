@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { APIProvider, Map as GMap, useMap } from "@vis.gl/react-google-maps";
+import {
+  APIProvider,
+  ControlPosition,
+  Map as GMap,
+  useMap,
+} from "@vis.gl/react-google-maps";
 
 export interface CandidateMarker {
   id: string;
@@ -525,7 +530,7 @@ export default function RouteMap({
         defaultZoom={7}
         gestureHandling="greedy"
         zoomControl={true}
-        zoomControlOptions={{ position: google.maps.ControlPosition.RIGHT_CENTER }}
+        zoomControlOptions={{ position: ControlPosition.RIGHT_CENTER }}
         fullscreenControl={false}
         mapTypeControl={false}
         streetViewControl={false}
