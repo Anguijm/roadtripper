@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { APIProvider, Map as GMap, useMap } from "@vis.gl/react-google-maps";
+import {
+  APIProvider,
+  ControlPosition,
+  Map as GMap,
+  useMap,
+} from "@vis.gl/react-google-maps";
 
 export interface CandidateMarker {
   id: string;
@@ -522,10 +527,24 @@ export default function RouteMap({
     <APIProvider apiKey={apiKey} libraries={["geometry"]}>
       <GMap
         defaultCenter={center}
+        // Zoom 7 frames a single day's drive (roughly a 300 mile radius) around
+        // the midpoint. PolylineRenderer calls fitBounds once a route exists, so
+        // this only governs the first paint and the no-route fallback.
         defaultZoom={7}
+        // "greedy" pans on a one-finger drag and zooms on a plain wheel, without
+        // requiring ctrl or two fingers. The map fills the pane and is the main
+        // interaction surface here, so it should not fight the user for scroll.
         gestureHandling="greedy"
         zoomControl={true}
-        zoomControlOptions={{ position: google.maps.ControlPosition.RIGHT_CENTER }}
+        // MUST be the library's ControlPosition, never google.maps.ControlPosition.
+        // These props are evaluated during render, and "use client" does not stop
+        // this component being server-rendered for the first HTML, where no
+        // `google` global exists. Reaching for the global here is what took the
+        // plan page down on 2026-09-22 with `ReferenceError: google is not
+        // defined` on every direct load. The library documents its export as a
+        // copy of the google.maps constants, so the value is identical.
+        // Guarded by src/components/__tests__/RouteMap.ssr.test.tsx.
+        zoomControlOptions={{ position: ControlPosition.RIGHT_CENTER }}
         fullscreenControl={false}
         mapTypeControl={false}
         streetViewControl={false}
