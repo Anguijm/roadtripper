@@ -18,10 +18,10 @@ if [ ! -d .harness/hooks ]; then
 fi
 
 # Make hooks executable (permissions can be dropped by some git operations).
-chmod +x .harness/hooks/post-commit
+chmod +x .harness/hooks/post-commit .harness/hooks/pre-push
 
 git config core.hooksPath .harness/hooks
 
 echo "[install_hooks] core.hooksPath set to .harness/hooks"
-echo "[install_hooks] Installed: post-commit"
+echo "[install_hooks] Installed: post-commit, pre-push"
 echo "[install_hooks] To uninstall: git config --unset core.hooksPath"

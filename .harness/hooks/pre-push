@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Gate 1 — the checks that must pass before work costs anybody else anything.
+#
+# Why this file exists: every rule below was already written down somewhere and
+# then ignored, because advice in a markdown file is not a gate.
+#
+#   - "Always run `bun run lint` before pushing" was recorded in
+#     .harness/learnings.md after Session 24, where skipping it cost 3 extra
+#     council rounds. Session 25 did not read it and did not run lint.
+#   - CLAUDE.md states a pre-push hook blocks direct pushes to main. That hook
+#     lived in .git/hooks/, but core.hooksPath points here, so git never ran it.
+#     The protection had been dead for an unknown length of time.
+#
+# Set SKIP_GATE1=1 to bypass. It prints loudly, and doing so is a choice you own.
+
+set -uo pipefail
+
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; OFF=$'\033[0m'
+fail() { echo "${RED}gate1: FAIL${OFF} $*" >&2; exit 1; }
+pass() { echo "${GRN}gate1: ok${OFF}   $*"; }
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "${RED}pre-push: direct push to main is blocked.${OFF}" >&2
+    echo "  Branch, open a PR, let the council run, merge on GitHub." >&2
+    exit 1
+  fi
+done
+
+if [ "${SKIP_GATE1:-0}" = "1" ]; then
+  echo "${YEL}gate1: BYPASSED via SKIP_GATE1=1. You own what follows.${OFF}" >&2
+  exit 0
+fi
+
+RUN="bun run"; command -v bun >/dev/null 2>&1 || RUN="npm run"
+
+# 1. Lint. Warnings are tolerated; errors are not.
+OUT=$($RUN lint 2>&1) || fail $'lint could not run\n'"$OUT"
+echo "$OUT" | grep -qE '✖ .* problems? \([1-9][0-9]* errors?' && fail $'lint errors\n'"$(echo "$OUT" | tail -20)"
+pass "lint"
+
+# 2. Types.
+OUT=$($RUN type-check 2>&1) || fail $'type-check\n'"$(echo "$OUT" | tail -20)"
+pass "type-check"
+
+# 3. Tests.
+OUT=$($RUN test 2>&1) || fail $'tests\n'"$(echo "$OUT" | tail -25)"
+pass "tests"
+
+# 4/5. The two judgement calls, made checkable by requiring them in writing.
+# A human still decides what goes on these lines; the gate only refuses to let
+# the question go unanswered.
+PLAN=.harness/active_plan.md
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+[ -f "$PLAN" ] || fail "$PLAN is missing"
+grep -qF "$BRANCH" "$PLAN" || fail "$PLAN does not mention the current branch ($BRANCH). The active plan is stale."
+grep -qE '^\s*(\*\*)?Cost:' "$PLAN" || fail "$PLAN has no 'Cost:' line. State the dollar impact; zero is a fine answer, silence is not."
+grep -qE '^\s*(\*\*)?Weakest part:' "$PLAN" || fail "$PLAN has no 'Weakest part:' line. Name the weakest thing about your own work before the council pays to find it."
+pass "active plan names $BRANCH, Cost and Weakest part"
+
+echo "${GRN}gate1: passed${OFF}"
+exit 0
