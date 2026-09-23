@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepare": "bash .harness/scripts/install_hooks.sh || true",
-    "atlas:export": "node scripts/export-atlas.mjs"
+    "atlas:export": "node scripts/export-atlas.mjs",
+    "atlas:drive-graph": "node scripts/build-drive-graph.mjs"
   },
   "dependencies": {
     "@vis.gl/react-google-maps": "^1.8.2",

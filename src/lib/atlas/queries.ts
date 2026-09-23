@@ -175,3 +175,121 @@ export function neighborhoodsForCity(cityId: string, limit: number): Neighborhoo
       trending_score: r.trending_score ?? 0,
     }));
 }
+
+// ---------------------------------------------------------------------------
+// Drive-time graph
+//
+// Built by scripts/build-drive-graph.mjs. Replaces a live route-matrix call
+// that cost $0.25 per cache-cold plan load and made the app useless without a
+// signal, which on a road trip is exactly when it is needed.
+// ---------------------------------------------------------------------------
+
+/**
+ * How far an arbitrary point may be from an atlas city and still be treated as
+ * that city for graph purposes.
+ *
+ * 40 km is roughly a metro's outer edge. The error this introduces is the drive
+ * from where you really are to that city centre, which at a day's-drive scale
+ * is small; but it IS an error, so `snapToCity` returns the distance and lets
+ * the caller decide rather than hiding it.
+ */
+export const SNAP_RADIUS_KM = 40;
+
+const EARTH_KM = 6371;
+const rad = (x: number) => (x * Math.PI) / 180;
+
+export function haversineKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_KM * Math.asin(Math.sqrt(h));
+}
+
+/** The atlas city nearest a point, if one is close enough to stand in for it. */
+export function snapToCity(
+  point: { lat: number; lng: number },
+  maxKm: number = SNAP_RADIUS_KM
+): { city: City; distanceKm: number } | null {
+  let best: { city: City; distanceKm: number } | null = null;
+  for (const c of allCities()) {
+    const d = haversineKm(point, c);
+    if (d <= maxKm && (best === null || d < best.distanceKm)) best = { city: c, distanceKm: d };
+  }
+  return best;
+}
+
+export interface DriveTimeRow {
+  cityId: string;
+  minutes: number;
+  meters: number | null;
+}
+
+/**
+ * Cities reachable from `fromCityId` within `maxMinutes`, nearest first.
+ *
+ * Returns an empty array both when the city has no graph rows and when nothing
+ * is in range. Those mean different things, so `hasDriveGraphFor` exists to
+ * tell them apart: the first is missing data and should fall back to the API,
+ * the second is a real answer.
+ */
+export function driveTimesFrom(fromCityId: string, maxMinutes: number): DriveTimeRow[] {
+  try {
+    return atlasDb()
+      .prepare<[string, number], { to_city_id: string; minutes: number; meters: number | null }>(
+        `select to_city_id, minutes, meters from city_drive_times
+          where from_city_id = ? and minutes <= ? order by minutes asc`
+      )
+      .all(fromCityId, maxMinutes)
+      .map((r) => ({ cityId: r.to_city_id, minutes: r.minutes, meters: r.meters }));
+  } catch (err) {
+    console.error("[atlas] drive-time read failed:", err);
+    return [];
+  }
+}
+
+/** Whether the graph knows anything at all about this city. */
+export function hasDriveGraphFor(cityId: string): boolean {
+  try {
+    const row = atlasDb()
+      .prepare<[string], { c: number }>(
+        `select count(*) c from city_drive_times where from_city_id = ? limit 1`
+      )
+      .get(cityId);
+    return (row?.c ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Provenance, so a caller (or a human) can see what built the graph and how
+ *  well the calibration held up on data it did not learn from. */
+export function driveGraphInfo(): {
+  provider: string | null;
+  factor: number | null;
+  heldOutMeanPct: number | null;
+  builtAt: string | null;
+  rows: number;
+} {
+  try {
+    const db = atlasDb();
+    const meta = (k: string) =>
+      db.prepare<[string], { value: string }>("select value from meta where key = ?").get(k)?.value ?? null;
+    const rows = db.prepare<[], { c: number }>("select count(*) c from city_drive_times").get()?.c ?? 0;
+    const f = meta("drive_graph_factor");
+    const h = meta("drive_graph_heldout_mean_pct");
+    return {
+      provider: meta("drive_graph_provider"),
+      factor: f === null ? null : Number(f),
+      heldOutMeanPct: h === null ? null : Number(h),
+      builtAt: meta("drive_graph_built_at"),
+      rows,
+    };
+  } catch {
+    return { provider: null, factor: null, heldOutMeanPct: null, builtAt: null, rows: 0 };
+  }
+}

@@ -4,109 +4,100 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/remove-clerk`
+Branch: `feat/drive-time-graph`
+Stacked on `feat/remove-clerk`, which is stacked on `feat/atlas-sqlite`.
 
 ## Goal
 
-Remove authentication. Saved trips move to the browser.
+Stop paying a live API to recompute drive times that barely change, and make
+candidate generation work with no signal.
 
-The operator's call on 2026-09-23, after finding that every Clerk key in the
-system is a development key: Secret Manager holds `pk_test` and `sk_test`, and
-`next.config.ts` hardcoded a third `pk_test` that would have overridden any
-production secret anyway, because Next inlines `env` values at build time.
+Today every plan load calls `computeRouteMatrix` with up to 50 destinations:
+$0.25 a load, a network round trip in the path between opening the app and
+seeing where you can go, and nothing at all when there is no bar of service.
 
-That key belongs to Urban Explorer's dev instance. Road Tripper was borrowing
-another app's development auth to gate a feature used by two people.
+Drive time between two cities is a staleness-tolerant dataset. It belongs in
+the atlas next to the places.
 
 ## Change
 
-- Deleted: `app/trips/actions.ts`, `components/AuthButtons.tsx`,
-  `lib/firebaseAdmin.ts`, `lib/firebase.ts` (dead, no importers), `src/proxy.ts`.
-- `lib/trips/storage.ts`: localStorage, keeping the Zod schemas, upserting by id
-  so a retry cannot duplicate, and exposing a `useSyncExternalStore` interface.
-- `/trips` is now a static page reading that store. It was server-rendered.
-- Save button loses its auth gate and reports why a save failed rather than
-  "try again".
-- `@clerk/nextjs` removed. `firebase-admin` moved to devDependencies: only the
-  export script uses it now, so it no longer ships in the runtime image.
-- Clerk secrets dropped from `apphosting.yaml`; Clerk origins dropped from CSP.
+1. `city_drive_times` table in the atlas: `from_city_id`, `to_city_id`,
+   `minutes`, `meters`, plus provenance.
+2. `scripts/build-drive-graph.mjs`: for each city, the cities within a day's
+   drive by haversine, resolved through a routing provider in batches.
+3. Provider is pluggable. OpenRouteService is the default because it is free
+   and the whole job fits inside its daily allowance. Google Routes is the
+   alternate.
+4. Calibration, not blind trust. OSM-derived times measured 18.3% slower than
+   Google across 20 spread pairs, consistently in one direction. The build
+   samples pairs against Google, derives the factor, stores it with the data,
+   and applies it. It is re-derived on every rebuild rather than hardcoded.
+5. `radial.ts` reads the graph instead of calling the matrix API.
 
 ## Risk surface
 
-- Trips no longer follow you between devices, and clearing site data clears
-  them. Named in the UI rather than discovered.
-- The 50-trip ceiling and idempotent save carry over from the Firestore version.
-- Rollback: revert the commit. Nothing external changed; the Clerk secrets are
-  still in Secret Manager, unused.
+- Files: new script, new table, `src/lib/atlas/queries.ts`, `radial.ts`.
+- If a pair is missing from the graph, the city simply is not offered. That is
+  a silent omission, so the build reports coverage and the read layer can say
+  when it falls through.
+- Rollback: revert. The Routes API path is one commit away.
 
 ## Ship rule (declared before the work)
 
-1. No `clerk` reference remains in `src/`, proven by grep.
-2. The trips page and the save path have test coverage at least as good as the
-   175-line server action they replace, including the failure modes that action
-   could not have (storage off, quota full, corrupt entry).
-3. A production build succeeds and `/trips` renders.
+1. The graph covers every continental US city pair within a day's drive, and
+   the build prints coverage rather than leaving it to be assumed.
+2. A calibrated lookup lands within 10% of Google on a held-out sample that was
+   not used to derive the calibration factor.
+3. `findCitiesInRadius` makes zero Routes API calls on a cache-cold request,
+   proven by counting calls in a test.
 4. Lint, types, and the full suite green.
 
-**Cost:** $0, and it removes spend. No Clerk instance to outgrow, no Firestore
-reads or writes for trips, one fewer runtime dependency in the image. The two
-Clerk secrets stay in Secret Manager costing nothing until deliberately deleted.
+**Cost:** $0 for the graph itself via OpenRouteService, whose free allowance is
+2,500 requests a day against the ~191 this needs. Calibration and the held-out
+check use Google at about $0.005 a pair, so under $0.50 for a generous sample.
+Against that it removes a $0.25 call from every cache-cold plan load, which is
+most of them in real use because each morning starts somewhere new.
 
-**Weakest part:** I still have not observed a successful Save in a real browser,
-and I tried. Two things blocked it, neither of them this change:
+## Result
 
-1. Serving the build over plain HTTP on a LAN address makes Chrome treat the
-   origin as insecure and **deny localStorage outright** (`SecurityError: Access
-   is denied for this document`). The storage layer handled that correctly, by
-   reporting `unavailable` rather than throwing, which is evidence for the
-   design but not evidence the happy path works.
-2. `/plan` never finished hydrating in the browser: it sat on the loading
-   fallback with the real content in a hidden template and no React fiber on the
-   button. `/` and `/trips` both hydrated normally on the same build, and a
-   `curl` of the same `/plan` URL returned the complete 213 KB page in 1.36s, so
-   the server is fine. Loading the **production** `/plan` in the same browser
-   then froze the renderer outright, matching screenshot timeouts seen on that
-   page earlier the same evening.
+The pipeline is built and proven; the dataset is not populated.
 
-So: 18 unit tests cover the logic, the build is clean, and the auth gate is
-provably gone (`curl` shows "Save trip" where "Sign in to save this trip" used
-to be). "Saving works end to end" remains inference, not observation. Confirming
-it needs an HTTPS or localhost origin the browser extension can reach.
+| Ship rule | State |
+| --- | --- |
+| 1. Coverage reported, not assumed | **Built.** The script prints pairs written over pairs planned, plus unroutable and failed counts. Verified at 30/30 on a two-city run. |
+| 2. Calibrated lookup within 10% on a held-out sample | **Built, unexercised.** The build derives the factor from one sample, tests it on a disjoint one, and *refuses to publish* if the held-out mean exceeds 10%. It has not run, because the provider is unreachable. |
+| 3. Zero Routes API calls on a cache-cold request | **Met and counted.** `fetch` is replaced by a spy that throws; a graph-covered request makes zero calls, and an uncoverable origin is asserted to fall back rather than silently return nothing. |
+| 4. Lint, types, suite green | **Met.** 264 tests, 0 lint errors. |
 
-**Follow-up, unrelated to this branch:** the plan page can leave the browser
-stuck on its loading state and can freeze the renderer. It reproduces against
-production, so it predates this work.
+A two-city build against Google exercised every path end to end: 30 pairs,
+100% coverage, 0 unroutable, 0 failed requests, about 15 cents.
 
-## Council round 1 on this PR (BLOCK), and what changed
+## What blocked the full run
 
-Seven items. Five applied, two pushed back with evidence.
+**IPv4 egress from this machine is dead.** `1.1.1.1:443` and `8.8.8.8:443` both
+time out; only hosts with real IPv6 answer. OpenRouteService and GitHub resolve
+to IPv4 only (their AAAA records are `::ffff:` synthetics), so both are
+unreachable. Google and Overpass have real IPv6 and work fine, which is why the
+Google-backed test run succeeded.
 
-Applied: a `role="alert"` banner when the browser blocks storage, read through
-`useSyncExternalStore` with an `unknown` server snapshot so it cannot cause a
-hydration mismatch; the two contrast fixes (`#555` to `#7d8590`, error text to
-`#ff7b72`); the deletion announcement lifted to the page, because a live region
-inside the card unmounts in the same commit as the delete; and comments on
-`KEY` and `MAX_SAVED_TRIPS` including why updates bypass the cap.
+Consequences: the full graph is unbuilt and nothing can be pushed. Both are one
+command each once the network returns.
 
-Pushed back:
+**Cost:** $0 for the graph via OpenRouteService once reachable; about $0.15
+spent proving the pipeline against Google. I did not spend the $25.66 to build
+the whole thing through Google instead, because free was the point and the
+blocker is temporary.
 
-- "Build-breaking `zod/v4` import." `package.json` has `"zod": "^4.3.6"`, not
-  the `^3.24.1` the review states, and five of the six existing imports in the
-  repo already use `zod/v4`. CI `validate` passed. The claim is false.
-- "Wrap `saveTrip` in `setTimeout` so the saving state can paint." The write is
-  synchronous and sub-millisecond; no timer makes a transitional label useful.
-  The state was a leftover from the async server action. Deleted instead.
+**Weakest part:** The graph in the shipped atlas holds **30 rows covering 2
+cities**. Every test above passes against that, which is exactly the shape of
+problem worth naming: a suite that is green on a near-empty dataset proves the
+code and says nothing about the data. The read layer distinguishes "no rows"
+from "nothing in range" and falls back rather than returning silence, so the app
+degrades correctly rather than going quiet. But until the real build runs,
+"candidate generation works offline" is true of two cities and of nowhere else.
 
-## Council round 2 on this PR (BLOCK), and what changed
-
-- writers carry unparseable entries through verbatim instead of purging them (readAll)
-- two tests: corrupt entry survives save+delete; opaque entries do not count toward the cap
-- empty-state hint hidden when storage is blocked; the banner is the only message then
-- cap message interpolates MAX_SAVED_TRIPS instead of hardcoding 50
-
-## Council round 3 (on #47, the replacement PR), and what changed
-
-- opaque entries sharing the id being saved or deleted are superseded, not preserved (hasId)
-- MAX_SAVED_TRIPS comment names its two tests
-- test: an opaque entry with a shared id is replaced on save and removed on delete
-- Pushed back: the blocked-storage banner is read through `useSyncExternalStore` with a server snapshot of `unknown`, which is the mechanism that defers the client value until after hydration; there is no mismatch to fix.
+Second, still untested: a single global calibration factor assumes OSM's error
+is uniform, and the 20-pair sample suggested it is not (Salt Lake City to Park
+City was 14.2% off, a short mountain hop). The held-out gate will fail the build
+rather than ship a quietly optimistic graph, which is the right behaviour, but
+whether it passes at all is unknown.

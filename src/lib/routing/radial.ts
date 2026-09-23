@@ -1,5 +1,6 @@
 import "server-only";
 import { getAllCities } from "@/lib/urban-explorer/cities";
+import { snapToCity, driveTimesFrom, hasDriveGraphFor } from "@/lib/atlas/queries";
 import type { City } from "@/lib/urban-explorer/types";
 import { cacheGet, cacheSet, radialCacheKey } from "./cache";
 import { haversineKm, type LatLng } from "./polyline";
@@ -146,6 +147,21 @@ const MAX_RADIAL_FAN_OUT = 50;
  * expands the in-memory threshold by 15-min increments (max 2), so the
  * entire retry sequence never triggers additional API calls.
  */
+/**
+ * Cities reachable from `origin` within `maxMinutes`, filtered to the half of
+ * the compass aimed at `destination`.
+ *
+ * Reads the precomputed drive-time graph when it can, and only calls the Routes
+ * API when it cannot. That ordering is the point: a graph hit costs nothing,
+ * returns in microseconds, and works with no signal, which on a road trip is
+ * when the app is actually open.
+ *
+ * The graph is keyed by city, so an arbitrary origin is snapped to the nearest
+ * atlas city within SNAP_RADIUS_KM. In practice the origin is either a city the
+ * user typed or the last stop they added, so it usually snaps to itself. When
+ * nothing is close enough, or the graph has no rows for that city, this falls
+ * through to the live matrix rather than silently returning nothing.
+ */
 export async function findCitiesInRadius(
   origin: LatLng,
   destination: LatLng,
@@ -160,6 +176,19 @@ export async function findCitiesInRadius(
   const allCities = await getAllCities();
   const headingDeg = bearingFromCompassPoint(compassPoint);
   const inSemicircle = allCities.filter((c) => withinSemicircle(c, origin, headingDeg));
+
+  const fromGraph = candidatesFromGraph(origin, inSemicircle, maxMinutes);
+  if (fromGraph !== null) {
+    cacheSet(cacheKey, fromGraph);
+    return fromGraph;
+  }
+
+  // Fallback: no usable graph row for this origin. Costs money and needs a
+  // network, which is exactly what the graph exists to avoid, so it is worth
+  // knowing when it happens.
+  console.warn(
+    `[radial] no drive-graph coverage near ${origin.lat.toFixed(3)},${origin.lng.toFixed(3)} — falling back to the Routes API`
+  );
 
   // Sort by haversine then cap — keeps API cost bounded while prioritising
   // the most geographically proximate (and therefore most likely reachable) cities.
@@ -187,4 +216,34 @@ export async function findCitiesInRadius(
   }
 
   return [];
+}
+
+/**
+ * Graph-only candidate resolution.
+ *
+ * `null` means "the graph cannot answer this", which is different from an empty
+ * array meaning "nothing is in range". Collapsing those two would turn missing
+ * data into a confident wrong answer.
+ *
+ * Note there is no fan-out cap here. The cap exists because each API
+ * destination costs half a cent; reading rows already on disk costs nothing, so
+ * every city in range is considered. That alone fixes the symptom where a New
+ * York to Los Angeles plan only ever offered Northeast cities.
+ */
+function candidatesFromGraph(
+  origin: LatLng,
+  inSemicircle: City[],
+  maxMinutes: number
+): RadialCandidate[] | null {
+  const snapped = snapToCity(origin);
+  if (!snapped || !hasDriveGraphFor(snapped.city.id)) return null;
+
+  const allowed = new Map(inSemicircle.map((c) => [c.id, c]));
+  const candidates: RadialCandidate[] = [];
+  for (const row of driveTimesFrom(snapped.city.id, maxMinutes)) {
+    const city = allowed.get(row.cityId);
+    if (city) candidates.push({ city, oneWayDriveMinutes: row.minutes });
+  }
+  candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
+  return candidates;
 }

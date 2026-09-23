@@ -90,6 +90,23 @@ db.exec(`
   create virtual table waypoint_rtree using rtree(rowid, minLng, maxLng, minLat, maxLat);
 `);
 
+// Drive times between cities. Written by scripts/build-drive-graph.mjs, not by
+// this script, because it comes from a routing provider rather than Firestore
+// and takes far longer to build. Created here so the schema lives in one place
+// and a fresh atlas is queryable (empty) rather than missing a table.
+//
+// Directed: A to B need not equal B to A (one-way systems, mountain passes).
+db.exec(`
+  create table if not exists city_drive_times (
+    from_city_id text not null,
+    to_city_id   text not null,
+    minutes      real not null,
+    meters       real,
+    primary key (from_city_id, to_city_id)
+  );
+  create index if not exists cdt_from on city_drive_times(from_city_id, minutes);
+`);
+
 const pull = async (col) => (await fs.collection(col).get()).docs;
 const t0 = Date.now();
 
