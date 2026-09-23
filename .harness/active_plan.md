@@ -101,3 +101,55 @@ is uniform, and the 20-pair sample suggested it is not (Salt Lake City to Park
 City was 14.2% off, a short mountain hop). The held-out gate will fail the build
 rather than ship a quietly optimistic graph, which is the right behaviour, but
 whether it passes at all is unknown.
+
+---
+
+## Step 15 also landed here: deduplicating the atlas
+
+Done on this branch rather than its own, because the network outage blocked the
+drive-graph run and this needed no network.
+
+**The rule is measured, not guessed.** Across the 1,056 same-name groups in
+continental US cities, maximum separation inside a group is 0.27 km at the
+median and 1.09 km at p90; 1,017 of 1,056 fall entirely within 2 km and only 4
+spread past 5 km. So the pipeline emits one real place several times with
+jittered coordinates and separately written descriptions, rather than recording
+genuine branches. Same city plus same name plus within 2 km is one place; the
+richest row wins (trending score, then description length, then id, so a
+re-export is deterministic).
+
+Result: **1,795 collapsed, 15,185 to 13,390 waypoints**, file 7.3 MB to 6.5 MB.
+US duplication was 13.9%, worse than the 10.5% outside it. Dallas alone had 34.
+
+## Three bugs found doing it, two of them mine and serious
+
+1. **The atomic rename was destroying the drive graph.** Renaming a freshly
+   built database over the old one discards everything the export does not
+   itself write. A graph that takes hours to build was being wiped by a routine
+   refresh of the places, with no error and no output. The export now reads the
+   graph out first and writes it back, dropping pairs whose city no longer
+   exists.
+2. **The rename stranded the old `-wal` and `-shm` files.** The next process to
+   open the atlas read-write tried to replay a WAL belonging to a different
+   database and failed with "disk image is malformed" — while `integrity_check`
+   on the file said ok. Genuinely confusing. They are removed before the rename.
+3. **My clustering was order-dependent.** First-match-wins left an item in one
+   cluster while it was still within 2 km of another, leaving exactly one
+   colocated duplicate. Only caught because a test counted them rather than
+   trusting the export's own tally. Now single-linkage with full merging.
+
+I also found that several earlier edits to this script had silently not applied,
+because I was doing string replacements without checking the anchors still
+matched. The council-required EXDEV handler and the id-dedupe guard were both
+absent from the file while I believed they were there. Every edit in this pass
+asserts its own presence afterwards.
+
+**Cost:** $0. Firestore is IPv6-reachable so the re-export worked; about $0.15
+more on Google proving the graph carry-over end to end.
+
+**Weakest part:** The invariant tests assert properties of the shipped file, so
+they will pass on any atlas that happens to satisfy them, including one built by
+a future export that is wrong in a new way. They caught the clustering bug only
+because that bug happened to violate a property I had thought to check. Nothing
+here tests the export *process*, and the two serious bugs above were both in the
+process rather than the output.
