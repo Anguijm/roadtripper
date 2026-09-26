@@ -19,13 +19,26 @@ RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; OFF=$'\033[0m'
 fail() { echo "${RED}gate1: FAIL${OFF} $*" >&2; exit 1; }
 pass() { echo "${GRN}gate1: ok${OFF}   $*"; }
 
+ZERO_SHA=0000000000000000000000000000000000000000
+SAW_REF=0; ALL_DELETES=1
 while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  SAW_REF=1
   if [ "$remote_ref" = "refs/heads/main" ]; then
     echo "${RED}pre-push: direct push to main is blocked.${OFF}" >&2
     echo "  Branch, open a PR, let the council run, merge on GitHub." >&2
     exit 1
   fi
+  [ "$_local_sha" = "$ZERO_SHA" ] || ALL_DELETES=0
 done
+
+# Deleting a merged branch pushes no code, so there is nothing to lint, type,
+# test or plan. Without this, cleaning up after a merge from main fails because
+# the active plan names the branch that was just merged, not main. (Deleting
+# main itself is still refused above.)
+if [ "$SAW_REF" = 1 ] && [ "$ALL_DELETES" = 1 ]; then
+  echo "${GRN}gate1: branch deletion only, nothing to check${OFF}"
+  exit 0
+fi
 
 if [ "${SKIP_GATE1:-0}" = "1" ]; then
   echo "${YEL}gate1: BYPASSED via SKIP_GATE1=1. You own what follows.${OFF}" >&2

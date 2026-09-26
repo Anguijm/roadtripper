@@ -4,16 +4,22 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/session-26-learnings`
+Branch: `fix/gate1-deletes-and-google-pacing`
 
 ## Goal
 
-Record the session-26 lessons in `learnings.md` while they are exact. Docs
-only; `[skip council]`.
+Two things the #45 and #46 merges exposed. Gate 1 refused to delete a merged
+branch from main because the active plan named the merged branch, so a
+deletion-only push now skips the gate (deleting main is still blocked). And
+the Google matrix pause was sized for one-element calibration calls; a full
+build in 60-element batches would have run at 30,000 elements a minute against
+a 3,000 a minute quota. It is now 1.5 s, 2,400 a minute.
 
-**Cost:** $0.
+**Cost:** $0 for this change. The build it enables sends 5,132 elements under
+the Essentials SKU, which has 10,000 free a month; worst case if the allowance
+is spent is $25.66.
 
-**Weakest part:** These are prose, which is precisely the class of lesson this
-file has already shown does not survive into the next session. The `-X theirs`
-and suppressed-output lessons should become a pre-rebase or pre-push check,
-and they are not yet. This entry records the failure; it does not prevent it.
+**Weakest part:** The hook has no automated test. The proof is a simulated
+deletion on stdin, refused before the change and accepted after, recorded in
+the PR. A push mixing a deletion with an update still runs the full gate,
+which is correct but untested.
