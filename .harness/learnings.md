@@ -398,3 +398,20 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
 - **Calibration held.** OSM-derived times divided by 1.1738 land within 4.31%
   of Google on 12 held-out pairs. Stored with the graph, re-derived per rebuild,
   provider-specific, and refused across providers.
+
+### IMPROVE, addendum the same day
+- **A heredoc ends the command; the next line runs whatever its exit was.**
+  `python3 - <<'PY' … PY` followed on a new line by `… && git commit && git push`
+  committed and pushed after the Python assertion failed. `set -e` did not stop
+  it in this shell either. Three overclaims in one hour came from this shape.
+  Rule: one operation per call, verify in a separate call, and never put a
+  commit, push or status claim downstream of a heredoc in the same script.
+- **A word-absence check matches your own comment about removing the word.**
+  `assert '"saving"' not in file` failed on the line `// No "saving" state.` that
+  the same edit had just added, and the false failure was reported as a bad
+  push. Verify structure (the type union, the call site) or a diff, not the
+  absence of a word.
+- **A checker that splits markers on `:` breaks on a marker containing `:`.**
+  `safeWaypointType(v: unknown):path` split at the first colon, grepped the
+  wrong path, and reported present code as MISSING. Use a separator that cannot
+  appear in the marker.
