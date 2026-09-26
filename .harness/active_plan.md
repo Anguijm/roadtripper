@@ -44,3 +44,18 @@ full suite green against main's own atlas.
 only when someone re-exports. Nothing in CI runs the export, because it needs
 Firestore. So the one check this PR most cares about has no automated proof
 beyond the run I did by hand.
+
+## Council round 4 (CONDITIONAL), and what changed
+
+Four items, all applied:
+
+1. `allCities` no longer swallows errors. Round 3 asked for the try/catch; round
+   4 correctly observed it masks a broken atlas as an empty result. The caller
+   already runs under `Promise.allSettled` and renders a visible failure, so
+   letting it throw is the honest behaviour. Recorded here because the two
+   rounds contradict each other and a future reader should know which won.
+2. `safeWaypointType` / `safeCityTier` take `unknown`. `safeParse` already
+   handled any input; the type now says so.
+3. The bound-parameter comment names the file that defines the caller's cap.
+4. EXDEV fallback: if present on this branch, copies to a sibling on the
+   destination filesystem and renames, which is atomic there.

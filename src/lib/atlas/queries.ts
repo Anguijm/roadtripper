@@ -17,23 +17,29 @@ import { WaypointTypeSchema, CityTierSchema } from "@/lib/urban-explorer/cityAtl
 const FALLBACK_TYPE = "landmark" as const;
 const FALLBACK_TIER = "tier3" as const;
 
-function safeWaypointType(v: string) {
+// `unknown` rather than `string`: the column is NOT NULL, but the point of this
+// helper is to survive the atlas disagreeing with this code, and a null or
+// missing value is one way it could. `safeParse` rejects anything that is not
+// one of the enum strings, so widening the input costs nothing.
+function safeWaypointType(v: unknown) {
   const parsed = WaypointTypeSchema.safeParse(v);
   if (parsed.success) return parsed.data;
   console.warn(`[atlas] unknown waypoint type ${JSON.stringify(v)}, treating as ${FALLBACK_TYPE}`);
   return FALLBACK_TYPE;
 }
 
-function safeCityTier(v: string | null) {
+function safeCityTier(v: unknown) {
   const parsed = CityTierSchema.safeParse(v);
   return parsed.success ? parsed.data : FALLBACK_TIER;
 }
 
 /**
  * R1 #4: every id becomes one bound parameter. SQLite's compiled limit is far
- * above anything this app produces (callers cap at MAX_WAYPOINT_CITIES = 10),
- * but the bound is asserted here so the guarantee lives next to the query
- * rather than in a constant two files away.
+ * above anything this app produces: the only caller caps at
+ * `MAX_WAYPOINT_CITIES = 10`, defined in `src/lib/routing/recommend.ts`. The
+ * bound is asserted here anyway so the guarantee lives next to the query rather
+ * than in a constant in another file that could be raised without anyone
+ * looking here.
  */
 const MAX_BOUND_CITY_IDS = 100;
 
@@ -52,20 +58,18 @@ interface CityRow {
 
 /** All cities. 277 rows, so there is no reason to filter in SQL. */
 export function allCities(): City[] {
-  // R1 #5: a locked or truncated file throws here. Cities drive the whole plan
-  // page, so an empty list renders "no candidates" rather than an error page,
-  // which is the same graceful degradation the Firestore path had.
-  let rows: CityRow[];
-  try {
-    rows = atlasDb()
-      .prepare<[], CityRow>(
-        `select id, name, country, region, tier, vibe_class, lat, lng from cities`
-      )
-      .all();
-  } catch (err) {
-    console.error("[atlas] city read failed:", err);
-    return [];
-  }
+  // Deliberately NOT wrapped in try/catch. Round 3 asked for one so a locked
+  // file would degrade to "no candidates"; round 4 pointed out that this masks
+  // a broken atlas as an empty result, which is worse. The caller that matters
+  // (`findCitiesInRadius`, invoked under `Promise.allSettled` in the plan page)
+  // already turns a rejection into a visible "couldn't load candidates" state,
+  // so letting this throw reaches the user as an honest failure rather than a
+  // silently empty map.
+  const rows = atlasDb()
+    .prepare<[], CityRow>(
+      `select id, name, country, region, tier, vibe_class, lat, lng from cities`
+    )
+    .all();
   return rows.map((r) => ({
     id: r.id,
     name: r.name,

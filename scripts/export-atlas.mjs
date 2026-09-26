@@ -209,7 +209,12 @@ try {
   renameSync(TMP, OUT);
 } catch (err) {
   if (err?.code !== "EXDEV") throw err;
-  copyFileSync(TMP, OUT);
+  // Copying straight onto OUT is not atomic: a reader could open a half-written
+  // file. Copy to a sibling on the destination filesystem, then rename, which
+  // is atomic there.
+  const DEST_TMP = `${OUT}.tmp.dest`;
+  copyFileSync(TMP, DEST_TMP);
+  renameSync(DEST_TMP, OUT);
   rmSync(TMP, { force: true });
 }
 console.log(`wrote ${OUT}: ${counts}`);
