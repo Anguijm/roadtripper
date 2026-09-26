@@ -21,12 +21,19 @@
  * (An earlier version of this comment cited "2,500 requests/day"; that is the
  * general figure and does not apply to matrix.)
  *
- * Google: 120 ms keeps calibration under Google's default 600 elements per
- * minute with room to spare, and Google bills per element regardless of pace,
- * so there is nothing to gain by going faster.
+ * Google: the project's ComputeRouteMatrix quota is 3,000 elements per minute
+ * (read from Service Usage on 2026-09-27; there is no daily cap). A full build
+ * sends batches of `BATCH` destinations, 60 in scripts/build-drive-graph.mjs,
+ * so 1.5 s between requests is 2,400 elements per minute, under the cap with
+ * room for the app's own traffic. Raise `BATCH` and this pause must grow with
+ * it: the cap is on elements, not requests. The old 120 ms
+ * was sized for one-element calibration calls and would have run a full build
+ * at 30,000 per minute, which Google answers with 429 and this script counts
+ * as a failed request. Google bills per element regardless of pace, so there
+ * is nothing to gain by going faster.
  */
 const ORS_PAUSE_MS = 1500;
-const GOOGLE_PAUSE_MS = 120;
+const GOOGLE_PAUSE_MS = 1500;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -74,8 +81,10 @@ export function openRouteService(apiKey) {
 }
 
 /**
- * Google Route Matrix. Billed per element, so this is used for calibration and
- * spot checks rather than the full build.
+ * Google Route Matrix. Billed per element under the Essentials SKU (no
+ * routingPreference is sent, which keeps it off the pricier Pro SKU) with
+ * 10,000 free elements a month, then $5 per 1,000. The 5,132-pair US build
+ * fits inside the free allowance; ORS's free matrix quota does not cover it.
  */
 export function googleRoutes(apiKey) {
   if (!apiKey) throw new Error("GOOGLE_MAPS_KEY is not set");
