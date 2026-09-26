@@ -138,6 +138,19 @@ describe("trip storage", () => {
     expect(loadTrips().map((t) => t.id)).toEqual(["another"]);
   });
 
+  it("supersedes an unparseable entry that shares the id being written or deleted", () => {
+    // Council on #47: preserving opaque entries unconditionally left two rows
+    // under one id after a save, and a delete left the opaque one behind.
+    mem.setItem("roadtripper.trips.v1", JSON.stringify([{ id: "shared", schemaVersion: 2, junk: true }]));
+    expect(saveTrip(INPUT, "shared").ok).toBe(true);
+    let all = JSON.parse(mem.getItem("roadtripper.trips.v1")!) as Array<{ id?: string; junk?: boolean }>;
+    expect(all.filter((e) => e.id === "shared")).toHaveLength(1);
+    expect(all.some((e) => e.junk === true)).toBe(false);
+    expect(deleteTrip("shared")).toBe(true);
+    all = JSON.parse(mem.getItem("roadtripper.trips.v1")!);
+    expect(all.filter((e) => e.id === "shared")).toHaveLength(0);
+  });
+
   it("does not count unparseable entries toward the saved-trip cap", () => {
     for (let i = 0; i < MAX_SAVED_TRIPS - 1; i++) saveTrip(INPUT, `t${i}`);
     const raw = JSON.parse(mem.getItem("roadtripper.trips.v1")!);

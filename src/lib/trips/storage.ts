@@ -39,6 +39,8 @@ const KEY = "roadtripper.trips.v1";
  * trip is well under 1 KB, so the count bites long before the quota does.
  * Updates to an existing id bypass it on purpose: a retry of a failed save
  * must never be refused for hitting a limit the first attempt already passed.
+ * Covered by "enforces the saved-trip ceiling" and "does not count unparseable
+ * entries toward the cap" in __tests__/storage.test.ts; change those with this.
  */
 export const MAX_SAVED_TRIPS = 50;
 
@@ -96,6 +98,16 @@ function readAll(store: Storage): { parsed: SavedTrip[]; opaque: unknown[] } {
   return { parsed, opaque };
 }
 
+/**
+ * Whether an opaque entry carries this id. An unparseable entry that shares an
+ * id with one being written or deleted is the same logical record in a shape
+ * this build cannot read, so it is superseded rather than preserved: keeping it
+ * would leave two entries under one id, and a delete would leave it behind.
+ */
+function hasId(o: unknown, id: string): boolean {
+  return typeof o === "object" && o !== null && (o as { id?: unknown }).id === id;
+}
+
 /** Every trip that parses, newest first. Corrupt entries are hidden here and
  *  preserved on disk; see `readAll`. */
 export function loadTrips(): SavedTrip[] {
@@ -138,9 +150,10 @@ export function saveTrip(input: SaveTripInput, id: string, now: Date = new Date(
     updatedAt: iso,
   };
   const next = idx === -1 ? [trip, ...existing] : existing.map((t, i) => (i === idx ? trip : t));
+  const keptOpaque = opaque.filter((o) => !hasId(o, validId.data));
 
   try {
-    store.setItem(KEY, JSON.stringify([...next, ...opaque]));
+    store.setItem(KEY, JSON.stringify([...next, ...keptOpaque]));
   } catch {
     // QuotaExceededError, or storage disabled between the probe and this write.
     return { ok: false, error: "quota" };
@@ -154,8 +167,9 @@ export function deleteTrip(id: string): boolean {
   if (!store) return false;
   const { parsed, opaque } = readAll(store);
   const next = parsed.filter((t) => t.id !== id);
+  const keptOpaque = opaque.filter((o) => !hasId(o, id));
   try {
-    store.setItem(KEY, JSON.stringify([...next, ...opaque]));
+    store.setItem(KEY, JSON.stringify([...next, ...keptOpaque]));
     invalidate();
     return true;
   } catch {

@@ -103,3 +103,10 @@ Pushed back:
 - two tests: corrupt entry survives save+delete; opaque entries do not count toward the cap
 - empty-state hint hidden when storage is blocked; the banner is the only message then
 - cap message interpolates MAX_SAVED_TRIPS instead of hardcoding 50
+
+## Council round 3 (on #47, the replacement PR), and what changed
+
+- opaque entries sharing the id being saved or deleted are superseded, not preserved (hasId)
+- MAX_SAVED_TRIPS comment names its two tests
+- test: an opaque entry with a shared id is replaced on save and removed on delete
+- Pushed back: the blocked-storage banner is read through `useSyncExternalStore` with a server snapshot of `unknown`, which is the mechanism that defers the client value until after hydration; there is no mismatch to fix.
