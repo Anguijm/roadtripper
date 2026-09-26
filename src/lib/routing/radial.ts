@@ -246,15 +246,24 @@ function candidatesFromGraph(
   inSemicircle: City[],
   maxMinutes: number
 ): GraphLookup {
-  const snapped = snapToCity(origin);
-  if (!snapped || !hasDriveGraphFor(snapped.city.id)) return { kind: "miss" };
+  // Any failure inside the graph lookup is a miss, never a hit with nothing in
+  // it. A locked file or a schema drift must reach the live API, not the user
+  // as an empty map. Logged, because a miss that is really an error is worth
+  // knowing about even though the app keeps working.
+  try {
+    const snapped = snapToCity(origin);
+    if (!snapped || !hasDriveGraphFor(snapped.city.id)) return { kind: "miss" };
 
-  const allowed = new Map(inSemicircle.map((c) => [c.id, c]));
-  const candidates: RadialCandidate[] = [];
-  for (const row of driveTimesFrom(snapped.city.id, maxMinutes)) {
-    const city = allowed.get(row.cityId);
-    if (city) candidates.push({ city, oneWayDriveMinutes: row.minutes });
+    const allowed = new Map(inSemicircle.map((c) => [c.id, c]));
+    const candidates: RadialCandidate[] = [];
+    for (const row of driveTimesFrom(snapped.city.id, maxMinutes)) {
+      const city = allowed.get(row.cityId);
+      if (city) candidates.push({ city, oneWayDriveMinutes: row.minutes });
+    }
+    candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
+    return { kind: "hit", candidates };
+  } catch (err) {
+    console.error("[radial] drive-graph lookup failed, treating as a miss:", err);
+    return { kind: "miss" };
   }
-  candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
-  return { kind: "hit", candidates };
 }

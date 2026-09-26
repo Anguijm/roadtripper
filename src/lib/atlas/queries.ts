@@ -241,18 +241,17 @@ export interface DriveTimeRow {
  * the second is a real answer.
  */
 export function driveTimesFrom(fromCityId: string, maxMinutes: number): DriveTimeRow[] {
-  try {
-    return atlasDb()
-      .prepare<[string, number], { to_city_id: string; minutes: number; meters: number | null }>(
-        `select to_city_id, minutes, meters from city_drive_times
-          where from_city_id = ? and minutes <= ? order by minutes asc`
-      )
-      .all(fromCityId, maxMinutes)
-      .map((r) => ({ cityId: r.to_city_id, minutes: r.minutes, meters: r.meters }));
-  } catch (err) {
-    console.error("[atlas] drive-time read failed:", err);
-    return [];
-  }
+  // Throws on a broken or locked atlas. It used to catch and return [], which
+  // the caller could not tell apart from "nothing within range", so a database
+  // error became a confident empty map with no API fallback. The caller's job
+  // is to turn a throw into a miss; this function's job is not to hide it.
+  return atlasDb()
+    .prepare<[string, number], { to_city_id: string; minutes: number; meters: number | null }>(
+      `select to_city_id, minutes, meters from city_drive_times
+        where from_city_id = ? and minutes <= ? order by minutes asc`
+    )
+    .all(fromCityId, maxMinutes)
+    .map((r) => ({ cityId: r.to_city_id, minutes: r.minutes, meters: r.meters }));
 }
 
 /** Whether the graph knows anything at all about this city. */

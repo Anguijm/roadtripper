@@ -164,7 +164,7 @@ const kmBetween = (a, b) => {
   const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
   const h = Math.sin(dLat / 2) ** 2 +
     Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, h)));  // clamp: float error can push h past 1 and asin(>1) is NaN, which would silently skip a dedupe
 };
 
 /** Conservative on purpose: case and whitespace only. Stripping articles or

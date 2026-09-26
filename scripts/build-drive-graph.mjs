@@ -213,10 +213,18 @@ async function calibrate() {
   }
   if (resuming) {
     const storedProvider = db.prepare("select value from meta where key = 'drive_graph_provider'").get()?.value;
+    // Mixed-provider resume IS supported, in exactly one direction: the reference
+    // provider (Google) is always allowed, and was already returned above with
+    // factor 1, because its times need no correction. What is refused here is
+    // resuming through a DIFFERENT calibrated provider, whose error profile is
+    // not the one the stored factor was derived from. Applying ORS's 1.17 to,
+    // say, GraphHopper's times would be silently wrong in the graph forever.
     if (storedProvider !== provider.name) {
       throw new Error(
         `stored factor ${Number(storedFactor).toFixed(4)} was derived for ${storedProvider}, not ${provider.name}. ` +
-        `Refusing to apply one provider's correction to another's times. Use --fresh or the original provider.`
+        `Resuming through the reference provider (google) is always allowed; resuming through a different ` +
+        `calibrated provider is not, because its error profile is not the one this factor corrects. ` +
+        `Use --fresh to recalibrate for ${provider.name}, or finish with ${storedProvider} or google.`
       );
     }
     console.log(`\ncalibration reused from the existing graph: factor ${Number(storedFactor).toFixed(4)}, held-out ${storedHeldOut}%`);

@@ -206,3 +206,11 @@ cities. The read layer falls back correctly for the other 177, at $0.25 a call.
 - item 5: factor guarded; item 6 (build): CALIBRATION_PAIRS/HELDOUT_PAIRS explained; haversine clamped
 - item 6 (providers): pause constants explained; wrong 2,500/day claim corrected
 - item 3: export documented as build-time only, never against a live server's file
+
+## Council round 2 on #45 (BLOCK), and what changed
+
+- driveTimesFrom throws on a broken atlas instead of returning [] that reads as empty-range
+- candidatesFromGraph catches any graph error and returns a miss so the API fallback fires
+- new test: a throwing driveTimesFrom on a covered city reaches the API fallback (fetch spy) and logs
+- kmBetween clamped; the third copy of the haversine, missed when the other two were
+- provider guard comment and message state that the reference provider is always allowed (council misread; no behaviour change)
