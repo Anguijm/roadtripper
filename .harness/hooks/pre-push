@@ -19,7 +19,10 @@ RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; OFF=$'\033[0m'
 fail() { echo "${RED}gate1: FAIL${OFF} $*" >&2; exit 1; }
 pass() { echo "${GRN}gate1: ok${OFF}   $*"; }
 
-ZERO_SHA=0000000000000000000000000000000000000000
+# Git hands a pre-push hook one line per ref: local ref, local sha, remote ref,
+# remote sha. For a deletion the local sha is all zeros (40 of them in a SHA-1
+# repository, 64 in a SHA-256 one), so the check is "every digit is zero", not
+# a fixed string.
 SAW_REF=0; ALL_DELETES=1
 while read -r _local_ref _local_sha remote_ref _remote_sha; do
   SAW_REF=1
@@ -28,7 +31,9 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
     echo "  Branch, open a PR, let the council run, merge on GitHub." >&2
     exit 1
   fi
-  [ "$_local_sha" = "$ZERO_SHA" ] || ALL_DELETES=0
+  case "$_local_sha" in
+    *[!0]*|"") ALL_DELETES=0 ;;
+  esac
 done
 
 # Deleting a merged branch pushes no code, so there is nothing to lint, type,

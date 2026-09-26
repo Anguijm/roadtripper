@@ -23,8 +23,10 @@
  *
  * Google: the project's ComputeRouteMatrix quota is 3,000 elements per minute
  * (read from Service Usage on 2026-09-27; there is no daily cap). A full build
- * sends 60-element batches, so 1.5 s between requests is 2,400 elements per
- * minute, under the cap with room for the app's own traffic. The old 120 ms
+ * sends batches of `BATCH` destinations, 60 in scripts/build-drive-graph.mjs,
+ * so 1.5 s between requests is 2,400 elements per minute, under the cap with
+ * room for the app's own traffic. Raise `BATCH` and this pause must grow with
+ * it: the cap is on elements, not requests. The old 120 ms
  * was sized for one-element calibration calls and would have run a full build
  * at 30,000 per minute, which Google answers with 429 and this script counts
  * as a failed request. Google bills per element regardless of pace, so there

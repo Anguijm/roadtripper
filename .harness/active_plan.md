@@ -23,3 +23,8 @@ is spent is $25.66.
 deletion on stdin, refused before the change and accepted after, recorded in
 the PR. A push mixing a deletion with an update still runs the full gate,
 which is correct but untested.
+
+## Council round 1 on #48 (CONDITIONAL, bugs 6), and what changed
+
+- the deletion check matches any all-zero sha, so it holds in a SHA-256 repository (64 zeros) as well as SHA-1 (40); proven with both lengths, plus main still refused and a normal push still gated
+- the pacing comment names `BATCH` in scripts/build-drive-graph.mjs and says the pause must grow with it, because the quota is on elements
