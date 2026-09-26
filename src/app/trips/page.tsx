@@ -66,7 +66,7 @@ export default function TripsPage() {
             loaded here. Private windows and blocked site data both cause this.
           </p>
         )}
-        {trips.length === 0 ? (
+        {storage === "blocked" ? null : trips.length === 0 ? (
           <p className="text-xs font-mono text-[#7d8590]">
             No saved trips in this browser yet. Plan one and press Save.
           </p>

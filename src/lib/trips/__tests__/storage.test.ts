@@ -121,6 +121,32 @@ describe("trip storage", () => {
     expect(trips[0].id).toBe("good");
   });
 
+  it("preserves an entry it cannot parse across a save and a delete", () => {
+    // A newer app version, or tampering, can leave an entry this schema does
+    // not recognise. Hiding it from the list is fine; destroying it on the next
+    // unrelated write is not. This is the case council blocked on.
+    saveTrip(INPUT, "good");
+    const raw = JSON.parse(mem.getItem("roadtripper.trips.v1")!);
+    raw.push({ id: "from-the-future", schemaVersion: 2, payload: "keep me" });
+    mem.setItem("roadtripper.trips.v1", JSON.stringify(raw));
+
+    expect(saveTrip(INPUT, "another").ok).toBe(true);
+    expect(deleteTrip("good")).toBe(true);
+
+    const after = JSON.parse(mem.getItem("roadtripper.trips.v1")!) as Array<Record<string, unknown>>;
+    expect(after.some((e) => e.id === "from-the-future" && e.payload === "keep me")).toBe(true);
+    expect(loadTrips().map((t) => t.id)).toEqual(["another"]);
+  });
+
+  it("does not count unparseable entries toward the saved-trip cap", () => {
+    for (let i = 0; i < MAX_SAVED_TRIPS - 1; i++) saveTrip(INPUT, `t${i}`);
+    const raw = JSON.parse(mem.getItem("roadtripper.trips.v1")!);
+    raw.push({ nonsense: true }, { nonsense: true });
+    mem.setItem("roadtripper.trips.v1", JSON.stringify(raw));
+    // 49 real trips plus 2 opaque ones: one more real save must still fit.
+    expect(saveTrip(INPUT, "fits").ok).toBe(true);
+  });
+
   it("survives junk in the key entirely", () => {
     mem.setItem("roadtripper.trips.v1", "{not json");
     expect(loadTrips()).toEqual([]);

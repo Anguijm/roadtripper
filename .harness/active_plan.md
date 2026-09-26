@@ -96,3 +96,10 @@ Pushed back:
 - "Wrap `saveTrip` in `setTimeout` so the saving state can paint." The write is
   synchronous and sub-millisecond; no timer makes a transitional label useful.
   The state was a leftover from the async server action. Deleted instead.
+
+## Council round 2 on this PR (BLOCK), and what changed
+
+- writers carry unparseable entries through verbatim instead of purging them (readAll)
+- two tests: corrupt entry survives save+delete; opaque entries do not count toward the cap
+- empty-state hint hidden when storage is blocked; the banner is the only message then
+- cap message interpolates MAX_SAVED_TRIPS instead of hardcoding 50
