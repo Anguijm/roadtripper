@@ -32,8 +32,7 @@ import { HOP_REACH_MAX_MINUTES, METERS_PER_DRIVE_MINUTE } from "@/lib/routing/va
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
-import { useAuth } from "@clerk/nextjs";
-import { saveTrip } from "@/app/trips/actions";
+import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
 
 interface PlanWorkspaceProps {
@@ -106,13 +105,17 @@ export default function PlanWorkspace({
   dateMode,
   initialCandidateFetchFailed = false,
 }: PlanWorkspaceProps) {
-  const { isSignedIn } = useAuth();
 
-  // Stable UUID per component mount — passed to saveTrip on every save attempt
-  // so retries overwrite the same Firestore document instead of creating duplicates.
-  // Ownership is enforced server-side via Clerk auth() + users/{userId} Firestore path (PR #28).
+  // Stable UUID per component mount, passed to saveTrip on every attempt so a
+  // retry (or a double tap) overwrites the same entry instead of creating a
+  // second one. That idempotency mattered when this wrote to Firestore and
+  // still matters writing to localStorage.
   const saveTripIdRef = useRef<string>(crypto.randomUUID());
-  type SaveState = "idle" | "saving" | "saved" | "error";
+  // No "saving" state. Writing to localStorage is synchronous and sub-millisecond,
+  // so a transitional label would never be painted; it was carried over from the
+  // async server action this replaced. Removing it rather than forcing a paint
+  // with a timer is the honest fix.
+  type SaveState = "idle" | "saved" | "error";
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveAnnouncement, setSaveAnnouncement] = useState("");
 
@@ -552,8 +555,7 @@ export default function PlanWorkspace({
     setRouteSealed(false);
   }, [tripStops]);
 
-  const handleSave = useCallback(async () => {
-    setSaveState("saving");
+  const handleSave = useCallback(() => {
     const input: SaveTripInput = {
       fromName,
       toName,
@@ -572,19 +574,22 @@ export default function PlanWorkspace({
         lng: s.lng,
       })),
     };
-    try {
-      const result = await saveTrip(input, saveTripIdRef.current);
-      if (result.ok) {
-        setSaveState("saved");
-        setSaveAnnouncement("Trip saved.");
-      } else {
-        setSaveState("error");
-        setSaveAnnouncement("Trip save failed. Please try again.");
-      }
-    } catch {
-      setSaveState("error");
-      setSaveAnnouncement("Trip save failed. Please try again.");
+    const result = saveTrip(input, saveTripIdRef.current);
+    if (result.ok) {
+      setSaveState("saved");
+      setSaveAnnouncement("Trip saved to this browser.");
+      return;
     }
+    setSaveState("error");
+    setSaveAnnouncement(
+      result.error === "unavailable"
+        ? "Can't save: this browser is blocking storage."
+        : result.error === "quota"
+        ? "Can't save: browser storage is full."
+        : result.error === "limit_exceeded"
+        ? `Can't save: ${MAX_SAVED_TRIPS} saved trips is the limit. Delete one first.`
+        : "Can't save: the trip didn't validate."
+    );
   }, [fromName, toName, origin, destination, budgetHours, effectiveStartDate, endDate, activePersonaId, tripStops]);
 
   const handleRetry = useCallback(() => {
@@ -685,29 +690,22 @@ export default function PlanWorkspace({
           </div>
         </div>
 
-        {/* Save trip button — gated by auth; stable UUID ensures retry idempotency */}
+        {/* Save trip. No auth gate: trips live in this browser. */}
         <div className="px-3 py-2 border-b border-[#30363d]">
-          {isSignedIn ? (
-            <button
-              type="button"
-              disabled={saveState === "saving"}
-              onClick={handleSave}
-              className={[
-                "w-full text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40",
-                saveState === "saved"
-                  ? "border-[#238636] text-[#3fb950]"
-                  : saveState === "error"
-                  ? "border-[#f85149] text-[#f85149]"
-                  : "border-[#30363d] text-[#7d8590] hover:border-[#555] hover:text-[#f0f6fc]",
-              ].join(" ")}
-            >
-              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
-            </button>
-          ) : (
-            <p className="text-[10px] font-mono text-[#7d8590] text-center">
-              <a href="/sign-in" className="underline hover:text-[#f0f6fc]">Sign in</a> to save this trip
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            className={[
+              "w-full text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40",
+              saveState === "saved"
+                ? "border-[#238636] text-[#3fb950]"
+                : saveState === "error"
+                ? "border-[#f85149] text-[#ff7b72]"
+                : "border-[#30363d] text-[#7d8590] hover:border-[#555] hover:text-[#f0f6fc]",
+            ].join(" ")}
+          >
+            {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-2">

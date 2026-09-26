@@ -2,21 +2,9 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import React from "react";
 
-// Clerk's useAuth needs a provider that only exists in the running app. The
-// auth state is irrelevant to what this suite checks, which is that nothing on
-// the render path touches a browser-only global.
-vi.mock("@clerk/nextjs", () => ({
-  useAuth: () => ({ isSignedIn: false, userId: null, isLoaded: true }),
-  SignInButton: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-  SignedIn: () => null,
-  SignedOut: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-  UserButton: () => null,
-}));
-
 vi.mock("@/app/plan/actions", () => ({
   recomputeAndRefreshAction: vi.fn(),
   fetchNeighborhoodsAction: vi.fn(),
-  saveTripAction: vi.fn(),
 }));
 
 import PlanWorkspace from "@/components/PlanWorkspace";
