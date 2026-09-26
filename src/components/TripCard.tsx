@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { deleteTrip } from "@/lib/trips/storage";
 import type { SavedTrip } from "@/lib/trips/types";
 
 // V1: stops are intentionally excluded from the resume URL.
@@ -39,28 +38,24 @@ function formatDate(iso: string): string {
 
 interface TripCardProps {
   trip: SavedTrip;
-  onDeleted: (tripId: string) => void;
+  /** Receives the id and the sentence to announce; the parent owns the live
+   *  region because this card unmounts in the same commit as the delete. */
+  onDeleted: (tripId: string, spoken: string) => void;
 }
 
 export default function TripCard({ trip, onDeleted }: TripCardProps) {
   const [error, setError] = useState<string | null>(null);
-  const [announcement, setAnnouncement] = useState("");
   // Deleting is a synchronous localStorage write, so there is no pending state
   // to show and no transition to run. It can still fail when storage is
   // unavailable, which is why the error branch stays.
 
   const handleDelete = () => {
-    if (deleteTrip(trip.id)) {
-      setAnnouncement(`Trip from ${trip.fromName} to ${trip.toName} deleted.`);
-      onDeleted(trip.id);
-    } else {
-      setError("Couldn't delete trip. Storage may be unavailable in this browser.");
-    }
+    // The parent performs the delete and owns the announcement; see onDeleted.
+    onDeleted(trip.id, `Trip from ${trip.fromName} to ${trip.toName} deleted.`);
   };
 
   return (
     <div className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3">
-      <div aria-live="polite" className="sr-only">{announcement}</div>
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

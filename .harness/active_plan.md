@@ -76,3 +76,23 @@ it needs an HTTPS or localhost origin the browser extension can reach.
 **Follow-up, unrelated to this branch:** the plan page can leave the browser
 stuck on its loading state and can freeze the renderer. It reproduces against
 production, so it predates this work.
+
+## Council round 1 on this PR (BLOCK), and what changed
+
+Seven items. Five applied, two pushed back with evidence.
+
+Applied: a `role="alert"` banner when the browser blocks storage, read through
+`useSyncExternalStore` with an `unknown` server snapshot so it cannot cause a
+hydration mismatch; the two contrast fixes (`#555` to `#7d8590`, error text to
+`#ff7b72`); the deletion announcement lifted to the page, because a live region
+inside the card unmounts in the same commit as the delete; and comments on
+`KEY` and `MAX_SAVED_TRIPS` including why updates bypass the cap.
+
+Pushed back:
+
+- "Build-breaking `zod/v4` import." `package.json` has `"zod": "^4.3.6"`, not
+  the `^3.24.1` the review states, and five of the six existing imports in the
+  repo already use `zod/v4`. CI `validate` passed. The claim is false.
+- "Wrap `saveTrip` in `setTimeout` so the saving state can paint." The write is
+  synchronous and sub-millisecond; no timer makes a transitional label useful.
+  The state was a leftover from the async server action. Deleted instead.
