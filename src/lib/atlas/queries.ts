@@ -175,3 +175,127 @@ export function neighborhoodsForCity(cityId: string, limit: number): Neighborhoo
       trending_score: r.trending_score ?? 0,
     }));
 }
+
+// ---------------------------------------------------------------------------
+// Drive-time graph
+//
+// Built by scripts/build-drive-graph.mjs. Replaces a live route-matrix call
+// that cost $0.25 per cache-cold plan load and made the app useless without a
+// signal, which on a road trip is exactly when it is needed.
+// ---------------------------------------------------------------------------
+
+/**
+ * How far an arbitrary point may be from an atlas city and still be treated as
+ * that city for graph purposes.
+ *
+ * 40 km is roughly a metro's outer edge. The error this introduces is the drive
+ * from where you really are to that city centre, which at a day's-drive scale
+ * is small; but it IS an error, so `snapToCity` returns the distance and lets
+ * the caller decide rather than hiding it.
+ *
+ * It is coupled to `NEIGHBOUR_RADIUS_KM` (650 km) in scripts/build-drive-graph.mjs:
+ * the graph is built from city centres, so snapping moves the origin by up to
+ * 40 km and cities near the 650 km edge can be off by that much, about 25
+ * minutes of driving. Raise this and that edge error grows with it.
+ */
+export const SNAP_RADIUS_KM = 40;
+
+const EARTH_KM = 6371;
+const rad = (x: number) => (x * Math.PI) / 180;
+
+export function haversineKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  // h is mathematically in [0, 1] but floating point can nudge it just past 1
+  // for antipodal-ish points, and asin(>1) is NaN. A NaN distance would make
+  // every comparison in snapToCity false and silently return null.
+  return 2 * EARTH_KM * Math.asin(Math.sqrt(Math.min(1, h)));
+}
+
+/** The atlas city nearest a point, if one is close enough to stand in for it. */
+export function snapToCity(
+  point: { lat: number; lng: number },
+  maxKm: number = SNAP_RADIUS_KM
+): { city: City; distanceKm: number } | null {
+  let best: { city: City; distanceKm: number } | null = null;
+  for (const c of allCities()) {
+    const d = haversineKm(point, c);
+    if (d <= maxKm && (best === null || d < best.distanceKm)) best = { city: c, distanceKm: d };
+  }
+  return best;
+}
+
+export interface DriveTimeRow {
+  cityId: string;
+  minutes: number;
+  meters: number | null;
+}
+
+/**
+ * Cities reachable from `fromCityId` within `maxMinutes`, nearest first.
+ *
+ * Returns an empty array both when the city has no graph rows and when nothing
+ * is in range. Those mean different things, so `hasDriveGraphFor` exists to
+ * tell them apart: the first is missing data and should fall back to the API,
+ * the second is a real answer.
+ */
+export function driveTimesFrom(fromCityId: string, maxMinutes: number): DriveTimeRow[] {
+  // Throws on a broken or locked atlas. It used to catch and return [], which
+  // the caller could not tell apart from "nothing within range", so a database
+  // error became a confident empty map with no API fallback. The caller's job
+  // is to turn a throw into a miss; this function's job is not to hide it.
+  return atlasDb()
+    .prepare<[string, number], { to_city_id: string; minutes: number; meters: number | null }>(
+      `select to_city_id, minutes, meters from city_drive_times
+        where from_city_id = ? and minutes <= ? order by minutes asc`
+    )
+    .all(fromCityId, maxMinutes)
+    .map((r) => ({ cityId: r.to_city_id, minutes: r.minutes, meters: r.meters }));
+}
+
+/** Whether the graph knows anything at all about this city. */
+export function hasDriveGraphFor(cityId: string): boolean {
+  // Same rule as driveTimesFrom: a broken or locked atlas throws. Returning
+  // false here would read as "no graph, use the API" and hide the fault from
+  // the caller, which already logs and falls back on a throw.
+  const row = atlasDb()
+    .prepare<[string], { c: number }>(
+      `select count(*) c from city_drive_times where from_city_id = ? limit 1`
+    )
+    .get(cityId);
+  return (row?.c ?? 0) > 0;
+}
+
+/** Provenance, so a caller (or a human) can see what built the graph and how
+ *  well the calibration held up on data it did not learn from. */
+export function driveGraphInfo(): {
+  provider: string | null;
+  factor: number | null;
+  heldOutMeanPct: number | null;
+  builtAt: string | null;
+  rows: number;
+} {
+  try {
+    const db = atlasDb();
+    const meta = (k: string) =>
+      db.prepare<[string], { value: string }>("select value from meta where key = ?").get(k)?.value ?? null;
+    const rows = db.prepare<[], { c: number }>("select count(*) c from city_drive_times").get()?.c ?? 0;
+    const f = meta("drive_graph_factor");
+    const h = meta("drive_graph_heldout_mean_pct");
+    return {
+      provider: meta("drive_graph_provider"),
+      factor: f === null ? null : Number(f),
+      heldOutMeanPct: h === null ? null : Number(h),
+      builtAt: meta("drive_graph_built_at"),
+      rows,
+    };
+  } catch {
+    return { provider: null, factor: null, heldOutMeanPct: null, builtAt: null, rows: 0 };
+  }
+}

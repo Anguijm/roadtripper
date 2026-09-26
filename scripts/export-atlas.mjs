@@ -18,7 +18,7 @@
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import Database from "better-sqlite3";
-import { mkdirSync, statSync, renameSync, rmSync, copyFileSync } from "node:fs";
+import { mkdirSync, statSync, renameSync, rmSync, copyFileSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 
 const OUT = process.env.ATLAS_OUT ?? "data/atlas.sqlite";
@@ -48,6 +48,61 @@ const coords = (v) => [
 /** LocalizedText is { en, ja, ... }. Road Tripper is English-only today; the
  *  column stays a plain string so the read layer needs no shape knowledge. */
 const en = (t) => (typeof t === "string" ? t : (t?.en ?? null));
+
+/**
+ * Carry the drive-time graph across a rebuild.
+ *
+ * The atomic rename below writes a BRAND NEW database and swaps it over the old
+ * one, which means anything this script does not write is destroyed. The drive
+ * graph is built by a different script, takes a long time, and is not derivable
+ * from Firestore, so a refresh of the places would silently wipe it and the only
+ * symptom would be the app quietly falling back to paid API calls.
+ *
+ * Read it out first, write it back after. A city that no longer exists is
+ * dropped with the rest, since a drive time to nowhere is not useful.
+ */
+function carryOverDriveGraph(path) {
+  if (!existsSync(path)) return { rows: [], meta: [] };
+  try {
+    const old = new Database(path, { readonly: true });
+    const has = (t) => old.prepare(
+      "select count(*) c from sqlite_master where type='table' and name=?"
+    ).get(t).c > 0;
+    const rows = has("city_drive_times")
+      ? old.prepare("select from_city_id, to_city_id, minutes, meters from city_drive_times").all()
+      : [];
+    const meta = has("meta")
+      ? old.prepare("select key, value from meta where key like 'drive_graph%'").all()
+      : [];
+    old.close();
+    return { rows, meta };
+  } catch (err) {
+    // The previous atlas exists but cannot be read. Continuing would publish a
+    // fresh atlas with an empty drive graph, which is the silent-destruction
+    // bug this function exists to prevent, just with a different cause. A
+    // missing file is fine (handled above); a broken one must stop the export.
+    throw new Error(
+      `previous atlas at ${path} exists but could not be read (${err.message}). ` +
+      `Refusing to export over it, because the drive graph would be lost. Move or repair it first.`
+    );
+  }
+}
+
+// A -shm beside the destination means a WAL-mode connection is, or recently
+// was, open on it: a `next dev` reading the atlas, for instance. Renaming a new
+// file over the top and deleting that -shm would corrupt the reader's view and
+// surface later as "disk image is malformed". Stop here unless told otherwise.
+// It can also be a stale -shm from a crashed process, which is why --force
+// exists rather than a hard refusal; check first, then force if it is stale.
+if (existsSync(`${OUT}-shm`) && !process.argv.includes("--force")) {
+  throw new Error(
+    `${OUT}-shm exists, so a process may have the atlas open (a running dev server, or a stale ` +
+    `file from a crash). Refusing to export over a possibly-open database. Stop the server, or ` +
+    `if nothing has it open, rerun with --force.`
+  );
+}
+
+const carried = carryOverDriveGraph(OUT);
 
 mkdirSync(dirname(OUT), { recursive: true });
 for (const stale of [TMP, `${TMP}-wal`, `${TMP}-shm`]) rmSync(stale, { force: true });
@@ -90,6 +145,25 @@ db.exec(`
   create virtual table waypoint_rtree using rtree(rowid, minLng, maxLng, minLat, maxLat);
 `);
 
+// Drive times between cities. Written by scripts/build-drive-graph.mjs, not by
+// this script, because it comes from a routing provider rather than Firestore
+// and takes far longer to build. Created here so the schema lives in one place
+// and a fresh atlas is queryable (empty) rather than missing a table.
+//
+// Directed: A to B need not equal B to A (one-way systems, mountain passes).
+db.exec(`
+  create table if not exists city_drive_times (
+    from_city_id text not null,
+    to_city_id   text not null,
+    minutes      real not null,
+    meters       real,
+    primary key (from_city_id, to_city_id)
+  );
+  create index if not exists cdt_from on city_drive_times(from_city_id, minutes);
+`);
+
+import { dedupeWaypoints, DUPLICATE_RADIUS_KM } from "./lib/dedupe.mjs";
+
 const pull = async (col) => (await fs.collection(col).get()).docs;
 const t0 = Date.now();
 
@@ -114,6 +188,7 @@ const insRt = db.prepare(`insert into waypoint_rtree values (?,?,?,?,?)`);
 const insMeta = db.prepare(`insert or replace into meta values (?,?)`);
 
 const skipped = { cities: 0, neighborhoods: 0, waypoints: 0 };
+let duplicatesDropped = 0;
 
 db.transaction(() => {
   for (const d of cityDocs) {
@@ -121,9 +196,9 @@ db.transaction(() => {
     const [lat, lng] = coords(v);
     // A city without coordinates cannot be routed to, so it is not a city we
     // can use. Counted and reported rather than silently dropped.
-    if (typeof lat !== "number" || typeof lng !== "number" || v.isArchived) { skipped.cities++; continue; }
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || v.isArchived) { skipped.cities++; continue; }
     insCity.run({
-      id: d.id, name: en(v.name) ?? d.id, country: v.country ?? null, region: v.region ?? null,
+      id: d.id, name: en(v.name) || d.id, country: v.country ?? null, region: v.region ?? null,
       tier: v.tier ?? null, vibe_class: v.vibeClass ?? null, lat, lng,
       lore_anchor: v.loreAnchor ?? null, coverage_tier: v.coverageTier ?? null,
       max_radius_km: v.maxRadiusKm ?? null,
@@ -134,47 +209,77 @@ db.transaction(() => {
     if (!v.city_id) { skipped.neighborhoods++; continue; }
     const [lat, lng] = coords(v);
     insNb.run({
-      id: d.id, city_id: v.city_id, name: en(v.name) ?? d.id,
+      id: d.id, city_id: v.city_id, name: en(v.name) || d.id,
       summary: en(v.summary), lore: en(v.lore),
-      lat: typeof lat === "number" ? lat : null, lng: typeof lng === "number" ? lng : null,
+      lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null,
       trending_score: v.trending_score ?? null,
     });
   }
-  // R1 #1: `insert or replace` assigns a NEW rowid on conflict, while the
-  // R-tree row was already written against the old one. Firestore document ids
-  // are unique so a conflict cannot happen today, but if one ever did the index
-  // would desync silently and corridor queries would return wrong rows with no
-  // error. Dedupe first so the pattern cannot bite.
+  // Collected first, then deduped, then written. The R-tree row is derived from
+  // the insert, so nothing may be inserted until the final set is known.
+  const candidates = [];
   const seenWaypointIds = new Set();
   for (const d of wpDocs) {
+    // `insert or replace` assigns a NEW rowid on conflict while the R-tree row
+    // was written against the old one. Firestore ids are unique so this cannot
+    // happen today, but a silent desync returns wrong places with no error.
     if (seenWaypointIds.has(d.id)) { skipped.waypoints++; continue; }
     seenWaypointIds.add(d.id);
     const v = d.data();
     const [lat, lng] = coords(v);
-    if (!v.city_id || !v.type || typeof lat !== "number" || typeof lng !== "number") { skipped.waypoints++; continue; }
+    // Number.isFinite, not typeof: NaN is typeof "number" and would sail through
+    // to the dedupe, where kmBetween(NaN) is NaN and every comparison is false.
+    if (!v.city_id || !v.type || !Number.isFinite(lat) || !Number.isFinite(lng)) { skipped.waypoints++; continue; }
     // Filtered at export rather than at query time. A retired waypoint is not
     // something Road Tripper ever wants, so dropping it here keeps every runtime
     // query free of a predicate each caller would otherwise have to remember,
     // and keeps the shipped file smaller. The cost is that reactivating one
     // upstream needs a re-export, which is equally true of every other field.
     if (v.is_active === false) { skipped.waypoints++; continue; }
-    const info = insWp.run({
+    candidates.push({
       id: d.id, city_id: v.city_id, neighborhood_id: v.neighborhood_id ?? null,
-      name: en(v.name) ?? d.id, description: en(v.description), type: v.type,
+      name: en(v.name) || d.id, description: en(v.description), type: v.type,
       lat, lng, trending_score: v.trending_score ?? null,
       google_place_id: v.google_place_id ?? null, business_status: v.business_status ?? null,
     });
+  }
+
+  const { kept, dropped } = dedupeWaypoints(candidates);
+  duplicatesDropped = dropped;
+  for (const w of kept) {
+    const info = insWp.run(w);
     // The R-tree rowid MUST equal the waypoints rowid, because that is the only
     // thing joining a spatial hit back to its row. Taking it from the insert
     // rather than a counter keeps them in step even when rows are skipped.
-    insRt.run(info.lastInsertRowid, lng, lng, lat, lat);
+    insRt.run(info.lastInsertRowid, w.lng, w.lng, w.lat, w.lat);
   }
   insMeta.run("exported_at", new Date().toISOString());
   insMeta.run("source_project", UE_PROJECT);
   insMeta.run("source_database", UE_DB);
 })();
 
+// Restore the drive graph, dropping any pair whose city no longer exists. A
+// drive time to a city that is gone is not useful, and leaving it would let the
+// read layer offer somewhere the atlas can no longer describe.
+if (carried.rows.length > 0 || carried.meta.length > 0) {
+  const cityIds = new Set(db.prepare("select id from cities").all().map((r) => r.id));
+  const insDt = db.prepare(
+    "insert or replace into city_drive_times (from_city_id, to_city_id, minutes, meters) values (?,?,?,?)"
+  );
+  let restored = 0, orphaned = 0;
+  db.transaction(() => {
+    for (const r of carried.rows) {
+      if (!cityIds.has(r.from_city_id) || !cityIds.has(r.to_city_id)) { orphaned++; continue; }
+      insDt.run(r.from_city_id, r.to_city_id, r.minutes, r.meters);
+      restored++;
+    }
+    for (const m of carried.meta) insMeta.run(m.key, m.value);
+  })();
+  console.log(`  drive graph carried over: ${restored} rows restored, ${orphaned} orphaned`);
+}
+
 console.log(`  skipped: cities ${skipped.cities}, neighborhoods ${skipped.neighborhoods}, waypoints ${skipped.waypoints}`);
+console.log(`  duplicates collapsed: ${duplicatesDropped} (same city, same name, within ${DUPLICATE_RADIUS_KM} km)`);
 db.pragma("wal_checkpoint(TRUNCATE)");
 db.exec("vacuum");
 const counts = ["cities", "neighborhoods", "waypoints"].map(
@@ -201,10 +306,28 @@ if (integrity.wp !== integrity.rt || integrity.orphans !== 0) {
 console.log(`  spatial index verified: ${integrity.rt} rows, 0 orphans`);
 
 db.close();
-// R1 #3: TMP is always `${OUT}.tmp`, i.e. the same directory and therefore the
-// same filesystem, so EXDEV is not reachable by construction. Handled anyway
-// because a future caller could set ATLAS_OUT somewhere that changes that, and
-// the failure mode would otherwise be a lost export.
+
+// TMP was written in WAL mode, so it may have left its own -wal and -shm beside
+// it. They must not outlive the rename: a stale atlas.sqlite.tmp-wal is exactly
+// the kind of file a later run could mistake for progress, and it is not the
+// database that ends up at OUT.
+for (const sidecar of [`${TMP}-wal`, `${TMP}-shm`]) rmSync(sidecar, { force: true });
+
+// The destination's -wal and -shm belong to the OLD database. Renaming the main
+// file over the top strands them, and the next process to open the atlas
+// read-write tries to replay a WAL from a different database and fails with
+// "disk image is malformed" — while `integrity_check` on the file itself says
+// ok, which makes it a genuinely confusing failure. Found exactly that way.
+// This script is a build step. It runs on a developer machine or in CI before
+// a deploy, against a file no server has open. It must NEVER be pointed at the
+// atlas a running Next.js process is reading: the rename below swaps the file
+// under that process and the sidecar removal here would strand its WAL.
+// Deploying the new file is what makes it live, not writing it.
+for (const sidecar of [`${OUT}-wal`, `${OUT}-shm`]) rmSync(sidecar, { force: true });
+
+// TMP is always `${OUT}.tmp`, i.e. the same directory and filesystem, so EXDEV
+// is unreachable by construction. Handled anyway because a future ATLAS_OUT
+// could change that, and the failure would otherwise be a silently lost export.
 try {
   renameSync(TMP, OUT);
 } catch (err) {
