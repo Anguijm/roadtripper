@@ -357,3 +357,44 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
   load-bearing, since without it someone reverts the fix as a simplification.
   R2 CLEAR, all 10s. Took two deferred items as well: zero-state SSR cases and a
   caveat that `/health`'s static props cannot catch data-dependent bugs.
+
+---
+
+## 2026-09-26: Session 26, atlas stack rebases and the ORS quota wall
+
+### IMPROVE
+- **`git rebase -X theirs` across a squash-merged base silently reverts.** The
+  base had #42's changes as one squash commit, so rebase did not recognise the
+  original commits as applied, replayed them, and `-X theirs` let their OLDER
+  file versions overwrite the round-3 hardening. Tests stayed green because the
+  reverted check runs at export time. Caught only by comparing both sides of
+  the next conflict marker by marker. Never use a blanket merge strategy across
+  a squash boundary; resolve per file and verify each side has what the other
+  has before staging.
+- **Suppressed output in chained git commands turns failures into "success".**
+  Three times in one day: a watcher printed "pushed" with nothing pushed
+  (`| tail -2 && echo pushed` tied the echo to `tail`); a rebase that refused
+  on an unstaged file (`>/dev/null`) so every later check ran against the wrong
+  branch; and a "pushed:" label that printed `HEAD` while on a different branch.
+  Rules: `&&` on the command that matters, print its exit code, verify state
+  afterwards from the remote (`ls-remote`, `rev-list --count`), and never label
+  a step done from the output of a downstream command.
+- **`git add -A` with a SQLite database open in WAL mode commits `-wal` and
+  `-shm`.** A stale WAL from a different database state makes the next
+  read-write open fail "disk image is malformed" while `integrity_check` on the
+  main file says ok. They reached main through #42's squash. Now gitignored on
+  the graph branch; the export removes them before its atomic rename.
+- **A refactor can drop a check nobody tests.** The dedupe rewrite of the export
+  loop removed the R-tree integrity gate and every test passed, because the
+  gate only runs at export and CI cannot reach Firestore. Anything that runs
+  only at export needs a fixture-backed test or at least a marker assertion.
+
+### INSIGHT
+- **ORS free-tier matrix quota is far below the general 2,500 requests/day.**
+  Thirteen cities, roughly 208 routes across 49 requests, exhausted it. The
+  documented figure could not be found (restrictions page lists per-request
+  limits only; plans page is behind a login; the forum thread has no numbers).
+  Being measured empirically by an hourly resume watcher instead.
+- **Calibration held.** OSM-derived times divided by 1.1738 land within 4.31%
+  of Google on 12 held-out pairs. Stored with the graph, re-derived per rebuild,
+  provider-specific, and refused across providers.
