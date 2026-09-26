@@ -59,3 +59,10 @@ Four items, all applied:
 3. The bound-parameter comment names the file that defines the caller's cap.
 4. EXDEV fallback: if present on this branch, copies to a sibling on the
    destination filesystem and renames, which is atomic there.
+
+## Council round 5 (CONDITIONAL), and what changed
+
+- safeCityTier warns on an unknown tier instead of silently downgrading
+- MAX_BOUND_CITY_IDS comment names the real ceiling, the paired constant, and the test
+- description documented as untrusted, text-only at render
+- EXDEV fallback cleans up both temp files in a finally

@@ -211,11 +211,17 @@ try {
   if (err?.code !== "EXDEV") throw err;
   // Copying straight onto OUT is not atomic: a reader could open a half-written
   // file. Copy to a sibling on the destination filesystem, then rename, which
-  // is atomic there.
+  // is atomic there. The finally guarantees neither temp file outlives a
+  // failure part-way through, which would otherwise leave a stale .tmp.dest
+  // that a later run could mistake for progress.
   const DEST_TMP = `${OUT}.tmp.dest`;
-  copyFileSync(TMP, DEST_TMP);
-  renameSync(DEST_TMP, OUT);
-  rmSync(TMP, { force: true });
+  try {
+    copyFileSync(TMP, DEST_TMP);
+    renameSync(DEST_TMP, OUT);
+  } finally {
+    rmSync(DEST_TMP, { force: true });
+    rmSync(TMP, { force: true });
+  }
 }
 console.log(`wrote ${OUT}: ${counts}`);
 console.log(`  size ${(statSync(OUT).size / 1e6).toFixed(1)} MB, took ${((Date.now() - t0) / 1000).toFixed(1)}s`);

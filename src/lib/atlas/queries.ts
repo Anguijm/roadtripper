@@ -30,7 +30,12 @@ function safeWaypointType(v: unknown) {
 
 function safeCityTier(v: unknown) {
   const parsed = CityTierSchema.safeParse(v);
-  return parsed.success ? parsed.data : FALLBACK_TIER;
+  if (parsed.success) return parsed.data;
+  // Same treatment as waypoint types: a tier this code does not know is a sign
+  // the upstream pipeline moved before this app was redeployed, and that is
+  // worth one line in the logs rather than a silent downgrade to tier3.
+  console.warn(`[atlas] unknown city tier ${JSON.stringify(v)}, treating as ${FALLBACK_TIER}`);
+  return FALLBACK_TIER;
 }
 
 /**
@@ -40,6 +45,12 @@ function safeCityTier(v: unknown) {
  * bound is asserted here anyway so the guarantee lives next to the query rather
  * than in a constant in another file that could be raised without anyone
  * looking here.
+ *
+ * If you raise this: SQLite's own ceiling is SQLITE_MAX_VARIABLE_NUMBER (32,766
+ * in the bundled build), so anything under a few thousand is safe; raise
+ * MAX_WAYPOINT_CITIES in recommend.ts and this together; and extend the
+ * "several cities at once" case in src/lib/atlas/__tests__/queries.test.ts,
+ * which is the test that would catch the two drifting apart.
  */
 const MAX_BOUND_CITY_IDS = 100;
 
@@ -95,6 +106,11 @@ const toLite = (r: WaypointRow): LiteWaypoint & { description: string | null; la
   type: safeWaypointType(r.type),
   trendingScore: r.trending_score ?? 0,
   neighborhoodId: r.neighborhood_id,
+  // Untrusted. Generated upstream by Gemini in city-atlas-service, not written
+  // by anyone here. It must only ever be rendered as text: no
+  // dangerouslySetInnerHTML, no markdown-to-HTML, no template interpolation
+  // into markup. CLAUDE.md and the council's security persona both enforce
+  // this at review time; this comment is so the next reader knows why.
   description: r.description,
   lat: r.lat,
   lng: r.lng,
