@@ -415,3 +415,17 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
   `safeWaypointType(v: unknown):path` split at the first colon, grepped the
   wrong path, and reported present code as MISSING. Use a separator that cannot
   appear in the marker.
+
+### IMPROVE, second addendum
+- **`gh pr merge --delete-branch` on a stacked base closes the dependent PR.**
+  GitHub closes a PR whose base branch is deleted rather than retargeting it,
+  and a closed PR can be neither reopened nor retargeted. #44 was lost this way
+  and replaced by #47. On a stack: merge without `--delete-branch`, retarget
+  the dependent PR to main, then delete the branch by hand.
+- **`if cmd | tail -1; then` tests `tail`, not `cmd`.** Two GraphQL failures
+  were reported as "reopened" because a pipeline's exit status is its last
+  command's. Capture with `OUT=$(cmd 2>&1); RC=$?` and test `RC`.
+- **An assertion that counts a key name counts your own log line too.**
+  `count("drive_graph_built_at") == 1` failed because the edit's `console.log`
+  mentioned the key. Verify the structural change with a targeted grep, not a
+  name count.
