@@ -32,7 +32,7 @@ import { HOP_REACH_MAX_MINUTES, METERS_PER_DRIVE_MINUTE } from "@/lib/routing/va
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
-import { saveTrip } from "@/lib/trips/storage";
+import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
 
 interface PlanWorkspaceProps {
@@ -587,7 +587,7 @@ export default function PlanWorkspace({
         : result.error === "quota"
         ? "Can't save: browser storage is full."
         : result.error === "limit_exceeded"
-        ? "Can't save: 50 saved trips is the limit. Delete one first."
+        ? `Can't save: ${MAX_SAVED_TRIPS} saved trips is the limit. Delete one first.`
         : "Can't save: the trip didn't validate."
     );
   }, [fromName, toName, origin, destination, budgetHours, effectiveStartDate, endDate, activePersonaId, tripStops]);

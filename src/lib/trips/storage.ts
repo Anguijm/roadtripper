@@ -62,27 +62,46 @@ const available = (): Storage | null => {
 };
 
 /**
- * Every trip that parses. A single corrupt entry drops itself rather than
- * taking the whole list down, which is the behaviour the Firestore loader had.
+ * Everything under the key, split into what parses and what does not.
+ *
+ * The unparseable entries are kept verbatim, not dropped. Before this, every
+ * writer read through `loadTrips`, which discards anything failing the schema,
+ * and then wrote the survivors back, so one corrupt or newer-shaped entry was
+ * silently purged by the next unrelated save. Council caught it. Now a write
+ * carries the opaque entries through untouched; only a reader hides them.
+ *
+ * The one thing that still cannot be preserved is a key whose whole value is
+ * not a JSON array at all. There is no entry boundary to keep, so a write
+ * replaces it. That is junk, not data, and is documented rather than pretended
+ * away.
  */
-export function loadTrips(): SavedTrip[] {
-  const store = available();
-  if (!store) return [];
+function readAll(store: Storage): { parsed: SavedTrip[]; opaque: unknown[] } {
+  const none = { parsed: [] as SavedTrip[], opaque: [] as unknown[] };
   let raw: unknown;
   try {
     const text = store.getItem(KEY);
-    if (!text) return [];
+    if (!text) return none;
     raw = JSON.parse(text);
   } catch {
-    return [];
+    return none;
   }
-  if (!Array.isArray(raw)) return [];
-  const out: SavedTrip[] = [];
+  if (!Array.isArray(raw)) return none;
+  const parsed: SavedTrip[] = [];
+  const opaque: unknown[] = [];
   for (const item of raw) {
-    const parsed = StoredTripSchema.safeParse(item);
-    if (parsed.success) out.push(parsed.data);
+    const r = StoredTripSchema.safeParse(item);
+    if (r.success) parsed.push(r.data);
+    else opaque.push(item);
   }
-  return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return { parsed, opaque };
+}
+
+/** Every trip that parses, newest first. Corrupt entries are hidden here and
+ *  preserved on disk; see `readAll`. */
+export function loadTrips(): SavedTrip[] {
+  const store = available();
+  if (!store) return [];
+  return readAll(store).parsed.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export type SaveResult =
@@ -102,8 +121,11 @@ export function saveTrip(input: SaveTripInput, id: string, now: Date = new Date(
   const validId = TripIdSchema.safeParse(id);
   if (!validInput.success || !validId.success) return { ok: false, error: "invalid_input" };
 
-  const existing = loadTrips();
+  const { parsed: existing, opaque } = readAll(store);
   const idx = existing.findIndex((t) => t.id === validId.data);
+  // Only trips that parse count toward the cap. Opaque entries are not usable
+  // trips, and refusing a save because of entries the user cannot even see
+  // would be a confusing failure with no action they could take.
   if (idx === -1 && existing.length >= MAX_SAVED_TRIPS) {
     return { ok: false, error: "limit_exceeded" };
   }
@@ -118,7 +140,7 @@ export function saveTrip(input: SaveTripInput, id: string, now: Date = new Date(
   const next = idx === -1 ? [trip, ...existing] : existing.map((t, i) => (i === idx ? trip : t));
 
   try {
-    store.setItem(KEY, JSON.stringify(next));
+    store.setItem(KEY, JSON.stringify([...next, ...opaque]));
   } catch {
     // QuotaExceededError, or storage disabled between the probe and this write.
     return { ok: false, error: "quota" };
@@ -130,9 +152,10 @@ export function saveTrip(input: SaveTripInput, id: string, now: Date = new Date(
 export function deleteTrip(id: string): boolean {
   const store = available();
   if (!store) return false;
-  const next = loadTrips().filter((t) => t.id !== id);
+  const { parsed, opaque } = readAll(store);
+  const next = parsed.filter((t) => t.id !== id);
   try {
-    store.setItem(KEY, JSON.stringify(next));
+    store.setItem(KEY, JSON.stringify([...next, ...opaque]));
     invalidate();
     return true;
   } catch {
