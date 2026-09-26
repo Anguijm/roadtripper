@@ -357,3 +357,75 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
   load-bearing, since without it someone reverts the fix as a simplification.
   R2 CLEAR, all 10s. Took two deferred items as well: zero-state SSR cases and a
   caveat that `/health`'s static props cannot catch data-dependent bugs.
+
+---
+
+## 2026-09-26: Session 26, atlas stack rebases and the ORS quota wall
+
+### IMPROVE
+- **`git rebase -X theirs` across a squash-merged base silently reverts.** The
+  base had #42's changes as one squash commit, so rebase did not recognise the
+  original commits as applied, replayed them, and `-X theirs` let their OLDER
+  file versions overwrite the round-3 hardening. Tests stayed green because the
+  reverted check runs at export time. Caught only by comparing both sides of
+  the next conflict marker by marker. Never use a blanket merge strategy across
+  a squash boundary; resolve per file and verify each side has what the other
+  has before staging.
+- **Suppressed output in chained git commands turns failures into "success".**
+  Three times in one day: a watcher printed "pushed" with nothing pushed
+  (`| tail -2 && echo pushed` tied the echo to `tail`); a rebase that refused
+  on an unstaged file (`>/dev/null`) so every later check ran against the wrong
+  branch; and a "pushed:" label that printed `HEAD` while on a different branch.
+  Rules: `&&` on the command that matters, print its exit code, verify state
+  afterwards from the remote (`ls-remote`, `rev-list --count`), and never label
+  a step done from the output of a downstream command.
+- **`git add -A` with a SQLite database open in WAL mode commits `-wal` and
+  `-shm`.** A stale WAL from a different database state makes the next
+  read-write open fail "disk image is malformed" while `integrity_check` on the
+  main file says ok. They reached main through #42's squash. Now gitignored on
+  the graph branch; the export removes them before its atomic rename.
+- **A refactor can drop a check nobody tests.** The dedupe rewrite of the export
+  loop removed the R-tree integrity gate and every test passed, because the
+  gate only runs at export and CI cannot reach Firestore. Anything that runs
+  only at export needs a fixture-backed test or at least a marker assertion.
+
+### INSIGHT
+- **ORS free-tier matrix quota is far below the general 2,500 requests/day.**
+  Thirteen cities, roughly 208 routes across 49 requests, exhausted it. The
+  documented figure could not be found (restrictions page lists per-request
+  limits only; plans page is behind a login; the forum thread has no numbers).
+  Being measured empirically by an hourly resume watcher instead.
+- **Calibration held.** OSM-derived times divided by 1.1738 land within 4.31%
+  of Google on 12 held-out pairs. Stored with the graph, re-derived per rebuild,
+  provider-specific, and refused across providers.
+
+### IMPROVE, addendum the same day
+- **A heredoc ends the command; the next line runs whatever its exit was.**
+  `python3 - <<'PY' … PY` followed on a new line by `… && git commit && git push`
+  committed and pushed after the Python assertion failed. `set -e` did not stop
+  it in this shell either. Three overclaims in one hour came from this shape.
+  Rule: one operation per call, verify in a separate call, and never put a
+  commit, push or status claim downstream of a heredoc in the same script.
+- **A word-absence check matches your own comment about removing the word.**
+  `assert '"saving"' not in file` failed on the line `// No "saving" state.` that
+  the same edit had just added, and the false failure was reported as a bad
+  push. Verify structure (the type union, the call site) or a diff, not the
+  absence of a word.
+- **A checker that splits markers on `:` breaks on a marker containing `:`.**
+  `safeWaypointType(v: unknown):path` split at the first colon, grepped the
+  wrong path, and reported present code as MISSING. Use a separator that cannot
+  appear in the marker.
+
+### IMPROVE, second addendum
+- **`gh pr merge --delete-branch` on a stacked base closes the dependent PR.**
+  GitHub closes a PR whose base branch is deleted rather than retargeting it,
+  and a closed PR can be neither reopened nor retargeted. #44 was lost this way
+  and replaced by #47. On a stack: merge without `--delete-branch`, retarget
+  the dependent PR to main, then delete the branch by hand.
+- **`if cmd | tail -1; then` tests `tail`, not `cmd`.** Two GraphQL failures
+  were reported as "reopened" because a pipeline's exit status is its last
+  command's. Capture with `OUT=$(cmd 2>&1); RC=$?` and test `RC`.
+- **An assertion that counts a key name counts your own log line too.**
+  `count("drive_graph_built_at") == 1` failed because the edit's `console.log`
+  mentioned the key. Verify the structural change with a targeted grep, not a
+  name count.
