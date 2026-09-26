@@ -31,11 +31,19 @@ import { loadEnv } from "./lib/env.mjs";
 
 /** Straight-line radius that defines "within a day's drive". 650 km is about
  *  7.2 hours at highway speed, comfortably past the 8h maximum daily budget the
- *  UI offers once road circuity is accounted for. */
+ *  UI offers once road circuity is accounted for.
+ *
+ *  Raising it is expensive: the pair count grows with the square of this radius
+ *  (it is an area). 650 km gives 5,132 US pairs; 1,000 km would be roughly
+ *  12,000, and the free ORS matrix quota is measured in hundreds of pairs a
+ *  day. `SNAP_RADIUS_KM` in src/lib/atlas/queries.ts is tuned against this. */
 const NEIGHBOUR_RADIUS_KM = 650;
 
-/** Destinations per matrix request. ORS allows 3,500 pairs; this stays well
- *  under so one city is always a single request. */
+/** Destinations per matrix request, one origin each. Per-request caps that
+ *  bound it: ORS allows 3,500 locations per matrix call; Google's
+ *  computeRouteMatrix allows 625 elements (origins x destinations). Past either
+ *  cap the provider answers 400, which this script treats as a failed request,
+ *  not a retry. 60 keeps one city to a single request on both. */
 const BATCH = 60;
 
 /**

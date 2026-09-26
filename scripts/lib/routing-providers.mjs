@@ -102,9 +102,11 @@ export function googleRoutes(apiKey) {
       const rows = await res.json();
       const out = destinations.map(() => null);
       for (const el of Array.isArray(rows) ? rows : []) {
-        // The index is trusted only inside the array we sent. A malformed or
-        // reordered response must not be able to write past it.
+        // A null element must not crash the whole batch, and the index is
+        // trusted only inside the array we sent: a malformed or reordered
+        // response must not be able to write past it.
         if (
+          !el ||
           el.condition !== "ROUTE_EXISTS" ||
           !Number.isInteger(el.destinationIndex) ||
           el.destinationIndex < 0 ||

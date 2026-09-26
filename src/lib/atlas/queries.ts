@@ -192,6 +192,11 @@ export function neighborhoodsForCity(cityId: string, limit: number): Neighborhoo
  * from where you really are to that city centre, which at a day's-drive scale
  * is small; but it IS an error, so `snapToCity` returns the distance and lets
  * the caller decide rather than hiding it.
+ *
+ * It is coupled to `NEIGHBOUR_RADIUS_KM` (650 km) in scripts/build-drive-graph.mjs:
+ * the graph is built from city centres, so snapping moves the origin by up to
+ * 40 km and cities near the 650 km edge can be off by that much, about 25
+ * minutes of driving. Raise this and that edge error grows with it.
  */
 export const SNAP_RADIUS_KM = 40;
 
@@ -256,16 +261,15 @@ export function driveTimesFrom(fromCityId: string, maxMinutes: number): DriveTim
 
 /** Whether the graph knows anything at all about this city. */
 export function hasDriveGraphFor(cityId: string): boolean {
-  try {
-    const row = atlasDb()
-      .prepare<[string], { c: number }>(
-        `select count(*) c from city_drive_times where from_city_id = ? limit 1`
-      )
-      .get(cityId);
-    return (row?.c ?? 0) > 0;
-  } catch {
-    return false;
-  }
+  // Same rule as driveTimesFrom: a broken or locked atlas throws. Returning
+  // false here would read as "no graph, use the API" and hide the fault from
+  // the caller, which already logs and falls back on a throw.
+  const row = atlasDb()
+    .prepare<[string], { c: number }>(
+      `select count(*) c from city_drive_times where from_city_id = ? limit 1`
+    )
+    .get(cityId);
+  return (row?.c ?? 0) > 0;
 }
 
 /** Provenance, so a caller (or a human) can see what built the graph and how

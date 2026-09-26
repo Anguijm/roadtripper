@@ -240,3 +240,10 @@ cities. The read layer falls back correctly for the other 177, at $0.25 a call.
 - resume validates the stored factor as positive and finite before dividing by it
 - export refuses when the destination's -shm exists unless --force, so a running dev server is not corrupted from underneath
 - Pushed back: `atlasDb()` already opens with `{ readonly: true, fileMustExist: true }` in `src/lib/atlas/db.ts`, which is on main and outside this PR's diff. Whether Cloud Run's filesystem permits the -shm a readonly WAL connection still needs is a deploy-time question, noted for step 8's rollout; the atlas has never yet run in production because auto-deploy is off.
+
+## Council round 7 on #45 (CONDITIONAL, bugs 8, everything else 9 or 10), and what changed
+
+- Google matrix loop skips a null element instead of crashing the batch
+- `hasDriveGraphFor` no longer swallows a broken or locked atlas; it throws like `driveTimesFrom`, and the caller in radial.ts already logs and falls back
+- three comments: raising `NEIGHBOUR_RADIUS_KM` grows pairs with the square of the radius; `BATCH` is bounded by ORS 3,500 locations and Google 625 elements per request; `SNAP_RADIUS_KM` is coupled to the 650 km graph edge
+- Seven rounds is past the six the gauntlet allows. The merge decision goes to John.
