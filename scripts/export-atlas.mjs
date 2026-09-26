@@ -186,11 +186,17 @@ const nameKey = (n) => String(n ?? "").toLowerCase().replace(/\s+/g, " ").trim()
 function dedupeWaypoints(rows) {
   const groups = new Map();
   for (const r of rows) {
-    const k = `${r.city_id}|${nameKey(r.name)}`;
+    const key = nameKey(r.name);
+    // An empty or whitespace-only name is not a name. Grouping on "" would put
+    // every unnamed place in a city into one group and keep only the richest,
+    // silently destroying the rest. They pass through untouched instead.
+    if (!key) { unnamed.push(r); continue; }
+    const k = `${r.city_id}|${key}`;
     const list = groups.get(k);
     if (list) list.push(r); else groups.set(k, [r]);
   }
   const kept = [];
+  const unnamed = [];
   let dropped = 0;
   for (const list of groups.values()) {
     if (list.length === 1) { kept.push(list[0]); continue; }
@@ -221,7 +227,7 @@ function dedupeWaypoints(rows) {
       dropped += c.length - 1;
     }
   }
-  return { kept, dropped };
+  return { kept: [...kept, ...unnamed], dropped };
 }
 
 const pull = async (col) => (await fs.collection(col).get()).docs;
@@ -258,7 +264,7 @@ db.transaction(() => {
     // can use. Counted and reported rather than silently dropped.
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || v.isArchived) { skipped.cities++; continue; }
     insCity.run({
-      id: d.id, name: en(v.name) ?? d.id, country: v.country ?? null, region: v.region ?? null,
+      id: d.id, name: en(v.name) || d.id, country: v.country ?? null, region: v.region ?? null,
       tier: v.tier ?? null, vibe_class: v.vibeClass ?? null, lat, lng,
       lore_anchor: v.loreAnchor ?? null, coverage_tier: v.coverageTier ?? null,
       max_radius_km: v.maxRadiusKm ?? null,
@@ -269,7 +275,7 @@ db.transaction(() => {
     if (!v.city_id) { skipped.neighborhoods++; continue; }
     const [lat, lng] = coords(v);
     insNb.run({
-      id: d.id, city_id: v.city_id, name: en(v.name) ?? d.id,
+      id: d.id, city_id: v.city_id, name: en(v.name) || d.id,
       summary: en(v.summary), lore: en(v.lore),
       lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null,
       trending_score: v.trending_score ?? null,
@@ -298,7 +304,7 @@ db.transaction(() => {
     if (v.is_active === false) { skipped.waypoints++; continue; }
     candidates.push({
       id: d.id, city_id: v.city_id, neighborhood_id: v.neighborhood_id ?? null,
-      name: en(v.name) ?? d.id, description: en(v.description), type: v.type,
+      name: en(v.name) || d.id, description: en(v.description), type: v.type,
       lat, lng, trending_score: v.trending_score ?? null,
       google_place_id: v.google_place_id ?? null, business_status: v.business_status ?? null,
     });
@@ -366,6 +372,12 @@ if (integrity.wp !== integrity.rt || integrity.orphans !== 0) {
 console.log(`  spatial index verified: ${integrity.rt} rows, 0 orphans`);
 
 db.close();
+
+// TMP was written in WAL mode, so it may have left its own -wal and -shm beside
+// it. They must not outlive the rename: a stale atlas.sqlite.tmp-wal is exactly
+// the kind of file a later run could mistake for progress, and it is not the
+// database that ends up at OUT.
+for (const sidecar of [`${TMP}-wal`, `${TMP}-shm`]) rmSync(sidecar, { force: true });
 
 // The destination's -wal and -shm belong to the OLD database. Renaming the main
 // file over the top strands them, and the next process to open the atlas

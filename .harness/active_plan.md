@@ -220,3 +220,9 @@ cities. The read layer falls back correctly for the other 177, at $0.25 a call.
 - calibration written to meta immediately after it is derived; built_at only marks a complete run
 - carryOverDriveGraph throws when the old atlas exists but is unreadable, instead of silently returning empty
 - coordinates admitted only if Number.isFinite, in cities, neighborhoods and waypoints; NaN can no longer reach the dedupe
+
+## Council round 4 on #45 (BLOCK), and what changed
+
+- unnamed waypoints bypass the dedupe; the name fallback uses || so an empty string falls back to the id (3 sites)
+- TMP's own -wal and -shm are removed after close, before the rename
+- bounding box and calibration seed documented

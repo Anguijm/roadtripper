@@ -87,8 +87,16 @@ const median = (xs) => {
   return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
 };
 
-/** Deterministic shuffle so a rerun samples the same pairs and the calibration
- *  is reproducible. Math.random would make two runs incomparable. */
+/**
+ * Deterministic shuffle so a rerun samples the same pairs and the calibration
+ * is reproducible. Math.random would make two runs incomparable.
+ *
+ * The seed is arbitrary; 1337 has no meaning beyond being fixed. Changing it
+ * changes which pairs are sampled, so a factor derived under a new seed is not
+ * directly comparable with one derived under the old: a shift in the number
+ * could be the provider changing or just different roads being sampled. Keep
+ * it fixed unless you intend to break that comparison, and say so in the plan.
+ */
 function seededPick(items, n, seed = 1337) {
   let s = seed;
   const rand = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
@@ -120,6 +128,12 @@ db.exec(`
   create table if not exists meta (key text primary key, value text not null);
 `);
 
+// Continental US only: latitude 24 to 50, longitude -125 to -66. That box
+// drops Hawaii, Alaska and everything outside the US, which the atlas also
+// holds. Deliberate: the graph is city-to-city drive times, and a pair with an
+// ocean between it has no drive time. It also clips a sliver of southern Canada
+// and northern Mexico, which is harmless because those cities are not in the
+// atlas. Widen it only if the atlas gains drivable cities outside it.
 const cities = db.prepare(
   `select id, name, lat, lng from cities
     where lat between 24 and 50 and lng between -125 and -66`
