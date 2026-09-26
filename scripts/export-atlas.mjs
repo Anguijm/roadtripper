@@ -364,6 +364,11 @@ db.close();
 // read-write tries to replay a WAL from a different database and fails with
 // "disk image is malformed" — while `integrity_check` on the file itself says
 // ok, which makes it a genuinely confusing failure. Found exactly that way.
+// This script is a build step. It runs on a developer machine or in CI before
+// a deploy, against a file no server has open. It must NEVER be pointed at the
+// atlas a running Next.js process is reading: the rename below swaps the file
+// under that process and the sidecar removal here would strand its WAL.
+// Deploying the new file is what makes it live, not writing it.
 for (const sidecar of [`${OUT}-wal`, `${OUT}-shm`]) rmSync(sidecar, { force: true });
 
 // TMP is always `${OUT}.tmp`, i.e. the same directory and filesystem, so EXDEV

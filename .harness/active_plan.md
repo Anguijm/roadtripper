@@ -197,3 +197,12 @@ be the resume logic and nothing else. It should be the next change to the table.
 
 Still true from before: 3.7% coverage means the offline claim holds for 14
 cities. The read layer falls back correctly for the other 177, at $0.25 a call.
+
+## Council round 1 on #45 (BLOCK), and what changed
+
+- item 1: `import "server-only"` was already the first line of queries.ts; the council finding was false. Left as is.
+- item 2: haversineKm clamped in queries.ts
+- item 4: candidatesFromGraph returns a discriminated union
+- item 5: factor guarded; item 6 (build): CALIBRATION_PAIRS/HELDOUT_PAIRS explained; haversine clamped
+- item 6 (providers): pause constants explained; wrong 2,500/day claim corrected
+- item 3: export documented as build-time only, never against a live server's file

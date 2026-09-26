@@ -37,7 +37,14 @@ const NEIGHBOUR_RADIUS_KM = 650;
  *  under so one city is always a single request. */
 const BATCH = 60;
 
-/** Pairs sampled against Google to derive the factor, and again to test it. */
+/**
+ * Pairs sampled against Google to derive the factor, and a disjoint set to test
+ * it on. 24 is enough for a stable median (the 20-pair pilot moved the factor
+ * by under 0.01 when any single pair was dropped); 12 held out is the smallest
+ * set where one bad pair cannot swing the mean error past the 10% gate on its
+ * own. Both cost half a cent a pair on the reference side, so 36 pairs is
+ * about 18 cents per calibration.
+ */
 const CALIBRATION_PAIRS = 24;
 const HELDOUT_PAIRS = 12;
 
@@ -72,7 +79,7 @@ const haversineKm = (a, b) => {
   const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
   const h = Math.sin(dLat / 2) ** 2 +
     Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, h)));  // clamp: float error can push h past 1 and asin(>1) is NaN
 };
 
 const median = (xs) => {
@@ -225,6 +232,12 @@ async function calibrate() {
   if (fitRatios.length === 0) throw new Error("calibration produced no usable pairs");
   // Median, not mean: one unroutable outlier should not move the factor.
   const factor = median(fitRatios.map((r) => r.ratio));
+  // A zero or NaN factor would mean the reference returned zero-minute routes,
+  // which is a broken sample, not a calibration. Dividing by it would publish
+  // infinities. Refuse rather than store garbage with a confident label.
+  if (!(factor > 0) || !Number.isFinite(factor)) {
+    throw new Error(`calibration factor ${factor} is not a positive finite number; refusing to publish`);
+  }
   console.log(`  factor ${factor.toFixed(4)} (provider is ${((factor - 1) * 100).toFixed(1)}% slower than reference)`);
 
   const heldRatios = await ratiosFor(heldOut);

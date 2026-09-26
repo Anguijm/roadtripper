@@ -207,7 +207,10 @@ export function haversineKm(
   const h =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_KM * Math.asin(Math.sqrt(h));
+  // h is mathematically in [0, 1] but floating point can nudge it just past 1
+  // for antipodal-ish points, and asin(>1) is NaN. A NaN distance would make
+  // every comparison in snapToCity false and silently return null.
+  return 2 * EARTH_KM * Math.asin(Math.sqrt(Math.min(1, h)));
 }
 
 /** The atlas city nearest a point, if one is close enough to stand in for it. */

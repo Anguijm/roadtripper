@@ -10,7 +10,21 @@
  * of minutes. Neither knows anything about cities or the atlas.
  */
 
-/** Overload guard. ORS free tier is 2,500 requests/day; this stays far under. */
+/**
+ * Pacing between requests, per provider. These are courtesy and per-minute
+ * limits, NOT the daily quota.
+ *
+ * ORS: 1500 ms is 40 requests a minute, the documented per-minute ceiling for
+ * the matrix endpoint. The daily matrix quota is a separate, much smaller
+ * number that is not published; a full build hit it after 13 cities on
+ * 2026-09-26. Pacing cannot help with that, only resuming across days can.
+ * (An earlier version of this comment cited "2,500 requests/day"; that is the
+ * general figure and does not apply to matrix.)
+ *
+ * Google: 120 ms keeps calibration under Google's default 600 elements per
+ * minute with room to spare, and Google bills per element regardless of pace,
+ * so there is nothing to gain by going faster.
+ */
 const ORS_PAUSE_MS = 1500;
 const GOOGLE_PAUSE_MS = 120;
 

@@ -178,9 +178,9 @@ export async function findCitiesInRadius(
   const inSemicircle = allCities.filter((c) => withinSemicircle(c, origin, headingDeg));
 
   const fromGraph = candidatesFromGraph(origin, inSemicircle, maxMinutes);
-  if (fromGraph !== null) {
-    cacheSet(cacheKey, fromGraph);
-    return fromGraph;
+  if (fromGraph.kind === "hit") {
+    cacheSet(cacheKey, fromGraph.candidates);
+    return fromGraph.candidates;
   }
 
   // Fallback: no usable graph row for this origin. Costs money and needs a
@@ -230,13 +230,24 @@ export async function findCitiesInRadius(
  * every city in range is considered. That alone fixes the symptom where a New
  * York to Los Angeles plan only ever offered Northeast cities.
  */
+/**
+ * `miss` means the graph cannot answer for this origin (nothing to snap to, or
+ * no rows for that city) and the caller must fall back. `hit` with an empty
+ * `candidates` means the graph answered and nothing is in range. Those were
+ * previously `null` versus `[]`, which read the same at a glance and would have
+ * let a future edit turn missing data into a confident "nothing nearby".
+ */
+type GraphLookup =
+  | { kind: "miss" }
+  | { kind: "hit"; candidates: RadialCandidate[] };
+
 function candidatesFromGraph(
   origin: LatLng,
   inSemicircle: City[],
   maxMinutes: number
-): RadialCandidate[] | null {
+): GraphLookup {
   const snapped = snapToCity(origin);
-  if (!snapped || !hasDriveGraphFor(snapped.city.id)) return null;
+  if (!snapped || !hasDriveGraphFor(snapped.city.id)) return { kind: "miss" };
 
   const allowed = new Map(inSemicircle.map((c) => [c.id, c]));
   const candidates: RadialCandidate[] = [];
@@ -245,5 +256,5 @@ function candidatesFromGraph(
     if (city) candidates.push({ city, oneWayDriveMinutes: row.minutes });
   }
   candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
-  return candidates;
+  return { kind: "hit", candidates };
 }
