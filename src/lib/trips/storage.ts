@@ -26,9 +26,20 @@ import { z } from "zod/v4";
  * there, which is no more trustworthy than a Firestore document was.
  */
 
+/**
+ * The localStorage key. Versioned so a future shape change can read the old
+ * key, migrate, and write the new one rather than silently misparsing. Renaming
+ * it without a migration orphans every saved trip on every device.
+ */
 const KEY = "roadtripper.trips.v1";
 
-/** Same cap the Firestore version enforced, for the same reason: bounded UI. */
+/**
+ * Same cap the Firestore version enforced, for the same reason: bounded UI.
+ * It is a count, not a size. localStorage is typically ~5 MB per origin and a
+ * trip is well under 1 KB, so the count bites long before the quota does.
+ * Updates to an existing id bypass it on purpose: a retry of a failed save
+ * must never be refused for hitting a limit the first attempt already passed.
+ */
 export const MAX_SAVED_TRIPS = 50;
 
 const StoredTripSchema = SaveTripInputSchema.extend({
@@ -175,4 +186,24 @@ export function getTripsSnapshot(): SavedTrip[] {
 
 export function getTripsServerSnapshot(): SavedTrip[] {
   return SERVER_SNAPSHOT;
+}
+
+export type StorageStatus = "unknown" | "available" | "blocked";
+
+/**
+ * Whether the browser will let this origin persist anything. Distinct from
+ * "no trips saved yet", which `loadTrips` cannot tell apart from "storage is
+ * switched off": both come back as an empty list. The page shows a banner on
+ * `blocked` so a user in a private window learns why Save does nothing.
+ *
+ * Read through `useSyncExternalStore` with an `unknown` server snapshot, so the
+ * server render and the first client render agree and there is no hydration
+ * mismatch; the real answer arrives on the client's first subscribed render.
+ */
+export function getStorageStatusSnapshot(): StorageStatus {
+  return available() ? "available" : "blocked";
+}
+
+export function getStorageStatusServerSnapshot(): StorageStatus {
+  return "unknown";
 }

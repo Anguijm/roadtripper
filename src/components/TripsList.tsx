@@ -13,7 +13,7 @@ export default function TripsList({
   onDelete,
 }: {
   trips: SavedTrip[];
-  onDelete: (tripId: string) => void;
+  onDelete: (tripId: string, spoken: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-3">
