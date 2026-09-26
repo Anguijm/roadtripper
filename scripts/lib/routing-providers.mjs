@@ -102,7 +102,14 @@ export function googleRoutes(apiKey) {
       const rows = await res.json();
       const out = destinations.map(() => null);
       for (const el of Array.isArray(rows) ? rows : []) {
-        if (el.condition !== "ROUTE_EXISTS" || typeof el.destinationIndex !== "number") continue;
+        // The index is trusted only inside the array we sent. A malformed or
+        // reordered response must not be able to write past it.
+        if (
+          el.condition !== "ROUTE_EXISTS" ||
+          !Number.isInteger(el.destinationIndex) ||
+          el.destinationIndex < 0 ||
+          el.destinationIndex >= destinations.length
+        ) continue;
         const secs = parseFloat(String(el.duration).replace("s", ""));
         if (!Number.isFinite(secs)) continue;
         out[el.destinationIndex] = {

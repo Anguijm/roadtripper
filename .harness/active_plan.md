@@ -226,3 +226,10 @@ cities. The read layer falls back correctly for the other 177, at $0.25 a call.
 - unnamed waypoints bypass the dedupe; the name fallback uses || so an empty string falls back to the id (3 sites)
 - TMP's own -wal and -shm are removed after close, before the rename
 - bounding box and calibration seed documented
+
+## Council round 5 on #45 (BLOCK, bugs 4), and what changed
+
+- dedupe extracted to scripts/lib/dedupe.mjs with `unnamed` declared before the loop (the TDZ), and exported for testing
+- scripts/lib/__tests__/dedupe.test.mjs: 7 cases, the first being the crash; plus radius, single linkage, tie-breaks, cross-city, normalisation
+- held-out gate refuses with fewer than half the intended pairs; .env.local parser strips unquoted inline comments and surrounding quotes
+- Google matrix parser bounds-checks destinationIndex

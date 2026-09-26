@@ -68,7 +68,18 @@ function env() {
       readFileSync(".env.local", "utf8")
         .split("\n")
         .filter((l) => l.includes("=") && !l.trimStart().startsWith("#"))
-        .map((l) => { const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
+        .map((l) => {
+          const i = l.indexOf("=");
+          let v = l.slice(i + 1).trim();
+          // dotenv rules, the two that matter for an API key: a value in
+          // matching quotes is taken verbatim inside them; an unquoted value
+          // ends at the first whitespace-then-#. Without this, `KEY=abc # note`
+          // would send "abc # note" as the key and every request would 403.
+          const q = v[0];
+          if ((q === '"' || q === "'") && v.endsWith(q) && v.length >= 2) v = v.slice(1, -1);
+          else v = v.replace(/\s+#.*$/, "");
+          return [l.slice(0, i).trim(), v];
+        })
     );
   } catch { return {}; }
 }
@@ -263,6 +274,17 @@ async function calibrate() {
   console.log(`  factor ${factor.toFixed(4)} (provider is ${((factor - 1) * 100).toFixed(1)}% slower than reference)`);
 
   const heldRatios = await ratiosFor(heldOut);
+  // A held-out check with no pairs in it passes trivially: mean of nothing is
+  // 0, and 0 < 10%. That is what a network outage during this phase would have
+  // produced, and the graph would have published as "calibrated" on zero
+  // evidence. Require at least half the intended sample or refuse.
+  const MIN_HELDOUT = Math.ceil(HELDOUT_PAIRS / 2);
+  if (heldRatios.length < MIN_HELDOUT) {
+    throw new Error(
+      `held-out check has ${heldRatios.length} usable pairs, below the minimum of ${MIN_HELDOUT}; ` +
+      `refusing to treat that as a pass. Check network and provider quota, then rerun.`
+    );
+  }
   const errs = heldRatios.map((r) => Math.abs(r.mine / factor - r.ref) / r.ref * 100);
   const meanPct = errs.reduce((s, x) => s + x, 0) / (errs.length || 1);
   console.log(`  held-out check on ${errs.length} pairs it did not learn from:`);
