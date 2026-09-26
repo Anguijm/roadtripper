@@ -266,6 +266,22 @@ async function calibrate() {
 // ---------------------------------------------------------------------------
 
 const { factor, heldOutMeanPct, sampled } = await calibrate();
+
+// Written the moment calibration exists, not at the end of the run. A run cut
+// off by quota or a dropped connection used to lose the factor it had just paid
+// for; the next resume, seeing no stored factor, would recalibrate and could
+// land on a slightly different number, so rows from the two runs would no
+// longer share one correction. One factor per graph means it goes to disk first.
+if (!resuming) {
+  const put = db.prepare(`insert or replace into meta values (?,?)`);
+  db.transaction(() => {
+    put.run("drive_graph_provider", provider.name);
+    put.run("drive_graph_factor", String(factor));
+    put.run("drive_graph_heldout_mean_pct", heldOutMeanPct.toFixed(2));
+    put.run("drive_graph_calibrated_at", new Date().toISOString());
+  })();
+  console.log("  calibration committed to meta before any pairs are fetched");
+}
 if (args.has("calibrate-only")) { db.close(); process.exit(0); }
 
 const ins = db.prepare(
@@ -301,12 +317,6 @@ for (const { city, neighbours } of plan) {
   }
 }
 
-if (!resuming) {
-db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_provider", provider.name);
-db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_factor", String(factor));
-db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_heldout_mean_pct", heldOutMeanPct.toFixed(2));
-db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_built_at", new Date().toISOString());
-}
 db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_last_run_at", new Date().toISOString());
 
 // Coverage, reported rather than assumed. A missing pair is a city that simply
@@ -318,6 +328,14 @@ const fullPairs = cities.reduce((n, c) => n + neighboursOf(c).length, 0);
 const coverage = fullPairs === 0 ? 0 : (have / fullPairs) * 100;
 console.log(`\ndrive graph: ${have} rows in the atlas`);
 console.log(`  coverage ${have}/${fullPairs} pairs (${coverage.toFixed(1)}%), ${written} written this run`);
+// built_at means "the graph is complete": every planned pair present and no
+// request failed. A resume with nothing left to fetch has zero failures too, so
+// zero failures alone would have stamped a 3.7% graph as finished; the dry run
+// that caught it is in the plan file. A partial graph leaves it absent.
+if (failedRequests === 0 && have >= fullPairs) {
+  db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_built_at", new Date().toISOString());
+  console.log("  graph complete; drive_graph_built_at written");
+}
 console.log(`  unroutable ${unroutable}, failed requests ${failedRequests}`);
 console.log(`  calibration factor ${factor.toFixed(4)} from ${sampled} pairs, held-out mean error ${heldOutMeanPct.toFixed(1)}%`);
 db.pragma("wal_checkpoint(TRUNCATE)");

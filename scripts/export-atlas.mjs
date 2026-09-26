@@ -77,8 +77,14 @@ function carryOverDriveGraph(path) {
     old.close();
     return { rows, meta };
   } catch (err) {
-    console.warn(`  could not read the previous atlas, drive graph will be empty: ${err.message}`);
-    return { rows: [], meta: [] };
+    // The previous atlas exists but cannot be read. Continuing would publish a
+    // fresh atlas with an empty drive graph, which is the silent-destruction
+    // bug this function exists to prevent, just with a different cause. A
+    // missing file is fine (handled above); a broken one must stop the export.
+    throw new Error(
+      `previous atlas at ${path} exists but could not be read (${err.message}). ` +
+      `Refusing to export over it, because the drive graph would be lost. Move or repair it first.`
+    );
   }
 }
 
@@ -250,7 +256,7 @@ db.transaction(() => {
     const [lat, lng] = coords(v);
     // A city without coordinates cannot be routed to, so it is not a city we
     // can use. Counted and reported rather than silently dropped.
-    if (typeof lat !== "number" || typeof lng !== "number" || v.isArchived) { skipped.cities++; continue; }
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || v.isArchived) { skipped.cities++; continue; }
     insCity.run({
       id: d.id, name: en(v.name) ?? d.id, country: v.country ?? null, region: v.region ?? null,
       tier: v.tier ?? null, vibe_class: v.vibeClass ?? null, lat, lng,
@@ -265,7 +271,7 @@ db.transaction(() => {
     insNb.run({
       id: d.id, city_id: v.city_id, name: en(v.name) ?? d.id,
       summary: en(v.summary), lore: en(v.lore),
-      lat: typeof lat === "number" ? lat : null, lng: typeof lng === "number" ? lng : null,
+      lat: Number.isFinite(lat) ? lat : null, lng: Number.isFinite(lng) ? lng : null,
       trending_score: v.trending_score ?? null,
     });
   }
@@ -281,7 +287,9 @@ db.transaction(() => {
     seenWaypointIds.add(d.id);
     const v = d.data();
     const [lat, lng] = coords(v);
-    if (!v.city_id || !v.type || typeof lat !== "number" || typeof lng !== "number") { skipped.waypoints++; continue; }
+    // Number.isFinite, not typeof: NaN is typeof "number" and would sail through
+    // to the dedupe, where kmBetween(NaN) is NaN and every comparison is false.
+    if (!v.city_id || !v.type || !Number.isFinite(lat) || !Number.isFinite(lng)) { skipped.waypoints++; continue; }
     // Filtered at export rather than at query time. A retired waypoint is not
     // something Road Tripper ever wants, so dropping it here keeps every runtime
     // query free of a predicate each caller would otherwise have to remember,

@@ -214,3 +214,9 @@ cities. The read layer falls back correctly for the other 177, at $0.25 a call.
 - new test: a throwing driveTimesFrom on a covered city reaches the API fallback (fetch spy) and logs
 - kmBetween clamped; the third copy of the haversine, missed when the other two were
 - provider guard comment and message state that the reference provider is always allowed (council misread; no behaviour change)
+
+## Council round 3 on #45 (BLOCK), and what changed
+
+- calibration written to meta immediately after it is derived; built_at only marks a complete run
+- carryOverDriveGraph throws when the old atlas exists but is unreadable, instead of silently returning empty
+- coordinates admitted only if Number.isFinite, in cities, neighborhoods and waypoints; NaN can no longer reach the dedupe
