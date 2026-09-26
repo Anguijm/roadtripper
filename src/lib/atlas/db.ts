@@ -70,9 +70,13 @@ export function atlasExportedAt(): string | null {
 }
 
 /**
- * How old the atlas may get before it is worth saying something. The export is
- * manual today, so this is the difference between "a snapshot" and "a snapshot
- * nobody has refreshed since spring".
+ * How old the atlas may get before it is worth saying something.
+ *
+ * 30 days because the Urban Explorer pipeline enriches in batches on the order
+ * of weeks, so anything under a month is very likely identical and warning
+ * would be noise. Lowering this only helps once the export runs on a schedule;
+ * until then a tighter threshold would fire constantly and be ignored, which is
+ * worse than not warning at all.
  */
 export const ATLAS_STALE_AFTER_DAYS = 30;
 

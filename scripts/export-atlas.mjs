@@ -18,7 +18,7 @@
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import Database from "better-sqlite3";
-import { mkdirSync, statSync, renameSync, rmSync } from "node:fs";
+import { mkdirSync, statSync, renameSync, rmSync, copyFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 const OUT = process.env.ATLAS_OUT ?? "data/atlas.sqlite";
@@ -140,7 +140,15 @@ db.transaction(() => {
       trending_score: v.trending_score ?? null,
     });
   }
+  // R1 #1: `insert or replace` assigns a NEW rowid on conflict, while the
+  // R-tree row was already written against the old one. Firestore document ids
+  // are unique so a conflict cannot happen today, but if one ever did the index
+  // would desync silently and corridor queries would return wrong rows with no
+  // error. Dedupe first so the pattern cannot bite.
+  const seenWaypointIds = new Set();
   for (const d of wpDocs) {
+    if (seenWaypointIds.has(d.id)) { skipped.waypoints++; continue; }
+    seenWaypointIds.add(d.id);
     const v = d.data();
     const [lat, lng] = coords(v);
     if (!v.city_id || !v.type || typeof lat !== "number" || typeof lng !== "number") { skipped.waypoints++; continue; }
@@ -172,8 +180,49 @@ db.exec("vacuum");
 const counts = ["cities", "neighborhoods", "waypoints"].map(
   (t) => `${t} ${db.prepare(`select count(*) c from ${t}`).get().c}`
 ).join("  ");
+// Guard the thing the dedupe above protects. A silent desync is the worst
+// outcome here: queries keep working and quietly return the wrong places.
+const integrity = db
+  .prepare(
+    `select (select count(*) from waypoints) as wp,
+            (select count(*) from waypoint_rtree) as rt,
+            (select count(*) from waypoint_rtree r
+               left join waypoints w on w.rowid = r.rowid
+              where w.rowid is null) as orphans`
+  )
+  .get();
+if (integrity.wp !== integrity.rt || integrity.orphans !== 0) {
+  db.close();
+  rmSync(TMP, { force: true });
+  throw new Error(
+    `spatial index desynced: waypoints=${integrity.wp} rtree=${integrity.rt} orphans=${integrity.orphans}. Refusing to publish.`
+  );
+}
+console.log(`  spatial index verified: ${integrity.rt} rows, 0 orphans`);
+
 db.close();
-renameSync(TMP, OUT);
+// R1 #3: TMP is always `${OUT}.tmp`, i.e. the same directory and therefore the
+// same filesystem, so EXDEV is not reachable by construction. Handled anyway
+// because a future caller could set ATLAS_OUT somewhere that changes that, and
+// the failure mode would otherwise be a lost export.
+try {
+  renameSync(TMP, OUT);
+} catch (err) {
+  if (err?.code !== "EXDEV") throw err;
+  // Copying straight onto OUT is not atomic: a reader could open a half-written
+  // file. Copy to a sibling on the destination filesystem, then rename, which
+  // is atomic there. The finally guarantees neither temp file outlives a
+  // failure part-way through, which would otherwise leave a stale .tmp.dest
+  // that a later run could mistake for progress.
+  const DEST_TMP = `${OUT}.tmp.dest`;
+  try {
+    copyFileSync(TMP, DEST_TMP);
+    renameSync(DEST_TMP, OUT);
+  } finally {
+    rmSync(DEST_TMP, { force: true });
+    rmSync(TMP, { force: true });
+  }
+}
 console.log(`wrote ${OUT}: ${counts}`);
 console.log(`  size ${(statSync(OUT).size / 1e6).toFixed(1)} MB, took ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);

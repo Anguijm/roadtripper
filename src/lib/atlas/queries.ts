@@ -3,6 +3,56 @@ import { atlasDb } from "./db";
 import type { City } from "@/lib/urban-explorer/cityAtlas";
 import type { LiteWaypoint } from "@/lib/routing/scoring";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
+import { WaypointTypeSchema, CityTierSchema } from "@/lib/urban-explorer/cityAtlas";
+
+/**
+ * R1 #2: the atlas is produced by our own export, but "our own" is not the same
+ * as "guaranteed in step with this code". If the upstream pipeline adds a
+ * waypoint type and the atlas is re-exported before this app is redeployed, an
+ * unvalidated cast would put an unknown string into code that switches on the
+ * enum, and the failure would surface as a scoring oddity rather than an error.
+ * These narrow at the boundary and fall back to the value the rest of the app
+ * treats as "nothing special".
+ */
+const FALLBACK_TYPE = "landmark" as const;
+const FALLBACK_TIER = "tier3" as const;
+
+// `unknown` rather than `string`: the column is NOT NULL, but the point of this
+// helper is to survive the atlas disagreeing with this code, and a null or
+// missing value is one way it could. `safeParse` rejects anything that is not
+// one of the enum strings, so widening the input costs nothing.
+function safeWaypointType(v: unknown) {
+  const parsed = WaypointTypeSchema.safeParse(v);
+  if (parsed.success) return parsed.data;
+  console.warn(`[atlas] unknown waypoint type ${JSON.stringify(v)}, treating as ${FALLBACK_TYPE}`);
+  return FALLBACK_TYPE;
+}
+
+function safeCityTier(v: unknown) {
+  const parsed = CityTierSchema.safeParse(v);
+  if (parsed.success) return parsed.data;
+  // Same treatment as waypoint types: a tier this code does not know is a sign
+  // the upstream pipeline moved before this app was redeployed, and that is
+  // worth one line in the logs rather than a silent downgrade to tier3.
+  console.warn(`[atlas] unknown city tier ${JSON.stringify(v)}, treating as ${FALLBACK_TIER}`);
+  return FALLBACK_TIER;
+}
+
+/**
+ * R1 #4: every id becomes one bound parameter. SQLite's compiled limit is far
+ * above anything this app produces: the only caller caps at
+ * `MAX_WAYPOINT_CITIES = 10`, defined in `src/lib/routing/recommend.ts`. The
+ * bound is asserted here anyway so the guarantee lives next to the query rather
+ * than in a constant in another file that could be raised without anyone
+ * looking here.
+ *
+ * If you raise this: SQLite's own ceiling is SQLITE_MAX_VARIABLE_NUMBER (32,766
+ * in the bundled build), so anything under a few thousand is safe; raise
+ * MAX_WAYPOINT_CITIES in recommend.ts and this together; and extend the
+ * "several cities at once" case in src/lib/atlas/__tests__/queries.test.ts,
+ * which is the test that would catch the two drifting apart.
+ */
+const MAX_BOUND_CITY_IDS = 100;
 
 /**
  * Every query the app needs against the local atlas.
@@ -19,6 +69,13 @@ interface CityRow {
 
 /** All cities. 277 rows, so there is no reason to filter in SQL. */
 export function allCities(): City[] {
+  // Deliberately NOT wrapped in try/catch. Round 3 asked for one so a locked
+  // file would degrade to "no candidates"; round 4 pointed out that this masks
+  // a broken atlas as an empty result, which is worse. The caller that matters
+  // (`findCitiesInRadius`, invoked under `Promise.allSettled` in the plan page)
+  // already turns a rejection into a visible "couldn't load candidates" state,
+  // so letting this throw reaches the user as an honest failure rather than a
+  // silently empty map.
   const rows = atlasDb()
     .prepare<[], CityRow>(
       `select id, name, country, region, tier, vibe_class, lat, lng from cities`
@@ -29,7 +86,7 @@ export function allCities(): City[] {
     name: r.name,
     country: r.country ?? "",
     region: r.region ?? "",
-    tier: (r.tier ?? "tier3") as City["tier"],
+    tier: safeCityTier(r.tier),
     lat: r.lat,
     lng: r.lng,
     ...(r.vibe_class ? { vibeClass: r.vibe_class as NonNullable<City["vibeClass"]> } : {}),
@@ -46,9 +103,14 @@ const toLite = (r: WaypointRow): LiteWaypoint & { description: string | null; la
   id: r.id,
   cityId: r.city_id,
   name: r.name,
-  type: r.type as LiteWaypoint["type"],
+  type: safeWaypointType(r.type),
   trendingScore: r.trending_score ?? 0,
   neighborhoodId: r.neighborhood_id,
+  // Untrusted. Generated upstream by Gemini in city-atlas-service, not written
+  // by anyone here. It must only ever be rendered as text: no
+  // dangerouslySetInnerHTML, no markdown-to-HTML, no template interpolation
+  // into markup. CLAUDE.md and the council's security persona both enforce
+  // this at review time; this comment is so the next reader knows why.
   description: r.description,
   lat: r.lat,
   lng: r.lng,
@@ -61,6 +123,11 @@ const toLite = (r: WaypointRow): LiteWaypoint & { description: string | null; la
  */
 export function waypointsForCities(cityIds: readonly string[]) {
   if (cityIds.length === 0) return [];
+  if (cityIds.length > MAX_BOUND_CITY_IDS) {
+    throw new Error(
+      `waypointsForCities called with ${cityIds.length} ids, above the ${MAX_BOUND_CITY_IDS} bound-parameter ceiling`
+    );
+  }
   const holes = cityIds.map(() => "?").join(",");
   return atlasDb()
     .prepare<string[], WaypointRow>(
