@@ -119,6 +119,35 @@ const cities = db.prepare(
 ).all();
 console.log(`continental US cities in atlas: ${cities.length}`);
 
+// ---------------------------------------------------------------------------
+// Resume by default.
+//
+// The free ORS tier ran out of matrix quota 13 cities into the first full build
+// (172 of 5,132 pairs), so a build has to survive being run across several
+// days, or being finished by a different provider. Two rules follow:
+//
+//   1. Never fetch a pair the table already holds. Quota and money are spent
+//      once per pair, full stop.
+//   2. Never recalibrate on resume. Each stored minute was divided by ONE
+//      factor; a second calibration yields a slightly different one and the
+//      graph would then be internally inconsistent. The stored factor is
+//      reused. `--fresh` wipes rows and meta and starts over.
+// ---------------------------------------------------------------------------
+const fresh = args.has("fresh");
+if (fresh) {
+  db.exec("delete from city_drive_times; delete from meta where key like 'drive_graph%'");
+  console.log("  --fresh: cleared existing graph and calibration");
+}
+const existingPairs = new Set(
+  db.prepare("select from_city_id || '|' || to_city_id k from city_drive_times").all().map((r) => r.k)
+);
+const storedFactor = db.prepare("select value from meta where key = 'drive_graph_factor'").get()?.value;
+const storedHeldOut = db.prepare("select value from meta where key = 'drive_graph_heldout_mean_pct'").get()?.value;
+const resuming = existingPairs.size > 0 && storedFactor !== undefined;
+if (resuming) {
+  console.log(`  resuming: ${existingPairs.size} pairs already present, factor ${Number(storedFactor).toFixed(4)} reused`);
+}
+
 const limit = args.has("limit") ? parseInt(args.get("limit"), 10) : cities.length;
 const working = cities.slice(0, limit);
 
@@ -126,7 +155,12 @@ const working = cities.slice(0, limit);
 const neighboursOf = (c) =>
   cities.filter((o) => o.id !== c.id && haversineKm(c, o) <= NEIGHBOUR_RADIUS_KM);
 
-const plan = working.map((c) => ({ city: c, neighbours: neighboursOf(c) }));
+const plan = working
+  .map((c) => ({
+    city: c,
+    neighbours: neighboursOf(c).filter((n) => !existingPairs.has(`${c.id}|${n.id}`)),
+  }))
+  .filter((p) => p.neighbours.length > 0);
 const totalPairs = plan.reduce((s, p) => s + p.neighbours.length, 0);
 const requests = plan.reduce((s, p) => s + Math.ceil(p.neighbours.length / BATCH), 0);
 console.log(`  ${totalPairs} directed pairs within ${NEIGHBOUR_RADIUS_KM} km, ${requests} matrix requests`);
@@ -162,9 +196,24 @@ async function ratiosFor(pairs) {
 }
 
 async function calibrate() {
+  // The reference provider needs no correction, ever. Checked first so a resume
+  // that finishes an ORS-started graph through Google does not divide Google's
+  // own times by ORS's factor. Every row must end up Google-equivalent; that is
+  // what makes rows from two providers safe to sit in one table.
   if (provider.name === reference.name) {
     console.log("\ncalibration skipped: provider is the reference");
     return { factor: 1, heldOutMeanPct: 0, sampled: 0 };
+  }
+  if (resuming) {
+    const storedProvider = db.prepare("select value from meta where key = 'drive_graph_provider'").get()?.value;
+    if (storedProvider !== provider.name) {
+      throw new Error(
+        `stored factor ${Number(storedFactor).toFixed(4)} was derived for ${storedProvider}, not ${provider.name}. ` +
+        `Refusing to apply one provider's correction to another's times. Use --fresh or the original provider.`
+      );
+    }
+    console.log(`\ncalibration reused from the existing graph: factor ${Number(storedFactor).toFixed(4)}, held-out ${storedHeldOut}%`);
+    return { factor: Number(storedFactor), heldOutMeanPct: Number(storedHeldOut ?? 0), sampled: 0 };
   }
   const allPairs = plan.flatMap((p) => p.neighbours.map((n) => [p.city, n]));
   const picked = seededPick(allPairs, CALIBRATION_PAIRS + HELDOUT_PAIRS);
@@ -231,17 +280,23 @@ for (const { city, neighbours } of plan) {
   }
 }
 
+if (!resuming) {
 db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_provider", provider.name);
 db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_factor", String(factor));
 db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_heldout_mean_pct", heldOutMeanPct.toFixed(2));
 db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_built_at", new Date().toISOString());
+}
+db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_last_run_at", new Date().toISOString());
 
 // Coverage, reported rather than assumed. A missing pair is a city that simply
 // never gets offered, which is silent unless someone counts.
 const have = db.prepare(`select count(*) c from city_drive_times`).get().c;
-const coverage = totalPairs === 0 ? 0 : (written / totalPairs) * 100;
+// Coverage is against the FULL graph, not this run's slice, so a resumed build
+// reports where the whole thing stands rather than how the last hour went.
+const fullPairs = cities.reduce((n, c) => n + neighboursOf(c).length, 0);
+const coverage = fullPairs === 0 ? 0 : (have / fullPairs) * 100;
 console.log(`\ndrive graph: ${have} rows in the atlas`);
-console.log(`  coverage ${written}/${totalPairs} pairs (${coverage.toFixed(1)}%)`);
+console.log(`  coverage ${have}/${fullPairs} pairs (${coverage.toFixed(1)}%), ${written} written this run`);
 console.log(`  unroutable ${unroutable}, failed requests ${failedRequests}`);
 console.log(`  calibration factor ${factor.toFixed(4)} from ${sampled} pairs, held-out mean error ${heldOutMeanPct.toFixed(1)}%`);
 db.pragma("wal_checkpoint(TRUNCATE)");

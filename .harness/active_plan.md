@@ -153,3 +153,47 @@ a future export that is wrong in a new way. They caught the clustering bug only
 because that bug happened to violate a property I had thought to check. Nothing
 here tests the export *process*, and the two serious bugs above were both in the
 process rather than the output.
+
+---
+
+## The real build (2026-09-26), and what the free tier actually allows
+
+Network returned on the 26th. The full build through OpenRouteService got 13
+cities in, then every remaining request returned `403 Quota exceeded`. The
+matrix endpoint has its own daily quota, well below the 2,500 general requests
+I had counted on, and a 2-location probe afterwards was refused outright. My
+earlier claim that "191 requests fits in the daily allowance" was wrong.
+
+**What did land is the part that mattered most.** Calibration ran to completion
+before the wall: factor **1.1738**, held-out mean error **4.31%** on 12 pairs it
+did not learn from, inside the 10% gate. That number is stored with the graph.
+
+Coverage: **190 of 5,132 pairs (3.7%)**, 14 of 191 origins.
+
+## Resume is now the default
+
+A build must survive being run across days or finished by another provider.
+Two rules, both enforced in the script:
+
+1. Never fetch a pair the table already holds.
+2. Never recalibrate on resume. Every stored minute was divided by one factor;
+   a second calibration would make the graph internally inconsistent.
+
+Plus a guard found by reasoning before running: the factor is provider-specific.
+A resume through Google (the reference) applies no factor, and a resume through
+any *other* provider than the one that derived the factor is refused. Proven
+end to end for $0.09: Google filled exactly one missing city while the 13
+ORS-built ones planned zero and the stored calibration stayed untouched.
+
+**Cost so far:** about $0.25 total on Google across the pipeline test, the
+carry-over proof, and the resume proof. $0 on ORS.
+
+**Weakest part (updated):** The table records no per-row provenance. 172 rows
+are ORS times divided by 1.1738 and 18 are Google's own; both are meant to be
+Google-equivalent, which is what makes them safe to mix, but nothing in the
+data lets anyone audit that later. A `provider` column is cheap and I did not
+add it, because it touches the export's carry-over and I wanted this commit to
+be the resume logic and nothing else. It should be the next change to the table.
+
+Still true from before: 3.7% coverage means the offline claim holds for 14
+cities. The read layer falls back correctly for the other 177, at $0.25 a call.
