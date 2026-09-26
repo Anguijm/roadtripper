@@ -11,6 +11,8 @@ import { atlasExportedAt, atlasAgeDays } from "../db";
 describe("atlas", () => {
   it("has the cities the plan depends on, including the west", () => {
     const cities = allCities();
+    // 250, not 277: a floor that catches a truncated or half-written export
+    // without failing every time the upstream pipeline adds or retires a city.
     expect(cities.length).toBeGreaterThan(250);
     const byName = new Set(cities.map((c) => c.name));
     // The Northeast-only candidate list seen on 2026-09-22 was a routing cap,
