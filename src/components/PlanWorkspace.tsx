@@ -111,7 +111,11 @@ export default function PlanWorkspace({
   // second one. That idempotency mattered when this wrote to Firestore and
   // still matters writing to localStorage.
   const saveTripIdRef = useRef<string>(crypto.randomUUID());
-  type SaveState = "idle" | "saving" | "saved" | "error";
+  // No "saving" state. Writing to localStorage is synchronous and sub-millisecond,
+  // so a transitional label would never be painted; it was carried over from the
+  // async server action this replaced. Removing it rather than forcing a paint
+  // with a timer is the honest fix.
+  type SaveState = "idle" | "saved" | "error";
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveAnnouncement, setSaveAnnouncement] = useState("");
 
@@ -552,7 +556,6 @@ export default function PlanWorkspace({
   }, [tripStops]);
 
   const handleSave = useCallback(() => {
-    setSaveState("saving");
     const input: SaveTripInput = {
       fromName,
       toName,
@@ -691,14 +694,13 @@ export default function PlanWorkspace({
         <div className="px-3 py-2 border-b border-[#30363d]">
           <button
             type="button"
-            disabled={saveState === "saving"}
             onClick={handleSave}
             className={[
               "w-full text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40",
               saveState === "saved"
                 ? "border-[#238636] text-[#3fb950]"
                 : saveState === "error"
-                ? "border-[#f85149] text-[#f85149]"
+                ? "border-[#f85149] text-[#ff7b72]"
                 : "border-[#30363d] text-[#7d8590] hover:border-[#555] hover:text-[#f0f6fc]",
             ].join(" ")}
           >
