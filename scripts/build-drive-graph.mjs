@@ -23,6 +23,7 @@
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { openRouteService, googleRoutes, sleep } from "./lib/routing-providers.mjs";
+import { loadEnv } from "./lib/env.mjs";
 
 // ---------------------------------------------------------------------------
 // Knobs
@@ -62,28 +63,7 @@ const args = new Map(
   })
 );
 
-function env() {
-  try {
-    return Object.fromEntries(
-      readFileSync(".env.local", "utf8")
-        .split("\n")
-        .filter((l) => l.includes("=") && !l.trimStart().startsWith("#"))
-        .map((l) => {
-          const i = l.indexOf("=");
-          let v = l.slice(i + 1).trim();
-          // dotenv rules, the two that matter for an API key: a value in
-          // matching quotes is taken verbatim inside them; an unquoted value
-          // ends at the first whitespace-then-#. Without this, `KEY=abc # note`
-          // would send "abc # note" as the key and every request would 403.
-          const q = v[0];
-          if ((q === '"' || q === "'") && v.endsWith(q) && v.length >= 2) v = v.slice(1, -1);
-          else v = v.replace(/\s+#.*$/, "");
-          return [l.slice(0, i).trim(), v];
-        })
-    );
-  } catch { return {}; }
-}
-const E = { ...env(), ...process.env };
+const E = loadEnv();
 
 const haversineKm = (a, b) => {
   const R = 6371, rad = (x) => (x * Math.PI) / 180;
@@ -252,8 +232,16 @@ async function calibrate() {
         `Use --fresh to recalibrate for ${provider.name}, or finish with ${storedProvider} or google.`
       );
     }
-    console.log(`\ncalibration reused from the existing graph: factor ${Number(storedFactor).toFixed(4)}, held-out ${storedHeldOut}%`);
-    return { factor: Number(storedFactor), heldOutMeanPct: Number(storedHeldOut ?? 0), sampled: 0 };
+    const f = Number(storedFactor);
+    // A corrupt or hand-edited meta row could hold "abc" or "0". Dividing by
+    // that writes NaN or Infinity into every resumed row, and SQLite will
+    // either reject it against NOT NULL or, worse, store it. Same rule as a
+    // fresh calibration: positive and finite, or refuse.
+    if (!(f > 0) || !Number.isFinite(f)) {
+      throw new Error(`stored drive_graph_factor ${JSON.stringify(storedFactor)} is not a positive finite number; use --fresh to recalibrate`);
+    }
+    console.log(`\ncalibration reused from the existing graph: factor ${f.toFixed(4)}, held-out ${storedHeldOut}%`);
+    return { factor: f, heldOutMeanPct: Number(storedHeldOut ?? 0), sampled: 0 };
   }
   const allPairs = plan.flatMap((p) => p.neighbours.map((n) => [p.city, n]));
   const picked = seededPick(allPairs, CALIBRATION_PAIRS + HELDOUT_PAIRS);

@@ -88,6 +88,20 @@ function carryOverDriveGraph(path) {
   }
 }
 
+// A -shm beside the destination means a WAL-mode connection is, or recently
+// was, open on it: a `next dev` reading the atlas, for instance. Renaming a new
+// file over the top and deleting that -shm would corrupt the reader's view and
+// surface later as "disk image is malformed". Stop here unless told otherwise.
+// It can also be a stale -shm from a crashed process, which is why --force
+// exists rather than a hard refusal; check first, then force if it is stale.
+if (existsSync(`${OUT}-shm`) && !process.argv.includes("--force")) {
+  throw new Error(
+    `${OUT}-shm exists, so a process may have the atlas open (a running dev server, or a stale ` +
+    `file from a crash). Refusing to export over a possibly-open database. Stop the server, or ` +
+    `if nothing has it open, rerun with --force.`
+  );
+}
+
 const carried = carryOverDriveGraph(OUT);
 
 mkdirSync(dirname(OUT), { recursive: true });

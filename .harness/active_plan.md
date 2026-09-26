@@ -233,3 +233,10 @@ cities. The read layer falls back correctly for the other 177, at $0.25 a call.
 - scripts/lib/__tests__/dedupe.test.mjs: 7 cases, the first being the crash; plus radius, single linkage, tie-breaks, cross-city, normalisation
 - held-out gate refuses with fewer than half the intended pairs; .env.local parser strips unquoted inline comments and surrounding quotes
 - Google matrix parser bounds-checks destinationIndex
+
+## Council round 6 on #45 (BLOCK, bugs 8), and what changed
+
+- env parsing extracted to scripts/lib/env.mjs, comments stripped before unquoting, 10 tests including the round-6 case
+- resume validates the stored factor as positive and finite before dividing by it
+- export refuses when the destination's -shm exists unless --force, so a running dev server is not corrupted from underneath
+- Pushed back: `atlasDb()` already opens with `{ readonly: true, fileMustExist: true }` in `src/lib/atlas/db.ts`, which is on main and outside this PR's diff. Whether Cloud Run's filesystem permits the -shm a readonly WAL connection still needs is a deploy-time question, noted for step 8's rollout; the atlas has never yet run in production because auto-deploy is off.
