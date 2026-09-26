@@ -45,3 +45,10 @@ npm-debug.log*
 # with a stash/unstash workaround for two years instead of ignoring the files.
 .harness/session_state.json
 .harness/yolo_log.jsonl
+
+# SQLite sidecars. A -wal from a different database state makes the next
+# read-write open fail "disk image is malformed" while integrity_check says ok.
+# Never commit them; the export removes them before its atomic rename.
+data/*.sqlite-wal
+data/*.sqlite-shm
+data/*.sqlite.tmp*
