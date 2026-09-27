@@ -164,6 +164,10 @@ export default function RecommendationList({
                   aria-pressed={previewedCityId === cityId}
                   aria-label={`See what is in ${cityName}`}
                   className={[
+                    // The visible button is small to fit the header; the
+                    // invisible ::before extends the hit area to 44 px tall
+                    // for thumbs without changing how it looks.
+                    "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
                     "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                     previewedCityId === cityId
                       ? "border-[#f0f6fc] text-[#f0f6fc]"
@@ -185,7 +189,10 @@ export default function RecommendationList({
                     : "Add city to trip"
                 }
                 className={[
-                  "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors",
+                  // Same 44 px hit area as the preview button beside it, so
+                  // neither is the hard one to hit on a phone.
+                  "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
+                  "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                   isAdded
                     ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
                     : canAdd

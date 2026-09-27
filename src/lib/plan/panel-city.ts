@@ -23,10 +23,12 @@ export function panelCityFor(
   // The trip is checked first on purpose. A city can be on both lists (a
   // candidate that was added), and then it is a stop: `isStop` must say so,
   // because the panel is describing part of the trip, not a maybe.
+  // Names come from typed data and are never blank in practice; the id is
+  // the fallback so a blank could never render as "undefined" or nothing.
   const stop = tripStops.find((s) => s.cityId === panelCityId);
-  if (stop) return { cityId: stop.cityId, cityName: stop.cityName, isStop: true };
+  if (stop) return { cityId: stop.cityId, cityName: stop.cityName || stop.cityId, isStop: true };
   const candidate = candidates.find((c) => c.id === panelCityId);
-  if (candidate) return { cityId: candidate.id, cityName: candidate.name, isStop: false };
+  if (candidate) return { cityId: candidate.id, cityName: candidate.name || candidate.id, isStop: false };
   return null;
 }
 

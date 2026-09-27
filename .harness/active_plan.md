@@ -54,3 +54,9 @@ product decision and this step is about the list.
 - a click on a city whose on-demand read failed forgets the failure and fetches again, so clicking through the list fast is not a permanent "could not load"
 - comments: why the trip is checked first in the resolver; why a map tap still adds
 - Pushed back on an AbortController: a server action's promise cannot be cancelled; ignoring the answer is the only abort, and the flag does that (same as #52 round 2)
+
+## Council round 2 on #58 (CONDITIONAL, bugs 9, product 6), and what changed
+
+- the product reviewer's veto was the touch target: a tiny preview button beside the high-stakes add button. Both buttons now carry an invisible 44 px tall hit area (a ::before overlay) without changing how they look; the add button was the same size before this step, and leaving it small next to a fixed neighbour would have kept the misclick
+- a blank city name falls back to the id in the resolver; tested
+- Pushed back on case-insensitive id comparison: ids are atlas keys compared exactly everywhere (the trip, the cache, the SQLite primary key), and one lookup that folds case would disagree with all of them

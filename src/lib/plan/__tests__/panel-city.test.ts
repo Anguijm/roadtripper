@@ -20,6 +20,11 @@ describe("panelCityFor", () => {
     expect(panelCityFor("lubbock-tx", [], candidates)).toEqual({ cityId: "lubbock-tx", cityName: "Lubbock", isStop: false });
   });
 
+  it("falls back to the id when a name is blank, so nothing renders as undefined", () => {
+    expect(panelCityFor("x", [{ cityId: "x", cityName: "" }], [])?.cityName).toBe("x");
+    expect(panelCityFor("y", [], [{ id: "y", name: "" }])?.cityName).toBe("y");
+  });
+
   it("is null for nothing selected or a city on neither list", () => {
     expect(panelCityFor(null, stops, candidates)).toBeNull();
     expect(panelCityFor("denver", stops, candidates)).toBeNull();
