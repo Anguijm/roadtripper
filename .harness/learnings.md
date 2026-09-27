@@ -516,3 +516,45 @@ here" link per city fixed it and the score went to 9. Step 13's preview
 button scored 6 for a tiny target beside the add button; 44 px hit areas
 on both fixed it. When one persona's score stays low across rounds, read
 its raw critique, not the synthesis.
+
+## Session 27, third part (2026-09-27 21:00 to 22:00 UTC): the corridor lands, two PRs collide
+
+**A timeout signal made outside the retry loop poisons every retry.**
+`AbortSignal.timeout` was created once per tile and reused by four tries;
+after it fired on the first, the other three started already aborted and
+failed at once. Four "tries" in two minutes, none a second attempt. The
+fix is a fresh signal per try, and the test "gives every retry a fresh,
+unaborted timeout signal" pins it. When a signal is shared across
+attempts, ask what state it carries into the next one.
+
+**A pull request that conflicts with main runs no workflow, and GitHub
+says nothing.** Every PR rewrites `.harness/active_plan.md`, so when two
+are open, the second conflicts the moment the first merges. #65's next
+two pushes fired no council and no CI; the run list simply stayed empty
+and read like a queue for half an hour. Executable now: Gate 1's first
+check is `git merge-tree --write-tree origin/main HEAD`, refusing the push
+with "rebase first". Process: rebase the second PR before pushing its next
+round, and when the rebase changes no code, put `[skip council]` in the
+title for that push so an identical diff does not spend a request.
+
+**Resumption over patience, confirmed.** With real retries, the 32-tile
+corridor took 16 minutes on a healthy instance. The earlier hour of
+failures was the poisoned signal, not the instance.
+
+**The second tag list, read by eye.** 1,074 stops within 10 km of the
+Amarillo to Austin road. "Notable" (named and on Wikidata) is 575 of them
+and floods with schools, airports, route relations and creeks: relations
+tagged `type=route` or `type=waterway` carry no `highway` or `waterway`
+key, so the exclusion list misses them. Fifty-four "caves" are one cave
+survey's named sinkholes near Cedar Park. 154 of 207 artworks are Austin
+murals. Big Texan is in. Cadillac Ranch and Palo Duro Canyon are outside
+the 10 km buffer: a product question about detours, not a pull bug. The
+list stays as it is for step 21: the bench should see what the pre-filter
+lets through, since judging that is the model's job, and the sampler caps
+any kind at a quarter of the sheet anyway.
+
+**The labelling sheet: a Docs write holds at most 64 chips.** A hundred
+dropdowns is two tables of fifty under two headings, and the enum has to
+be created in the same batch as the first table. The read-back maps rows
+to ids by name (unique in the sample) with the OpenStreetMap link as the
+check.

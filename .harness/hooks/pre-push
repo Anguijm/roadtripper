@@ -50,6 +50,28 @@ if [ "${SKIP_GATE1:-0}" = "1" ]; then
   exit 0
 fi
 
+# 0. Would this merge? GitHub runs no pull_request workflow on a pull request
+# that conflicts with its base, so a conflicting branch gets no council and no
+# CI, and nothing says so: the run list just stays empty. On 2026-09-27 two
+# PRs each rewrote .harness/active_plan.md (every PR does); when the first
+# merged, the second's next two pushes fired nothing and looked like a queue
+# for half an hour. This is first because it is the cheapest check and the one
+# whose answer is "rebase before you spend two minutes on tests". merge-tree
+# (git 2.38+) does the merge in memory, exits 1 on a conflict and touches no
+# file. An unreachable remote is not a reason to refuse a push, so that is a
+# warning; so is a git too old for --write-tree.
+if git fetch -q origin main 2>/dev/null; then
+  BASE=$(git rev-parse -q --verify FETCH_HEAD)
+  git merge-tree --write-tree "$BASE" HEAD >/dev/null 2>&1; MT=$?
+  case "$MT" in
+    0) pass "merges cleanly onto origin/main" ;;
+    1) fail "this branch conflicts with origin/main. Rebase first: a pull request that conflicts with main runs no council and no CI, and the silence looks like a queue." ;;
+    *) echo "${YEL}gate1: git merge-tree could not run (exit $MT); skipping the conflict check${OFF}" >&2 ;;
+  esac
+else
+  echo "${YEL}gate1: could not fetch origin/main; skipping the conflict check${OFF}" >&2
+fi
+
 RUN="bun run"; command -v bun >/dev/null 2>&1 || RUN="npm run"
 
 # 1. Lint. ESLint exits 1 when there are errors and 0 when there are only
