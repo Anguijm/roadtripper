@@ -61,8 +61,9 @@ mkdirSync("data/corridors", { recursive: true });
 // hash of the route itself, the tile count and the buffer, so the same
 // name with a different route (ORS re-routed, a different start) starts
 // over rather than reusing tiles cut along another line. It also carries
-// PROGRESS_VERSION: bump it when the RoadsideStop shape changes, so saved
-// tiles in the old shape are not merged with new ones.
+// PROGRESS_VERSION: bump it when RoadsideStopSchema in
+// src/lib/roadside/record.ts changes shape, so saved tiles in the old
+// shape are not merged with new ones.
 const PROGRESS_VERSION = 1;
 const progressPath = `data/corridors/${name}.tiles.json`;
 type Progress = { key: string; tiles: Record<string, RoadsideStop[]> };
@@ -73,9 +74,16 @@ const routeHash = createHash("sha256")
 const progressKey = `v${PROGRESS_VERSION}|${name}|${routeHash}|${tiles.length}|${bufferKm}`;
 let progress: Progress = { key: progressKey, tiles: {} };
 if (existsSync(progressPath)) {
-  const saved = JSON.parse(readFileSync(progressPath, "utf8")) as Progress;
-  if (saved.key === progressKey) progress = saved;
-  else console.log(`  progress file is for a different route or buffer; starting over`);
+  // A run killed mid-write can leave a truncated file; that is a clean
+  // start with a warning, not a crash, since the tiles are cheap to refetch
+  // and the alternative is a hand-edit of JSON.
+  try {
+    const saved = JSON.parse(readFileSync(progressPath, "utf8")) as Progress;
+    if (saved && typeof saved === "object" && saved.key === progressKey && saved.tiles && typeof saved.tiles === "object") progress = saved;
+    else console.log(`  progress file is for a different route, buffer or version; starting over`);
+  } catch (err) {
+    console.warn(`  progress file is unreadable (${err instanceof Error ? err.message : String(err)}); starting over`);
+  }
 }
 const already = new Map<number, RoadsideStop[]>(Object.entries(progress.tiles).map(([i, s]) => [Number(i), s]));
 console.log(`  ${tiles.length} tiles of up to ${DEFAULT_TILE_KM} km, buffer ${bufferKm} km; ${already.size} already held, pulling the rest from Overpass`);

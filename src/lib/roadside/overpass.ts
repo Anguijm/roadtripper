@@ -34,6 +34,8 @@ export const PAUSE_MS = 1500;
  * a loop: if the instance is down for the evening, the progress file the
  * script keeps means the next run starts at the missing tile.
  */
+// The tests in __tests__/roadside.test.ts assert this exact series and the
+// count of tries; changing it means changing them on purpose.
 export const RETRY_PAUSES_MS = [10_000, 30_000, 60_000] as const;
 /**
  * Client-side. The query carries its own 45 s server-side timeout, but a

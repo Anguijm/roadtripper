@@ -53,3 +53,9 @@ one stopped, which is the honest best a shared free service allows.
 - 502 and 503 are transient too; a 400 is ours and is not retried; tested
 - the pause skip for held tiles is explained where it is
 - Answered, not changed: the name is sanitised on the line that reads it (anything but letters, digits and hyphens becomes a hyphen); `.gitignore` ignores the whole `data/corridors/` directory
+
+## Council round 2 on #61 (CONDITIONAL, bugs 8), and what changed
+
+- an unreadable or truncated progress file is a warned clean start, not a crash
+- the version comment names `RoadsideStopSchema` in record.ts as what triggers a bump
+- the retry series says the tests pin it
