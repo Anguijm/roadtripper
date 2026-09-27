@@ -124,7 +124,7 @@ export default function RecommendationList({
         const coords = cityCoords.get(cityId);
         const canAdd = !isAdded && !pending && !atCap && Boolean(coords);
         const lead = rows.find((r) => r.description) ?? rows[0];
-        const rest = rows.filter((r) => r !== lead);
+        const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
 
         const handleAddClick = () => {
           if (isAdded) {

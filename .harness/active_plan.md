@@ -62,3 +62,11 @@ this is the map's screen.
 - one unknown leg makes the summary's drive unknown rather than a smaller partial sum; tested
 - the updating pulse is #e3b341, brighter amber
 - the fold budget arithmetic is written above the sticky header, with the instruction that anything added there comes out of the lead's 160 px
+
+## Council round 2 on #59 (CONDITIONAL, bugs 8), and what changed
+
+- Save is disabled while a recompute is in flight; deliberately not after a save, since the trip can change again and saving again is how it is kept
+- the lead is excluded from the rows by `waypointId`, not by reference
+- comments: why the pulse is #e3b341; that legs are seconds and the direct leg is minutes converted
+- Pushed back on optional chaining for `tripState.legs`: never undefined, and the identical expression has fed the Itinerary since before this PR
+- Verified by a phone-emulated screenshot (390 by 844): the first candidate's reason is fully visible at the sheet's middle snap without scrolling. The first capture with Chrome's plain --screenshot flag looked clipped; that was the tool, not the page, and was measured (scrollWidth 390 at innerWidth 390).

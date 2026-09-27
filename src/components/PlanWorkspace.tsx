@@ -714,6 +714,9 @@ export default function PlanWorkspace({
           {/* Only while updating; idle it costs no height, so the first
               card's reason sits higher (step 14). */}
           {isPending && (
+            // #e3b341 rather than the #d29922 used for budget warnings: at
+            // 10 px this text needs the brighter amber to clear WCAG AA
+            // contrast on the #0d1117 background.
             <p
               className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
               aria-live="polite"
@@ -736,6 +739,9 @@ export default function PlanWorkspace({
               className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 text-left text-xs font-mono uppercase tracking-widest text-[#b0b9c2] border border-[#30363d] bg-[#161b22] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
             >
               <span className="truncate">
+                {/* Legs are in seconds already; the direct leg is held in
+                    minutes and converted, the same way the Itinerary's
+                    finalLegSeconds prop below is built. */}
                 {itinerarySummary(tripStops, tripState.legs.map((l) => l.durationSeconds), Math.round(tripState.directMinutesToDestination * 60))}
               </span>
               <span aria-hidden className="text-[#8b949e]">{itineraryOpen ? "▲" : "▼"}</span>
@@ -943,6 +949,11 @@ export default function PlanWorkspace({
                 <button
                   type="button"
                   onClick={handleSave}
+                  // Disabled while a recompute is in flight so a save cannot
+                  // capture a half-updated trip. Not disabled after a save:
+                  // the trip can change again, and saving again is how it is
+                  // kept; the label already says "Saved" until it does.
+                  disabled={isPending}
                   className={[
                     "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                     saveState === "saved"
