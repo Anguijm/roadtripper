@@ -12,7 +12,8 @@
  * road". That is the point: step 19 is about seeing what the sources say.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { RoadsideStop } from "../src/lib/roadside/record";
 import { loadEnv } from "./lib/env.mjs";
 import { corridorTiles, withinCorridor, DEFAULT_BUFFER_KM, DEFAULT_TILE_KM } from "../src/lib/roadside/corridor";
 import { fetchCorridorFromOverpass } from "../src/lib/roadside/overpass";
@@ -51,15 +52,38 @@ const route: LatLng[] = feature.geometry.coordinates.map(([lng, lat]) => ({ lat,
 console.log(`  ${route.length} points, ${Math.round(feature.properties.summary.distance / 1000)} km, ${Math.round(feature.properties.summary.duration / 60)} min`);
 
 const tiles = corridorTiles(route, { tileKm: DEFAULT_TILE_KM, bufferKm });
-console.log(`  ${tiles.length} tiles of up to ${DEFAULT_TILE_KM} km, buffer ${bufferKm} km; pulling from Overpass`);
+mkdirSync("data/corridors", { recursive: true });
 
-const raw = await fetchCorridorFromOverpass(tiles.map((t) => t.box), undefined, (i, n, found) => {
-  console.log(`  tile ${i}/${n}: ${found} named stops in the box`);
-});
+// Progress, per tile, written the moment a tile answers. The public Overpass
+// instance refuses under load (504), so a corridor may take several runs;
+// each run starts at the first tile the file does not hold. Keyed by the
+// corridor name and tile count, so a changed route or buffer starts over.
+const progressPath = `data/corridors/${name}.tiles.json`;
+type Progress = { key: string; tiles: Record<string, RoadsideStop[]> };
+const progressKey = `${name}|${tiles.length}|${bufferKm}`;
+let progress: Progress = { key: progressKey, tiles: {} };
+if (existsSync(progressPath)) {
+  const saved = JSON.parse(readFileSync(progressPath, "utf8")) as Progress;
+  if (saved.key === progressKey) progress = saved;
+  else console.log(`  progress file is for a different route or buffer; starting over`);
+}
+const already = new Map<number, RoadsideStop[]>(Object.entries(progress.tiles).map(([i, s]) => [Number(i), s]));
+console.log(`  ${tiles.length} tiles of up to ${DEFAULT_TILE_KM} km, buffer ${bufferKm} km; ${already.size} already held, pulling the rest from Overpass`);
+
+const overpassUrl = env.OVERPASS_URL;
+const raw = await fetchCorridorFromOverpass(
+  tiles.map((t) => t.box),
+  { fetch: (...a) => fetch(...a), sleep: (ms) => new Promise((r) => setTimeout(r, ms)), url: overpassUrl },
+  (i, n, stops) => {
+    progress.tiles[String(i - 1)] = stops;
+    writeFileSync(progressPath, JSON.stringify(progress));
+    console.log(`  tile ${i}/${n}: ${stops.length} named stops in the box`);
+  },
+  already
+);
 const inCorridor = raw.filter((s) => withinCorridor(s, route, bufferKm));
 console.log(`  ${raw.length} in the boxes, ${inCorridor.length} within ${bufferKm} km of the road`);
 
-mkdirSync("data/corridors", { recursive: true });
 const jsonPath = `data/corridors/${name}.json`;
 const txtPath = `data/corridors/${name}.txt`;
 writeFileSync(jsonPath, JSON.stringify({ name, from, to, bufferKm, pulledAt: new Date().toISOString(), routeKm: Math.round(feature.properties.summary.distance / 1000), stops: inCorridor }, null, 2));

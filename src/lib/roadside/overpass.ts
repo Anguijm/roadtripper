@@ -24,12 +24,16 @@ export const USER_AGENT = "roadtripper (road-trip planner in development; contac
  */
 export const PAUSE_MS = 1500;
 /**
- * After a 429 or 504, before the one retry. Ten seconds is long enough for
- * a busy instance to clear a queue; retrying sooner is what gets an address
- * blocked. One retry, not a loop: if the instance is down, the answer is to
- * come back later, not to hammer it.
+ * After a 429 or 504, the pauses before each retry, in order: three tries
+ * over about a hundred seconds, then the tile is given up and the run
+ * stops saying which one. Ten seconds is long enough for a busy instance to
+ * clear a queue; retrying sooner is what gets an address blocked. Growing
+ * pauses because the first 504s on 2026-09-27 came in bursts: the same
+ * instance answered three tiles, then refused twice ten seconds apart. Not
+ * a loop: if the instance is down for the evening, the progress file the
+ * script keeps means the next run starts at the missing tile.
  */
-export const RETRY_PAUSE_MS = 10_000;
+export const RETRY_PAUSES_MS = [10_000, 30_000, 60_000] as const;
 /**
  * Client-side; the query carries its own 45 s server-side timeout too, so
  * a healthy instance answers or refuses within that, and this only catches
@@ -60,6 +64,8 @@ export interface OverpassDeps {
   sleep: (ms: number) => Promise<void>;
   /** Cancels the pull: no further tiles, and the request in flight is aborted. */
   signal?: AbortSignal;
+  /** Another instance (a quieter mirror, a self-hosted one). Defaults to OVERPASS_URL. */
+  url?: string;
 }
 
 const realDeps: OverpassDeps = {
@@ -82,7 +88,7 @@ export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps 
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const signal = deps.signal ? AbortSignal.any([deps.signal, timeout]) : timeout;
   const attempt = async (): Promise<Response> =>
-    deps.fetch(OVERPASS_URL, {
+    deps.fetch(deps.url ?? OVERPASS_URL, {
       method: "POST",
       headers: { "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded" },
       body: `data=${encodeURIComponent(query)}`,
@@ -90,8 +96,9 @@ export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps 
     });
 
   let res = await attempt();
-  if (res.status === 429 || res.status === 504) {
-    await deps.sleep(RETRY_PAUSE_MS);
+  for (const pause of RETRY_PAUSES_MS) {
+    if (res.status !== 429 && res.status !== 504) break;
+    await deps.sleep(pause);
     res = await attempt();
   }
   if (!res.ok) throw new OverpassError(res.status, await res.text());
@@ -113,18 +120,34 @@ export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps 
 export async function fetchCorridorFromOverpass(
   boxes: BoundingBox[],
   deps: OverpassDeps = realDeps,
-  onTile?: (index: number, count: number, found: number) => void
+  onTile?: (index: number, count: number, stops: RoadsideStop[]) => void,
+  /** Tiles already held from an earlier run, by index; they are not fetched again. */
+  already: ReadonlyMap<number, RoadsideStop[]> = new Map()
 ): Promise<RoadsideStop[]> {
   const byId = new Map<string, RoadsideStop>();
+  let fetched = 0;
   for (let i = 0; i < boxes.length; i++) {
-    if (i > 0) await deps.sleep(PAUSE_MS);
+    const held = already.get(i);
+    if (held) {
+      for (const s of held) byId.set(s.id, s);
+      continue;
+    }
+    if (fetched > 0) await deps.sleep(PAUSE_MS);
     // Checked between tiles so a cancelled pull stops here rather than
     // after the whole corridor; the request in flight is aborted by the
     // same signal inside fetchBoxFromOverpass.
     if (deps.signal?.aborted) throw new OverpassError(0, "pull cancelled");
-    const stops = await fetchBoxFromOverpass(boxes[i], deps);
+    let stops: RoadsideStop[];
+    try {
+      stops = await fetchBoxFromOverpass(boxes[i], deps);
+    } catch (err) {
+      // Say which tile, so a rerun's log and the progress file line up.
+      if (err instanceof OverpassError) throw new OverpassError(err.status, `tile ${i + 1} of ${boxes.length}: ${err.message}`);
+      throw err;
+    }
+    fetched++;
     for (const s of stops) byId.set(s.id, s);
-    onTile?.(i + 1, boxes.length, stops.length);
+    onTile?.(i + 1, boxes.length, stops);
   }
   return [...byId.values()];
 }
