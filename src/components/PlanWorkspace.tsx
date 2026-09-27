@@ -566,6 +566,7 @@ export default function PlanWorkspace({
       budgetHours,
       startDate: effectiveStartDate,
       endDate,
+      dateMode: dateMode === "arrival" ? "arrival" : undefined,
       personaId: activePersonaId,
       stops: tripStops.map((s) => ({
         cityId: s.cityId,

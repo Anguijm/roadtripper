@@ -2,6 +2,7 @@ import Link from "next/link";
 import RouteInput from "@/components/RouteInput";
 import type { CitySelection } from "@/components/CityAutocomplete";
 import { pointFrom, placeNameFrom } from "@/lib/today/presets";
+import { parseDateMode, parseIsoDate } from "@/lib/plan/deadline";
 
 interface HomeSearchParams {
   fromName?: string;
@@ -10,6 +11,9 @@ interface HomeSearchParams {
   toName?: string;
   toLat?: string;
   toLng?: string;
+  dateMode?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 /** A place handed in by the URL, or nothing. Same parsing and name bound as the today page. */
@@ -28,6 +32,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
   const params = await searchParams;
   const initialFrom = selectionFrom(params.fromName, params.fromLat, params.fromLng, "Start");
   const initialTo = selectionFrom(params.toName, params.toLat, params.toLng, "End");
+  // A deadline handed in (from the today screen, or a saved link) opens the
+  // picker already in arrive-by mode with the date set.
+  const initialDateMode = parseDateMode(params.dateMode);
+  const initialEndDate = parseIsoDate(params.endDate) ?? "";
+  const initialStartDate = initialDateMode === "range" ? parseIsoDate(params.startDate) ?? "" : "";
   return (
     <div className="flex flex-col min-h-screen">
       <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
@@ -61,7 +70,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
               themed stops along the way.
             </p>
           </div>
-          <RouteInput initialFrom={initialFrom} initialTo={initialTo} />
+          <RouteInput
+            initialFrom={initialFrom}
+            initialTo={initialTo}
+            initialDateMode={initialDateMode}
+            initialStartDate={initialStartDate}
+            initialEndDate={initialEndDate}
+          />
           <p className="mt-6 text-xs text-center text-[#4a5159] font-mono">
             Powered by Urban Explorer — 258 cities, thousands of waypoints
           </p>

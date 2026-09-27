@@ -9,6 +9,7 @@ import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scori
 import { parsePersonaId, PERSONAS } from "@/lib/personas";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
+import { parseIsoDate, deadlineLine, todayIso } from "@/lib/plan/deadline";
 
 interface TodaySearchParams {
   lat?: string;
@@ -16,6 +17,19 @@ interface TodaySearchParams {
   hours?: string;
   persona?: string;
   name?: string;
+  /** The trip's deadline and where it is for, when there is one. */
+  arriveBy?: string;
+  toName?: string;
+  toLat?: string;
+  toLng?: string;
+}
+
+/** The deadline, if the link carried a real date and a real destination. */
+function deadlineFrom(params: TodaySearchParams) {
+  const endDate = parseIsoDate(params.arriveBy);
+  const point = pointFrom(params.toLat, params.toLng);
+  if (!endDate || !point) return null;
+  return { endDate, point, toName: placeNameFrom(params.toName, "your destination") };
 }
 
 export const dynamic = "force-dynamic";
@@ -62,6 +76,14 @@ export default async function TodayPage({
   const params = await searchParams;
   const personaId = parsePersonaId(params.persona);
   const hours = hoursFrom(params.hours);
+  const deadline = deadlineFrom(params);
+  const deadlineText = deadline
+    ? deadlineLine({ toName: deadline.toName, endDate: deadline.endDate, today: todayIso() })
+    : null;
+  // Carried through the start screen's Go, so locating does not lose it.
+  const carry = deadline
+    ? { arriveBy: deadline.endDate, toName: deadline.toName, toLat: String(deadline.point.lat), toLng: String(deadline.point.lng) }
+    : undefined;
 
   // No point yet: ask. The start screen locates on its own once permission
   // has been granted, so this is the page that opens knowing your city.
@@ -74,7 +96,7 @@ export default async function TodayPage({
           <h1 className="text-2xl font-mono tracking-tight text-[#f0f6fc] mb-2">What is in range today?</h1>
           <p className="text-sm text-[#8b949e]">No destination needed. Where you are, how long you have, what you like.</p>
         </div>
-        <TodayStart initialHours={hours} initialPersonaId={personaId} />
+        <TodayStart initialHours={hours} initialPersonaId={personaId} carry={carry} deadlineText={deadlineText} />
       </Shell>
     );
   }
@@ -158,6 +180,28 @@ export default async function TodayPage({
           {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
           . One-way drive times.
         </p>
+        {deadline && deadlineText && (
+          <div className="mt-3 flex flex-col gap-2">
+            <p className="text-sm text-[#f0f6fc]" role="status">{deadlineText}</p>
+            {/* The trip itself, from here to the deadline's destination, in
+                arrival mode so the planner keeps the date as a deadline. */}
+            <Link
+              href={`/?${new URLSearchParams({
+                fromName: whereLabel,
+                fromLat: origin.lat.toString(),
+                fromLng: origin.lng.toString(),
+                toName: deadline.toName,
+                toLat: deadline.point.lat.toString(),
+                toLng: deadline.point.lng.toString(),
+                dateMode: "arrival",
+                endDate: deadline.endDate,
+              }).toString()}`}
+              className="self-start text-xs font-mono uppercase tracking-widest text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+            >
+              {`Plan the trip to ${deadline.toName} from here`}
+            </Link>
+          </div>
+        )}
         {spotsDegraded && (
           <p className="mt-2 text-xs font-mono text-[#ff7b72]" role="status">
             The cities are right, but some spots could not be loaded just now.
@@ -226,7 +270,7 @@ export default async function TodayPage({
 
       <p className="mt-5 text-xs font-mono text-[#8b949e]">
         {shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
-        <Link href={`/today?hours=${hours}&persona=${personaId}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
+        <Link href={`/today?${new URLSearchParams({ hours: String(hours), persona: personaId, ...(carry ?? {}) }).toString()}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
           Change where or how long
         </Link>
       </p>

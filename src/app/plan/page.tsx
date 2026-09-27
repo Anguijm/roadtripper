@@ -14,6 +14,7 @@ import {
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
+import { formatDeadline } from "@/lib/plan/deadline";
 
 interface PlanSearchParams {
   from?: string;
@@ -237,8 +238,14 @@ export default async function PlanPage({
         >
           ← Roadtripper
         </Link>
-        <div className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-          {fromName} → {toName}
+        <div className="text-xs font-mono uppercase tracking-widest text-[#8b949e] text-right">
+          <div>{fromName} → {toName}</div>
+          {/* The deadline, on the one line every screen shares. */}
+          {isArrivalMode && endDate ? (
+            <div className="text-[#f0f6fc]">{`Arrive by ${formatDeadline(endDate)}`}</div>
+          ) : startDate && endDate ? (
+            <div>{`${formatDeadline(startDate)} to ${formatDeadline(endDate)}`}</div>
+          ) : null}
         </div>
       </header>
 

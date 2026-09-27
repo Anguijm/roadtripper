@@ -22,6 +22,10 @@ export const SaveTripInputSchema = z.object({
   budgetHours: z.number().int().min(1).max(24),
   startDate: z.string().date().optional(),
   endDate: z.string().date().optional(),
+  // "arrival" means endDate is a deadline and startDate was derived from the
+  // route; reopening re-derives it. Absent (every trip saved before step 9)
+  // means a plain range, which opens exactly as it always did.
+  dateMode: z.enum(["range", "arrival"]).optional(),
   // 100 chars is well above any current personaId length; prevents outsized Firestore writes.
   personaId: z.string().min(1).max(100),
   // Max 7 stops — matches MAX_TRIP_STOPS in PlanWorkspace; Routes API waypoint cap.

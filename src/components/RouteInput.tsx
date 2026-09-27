@@ -14,6 +14,8 @@ interface RouteInputProps {
   initialBudget?: number;
   initialStartDate?: string;
   initialEndDate?: string;
+  /** "arrival" opens the picker in arrive-by mode with the end date as the deadline. */
+  initialDateMode?: "range" | "arrival";
 }
 
 function formatDateLabel(iso: string): string {
@@ -29,6 +31,7 @@ export default function RouteInput({
   initialBudget = 4,
   initialStartDate = "",
   initialEndDate = "",
+  initialDateMode = "range",
 }: RouteInputProps) {
   const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
@@ -39,7 +42,7 @@ export default function RouteInput({
   const [endDate, setEndDate] = useState(initialEndDate);
   const [submitting, setSubmitting] = useState(false);
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
-  const [dateMode, setDateMode] = useState<"range" | "arrival">("range");
+  const [dateMode, setDateMode] = useState<"range" | "arrival">(initialDateMode);
   const dialogRef = useRef<HTMLDivElement>(null);
   // Where you are, as the start. Fills on its own once permission has been
   // granted; before that it is one tap. Typing a city replaces it.
