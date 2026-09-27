@@ -52,3 +52,8 @@ is counted from the server's UTC date, as in step 9.
 - Rule 4: the five cases pass against the real graph on the first run; the expected sentences are literal in the test, and the arithmetic is written beside each from the graph's minutes (Lubbock to Austin 321.5, Oklahoma City to Austin 312.3, Albuquerque to Austin absent, estimated at about 728).
 - Rule 5: the page test renders without a deadline and finds no such line.
 - 366 tests, 15 new; lint and types clean.
+
+## Council round 1 on #56 (CONDITIONAL, bugs 6), and what changed
+
+- the 650 km neighbourhood names `NEIGHBOUR_RADIUS_KM` in scripts/build-drive-graph.mjs; the two `Math.max(0, ...)` guards are explained; the ten-word boundary says which tests pin it
+- Pushed back on a module-level prepared statement (no query in the file caches one; this is the least-called) and on validating `hours` and the coordinates (already done by `hoursFrom` and `pointFrom`, both tested)

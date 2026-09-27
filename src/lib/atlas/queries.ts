@@ -273,8 +273,10 @@ export function hasDriveGraphFor(cityId: string): boolean {
 }
 
 /** Stored one-way minutes for one directed pair, or null when the graph has
- *  no row for it (the pair is farther apart than the build's 650 km
- *  neighbourhood, or one id is unknown). */
+ *  no row for it: the pair is farther apart than the build's neighbourhood,
+ *  or one id is unknown. The neighbourhood is `NEIGHBOUR_RADIUS_KM` (650 km,
+ *  straight line) in scripts/build-drive-graph.mjs; only pairs inside it are
+ *  ever fetched, so absence here means "not built", never "unroutable". */
 export function driveMinutesBetween(fromCityId: string, toCityId: string): number | null {
   const row = atlasDb()
     .prepare<[string, string], { minutes: number }>(

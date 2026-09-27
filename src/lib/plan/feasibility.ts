@@ -39,6 +39,10 @@ const drivingDays = (minutes: number, budgetMinutes: number) =>
  */
 export function maxNights(i: FeasibilityInput): number {
   if (!(i.budgetMinutes > 0)) throw new Error("budgetMinutes must be positive");
+  // A city you are already in costs zero driving days, and "minus one" would
+  // make that day -1; the max pins it to today. Same for the leg on: zero
+  // driving days (the city is the destination) must not become -1 and hand
+  // out a free night.
   const arriveAtCityDay = Math.max(0, drivingDays(i.minutesToCity, i.budgetMinutes) - 1);
   const daysOnFromCity = drivingDays(i.minutesCityToDestination, i.budgetMinutes);
   // Leaving on day (arrive + nights), arriving on day (arrive + nights + daysOn - 1) <= D.
@@ -58,6 +62,9 @@ export function feasibility(i: FeasibilityInput): Feasibility {
   return { kind: "late", daysLate: -n };
 }
 
+// Words to ten, digits past it. The hand-checked sentences in
+// feasibility.test.ts and the page test are literal ("Two nights", "12
+// nights"), so moving this boundary means changing those on purpose.
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 
 /** "two", "ten", "11". Small numbers as words because the line is spoken. */
