@@ -4,7 +4,7 @@ import TodayStart from "@/components/TodayStart";
 import TodayPersonaBar from "@/components/TodayPersonaBar";
 import { planToday } from "@/lib/today/plan";
 import { hoursFrom, formatDrive, pointFrom, placeNameFrom } from "@/lib/today/presets";
-import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
+import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
 import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { parsePersonaId, PERSONAS } from "@/lib/personas";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
@@ -126,7 +126,7 @@ export default async function TodayPage({
     console.error("[today] waypoint pipeline threw:", err instanceof Error ? err.constructor.name : "unknown");
     fetchResult = {
       status: "degraded",
-      cities: plan.reachable.slice(0, 10).map((r) => ({
+      cities: plan.reachable.slice(0, MAX_WAYPOINT_CITIES).map((r) => ({
         id: r.city.id, name: r.city.name, vibeClass: null, detourMinutes: r.oneWayDriveMinutes * 2, lat: r.city.lat, lng: r.city.lng,
       })),
       waypoints: [],
@@ -183,20 +183,28 @@ export default async function TodayPage({
               </div>
               {/* The way out of this screen into the trip planner: start and
                   end filled in, so "five hours, Albuquerque looks good" is one
-                  tap from a route. */}
-              <Link
-                href={`/?${new URLSearchParams({
-                  fromName: whereLabel,
-                  fromLat: origin.lat.toString(),
-                  fromLng: origin.lng.toString(),
-                  toName: g.cityName,
-                  toLat: (cityById.get(g.cityId)?.lat ?? 0).toString(),
-                  toLng: (cityById.get(g.cityId)?.lng ?? 0).toString(),
-                }).toString()}`}
-                className="inline-block mb-2 text-xs font-mono uppercase tracking-widest text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-              >
-                Plan a trip here
-              </Link>
+                  tap from a route. Every group comes from plan.reachable, so
+                  the lookup cannot miss; if it ever did, no link is better
+                  than a link to the equator. */}
+              {(() => {
+                const city = cityById.get(g.cityId);
+                if (!city) return null;
+                return (
+                  <Link
+                    href={`/?${new URLSearchParams({
+                      fromName: whereLabel,
+                      fromLat: origin.lat.toString(),
+                      fromLng: origin.lng.toString(),
+                      toName: g.cityName,
+                      toLat: city.lat.toString(),
+                      toLng: city.lng.toString(),
+                    }).toString()}`}
+                    className="inline-block mb-2 text-xs font-mono uppercase tracking-widest text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                  >
+                    Plan a trip here
+                  </Link>
+                );
+              })()}
               {g.rows.length === 0 ? (
                 <p className="text-xs font-mono text-[#8b949e]">
                   {spotsDegraded ? "Spots did not load." : `Nothing in the atlas for a ${persona.label.toLowerCase()} here yet.`}

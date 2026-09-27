@@ -25,7 +25,9 @@ import type {
 
 // ---------- Constants ----------
 
-const MAX_WAYPOINT_CITIES = 10;
+/** Cities the pipeline reads waypoints for; the nearest N of the candidates.
+ *  Exported so a caller building a fallback result uses the same bound. */
+export const MAX_WAYPOINT_CITIES = 10;
 const MAX_WAYPOINTS_FETCHED = MAX_WAYPOINT_CITIES * 30;
 
 /** SEC-3: only ever fetch neighborhoods for one city per request. */

@@ -16,6 +16,9 @@ interface HomeSearchParams {
 function selectionFrom(name: string | undefined, lat: string | undefined, lng: string | undefined, fallback: string): CitySelection | undefined {
   const point = pointFrom(lat, lng);
   if (!point) return undefined;
+  // Same `geo:` id as a located origin builds, five decimals, about a metre;
+  // nothing parses it, it only has to be stable and distinct. Explained at
+  // length where it is first built, in src/lib/geo/locate.ts.
   return { placeId: `geo:${point.lat.toFixed(5)},${point.lng.toFixed(5)}`, name: placeNameFrom(name, fallback), ...point };
 }
 

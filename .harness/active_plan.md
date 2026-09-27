@@ -67,3 +67,10 @@ as with step 6, the phone itself is not exercised from here.
 - **The Go button recovers:** `router.push` never rejects, so a stalled navigation froze it on "Looking..."; a ten-second timer brings it back, and a second tap pushes the same URL.
 - the pipeline call is wrapped: if it throws, the cities from the graph still list and the spots are reported missing. Tested with the pipeline mocked to reject. This closes the item asked three rounds running; the union has no failed member, but a throw is now survived.
 - `MAX_PLACE_NAME_LENGTH`, `placeNameFrom` and `pointFrom` live in presets.ts and both pages use them, so the handoff and the today screen cannot drift.
+
+## Council round 4 on #53 (CONDITIONAL, bugs 8), and what changed
+
+- the equator fallback is gone: a city the plan does not know gets no "plan a trip" link, not a link to (0, 0). The lookup cannot miss, since every group comes from plan.reachable, but `?? 0` was the wrong shape of safety
+- `MAX_WAYPOINT_CITIES` exported from recommend.ts; the throw fallback uses it instead of a bare 10
+- the `geo:` id line on the home page points at the explanation in locate.ts
+- Pushed back on logging the full error (same convention as the plan page; the security review of #52 praised exactly this) and on documenting the 10 s timeout (the comment above it already does)
