@@ -94,10 +94,19 @@ export function allCities(): City[] {
   }));
 }
 
-export function clipReason(raw: string | null): string | null {
-  const s = (raw ?? "").trim();
+export function clipReason(raw: unknown): string | null {
+  // SQLite columns are typed by affinity, not by contract: a row can hold a
+  // number or a blob in a TEXT column, and this atlas is rebuilt from an
+  // external export. Anything that is not a string is "no reason", the same
+  // way safeWaypointType treats an unknown type, rather than a crash on
+  // .trim().
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
   if (!s) return null;
-  return s.length <= MAX_REASON_LENGTH ? s : s.slice(0, MAX_REASON_LENGTH - 1).trimEnd() + "…";
+  if (s.length <= MAX_REASON_LENGTH) return s;
+  // Cut one short of the limit so the single-character ellipsis keeps the
+  // result at exactly MAX_REASON_LENGTH, never one over it.
+  return s.slice(0, MAX_REASON_LENGTH - 1).trimEnd() + "…";
 }
 
 interface WaypointRow {

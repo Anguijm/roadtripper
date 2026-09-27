@@ -126,6 +126,9 @@ describe("clipReason", () => {
     expect(clipReason("")).toBeNull();
     expect(clipReason("   ")).toBeNull();
     expect(clipReason(null)).toBeNull();
+    // a TEXT column can still hold a number or a blob; that is no reason, not a crash
+    expect(clipReason(42)).toBeNull();
+    expect(clipReason(Buffer.from("x"))).toBeNull();
     const long = "x".repeat(500);
     const cut = clipReason(long)!;
     expect(cut.length).toBe(240);

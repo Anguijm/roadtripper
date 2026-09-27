@@ -32,8 +32,15 @@ export interface CityContext {
 }
 
 /** Lean waypoint row shipped to the client. Keeps payload small. */
-/** The reason to stop is never longer than a sentence or two. Cut at the
- *  read (`toLite` in atlas/queries.ts), so nothing downstream can grow it. */
+/**
+ * The reason to stop is never longer than a sentence or two. Cut at the
+ * read (`toLite` in atlas/queries.ts), so nothing downstream can grow it.
+ *
+ * 240 because the longest description in the atlas today is 234 characters
+ * and the median 125, so nothing real is cut, while a future export that
+ * pastes in a paragraph cannot push a ten-city payload past a few kilobytes
+ * or overflow the two-line clamp the candidate list renders it in.
+ */
 export const MAX_REASON_LENGTH = 240;
 
 export interface LiteWaypoint {

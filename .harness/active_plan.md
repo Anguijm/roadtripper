@@ -48,3 +48,9 @@ chosen.
 - Rule 3: the read-layer test walks every city in the atlas (13,390 waypoints in batches of 50) and asserts zero without a description.
 - Rule 4: the candidate list (plan page) and the today screen both have server-render tests finding a reason under a stop.
 - 370 tests, 4 new; lint and types clean. Fixtures in two files gained the field; the health page's fixed waypoint has a reason too.
+
+## Council round 1 on #57 (CONDITIONAL, bugs 8), and what changed
+
+- `clipReason` treats anything that is not a string as "no reason", the way `safeWaypointType` treats an unknown type; tested with a number and a buffer
+- `MAX_REASON_LENGTH` says why 240: longest in the atlas is 234, median 125, nothing real is cut, a pasted paragraph cannot bloat the payload or overflow the two-line clamp
+- the ellipsis arithmetic is explained where it happens
