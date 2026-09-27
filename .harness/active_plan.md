@@ -45,3 +45,9 @@ GitHub declines to run for any other reason will still look like a queue.
 - Negative: a temporary worktree at 0212f7c (the head of #66 before its rebase) fed a fake ref line to the new hook: "gate1: FAIL this branch conflicts with origin/main. Rebase first: …", exit 1, before lint ran.
 - Positive: the same on this branch: "merges cleanly onto origin/main", then lint, types and tests pass.
 - `git merge-tree --write-tree 0af6f1f 0212f7c` exits 1 and names `.harness/active_plan.md` as the conflict; against this branch it exits 0.
+
+## Council round 1 on #67 (CONDITIONAL, bugs 5, product 5), and what changed
+
+- the check now runs on each branch head in the push (gathered from the ref lines git hands the hook), not on HEAD, so pushing another branch from this checkout checks the right commit; a push of tags alone, or deletions alone, skips it and says so
+- the fetch is bounded to 20 s with coreutils `timeout` where present. Answered, not changed: `git fetch` has no `--timeout` flag; the bound is the process timeout
+- Proven again: the old head of #66 pushed from a checkout of main is refused by its own sha; a tags-only ref line skips the check and the gate goes on; this branch's head passes

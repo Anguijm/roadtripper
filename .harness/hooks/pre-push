@@ -23,16 +23,23 @@ pass() { echo "${GRN}gate1: ok${OFF}   $*"; }
 # remote sha. For a deletion the local sha is all zeros (40 of them in a SHA-1
 # repository, 64 in a SHA-256 one), so the check is "every digit is zero", not
 # a fixed string.
-SAW_REF=0; ALL_DELETES=1
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
+SAW_REF=0; ALL_DELETES=1; PUSHED_BRANCH_SHAS=""
+while read -r local_ref local_sha remote_ref _remote_sha; do
   SAW_REF=1
   if [ "$remote_ref" = "refs/heads/main" ]; then
     echo "${RED}pre-push: direct push to main is blocked.${OFF}" >&2
     echo "  Branch, open a PR, let the council run, merge on GitHub." >&2
     exit 1
   fi
-  case "$_local_sha" in
+  case "$local_sha" in
     *[!0]*|"") ALL_DELETES=0 ;;
+  esac
+  # The commits the conflict check below looks at: branch heads being pushed,
+  # not HEAD (a push of another branch from this checkout would otherwise
+  # check the wrong commit), and not tags or deletions, which open no PR.
+  case "$local_ref" in
+    refs/heads/*)
+      case "$local_sha" in *[!0]*) PUSHED_BRANCH_SHAS="$PUSHED_BRANCH_SHAS $local_sha" ;; esac ;;
   esac
 done
 
@@ -58,18 +65,28 @@ fi
 # for half an hour. This is first because it is the cheapest check and the one
 # whose answer is "rebase before you spend two minutes on tests". merge-tree
 # (git 2.38+) does the merge in memory, exits 1 on a conflict and touches no
-# file. An unreachable remote is not a reason to refuse a push, so that is a
-# warning; so is a git too old for --write-tree.
-if git fetch -q origin main 2>/dev/null; then
-  BASE=$(git rev-parse -q --verify FETCH_HEAD)
-  git merge-tree --write-tree "$BASE" HEAD >/dev/null 2>&1; MT=$?
-  case "$MT" in
-    0) pass "merges cleanly onto origin/main" ;;
-    1) fail "this branch conflicts with origin/main. Rebase first: a pull request that conflicts with main runs no council and no CI, and the silence looks like a queue." ;;
-    *) echo "${YEL}gate1: git merge-tree could not run (exit $MT); skipping the conflict check${OFF}" >&2 ;;
-  esac
+# file. It runs on each branch head being pushed (gathered above), so a push
+# of tags alone skips it. An unreachable or slow remote is not a reason to
+# refuse a push, so the fetch is bounded (git fetch has no timeout flag of its
+# own; coreutils timeout does it where present) and a failure is a warning;
+# so is a git too old for --write-tree.
+if [ -z "$PUSHED_BRANCH_SHAS" ]; then
+  echo "${YEL}gate1: no branch head in this push; skipping the conflict check${OFF}" >&2
 else
-  echo "${YEL}gate1: could not fetch origin/main; skipping the conflict check${OFF}" >&2
+  BOUND=""; command -v timeout >/dev/null 2>&1 && BOUND="timeout 20"
+  if $BOUND git fetch -q origin main 2>/dev/null; then
+    BASE=$(git rev-parse -q --verify FETCH_HEAD)
+    for SHA in $PUSHED_BRANCH_SHAS; do
+      git merge-tree --write-tree "$BASE" "$SHA" >/dev/null 2>&1; MT=$?
+      case "$MT" in
+        0) pass "$(git rev-parse --short "$SHA") merges cleanly onto origin/main" ;;
+        1) fail "$(git rev-parse --short "$SHA") conflicts with origin/main. Rebase first: a pull request that conflicts with main runs no council and no CI, and the silence looks like a queue." ;;
+        *) echo "${YEL}gate1: git merge-tree could not run (exit $MT); skipping the conflict check${OFF}" >&2 ;;
+      esac
+    done
+  else
+    echo "${YEL}gate1: could not fetch origin/main within 20 s; skipping the conflict check${OFF}" >&2
+  fi
 fi
 
 RUN="bun run"; command -v bun >/dev/null 2>&1 || RUN="npm run"
