@@ -57,3 +57,8 @@ truth.
 - Rule 4: the today page test asserts the deadline line, the one arrival-mode link to the destination, that per-city links carry no date, that the change link keeps the deadline, that the start screen shows it, and that a bad date or a missing destination shows nothing.
 - Rule 5: the home page test opens in arrive-by mode with "Arrive by Oct 14" from the URL, and a bad date leaves the picker empty.
 - 351 tests, 17 new; lint and types clean. The plan page now has a server-render test of its own, with the paid calls mocked.
+
+## Council round 1 on #55 (CONDITIONAL, bugs 8), and what changed
+
+- `DAY_MS` named, with why UTC midnight makes plain division exact and local midnight would not
+- Answered, not changed: there are no Firestore rules to verify. Saved trips have lived in localStorage since #47; the schema is the only rule, `dateMode` is optional there, and the storage test loads a record written without it.

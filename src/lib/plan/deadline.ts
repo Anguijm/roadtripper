@@ -33,10 +33,16 @@ export function todayIso(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+/** Milliseconds in a day. Both dates are pinned to UTC midnight, so the
+ *  difference is an exact multiple of this except for leap seconds, which
+ *  JavaScript's Date does not have; the round() is belt and braces. Local
+ *  midnight would break this twice a year, when a DST day is 23 or 25 hours. */
+const DAY_MS = 86_400_000;
+
 /** Whole calendar days from `today` to `endDate`. Negative when it has passed. */
 export function daysUntil(endDate: string, today: string): number {
   const ms = new Date(endDate + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime();
-  return Math.round(ms / 86_400_000);
+  return Math.round(ms / DAY_MS);
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
