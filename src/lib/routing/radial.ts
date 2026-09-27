@@ -4,53 +4,17 @@ import { snapToCity, driveTimesFrom, hasDriveGraphFor } from "@/lib/atlas/querie
 import type { City } from "@/lib/urban-explorer/types";
 import { cacheGet, cacheSet, radialCacheKey } from "./cache";
 import { haversineKm, type LatLng } from "./polyline";
+import { makesProgress } from "./progress";
 
-export type CompassPoint = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+// bearingDeg moved to ./progress (pure, client-safe); re-exported so existing
+// imports keep working.
+export { bearingDeg } from "./progress";
 
 export interface RadialCandidate {
   city: City;
   // One-way drive time from the current hop origin to this city. Not doubled —
   // in the radial model the city IS the next destination, so there is no return leg.
   oneWayDriveMinutes: number;
-}
-
-const COMPASS_BEARINGS: Record<CompassPoint, number> = {
-  N: 0,
-  NE: 45,
-  E: 90,
-  SE: 135,
-  S: 180,
-  SW: 225,
-  W: 270,
-  NW: 315,
-};
-
-const COMPASS_POINTS: CompassPoint[] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-
-export function bearingDeg(from: LatLng, to: LatLng): number {
-  const φ1 = (from.lat * Math.PI) / 180;
-  const φ2 = (to.lat * Math.PI) / 180;
-  const Δλ = ((to.lng - from.lng) * Math.PI) / 180;
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
-export function snapToCompassPoint(bearing: number): CompassPoint {
-  const b = ((bearing % 360) + 360) % 360;
-  const idx = Math.round(b / 45) % 8;
-  return COMPASS_POINTS[idx];
-}
-
-export function bearingFromCompassPoint(cp: CompassPoint): number {
-  return COMPASS_BEARINGS[cp];
-}
-
-export function withinSemicircle(city: LatLng, origin: LatLng, headingDeg: number): boolean {
-  const bearing = bearingDeg(origin, city);
-  let diff = Math.abs(bearing - headingDeg);
-  if (diff > 180) diff = 360 - diff;
-  return diff <= 90;
 }
 
 interface RouteMatrixElement {
@@ -167,17 +131,19 @@ export async function findCitiesInRadius(
   destination: LatLng,
   maxMinutes: number
 ): Promise<RadialCandidate[]> {
-  const compassPoint = snapToCompassPoint(bearingDeg(origin, destination));
-  const cacheKey = radialCacheKey(origin.lat, origin.lng, maxMinutes, compassPoint);
+  // The key carries the destination itself, not an eight-way heading: two
+  // trips from one origin to different destinations keep different cities.
+  const cacheKey = radialCacheKey(origin.lat, origin.lng, maxMinutes, destination);
 
   const cached = cacheGet<RadialCandidate[]>(cacheKey);
   if (cached) return cached;
 
   const allCities = await getAllCities();
-  const headingDeg = bearingFromCompassPoint(compassPoint);
-  const inSemicircle = allCities.filter((c) => withinSemicircle(c, origin, headingDeg));
+  // Ahead means progress: closer to the destination than we are now, and
+  // not past it. See ./progress for why the old 180-degree fan went.
+  const ahead = allCities.filter((c) => makesProgress(c, origin, destination));
 
-  const fromGraph = candidatesFromGraph(origin, inSemicircle, maxMinutes);
+  const fromGraph = candidatesFromGraph(origin, ahead, maxMinutes);
   if (fromGraph.kind === "hit") {
     cacheSet(cacheKey, fromGraph.candidates);
     return fromGraph.candidates;
@@ -192,7 +158,7 @@ export async function findCitiesInRadius(
 
   // Sort by haversine then cap — keeps API cost bounded while prioritising
   // the most geographically proximate (and therefore most likely reachable) cities.
-  const capped = [...inSemicircle]
+  const capped = [...ahead]
     .sort((a, b) => haversineKm(origin, a) - haversineKm(origin, b))
     .slice(0, MAX_RADIAL_FAN_OUT);
 
@@ -243,7 +209,7 @@ type GraphLookup =
 
 function candidatesFromGraph(
   origin: LatLng,
-  inSemicircle: City[],
+  ahead: City[],
   maxMinutes: number
 ): GraphLookup {
   // Any failure inside the graph lookup is a miss, never a hit with nothing in
@@ -254,7 +220,7 @@ function candidatesFromGraph(
     const snapped = snapToCity(origin);
     if (!snapped || !hasDriveGraphFor(snapped.city.id)) return { kind: "miss" };
 
-    const allowed = new Map(inSemicircle.map((c) => [c.id, c]));
+    const allowed = new Map(ahead.map((c) => [c.id, c]));
     const candidates: RadialCandidate[] = [];
     for (const row of driveTimesFrom(snapped.city.id, maxMinutes)) {
       const city = allowed.get(row.cityId);

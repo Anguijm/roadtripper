@@ -50,20 +50,24 @@ export function cacheSet<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_M
  * SHA-256 truncated to 16 hex chars (64 bits). Structured JSON input keeps
  * the `radial:` namespace orthogonal to other key kinds by construction.
  * Lat/lng are rounded to 3 decimal places (~100m precision) so small GPS
- * jitter from the same stop doesn't generate distinct cache entries.
+ * jitter from the same stop doesn't generate distinct cache entries. The
+ * destination is in the key the same way: the candidate set depends on
+ * where you are going, not on an eight-way heading (the old fan), so two
+ * trips from one origin to different destinations must not share a list.
  */
 export function radialCacheKey(
   lat: number,
   lng: number,
   maxMinutes: number,
-  compassPoint: string
+  destination: { lat: number; lng: number }
 ): string {
   const payload = JSON.stringify({
     kind: "radial",
     lat: Number(lat.toFixed(3)),
     lng: Number(lng.toFixed(3)),
     maxMinutes,
-    compassPoint,
+    toLat: Number(destination.lat.toFixed(3)),
+    toLng: Number(destination.lng.toFixed(3)),
   });
   const hash = createHash("sha256").update(payload).digest("hex").slice(0, 16);
   return `radial:${hash}`;
