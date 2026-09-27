@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { allCities, waypointsForCities, waypointsInBox, neighborhoodsForCity } from "../queries";
+import { allCities, waypointsForCities, waypointsInBox, neighborhoodsForCity, clipReason } from "../queries";
 import { atlasExportedAt, atlasAgeDays } from "../db";
 
 /**
@@ -91,5 +91,45 @@ describe("atlas", () => {
     const age = atlasAgeDays();
     expect(age).not.toBeNull();
     expect(age!).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("the reason to stop", () => {
+  it("arrives with every waypoint read, clipped to a sentence or two, never blank", () => {
+    const rows = waypointsForCities(["amarillo"]);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const w of rows) {
+      expect(w.description).not.toBeNull();
+      expect(w.description!.trim().length).toBeGreaterThan(0);
+      expect(w.description!.length).toBeLessThanOrEqual(240);
+    }
+  });
+
+  it("is present for every waypoint in the atlas today, so no stop renders as a bare name", () => {
+    // Asserted so the day it stops being true is noticed, not discovered on screen.
+    const all = allCities().map((c) => c.id);
+    let bare = 0, total = 0;
+    for (let i = 0; i < all.length; i += 50) {
+      for (const w of waypointsForCities(all.slice(i, i + 50))) {
+        total++;
+        if (!w.description) bare++;
+      }
+    }
+    expect(total).toBeGreaterThan(10_000);
+    expect(bare).toBe(0);
+  });
+});
+
+describe("clipReason", () => {
+  it("trims, turns blank into null, and cuts a runaway description at 240 with an ellipsis", () => {
+    expect(clipReason("  A fine place.  ")).toBe("A fine place.");
+    expect(clipReason("")).toBeNull();
+    expect(clipReason("   ")).toBeNull();
+    expect(clipReason(null)).toBeNull();
+    const long = "x".repeat(500);
+    const cut = clipReason(long)!;
+    expect(cut.length).toBe(240);
+    expect(cut.endsWith("…")).toBe(true);
+    expect(clipReason("y".repeat(240))).toBe("y".repeat(240));
   });
 });

@@ -155,6 +155,7 @@ function fetchWaypointsCore(
       type: w.type,
       trendingScore: w.trendingScore,
       neighborhoodId: w.neighborhoodId,
+      description: w.description,
     }));
     return { payload: { cities, waypoints } };
   } catch (err) {

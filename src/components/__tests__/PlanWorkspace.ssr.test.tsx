@@ -39,7 +39,7 @@ describe("PlanWorkspace server rendering", () => {
               { id: "philadelphia", name: "Philadelphia", vibeClass: null, detourMinutes: 225, lat: 39.9526, lng: -75.1652 },
             ],
             waypoints: [
-              { id: "wp", cityId: "philadelphia", name: "Eastern State Penitentiary", type: "landmark", trendingScore: 50, neighborhoodId: null },
+              { id: "wp", cityId: "philadelphia", name: "Eastern State Penitentiary", type: "landmark", trendingScore: 50, neighborhoodId: null, description: null },
             ],
             neighborhoods: {},
           }}

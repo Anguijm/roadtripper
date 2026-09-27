@@ -290,9 +290,13 @@ export default async function TodayPage({
               ) : (
                 <ul className="flex flex-col gap-1">
                   {g.rows.map((w) => (
-                    <li key={w.waypointId} className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="text-[#f0f6fc]">{w.name}</span>
-                      <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e] whitespace-nowrap">{w.type.replace("_", " ")}</span>
+                    <li key={w.waypointId} className="flex flex-col gap-0.5 text-sm" data-spot>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-[#f0f6fc]">{w.name}</span>
+                        <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e] whitespace-nowrap">{w.type.replace("_", " ")}</span>
+                      </div>
+                      {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
+                      {w.description && <p className="text-xs text-[#b0b9c2]" data-reason>{w.description}</p>}
                     </li>
                   ))}
                 </ul>

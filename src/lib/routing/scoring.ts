@@ -32,6 +32,10 @@ export interface CityContext {
 }
 
 /** Lean waypoint row shipped to the client. Keeps payload small. */
+/** The reason to stop is never longer than a sentence or two. Cut at the
+ *  read (`toLite` in atlas/queries.ts), so nothing downstream can grow it. */
+export const MAX_REASON_LENGTH = 240;
+
 export interface LiteWaypoint {
   id: string;
   cityId: string;
@@ -39,6 +43,9 @@ export interface LiteWaypoint {
   type: Waypoint["type"];
   trendingScore: number;
   neighborhoodId: string | null;
+  /** Why you would stop, one or two sentences. Untrusted model text: render
+   *  as text only. Null when the atlas has none. */
+  description: string | null;
 }
 
 /** Per-city neighborhood fetch state. Key absence in the Record ≡ not requested. */
@@ -197,6 +204,7 @@ export function buildRankedGroups(
           name: w.name,
           type: w.type,
           trendingScore: w.trendingScore,
+          description: w.description,
           detourMinutes: city.detourMinutes,
           score,
           tier,
