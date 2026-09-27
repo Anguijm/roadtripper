@@ -8,6 +8,15 @@ vi.mock("./cache", () => ({
   cacheSet: vi.fn(),
   radialCacheKey: vi.fn().mockReturnValue("radial:test-key"),
 }));
+// These tests exercise the live Routes API path. Since 2026-09-27 the drive
+// graph covers every continental US city, so a real origin like LA is always
+// a graph hit and the API is never reached. Force a miss here; the graph-hit
+// behaviour (zero API calls) is covered in radial-graph.test.ts, and the
+// error-to-miss fallback in radial-graph-fallback.test.ts.
+vi.mock("@/lib/atlas/queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/atlas/queries")>();
+  return { ...actual, hasDriveGraphFor: () => false };
+});
 
 import {
   bearingDeg,
