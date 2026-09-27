@@ -57,3 +57,9 @@ evidence.
 - Rule 3: Amarillo to Austin keeps Lubbock and drops Wichita; the test computes the old fan and shows it kept Wichita.
 - 334 tests (22 fan tests removed, 10 progress tests added); lint and types clean.
 - Not changed, noted: `RouteMap` still draws a 180-degree arc as the visual hint of the search area. It is decoration, not the filter, and it now over-promises at the edges. Worth a follow-up when the map gets its next pass.
+
+## Council round 1 on #54 (CONDITIONAL, bugs 7), and what changed
+
+- comments: the `+540 % 360 -180` fold explained; the destination's 3-decimal rounding explained next to the line; the test's 1,000 floor explained; the cache header no longer says "snapped compass heading"
+- Answered, not changed: the LRU has a hard cap, `MAX_ENTRIES = 256`, oldest evicted, one-hour TTL, in cache.ts
+- Pushed back on null guards for `destination` in `radialCacheKey`: the parameter is typed, both callers pass a typed LatLng, and none of the function's other parameters carry runtime guards either

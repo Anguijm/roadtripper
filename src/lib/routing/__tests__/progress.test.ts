@@ -110,6 +110,9 @@ describe("makesProgress, on the real atlas", () => {
         expect(progressToward(c, origin, destination).alongKm).toBeLessThanOrEqual(total);
       }
     }
+    // A floor on how much the sweep exercised: 300 pairs keep roughly 27
+    // cities each, about 8,000 checks. Far below 1,000 would mean the loop
+    // skipped most pairs (all same-id, or a broken atlas) and proved nothing.
     expect(kept).toBeGreaterThan(1000);
   });
 });

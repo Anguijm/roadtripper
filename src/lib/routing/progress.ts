@@ -37,6 +37,11 @@ export function progressToward(city: LatLng, origin: LatLng, destination: LatLng
   const totalKm = haversineKm(origin, destination);
   const remainingKm = haversineKm(city, destination);
   const distKm = haversineKm(origin, city);
+  // Signed angle between the two bearings, folded into [-180, 180): adding
+  // 540 makes the value positive before the modulo (JavaScript's % keeps the
+  // sign of its left operand), the % 360 wraps it, the -180 recentres it.
+  // Only its cosine is used, so the sign does not matter here; it is folded
+  // anyway so a 350-degree difference reads as -10, not as "almost a circle".
   const diff = ((bearingDeg(origin, city) - bearingDeg(origin, destination) + 540) % 360) - 180;
   const alongKm = distKm * Math.cos((diff * Math.PI) / 180);
   return { totalKm, remainingKm, alongKm };
