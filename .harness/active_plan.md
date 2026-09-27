@@ -57,3 +57,9 @@ road.
 
 - six comments: the hundred is John's hour; the quarter cap against step 19's 71% flood; the seed and why changing it would orphan a labelled sheet; the two passes; the Earth's radius; the five decimals
 - Answered, not changed: `data/corridors/` has been in `.gitignore` since #60
+
+## Council round 2 on #64 (CONDITIONAL, bugs 8), and what changed
+
+- when the caps leave the sheet short while stops remain, the rest is filled the same round-robin way without the cap: two kinds of 80 give a full sheet, half and half; with enough variety the cap still binds at 25. Rule 2 amended again: "a kind with fewer stops than its share gives all it has" stays; "the sheet stays short" does not.
+- `alongKm` is clamped to the route's length
+- the OpenStreetMap link is built only for an id of the expected shape; anything else gets null rather than a broken link

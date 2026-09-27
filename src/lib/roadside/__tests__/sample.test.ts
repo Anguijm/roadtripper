@@ -51,11 +51,17 @@ describe("labelSample", () => {
     expect(labelSample(few)).toHaveLength(2);
   });
 
-  it("fills a sheet even when the caps would leave it short", () => {
-    // Only two kinds: a quarter each is 50, and that is all it can give.
+  it("fills the sheet when the caps would leave it short and stops remain, keeping the kinds balanced", () => {
+    // Only two kinds: a quarter each is 50, but 160 stops are there, so the
+    // caps relax and the sheet is full, half and half.
     const two = [...Array.from({ length: 80 }, (_, i) => stop(i, "historic")), ...Array.from({ length: 80 }, (_, i) => stop(100 + i, "artwork"))];
     const sample = labelSample(two);
-    expect(sample).toHaveLength(50);
+    expect(sample).toHaveLength(100);
+    expect(sample.filter((s) => s.kind === "historic")).toHaveLength(50);
+    // the cap still binds when there is enough variety to fill without it
+    const byKind = new Map<string, number>();
+    for (const s of labelSample(corridor())) byKind.set(s.kind, (byKind.get(s.kind) ?? 0) + 1);
+    expect(Math.max(...byKind.values())).toBeLessThanOrEqual(25);
   });
 
   it("refuses a bad size or share", () => {

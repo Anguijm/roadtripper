@@ -89,10 +89,10 @@ export function labelSample(stops: readonly RoadsideStop[], opts: SampleOptions 
   const cap = Math.max(1, Math.floor(size * maxShare));
   const taken = new Map<string, number>([...groups.keys()].map((k) => [k, 0]));
   const picked: RoadsideStop[] = [];
-  const take = (kind: string) => {
+  const take = (kind: string, limit: number) => {
     const g = groups.get(kind)!;
     const n = taken.get(kind)!;
-    if (n >= g.length || n >= cap) return false;
+    if (n >= g.length || n >= limit) return false;
     picked.push(g[n]);
     taken.set(kind, n + 1);
     return true;
@@ -104,15 +104,23 @@ export function labelSample(stops: readonly RoadsideStop[], opts: SampleOptions 
   // round, taking one more from each until the sheet is full or every kind
   // is at its cap or out of stops: the big kinds end up within one row of
   // each other, and the flood cannot crowd the rest.
-  for (const kind of groups.keys()) if (picked.length < size) take(kind);
+  for (const kind of groups.keys()) if (picked.length < size) take(kind, cap);
   const order = [...groups.keys()].sort((a, b) => groups.get(b)!.length - groups.get(a)!.length);
-  let progress = true;
-  while (picked.length < size && progress) {
-    progress = false;
-    for (const kind of order) {
-      if (picked.length >= size) break;
-      if (take(kind)) progress = true;
+  const fill = (limit: number) => {
+    let progress = true;
+    while (picked.length < size && progress) {
+      progress = false;
+      for (const kind of order) {
+        if (picked.length >= size) break;
+        if (take(kind, limit)) progress = true;
+      }
     }
-  }
+  };
+  fill(cap);
+  // If the caps leave the sheet short while stops remain (a corridor with
+  // two kinds, say), the cap has done its job of keeping every kind in
+  // proportion up to this point; the rest of the sheet is filled the same
+  // round-robin way without it, since an empty row teaches nothing.
+  if (picked.length < size) fill(Infinity);
   return picked;
 }

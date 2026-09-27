@@ -36,14 +36,18 @@ const rows = sample
     id: s.id,
     name: s.name,
     kind: s.kind,
-    alongKm: Math.round(km(corridor.from, s) / Math.max(1, total) * corridor.routeKm),
+    // A stop off to the side of the start can sit "farther than the end" on
+    // the straight line; clamp to the route's length so the column reads.
+    alongKm: Math.min(corridor.routeKm, Math.round(km(corridor.from, s) / Math.max(1, total) * corridor.routeKm)),
     lat: s.lat,
     lng: s.lng,
     wikidata: s.wikidata,
     // Five decimals is about a metre: the pin lands on the thing, and the
     // link stays short enough to read in a table cell.
     map: `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`,
-    osm: `https://www.openstreetmap.org/${s.id.replace("osm:", "").replace(":", "/")}`,
+    // Ids are "osm:<node|way|relation>:<number>" by construction (record.ts);
+    // anything else gets no link rather than a broken one.
+    osm: /^osm:(node|way|relation):\d+$/.test(s.id) ? `https://www.openstreetmap.org/${s.id.slice(4).replace(":", "/")}` : null,
   }))
   .sort((a, b) => a.alongKm - b.alongKm);
 
