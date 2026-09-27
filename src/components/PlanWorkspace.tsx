@@ -20,6 +20,7 @@ import RecommendationList, {
 import Itinerary from "@/components/Itinerary";
 import NeighborhoodPanel from "@/components/NeighborhoodPanel";
 import { panelCityFor, nextPanelCityId } from "@/lib/plan/panel-city";
+import { itinerarySummary } from "@/lib/plan/itinerary-summary";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
@@ -166,6 +167,9 @@ export default function PlanWorkspace({
   // Which stop's neighborhoods to show in the panel. Defaults to the most
   // recently added stop; updated on click or add/remove.
   const [panelCityId, setPanelCityId] = useState<string | null>(null);
+  // The itinerary opens on request; collapsed it is one line above the
+  // candidates, so the first card's reason stays near the top (step 14).
+  const [itineraryOpen, setItineraryOpen] = useState(false);
   // On-demand neighborhood cache for stops the user clicked that weren't
   // pre-fetched by recomputeAndRefreshAction.
   const [localNeighborhoods, setLocalNeighborhoods] = useState<
@@ -656,6 +660,14 @@ export default function PlanWorkspace({
           <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
         </div>
 
+        {/* The fold budget (step 14). On a 667 px phone at the sheet's middle
+            snap, 55% is visible: 367 px. Above the first candidate's reason:
+            the drag handle 44, this header (persona bar about 44, status row
+            about 40), the itinerary line about 36 when there are stops, and
+            the card header 44. That is about 208 px, leaving about 160 px for
+            the lead. Anything added to this sticky header comes out of that
+            160; put new things in the scroll area below instead. The 44 px
+            figures are the touch-target minimum every button here keeps. */}
         <div className="p-3 border-b border-[#30363d] space-y-3">
           <PersonaSelector
             activePersonaId={activePersonaId}
@@ -699,43 +711,47 @@ export default function PlanWorkspace({
               </p>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-              Candidates ({effectiveWaypointFetch.cities.length}) · max{" "}
-              {maxDetourMinutes}min
+          {/* Only while updating; idle it costs no height, so the first
+              card's reason sits higher (step 14). */}
+          {isPending && (
+            // #e3b341 rather than the #d29922 used for budget warnings: at
+            // 10 px this text needs the brighter amber to clear WCAG AA
+            // contrast on the #0d1117 background.
+            <p
+              className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
+              aria-live="polite"
+            >
+              Updating route + recs…
             </p>
-            {isPending && (
-              <p
-                className="text-[10px] font-mono uppercase tracking-widest text-[#d29922] animate-pulse"
-                aria-live="polite"
-              >
-                Updating route + recs…
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Save trip. No auth gate: trips live in this browser. */}
-        <div className="px-3 py-2 border-b border-[#30363d]">
-          <button
-            type="button"
-            onClick={handleSave}
-            className={[
-              "w-full text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40",
-              saveState === "saved"
-                ? "border-[#238636] text-[#3fb950]"
-                : saveState === "error"
-                ? "border-[#f85149] text-[#ff7b72]"
-                : "border-[#30363d] text-[#7d8590] hover:border-[#555] hover:text-[#f0f6fc]",
-            ].join(" ")}
-          >
-            {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
-          </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {/* Itinerary — ABOVE recommendations once trip is non-empty (Council ISC-S6-PROD-2) */}
+          {/* Itinerary — ABOVE recommendations once trip is non-empty (Council
+              ISC-S6-PROD-2), but as one line with a toggle, so the first
+              candidate's reason is not pushed below the fold (step 14). */}
           {showItinerary && (
+            <button
+              type="button"
+              onClick={() => setItineraryOpen((o) => !o)}
+              aria-expanded={itineraryOpen}
+              aria-controls="itinerary-details"
+              className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 text-left text-xs font-mono uppercase tracking-widest text-[#b0b9c2] border border-[#30363d] bg-[#161b22] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+            >
+              <span className="truncate">
+                {/* Legs are in seconds already; the direct leg is held in
+                    minutes and converted, the same way the Itinerary's
+                    finalLegSeconds prop below is built. */}
+                {itinerarySummary(tripStops, tripState.legs.map((l) => l.durationSeconds), Math.round(tripState.directMinutesToDestination * 60))}
+              </span>
+              <span aria-hidden className="text-[#8b949e]">{itineraryOpen ? "▲" : "▼"}</span>
+            </button>
+          )}
+          {/* Always in the DOM so aria-controls resolves; `hidden` when
+              collapsed. The Itinerary stays mounted, which also keeps its
+              per-stop failed state across a collapse. */}
+          {showItinerary && (
+            <div id="itinerary-details" hidden={!itineraryOpen}>
             <Itinerary
               fromName={fromName}
               toName={toName}
@@ -751,6 +767,7 @@ export default function PlanWorkspace({
               onDestinationClick={() => setRouteSealed((s) => !s)}
               accent={accent}
             />
+            </div>
           )}
 
           {/* Neighborhood panel — follows panelCityId: a click on an Itinerary
@@ -892,10 +909,11 @@ export default function PlanWorkspace({
               {/* Frontier label — tells the user which stop the next candidates
                   are radiating from so the changing list makes sense. */}
               {effectiveWaypointFetch.cities.length > 0 && (
-                <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] px-1 pt-1">
+                <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#8b949e] px-1 pt-1">
                   {tripStops.length > 0
                     ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
                     : `First stop from ${fromName}`}
+                  {` · ${effectiveWaypointFetch.cities.length} candidates · max ${maxDetourMinutes} min`}
                 </p>
               )}
 
@@ -922,6 +940,31 @@ export default function PlanWorkspace({
                   onCityPreview={handleStopClick}
                   previewedCityId={panelCityId}
                 />
+              </div>
+
+              {/* Save trip, at the end of the list rather than in the sticky
+                  header, so the header is short and the reason leads. No
+                  auth gate: trips live in this browser. */}
+              <div className="px-1 py-3">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  // Disabled while a recompute is in flight so a save cannot
+                  // capture a half-updated trip. Not disabled after a save:
+                  // the trip can change again, and saving again is how it is
+                  // kept; the label already says "Saved" until it does.
+                  disabled={isPending}
+                  className={[
+                    "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    saveState === "saved"
+                      ? "border-[#238636] text-[#3fb950]"
+                      : saveState === "error"
+                      ? "border-[#f85149] text-[#ff7b72]"
+                      : "border-[#30363d] text-[#8b949e] hover:border-[#555] hover:text-[#f0f6fc]",
+                  ].join(" ")}
+                >
+                  {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+                </button>
               </div>
             </>
           )}

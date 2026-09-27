@@ -39,6 +39,29 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(html).toContain("A bare name");
   });
 
+  it("leads each card with the top spot that has a reason, before every other row", () => {
+    // For the nerd persona the fixture ranks the food spot first, and it has
+    // no description; the lead must be the first spot with a reason.
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={result}
+        activePersonaId="nerd"
+        cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+      />
+    );
+    const lead = html.indexOf("data-lead");
+    const leadReason = html.indexOf("Ten Cadillacs nose-down");
+    const secondRow = html.indexOf("A bare name");
+    expect(lead).toBeGreaterThan(-1);
+    expect(leadReason).toBeGreaterThan(lead);
+    expect(secondRow).toBeGreaterThan(leadReason);
+    // the lead is not repeated as a row below
+    expect(html.match(/Cadillac Ranch/g)?.length).toBe(1);
+  });
+
   it("offers to show a city's lore before it is added, and marks the open one as pressed", () => {
     const render = (previewed: string | null) =>
       renderToString(
