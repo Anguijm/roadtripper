@@ -109,12 +109,7 @@ export default function RouteInput({
   return (
     <APIProvider apiKey={apiKey} libraries={["places"]}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {/* Keyed on the selection: CityAutocomplete reads `value` only on its
-            first render, so a located city set from outside would never show
-            in the box. Remounting on a new placeId is the one lint-clean way
-            to reflect it; the key does not change on keystrokes. */}
         <CityAutocomplete
-          key={from?.placeId ?? "no-origin"}
           label="From"
           placeholder="Start city"
           value={from ?? undefined}

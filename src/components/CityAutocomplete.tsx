@@ -32,6 +32,18 @@ export default function CityAutocomplete({
   const [autocomplete, setAutocomplete] =
     useState<google.maps.places.Autocomplete | null>(null);
   const [displayValue, setDisplayValue] = useState(value?.name ?? "");
+  // The box shows what the user types until a place is chosen, so the text
+  // is local state. When the parent hands in a different selection (a
+  // located origin, a saved trip), the text follows it. This is React's
+  // "adjust state when a prop changes" pattern: compare against the last
+  // prop seen and set during render, which React applies before painting.
+  // Not an effect (a frame late, and the set-state-in-effect rule), and not
+  // a key on the component (which would remount the input and drop focus).
+  const [seenPlaceId, setSeenPlaceId] = useState(value?.placeId);
+  if (value?.placeId !== seenPlaceId) {
+    setSeenPlaceId(value?.placeId);
+    setDisplayValue(value?.name ?? "");
+  }
 
   useEffect(() => {
     if (!places || !inputRef.current) return;
