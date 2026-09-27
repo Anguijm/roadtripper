@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
@@ -28,6 +28,16 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
   const [persona, setPersona] = useState<PersonaId>(initialPersonaId);
   const [submitting, setSubmitting] = useState(false);
   const located = useLocatedOrigin(setOrigin);
+
+  // router.push never rejects, so a navigation that stalls (offline, a slow
+  // server) would leave the button on "Looking..." forever. Ten seconds is
+  // longer than a normal transition; after it the button comes back and a
+  // second tap is harmless, since it pushes the same URL.
+  useEffect(() => {
+    if (!submitting) return;
+    const t = setTimeout(() => setSubmitting(false), 10_000);
+    return () => clearTimeout(t);
+  }, [submitting]);
 
   function go() {
     if (!origin || submitting) return;

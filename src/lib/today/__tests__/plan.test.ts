@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { planToday } from "../plan";
-import { formatDrive, hoursFrom, DEFAULT_HOURS } from "../presets";
+import { formatDrive, hoursFrom, pointFrom, placeNameFrom, DEFAULT_HOURS, MAX_PLACE_NAME_LENGTH } from "../presets";
 
 // Real atlas, real graph. These are the numbers the screen shows.
 const DOWNTOWN_AMARILLO = { lat: 35.2073, lng: -101.8338 };
@@ -53,6 +53,25 @@ describe("presets", () => {
     expect(formatDrive(130.4)).toBe("2 h 10 min");
     expect(formatDrive(225)).toBe("3 h 45 min");
     expect(formatDrive(-3)).toBe("0 min");
+  });
+
+  it("reads a point from two URL strings and treats blank as missing, not Null Island", () => {
+    expect(pointFrom("35.2", "-101.8")).toEqual({ lat: 35.2, lng: -101.8 });
+    expect(pointFrom("0", "0")).toEqual({ lat: 0, lng: 0 });   // explicit zeros are a real point
+    expect(pointFrom("", "")).toBeNull();                        // Number("") is 0; must not become (0,0)
+    expect(pointFrom(" ", "-101.8")).toBeNull();
+    expect(pointFrom(undefined, "-101.8")).toBeNull();
+    expect(pointFrom("abc", "-101.8")).toBeNull();
+    expect(pointFrom("95", "0")).toBeNull();
+    expect(pointFrom("0", "181")).toBeNull();
+    expect(pointFrom("Infinity", "0")).toBeNull();
+  });
+
+  it("bounds a place name and falls back when it is blank", () => {
+    expect(placeNameFrom("  Near Amarillo ", "x")).toBe("Near Amarillo");
+    expect(placeNameFrom("", "Your location")).toBe("Your location");
+    expect(placeNameFrom(undefined, "Start")).toBe("Start");
+    expect(placeNameFrom("y".repeat(200), "x")).toHaveLength(MAX_PLACE_NAME_LENGTH);
   });
 
   it("reads hours from the URL and falls back to five for anything else", () => {

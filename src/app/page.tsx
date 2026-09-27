@@ -1,7 +1,7 @@
 import Link from "next/link";
 import RouteInput from "@/components/RouteInput";
 import type { CitySelection } from "@/components/CityAutocomplete";
-import { LatLngSchema } from "@/lib/plan/types";
+import { pointFrom, placeNameFrom } from "@/lib/today/presets";
 
 interface HomeSearchParams {
   fromName?: string;
@@ -12,13 +12,11 @@ interface HomeSearchParams {
   toLng?: string;
 }
 
-/** A place handed in by the URL, or nothing. Never trusts the text past 80 characters. */
-function selectionFrom(name: string | undefined, lat: string | undefined, lng: string | undefined, prefix: string): CitySelection | undefined {
-  if (lat === undefined || lng === undefined) return undefined;
-  const point = LatLngSchema.safeParse({ lat: Number(lat), lng: Number(lng) });
-  if (!point.success) return undefined;
-  const label = (name ?? "").trim().slice(0, 80) || `${prefix}`;
-  return { placeId: `geo:${point.data.lat.toFixed(5)},${point.data.lng.toFixed(5)}`, name: label, ...point.data };
+/** A place handed in by the URL, or nothing. Same parsing and name bound as the today page. */
+function selectionFrom(name: string | undefined, lat: string | undefined, lng: string | undefined, fallback: string): CitySelection | undefined {
+  const point = pointFrom(lat, lng);
+  if (!point) return undefined;
+  return { placeId: `geo:${point.lat.toFixed(5)},${point.lng.toFixed(5)}`, name: placeNameFrom(name, fallback), ...point };
 }
 
 export default async function Home({ searchParams }: { searchParams: Promise<HomeSearchParams> }) {

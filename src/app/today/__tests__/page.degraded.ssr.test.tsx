@@ -31,6 +31,7 @@ vi.mock("@/lib/routing/recommend", async (importOriginal) => {
 });
 
 import TodayPage from "@/app/today/page";
+import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
 
 describe("the today screen when the spots fail to load", () => {
   it("still lists the cities and says the spots are missing, not 'nothing here yet'", async () => {
@@ -41,5 +42,17 @@ describe("the today screen when the spots fail to load", () => {
     expect(html).toContain("some spots could not be loaded");
     expect(html).toContain("Spots did not load.");
     expect(html).not.toContain("Nothing in the atlas");
+  });
+
+  it("survives the pipeline throwing: the cities still list, the spots are reported missing", async () => {
+    vi.mocked(fetchWaypointsForCandidates).mockRejectedValueOnce(new Error("sqlite exploded"));
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const html = renderToString(
+      await TodayPage({ searchParams: Promise.resolve({ lat: "35.2073", lng: "-101.8338", hours: "5" }) })
+    );
+    quiet.mockRestore();
+    expect(html).toContain("Albuquerque");
+    expect(html).toContain("some spots could not be loaded");
+    expect(html).toContain("3 h 45 min");
   });
 });

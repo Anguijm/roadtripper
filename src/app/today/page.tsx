@@ -3,12 +3,11 @@ import Link from "next/link";
 import TodayStart from "@/components/TodayStart";
 import TodayPersonaBar from "@/components/TodayPersonaBar";
 import { planToday } from "@/lib/today/plan";
-import { hoursFrom, formatDrive } from "@/lib/today/presets";
+import { hoursFrom, formatDrive, pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
-import { buildRankedGroups } from "@/lib/routing/scoring";
+import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { parsePersonaId, PERSONAS } from "@/lib/personas";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
-import { LatLngSchema } from "@/lib/plan/types";
 import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
 
 interface TodaySearchParams {
@@ -20,16 +19,6 @@ interface TodaySearchParams {
 }
 
 export const dynamic = "force-dynamic";
-
-/**
- * The label under the header, from the `name` URL parameter. It is whatever
- * the start screen put there ("Near Amarillo", or a typed city), but a link
- * can carry anything, so it is rendered as text and cut at 80 characters:
- * the longest Google place name the autocomplete returns is well under
- * that, and 80 is about what fits on one line under the header on a phone
- * before it wraps the lead sentence.
- */
-const MAX_NAME_LENGTH = 80;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -76,11 +65,9 @@ export default async function TodayPage({
 
   // No point yet: ask. The start screen locates on its own once permission
   // has been granted, so this is the page that opens knowing your city.
-  const hasPoint = params.lat !== undefined && params.lng !== undefined;
-  const origin = hasPoint
-    ? LatLngSchema.safeParse({ lat: Number(params.lat), lng: Number(params.lng) })
-    : null;
-  if (!origin || !origin.success) {
+  // Blank, missing, or nonsense coordinates are all "no point".
+  const origin = pointFrom(params.lat, params.lng);
+  if (!origin) {
     return (
       <Shell>
         <div className="mb-6">
@@ -104,9 +91,8 @@ export default async function TodayPage({
     );
   }
 
-  const plan = planToday(origin.data, hours);
-  const rawName = typeof params.name === "string" ? params.name.trim() : "";
-  const whereLabel = rawName ? rawName.slice(0, MAX_NAME_LENGTH) : plan.here ? plan.here.city.name : "Your location";
+  const plan = planToday(origin, hours);
+  const whereLabel = placeNameFrom(params.name, plan.here ? plan.here.city.name : "Your location");
 
   if (plan.reach === "no-city") {
     return (
@@ -129,11 +115,27 @@ export default async function TodayPage({
     );
   }
 
-  const fetchResult = await fetchWaypointsForCandidates(plan.reachable);
-  // The pipeline is a union: "fresh", or "degraded" with the cities still
-  // present but some or all waypoints missing. The city list is still the
-  // answer; the spots are not, so the page says so rather than showing
-  // "nothing here yet" for a city whose read failed.
+  // The pipeline answers "fresh", or "degraded" with the cities still present
+  // and some or all waypoints missing. It is not expected to throw, but the
+  // city list is the answer and must survive if it does: a throw becomes
+  // "degraded" with the cities from the graph and no spots.
+  let fetchResult: WaypointFetchResult;
+  try {
+    fetchResult = await fetchWaypointsForCandidates(plan.reachable);
+  } catch (err) {
+    console.error("[today] waypoint pipeline threw:", err instanceof Error ? err.constructor.name : "unknown");
+    fetchResult = {
+      status: "degraded",
+      cities: plan.reachable.slice(0, 10).map((r) => ({
+        id: r.city.id, name: r.city.name, vibeClass: null, detourMinutes: r.oneWayDriveMinutes * 2, lat: r.city.lat, lng: r.city.lng,
+      })),
+      waypoints: [],
+      neighborhoods: {},
+      failures: [{ kind: "waypoints", reason: err instanceof Error ? err.message : "unknown" }],
+    };
+  }
+  // The city list is still the answer; the spots are not, so the page says
+  // so rather than showing "nothing here yet" for a city whose read failed.
   const spotsDegraded = fetchResult.status === "degraded";
   const groups = buildRankedGroups(fetchResult, personaId);
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
@@ -185,8 +187,8 @@ export default async function TodayPage({
               <Link
                 href={`/?${new URLSearchParams({
                   fromName: whereLabel,
-                  fromLat: origin.data.lat.toString(),
-                  fromLng: origin.data.lng.toString(),
+                  fromLat: origin.lat.toString(),
+                  fromLng: origin.lng.toString(),
                   toName: g.cityName,
                   toLat: (cityById.get(g.cityId)?.lat ?? 0).toString(),
                   toLng: (cityById.get(g.cityId)?.lng ?? 0).toString(),

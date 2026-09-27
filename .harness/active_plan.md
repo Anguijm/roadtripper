@@ -60,3 +60,10 @@ as with step 6, the phone itself is not exercised from here.
 - Pushed back on handling a `"failed"` status: `WaypointFetchResult` has two members, fresh and degraded, and degraded was handled in round 1
 - **The product reviewer's real point, a dead end, fixed:** every city on the results links into the planner with both ends filled. The home page now reads a start and an end from the URL, validated with `LatLngSchema` and cut at 80 characters, and hands them to `RouteInput`. Tested on both pages.
 - **Recorded for John, not decided:** the product reviewer would rather this lived inside the map workspace as pins than as its own text screen. That is the map-first question. The plan says the today screen first; a map view of it is a candidate step, not a rewrite of this one.
+
+## Council round 3 on #53 (BLOCK, bugs 4), and what changed
+
+- **Null Island, a real bug:** `?lat=&lng=` became (0, 0) because `Number("")` is 0, and the page said "not near a city we know" instead of asking. `pointFrom` in presets.ts treats blank, missing, nonsense, out-of-range and Infinity as "no point"; explicit zeros stay a real point. Tested at the helper and at the page.
+- **The Go button recovers:** `router.push` never rejects, so a stalled navigation froze it on "Looking..."; a ten-second timer brings it back, and a second tap pushes the same URL.
+- the pipeline call is wrapped: if it throws, the cities from the graph still list and the spots are reported missing. Tested with the pipeline mocked to reject. This closes the item asked three rounds running; the union has no failed member, but a throw is now survived.
+- `MAX_PLACE_NAME_LENGTH`, `placeNameFrom` and `pointFrom` live in presets.ts and both pages use them, so the handoff and the today screen cannot drift.

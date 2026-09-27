@@ -47,9 +47,12 @@ describe("the today screen, server-rendered", () => {
     expect(html).toContain("5 h");
   });
 
-  it("treats garbage coordinates as no point", async () => {
-    const html = await render({ lat: "abc", lng: "-101" });
-    expect(html).toContain("What is in range today?");
+  it("treats garbage or blank coordinates as no point, never as Null Island", async () => {
+    for (const p of [{ lat: "abc", lng: "-101" }, { lat: "", lng: "" }, { lat: " ", lng: "-101.8" }, { lat: "35.2", lng: "" }]) {
+      const html = await render(p);
+      expect(html).toContain("What is in range today?");
+      expect(html).not.toContain("Not near a city we know");
+    }
   });
 
   it("says so, and offers typing, when no atlas city is near the point", async () => {
