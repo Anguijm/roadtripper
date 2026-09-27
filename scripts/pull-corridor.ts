@@ -13,6 +13,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import type { RoadsideStop } from "../src/lib/roadside/record";
 import { loadEnv } from "./lib/env.mjs";
 import { corridorTiles, withinCorridor, DEFAULT_BUFFER_KM, DEFAULT_TILE_KM } from "../src/lib/roadside/corridor";
@@ -55,12 +56,21 @@ const tiles = corridorTiles(route, { tileKm: DEFAULT_TILE_KM, bufferKm });
 mkdirSync("data/corridors", { recursive: true });
 
 // Progress, per tile, written the moment a tile answers. The public Overpass
-// instance refuses under load (504), so a corridor may take several runs;
-// each run starts at the first tile the file does not hold. Keyed by the
-// corridor name and tile count, so a changed route or buffer starts over.
+// instance refuses under load, so a corridor may take several runs; each
+// run starts at the first tile the file does not hold. The key carries a
+// hash of the route itself, the tile count and the buffer, so the same
+// name with a different route (ORS re-routed, a different start) starts
+// over rather than reusing tiles cut along another line. It also carries
+// PROGRESS_VERSION: bump it when the RoadsideStop shape changes, so saved
+// tiles in the old shape are not merged with new ones.
+const PROGRESS_VERSION = 1;
 const progressPath = `data/corridors/${name}.tiles.json`;
 type Progress = { key: string; tiles: Record<string, RoadsideStop[]> };
-const progressKey = `${name}|${tiles.length}|${bufferKm}`;
+const routeHash = createHash("sha256")
+  .update(route.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join(";"))
+  .digest("hex")
+  .slice(0, 16);
+const progressKey = `v${PROGRESS_VERSION}|${name}|${routeHash}|${tiles.length}|${bufferKm}`;
 let progress: Progress = { key: progressKey, tiles: {} };
 if (existsSync(progressPath)) {
   const saved = JSON.parse(readFileSync(progressPath, "utf8")) as Progress;

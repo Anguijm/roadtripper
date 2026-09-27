@@ -162,6 +162,18 @@ describe("the Overpass client", () => {
     expect(pauses).toEqual([...RETRY_PAUSES_MS]);
   });
 
+  it("also retries 502 and 503, the gateway and overload answers", async () => {
+    for (const status of [502, 503]) {
+      const once = vi.fn().mockResolvedValueOnce(reply(status, "later")).mockResolvedValueOnce(reply(200, { elements: [] }));
+      await fetchBoxFromOverpass(box, { fetch: once as never, sleep: vi.fn(async () => {}) });
+      expect(once).toHaveBeenCalledTimes(2);
+    }
+    // a 400 is our fault and is not retried
+    const bad = vi.fn().mockResolvedValue(reply(400, "bad query"));
+    await expect(fetchBoxFromOverpass(box, { fetch: bad as never, sleep: vi.fn(async () => {}) })).rejects.toBeInstanceOf(OverpassError);
+    expect(bad).toHaveBeenCalledTimes(1);
+  });
+
   it("treats a client-side timeout like a 504: retried on the same schedule, then reported as a timeout", async () => {
     const timeout = () => { const e = new Error("The operation timed out."); e.name = "TimeoutError"; return Promise.reject(e); };
     const once = vi.fn().mockImplementationOnce(timeout).mockResolvedValueOnce(reply(200, { elements: [] }));

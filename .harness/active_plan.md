@@ -46,3 +46,10 @@ one stopped, which is the honest best a shared free service allows.
 ## Found by the third run, before council answered
 
 - Tile 3 took longer than the client's 60 s and died with a TimeoutError, which was not on the retry list. A client-side timeout on a busy instance means the same as a 504 and is now retried on the same 10, 30, 60 s schedule; the limit is 90 s to give the queue room. A cancellation is still thrown as it is. Tested for both. The script stops with one line naming the saved tiles instead of dumping a DOMException.
+
+## Council round 1 on #61 (CONDITIONAL, bugs 6), and what changed
+
+- the progress key carries a hash of the route, the tile count, the buffer and a version, so the same name with a different route or a changed record shape starts over
+- 502 and 503 are transient too; a 400 is ours and is not retried; tested
+- the pause skip for held tiles is explained where it is
+- Answered, not changed: the name is sanitised on the line that reads it (anything but letters, digits and hyphens becomes a hyphen); `.gitignore` ignores the whole `data/corridors/` directory

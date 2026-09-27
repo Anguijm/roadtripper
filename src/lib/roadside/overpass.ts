@@ -24,7 +24,8 @@ export const USER_AGENT = "roadtripper (road-trip planner in development; contac
  */
 export const PAUSE_MS = 1500;
 /**
- * After a 429 or 504, the pauses before each retry, in order: three tries
+ * After a 429, 502, 503, 504 or a client timeout, the pauses before each
+ * retry, in order: three tries
  * over about a hundred seconds, then the tile is given up and the run
  * stops saying which one. Ten seconds is long enough for a busy instance to
  * clear a queue; retrying sooner is what gets an address blocked. Growing
@@ -109,7 +110,10 @@ export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps 
       throw err;
     }
   };
-  const transient = (r: Response | null) => r === null || r.status === 429 || r.status === 504;
+  // 429 is the rate limit, 502 and 503 a gateway or an instance that is
+  // restarting or overloaded, 504 its load limit, null a client timeout:
+  // all of them mean "not now", none mean "never".
+  const transient = (r: Response | null) => r === null || r.status === 429 || r.status === 502 || r.status === 503 || r.status === 504;
 
   let res = await tryOnce();
   for (const pause of RETRY_PAUSES_MS) {
@@ -149,6 +153,9 @@ export async function fetchCorridorFromOverpass(
       for (const s of held) byId.set(s.id, s);
       continue;
     }
+    // The pause is between requests to the instance, not between tiles: a
+    // tile taken from the progress file cost it nothing, so the first tile
+    // this run actually fetches goes out at once and only later ones wait.
     if (fetched > 0) await deps.sleep(PAUSE_MS);
     // Checked between tiles so a cancelled pull stops here rather than
     // after the whole corridor; the request in flight is aborted by the
