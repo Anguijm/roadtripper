@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fromOsmElement, kindFromTags, RoadsideStopSchema, type OsmElement } from "../record";
+import { fromOsmElement, kindFromTags, wikidataId, RoadsideStopSchema, type OsmElement } from "../record";
 import { corridorTiles, paddedBox, withinCorridor } from "../corridor";
 import { fetchBoxFromOverpass, fetchCorridorFromOverpass, overpassQuery, OverpassError, PAUSE_MS, RETRY_PAUSES_MS, USER_AGENT } from "../overpass";
 import { haversineKm, projectOntoPolyline, type LatLng } from "@/lib/routing/polyline";
@@ -24,6 +24,7 @@ describe("the roadside record", () => {
   it("uses the node's own position, and the centre for a way or relation", () => {
     expect(fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { historic: "monument", name: "X" } })?.lat).toBe(1);
     expect(fromOsmElement({ type: "relation", id: 1, center: { lat: 3, lon: 4 }, tags: { historic: "castle", name: "Y" } })?.lng).toBe(4);
+    expect(fromOsmElement({ type: "node", id: 2, lat: 1, lon: 2, tags: { historic: "yes", name: "A house" } })).toBeNull();
   });
 
   it("refuses an element with no name, no position, or none of our kinds", () => {
@@ -33,8 +34,56 @@ describe("the roadside record", () => {
     expect(fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { amenity: "fuel", name: "A gas station" } })).toBeNull();
   });
 
+  it("pulls the historic things people stop for and not the registered houses (step 19)", () => {
+    // Real tag sets from the first ten tiles of Amarillo to Austin.
+    expect(kindFromTags({ historic: "building", name: "Clarence and Lorraine Eakle House" })).toBeNull();
+    expect(kindFromTags({ historic: "church", name: "First Baptist Church of Plainview" })).toBeNull();
+    expect(kindFromTags({ historic: "yes", name: "Slaton Bakery" })).toBeNull();
+    expect(kindFromTags({ historic: "district", name: "Arts District" })).toBeNull();
+    expect(kindFromTags({ historic: "monument", name: "Helium Monument" })).toBe("historic");
+    expect(kindFromTags({ historic: "locomotive", name: "Madam Queen" })).toBe("historic");
+    expect(kindFromTags({ historic: "aircraft", name: "Douglas C-47 Skytrain" })).toBe("historic");
+    // a memorial that is a plaque is a roadside marker, not a stop
+    expect(kindFromTags({ historic: "memorial", memorial: "plaque", name: "Site of the First Courthouse" })).toBeNull();
+    expect(kindFromTags({ historic: "memorial", memorial: "statue", name: "Buddy Holly Statue" })).toBe("historic");
+    expect(kindFromTags({ historic: "memorial", name: "Texas Panhandle War Memorial" })).toBe("historic");
+  });
+
+  it("pulls observation towers and not radio masts", () => {
+    expect(kindFromTags({ man_made: "tower", "tower:type": "communication", name: "KFDA-TV (Amarillo)" })).toBeNull();
+    expect(kindFromTags({ man_made: "tower", name: "KQIZ-FM (Amarillo)" })).toBeNull();
+    expect(kindFromTags({ man_made: "tower", "tower:type": "observation", name: "Enchanted Rock Overlook Tower" })).toBe("tower");
+  });
+
+  it("pulls parks, and anything named on Wikidata that no other kind claims, except the things that are not stops", () => {
+    expect(kindFromTags({ boundary: "protected_area", name: "Palo Duro Canyon State Park", wikidata: "Q2047283" })).toBe("park");
+    expect(kindFromTags({ leisure: "nature_reserve", name: "Buffalo Lake" })).toBe("park");
+    expect(kindFromTags({ amenity: "restaurant", name: "The Big Texan Steak Ranch", wikidata: "Q4904873" })).toBe("notable");
+    expect(kindFromTags({ amenity: "restaurant", name: "Some Diner" })).toBeNull();
+    const notStops: Record<string, string>[] = [
+      { place: "city", name: "Amarillo", wikidata: "Q49262" },
+      { highway: "primary", name: "Route 66", wikidata: "Q1005" },
+      { waterway: "river", name: "Brazos River", wikidata: "Q1085628" },
+      { boundary: "administrative", admin_level: "6", name: "Potter County", wikidata: "Q26786" },
+      { landuse: "farmland", name: "XIT Ranch", wikidata: "Q7999999" },
+    ];
+    for (const notAStop of notStops) expect(kindFromTags(notAStop)).toBeNull();
+    // tourism still wins over notable
+    expect(kindFromTags({ tourism: "attraction", amenity: "restaurant", name: "Cadillac Ranch", wikidata: "Q254602" })).toBe("attraction");
+  });
+
+  it("reads the Q-id out of the forms the wikidata tag actually takes", () => {
+    expect(wikidataId("Q254602")).toBe("Q254602");
+    expect(wikidataId("https://www.wikidata.org/wiki/Q254602")).toBe("Q254602");
+    expect(wikidataId("Q254602;Q2112754")).toBe("Q254602");
+    expect(wikidataId(" q254602 ")).toBe("Q254602");
+    expect(wikidataId("not-a-qid")).toBeNull();
+    expect(wikidataId(undefined)).toBeNull();
+    expect(fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { tourism: "museum", name: "M", wikidata: "https://www.wikidata.org/wiki/Q42" } })?.wikidata).toBe("Q42");
+  });
+
   it("maps tags to kinds, tourism first, and drops a malformed wikidata id", () => {
-    expect(kindFromTags({ tourism: "viewpoint", historic: "yes" })).toBe("viewpoint");
+    expect(kindFromTags({ tourism: "viewpoint", historic: "monument" })).toBe("viewpoint");
     expect(kindFromTags({ natural: "waterfall" })).toBe("waterfall");
     expect(kindFromTags({ man_made: "lighthouse" })).toBe("lighthouse");
     expect(kindFromTags({ shop: "gift" })).toBeNull();
@@ -131,7 +180,11 @@ describe("the Overpass client", () => {
     expect(q).toContain("[out:json][timeout:45]");
     expect(q).toContain("35,-102,35.2,-101.8");
     expect(q).toContain('["tourism"~"^(attraction|museum|viewpoint|artwork|theme_park|zoo)$"]["name"]');
-    expect(q).toContain('["historic"]["name"]');
+    expect(q).toContain('["historic"~"^(monument|memorial|');
+    expect(q).not.toContain('["historic"]["name"]');
+    expect(q).toContain('["man_made"="tower"]["tower:type"="observation"]');
+    expect(q).toContain('["boundary"~"^(national_park|protected_area)$"]');
+    expect(q).toContain('["wikidata"]["name"]');
     expect(q).toContain("out center tags;");
   });
 
