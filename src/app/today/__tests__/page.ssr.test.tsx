@@ -42,6 +42,11 @@ describe("the today screen, server-rendered", () => {
     expect(html).not.toContain("7 h 30 min");        // the doubled number must not appear
     expect(html).not.toContain("Denver");
     expect(html).toContain("One-way drive times");
+    // No stop is a bare name: every spot rendered carries its reason.
+    const spots = html.match(/data-spot/g)?.length ?? 0;
+    const reasons = html.match(/data-reason/g)?.length ?? 0;
+    expect(spots).toBeGreaterThan(0);
+    expect(reasons).toBe(spots);
     // Not a dead end: every city links into the planner with both ends filled.
     expect(html).toContain("Plan a trip here");
     expect(html).toMatch(/href="\/\?fromName=[^"]*fromLat=35\.2073[^"]*toName=Albuquerque[^"]*toLat=/);

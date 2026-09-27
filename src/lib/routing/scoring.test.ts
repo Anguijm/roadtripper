@@ -20,6 +20,7 @@ const makeWaypoint = (overrides: Partial<LiteWaypoint> = {}): LiteWaypoint => ({
   type: "nature",
   trendingScore: 80,
   neighborhoodId: null,
+  description: null,
   ...overrides,
 });
 

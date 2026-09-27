@@ -2,7 +2,7 @@ import "server-only";
 import type Database from "better-sqlite3";
 import { atlasDb } from "./db";
 import type { City } from "@/lib/urban-explorer/cityAtlas";
-import type { LiteWaypoint } from "@/lib/routing/scoring";
+import { MAX_REASON_LENGTH, type LiteWaypoint } from "@/lib/routing/scoring";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import { WaypointTypeSchema, CityTierSchema } from "@/lib/urban-explorer/cityAtlas";
 
@@ -94,6 +94,21 @@ export function allCities(): City[] {
   }));
 }
 
+export function clipReason(raw: unknown): string | null {
+  // SQLite columns are typed by affinity, not by contract: a row can hold a
+  // number or a blob in a TEXT column, and this atlas is rebuilt from an
+  // external export. Anything that is not a string is "no reason", the same
+  // way safeWaypointType treats an unknown type, rather than a crash on
+  // .trim().
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+  if (s.length <= MAX_REASON_LENGTH) return s;
+  // Cut one short of the limit so the single-character ellipsis keeps the
+  // result at exactly MAX_REASON_LENGTH, never one over it.
+  return s.slice(0, MAX_REASON_LENGTH - 1).trimEnd() + "…";
+}
+
 interface WaypointRow {
   id: string; city_id: string; neighborhood_id: string | null;
   name: string; description: string | null; type: string;
@@ -112,7 +127,9 @@ const toLite = (r: WaypointRow): LiteWaypoint & { description: string | null; la
   // dangerouslySetInnerHTML, no markdown-to-HTML, no template interpolation
   // into markup. CLAUDE.md and the council's security persona both enforce
   // this at review time; this comment is so the next reader knows why.
-  description: r.description,
+  // Cut here, at the read, so no screen can be handed more than a sentence
+  // or two; blank becomes null so "no reason" is one value everywhere.
+  description: clipReason(r.description),
   lat: r.lat,
   lng: r.lng,
 });

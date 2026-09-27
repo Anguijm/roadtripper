@@ -45,6 +45,8 @@ export interface RankedWaypoint {
   name: string;
   type: WaypointType;
   trendingScore: number;
+  /** Why you would stop. Untrusted model text, render as text only; null when the atlas has none. */
+  description: string | null;
   /** Round-trip detour in minutes (from the candidate pipeline) */
   detourMinutes: number;
   /** Final score after typeWeight * vibeBonus / max(detour, 5) */

@@ -81,7 +81,7 @@ export default function HealthPage() {
               name: "Eastern State Penitentiary",
               type: "landmark",
               trendingScore: 50,
-              neighborhoodId: null,
+              neighborhoodId: null, description: "A fixed waypoint the health check renders; the atlas has a real reason for every real one.",
             },
           ],
           neighborhoods: {},

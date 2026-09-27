@@ -192,6 +192,10 @@ export default function RecommendationList({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-[#f0f6fc] truncate">{r.name}</p>
+                    {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
+                    {r.description && (
+                      <p className="text-xs text-[#b0b9c2] mt-0.5 line-clamp-2" data-reason>{r.description}</p>
+                    )}
                     <p className="text-xs text-[#7d8590] mt-0.5">
                       <span className="font-mono uppercase">{r.type.replace("_", " ")}</span>
                       <span className="mx-1">·</span>
