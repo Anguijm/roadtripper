@@ -34,6 +34,10 @@ export const RoadsideKindSchema = z.enum([
   "waterfall",
   "arch",
   "cave",
+  /** A national or state park, a nature reserve: the road goes past it. */
+  "park",
+  /** None of the above, but named and on Wikidata: the famous restaurant, the odd landmark. */
+  "notable",
   "other",
 ]);
 export type RoadsideKind = z.infer<typeof RoadsideKindSchema>;
@@ -65,6 +69,26 @@ export interface OsmElement {
   tags?: Record<string, string>;
 }
 
+/**
+ * The `historic` values people pull over for. Step 19's first ten tiles
+ * held 364 `historic` entries and most were registered houses, churches
+ * and cemeteries (`historic=building|house|church|yes|district`), which
+ * are not stops. A memorial that is a plaque or a stone is a roadside
+ * marker; Texas has thousands, and a marker is not a stop either.
+ */
+export const HISTORIC_STOP_VALUES = [
+  "monument", "memorial", "castle", "fort", "ruins", "archaeological_site", "ship", "aircraft",
+  "locomotive", "railway_car", "wreck", "battlefield", "landmark", "milestone", "boundary_stone",
+  "cannon", "tank", "city_gate", "bridge",
+] as const;
+const MARKER_MEMORIALS = new Set(["plaque", "stone", "blue_plaque", "stele"]);
+
+/**
+ * Tags that make a named, Wikidata-linked thing not a stop however
+ * notable: a town, a road, a railway, a river, a county line, a field.
+ */
+const NOT_A_STOP_KEYS = ["place", "highway", "railway", "waterway", "landuse", "admin_level"] as const;
+
 /** Which of our kinds an OSM tag set is, or null if it is none of them. */
 export function kindFromTags(tags: Record<string, string>): RoadsideKind | null {
   const t = tags.tourism;
@@ -74,12 +98,20 @@ export function kindFromTags(tags: Record<string, string>): RoadsideKind | null 
   if (t === "artwork") return "artwork";
   if (t === "theme_park") return "theme_park";
   if (t === "zoo") return "zoo";
-  if (tags.historic) return "historic";
+  if (tags.historic && (HISTORIC_STOP_VALUES as readonly string[]).includes(tags.historic)) {
+    if (tags.historic === "memorial" && MARKER_MEMORIALS.has(tags.memorial ?? "")) return null;
+    return "historic";
+  }
   if (tags.man_made === "lighthouse") return "lighthouse";
-  if (tags.man_made === "tower") return "tower";
+  // Observation towers are stops; radio masts (tower:type=communication) are not.
+  if (tags.man_made === "tower" && tags["tower:type"] === "observation") return "tower";
   if (tags.natural === "waterfall") return "waterfall";
   if (tags.natural === "arch") return "arch";
   if (tags.natural === "cave_entrance") return "cave";
+  if (tags.boundary === "national_park" || tags.boundary === "protected_area" || tags.leisure === "nature_reserve") return "park";
+  if (/^Q\d+$/.test(tags.wikidata ?? "") && tags.boundary !== "administrative" && !NOT_A_STOP_KEYS.some((k) => k in tags)) {
+    return "notable";
+  }
   return null;
 }
 

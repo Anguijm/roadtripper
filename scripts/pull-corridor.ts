@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import type { RoadsideStop } from "../src/lib/roadside/record";
 import { loadEnv } from "./lib/env.mjs";
 import { corridorTiles, withinCorridor, DEFAULT_BUFFER_KM, DEFAULT_TILE_KM } from "../src/lib/roadside/corridor";
-import { fetchCorridorFromOverpass } from "../src/lib/roadside/overpass";
+import { fetchCorridorFromOverpass, QUERY_VERSION } from "../src/lib/roadside/overpass";
 import type { LatLng } from "../src/lib/routing/polyline";
 
 const args = new Map(
@@ -71,7 +71,7 @@ const routeHash = createHash("sha256")
   .update(route.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join(";"))
   .digest("hex")
   .slice(0, 16);
-const progressKey = `v${PROGRESS_VERSION}|${name}|${routeHash}|${tiles.length}|${bufferKm}`;
+const progressKey = `v${PROGRESS_VERSION}|q${QUERY_VERSION}|${name}|${routeHash}|${tiles.length}|${bufferKm}`;
 let progress: Progress = { key: progressKey, tiles: {} };
 if (existsSync(progressPath)) {
   // A run killed mid-write can leave a truncated file; that is a clean

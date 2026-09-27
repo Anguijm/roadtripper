@@ -9,9 +9,15 @@
  */
 
 import type { BoundingBox } from "./corridor";
-import { fromOsmElement, type OsmElement, type RoadsideStop } from "./record";
+import { fromOsmElement, HISTORIC_STOP_VALUES, type OsmElement, type RoadsideStop } from "./record";
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+/**
+ * Bumped whenever `overpassQuery` asks for different things, so a pull's
+ * progress file, which carries it, does not merge tiles pulled under two
+ * different tag lists. 1 was the first guess; 2 is step 19's list.
+ */
+export const QUERY_VERSION = 2;
 export const USER_AGENT = "roadtripper (road-trip planner in development; contact: anguijm@gmail.com)";
 /**
  * Pacing, set against the public instance's published policy: it asks for
@@ -49,16 +55,23 @@ export const REQUEST_TIMEOUT_MS = 90_000;
 /**
  * The tags a road-tripper stops for. Overpass QL, applied to nodes, ways
  * and relations inside the box; `out center` gives ways and relations a
- * single point. The list is a first guess; step 19 reads the raw output and
- * says what it missed and what it dragged in.
+ * single point. Version 2, from step 19's reading of the first list's
+ * output: `historic` narrowed to what people pull over for, towers only
+ * when built to be climbed, parks added, and anything named on Wikidata
+ * added so the famous restaurant comes through. The parser
+ * (`kindFromTags`) applies the finer cuts the query language cannot.
  */
 export function overpassQuery(box: BoundingBox, timeoutSeconds = 45): string {
   const bbox = `${box.minLat},${box.minLng},${box.maxLat},${box.maxLng}`;
   const selectors = [
     `["tourism"~"^(attraction|museum|viewpoint|artwork|theme_park|zoo)$"]`,
-    `["historic"]`,
-    `["man_made"~"^(lighthouse|tower)$"]`,
+    `["historic"~"^(${HISTORIC_STOP_VALUES.join("|")})$"]`,
+    `["man_made"="lighthouse"]`,
+    `["man_made"="tower"]["tower:type"="observation"]`,
     `["natural"~"^(waterfall|arch|cave_entrance)$"]`,
+    `["boundary"~"^(national_park|protected_area)$"]`,
+    `["leisure"="nature_reserve"]`,
+    `["wikidata"]`,
   ];
   const body = selectors.flatMap((sel) => [`node${sel}["name"](${bbox});`, `way${sel}["name"](${bbox});`, `relation${sel}["name"](${bbox});`]).join("\n  ");
   return `[out:json][timeout:${timeoutSeconds}];\n(\n  ${body}\n);\nout center tags;`;
