@@ -15,6 +15,9 @@ interface CityAutocompleteProps {
   placeholder?: string;
   value?: CitySelection;
   onChange: (city: CitySelection | null) => void;
+  /** Fires on every keystroke, before any place is chosen. The route form
+   *  uses it to drop a location fix that lands while the user is typing. */
+  onTyping?: () => void;
 }
 
 export default function CityAutocomplete({
@@ -22,6 +25,7 @@ export default function CityAutocomplete({
   placeholder = "Enter a city",
   value,
   onChange,
+  onTyping,
 }: CityAutocompleteProps) {
   const places = useMapsLibrary("places");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +76,7 @@ export default function CityAutocomplete({
         type="text"
         placeholder={placeholder}
         value={displayValue}
-        onChange={(e) => setDisplayValue(e.target.value)}
+        onChange={(e) => { onTyping?.(); setDisplayValue(e.target.value); }}
         className="bg-[#0d1117] border border-[#30363d] focus:border-[#6e7681] outline-none px-3 py-2 text-sm text-[#f0f6fc] placeholder:text-[#4a5159] font-mono"
       />
     </div>

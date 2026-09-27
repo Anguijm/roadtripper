@@ -50,3 +50,12 @@ needs a destination to reach the plan page.
   called Your location when the snap finds nothing, fails, or throws" fails.
   Restored.
 - 327 tests, 15 new; lint and types clean.
+
+## Council round 1 on #52 (BLOCK, bugs 4, maintainability 5), and what changed
+
+- a fix that lands after the user typed or picked a city is dropped, not applied: the form reports edits through `noteManualChange`, the hook compares the count before and after
+- a fix that lands after the form is gone is dropped (mounted ref)
+- the snap's catch logs a warning with the reason; a declined snap logs its code; an empty snap is a real answer and stays quiet. Tested.
+- comments on the timeout, the cache age, the 3 km threshold and the `geo:` id explain the reason, the failure mode and which test pins each
+- status colours raised to #8b949e and #ff7b72, the same pair PlanWorkspace uses
+- **Found while fixing the race, not raised by the council:** the From box never showed a located city. `CityAutocomplete` reads `value` only on first render. The From field is now keyed on the selection's placeId, so a new selection remounts it with the right text; the key does not change on keystrokes. Tested at the server-render level (a given origin's name appears in the box); the update path itself still needs a DOM runner.

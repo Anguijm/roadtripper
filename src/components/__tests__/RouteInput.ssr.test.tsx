@@ -24,4 +24,11 @@ describe("RouteInput server render", () => {
     expect(html).toContain("Start city");
     expect(html).not.toContain("Finding you");
   });
+
+  it("shows a given origin's name in the From box", () => {
+    const html = renderToString(
+      <RouteInput initialFrom={{ placeId: "geo:35.22000,-101.83000", name: "Near Amarillo", lat: 35.22, lng: -101.83 }} />
+    );
+    expect(html).toContain('value="Near Amarillo"');
+  });
 });

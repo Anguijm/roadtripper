@@ -23,25 +23,44 @@ export interface LocateStatus {
  * a location prompt nobody asked for is the fastest way to get it denied for
  * good, and Safari will not show one without a gesture anyway.
  *
+ * The user always wins. A fix can take up to ten seconds; if the user types
+ * or picks a city in that window, the fix is dropped when it lands rather
+ * than overwriting what they chose. The form reports those edits through
+ * `noteManualChange`. A fix that lands after the form is gone is dropped too.
+ *
  * Browser globals are read only inside the effect and the handler, never
  * during render, so this is safe to server-render.
  */
 export function useLocatedOrigin(onLocated: (selection: OriginSelection) => void) {
   const [status, setStatus] = useState<LocateStatus>({ kind: "idle", message: "" });
   const busy = useRef(false);
+  const mounted = useRef(false);
+  const manualEdits = useRef(0);
+
+  const noteManualChange = useCallback(() => {
+    manualEdits.current += 1;
+  }, []);
 
   const run = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
+    const editsWhenStarted = manualEdits.current;
     setStatus({ kind: "locating", message: "Finding you." });
     try {
       const { selection, label } = await locateAndSnap({
         geolocation: navigator.geolocation,
         snap: (p) => snapOriginAction(p),
       });
+      if (!mounted.current) return;
+      if (manualEdits.current !== editsWhenStarted) {
+        // They typed or picked a city while we were looking. Theirs stands.
+        setStatus({ kind: "idle", message: "" });
+        return;
+      }
       onLocated(selection);
       setStatus({ kind: "located", message: label });
     } catch (err) {
+      if (!mounted.current) return;
       setStatus({ kind: "error", message: locateFailureMessage(err) });
     } finally {
       busy.current = false;
@@ -49,13 +68,13 @@ export function useLocatedOrigin(onLocated: (selection: OriginSelection) => void
   }, [onLocated]);
 
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
     const permissions = typeof navigator === "undefined" ? undefined : navigator.permissions;
     void permissionState(permissions).then((state) => {
-      if (!cancelled && state === "granted") void run();
+      if (mounted.current && state === "granted") void run();
     });
-    return () => { cancelled = true; };
+    return () => { mounted.current = false; };
   }, [run]);
 
-  return { status, locate: run };
+  return { status, locate: run, noteManualChange };
 }

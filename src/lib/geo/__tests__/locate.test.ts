@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   locate,
   locateAndSnap,
@@ -87,7 +87,10 @@ describe("locateAndSnap", () => {
     expect(selection).toEqual({ placeId: "geo:35.25000,-101.85000", name: "Near Amarillo", lat: 35.25, lng: -101.85 });
   });
 
-  it("still yields an origin called Your location when the snap finds nothing, fails, or throws", async () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("still yields an origin called Your location when the snap finds nothing, fails, or throws, and says so in the console", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const geo = fakeGeo({ pos: { lat: 44.0, lng: -110.0 } });
     for (const snap of [
       snapTo({ ok: true, snap: null }),
@@ -99,6 +102,10 @@ describe("locateAndSnap", () => {
       expect(selection.lat).toBe(44.0);
       expect(selection.lng).toBe(-110.0);
     }
+    // An empty snap is a real answer and is not logged; a declined or thrown one is.
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0][0]).toMatch(/snap declined \(rate_limited\)/);
+    expect(warn.mock.calls[1][0]).toMatch(/snap failed/);
   });
 
   it("does not call the snap when there is no position", async () => {

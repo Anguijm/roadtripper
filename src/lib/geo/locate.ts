@@ -45,13 +45,28 @@ export interface PermissionsLike {
 
 export type PermissionState = "granted" | "denied" | "prompt" | "unknown";
 
-/** Ten seconds: a phone with a fix answers in one or two; past ten the user is
- *  better served by typing. Five minutes of cached position is fine for a
- *  city-scale origin. */
+/**
+ * Ten seconds: a phone with a fix answers in one or two; past ten the user is
+ * better served by typing, so the failure becomes a LocateError("timeout")
+ * and one line telling them to type. While it waits the button is disabled
+ * and the status says "Finding you." A fix that lands after the user has
+ * typed is dropped by the hook, so a slow answer cannot overwrite them.
+ *
+ * Five minutes of cached position: the origin is a city, not a kerb, and a
+ * fix from a few minutes ago is the same city. Older than that and the phone
+ * takes a fresh one. Both values are asserted by locate.test.ts, so changing
+ * them here means changing the test on purpose.
+ */
 export const LOCATE_TIMEOUT_MS = 10_000;
 export const LOCATE_MAX_AGE_MS = 5 * 60_000;
 
-/** Beyond this the label says "Near <city>" rather than claiming the city. */
+/**
+ * Beyond this the label says "Near <city>" rather than claiming the city.
+ * 3 km is roughly a downtown: inside it, "Amarillo" is simply true; outside
+ * it you are in a suburb or on the highway and "Near Amarillo" is the honest
+ * word. The atlas snaps up to 40 km, so without this a fix 30 km out would
+ * still read as the city. locate.test.ts pins the boundary at exactly 3.0.
+ */
 export const NEAR_THRESHOLD_KM = 3;
 
 export interface Position {
@@ -123,12 +138,20 @@ export async function locateAndSnap(deps: {
   try {
     const r = await deps.snap({ lat: pos.lat, lng: pos.lng });
     if (r.ok) snapped = r.snap;
-  } catch {
-    // The snap is a nicety; the coordinates are the origin.
+    else console.warn(`[locate] snap declined (${r.code}); using coordinates only`);
+  } catch (err) {
+    // The snap is a nicety; the coordinates are the origin. Logged, because
+    // a server action failing on every page open is worth knowing about.
+    console.warn("[locate] snap failed; using coordinates only:", err instanceof Error ? err.message : String(err));
   }
   const label = originLabel(snapped);
   return {
     selection: {
+      // A CitySelection needs a placeId because Google's autocomplete gives
+      // one. Nothing parses this string: the plan page reads fromLat and
+      // fromLng from the URL and ignores `from`. It only has to be a stable,
+      // distinct id for the location, and five decimals (about a metre) is
+      // enough for that without pretending the fix is that precise.
       placeId: `geo:${pos.lat.toFixed(5)},${pos.lng.toFixed(5)}`,
       name: label,
       lat: pos.lat,

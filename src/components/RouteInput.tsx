@@ -109,11 +109,17 @@ export default function RouteInput({
   return (
     <APIProvider apiKey={apiKey} libraries={["places"]}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Keyed on the selection: CityAutocomplete reads `value` only on its
+            first render, so a located city set from outside would never show
+            in the box. Remounting on a new placeId is the one lint-clean way
+            to reflect it; the key does not change on keystrokes. */}
         <CityAutocomplete
+          key={from?.placeId ?? "no-origin"}
           label="From"
           placeholder="Start city"
           value={from ?? undefined}
-          onChange={setFrom}
+          onChange={(city) => { located.noteManualChange(); setFrom(city); }}
+          onTyping={located.noteManualChange}
         />
         <div className="flex items-center gap-3 -mt-2">
           <button
@@ -125,7 +131,7 @@ export default function RouteInput({
             Use where I am
           </button>
           <p
-            className={`text-xs font-mono ${located.status.kind === "error" ? "text-[#f85149]" : "text-[#7d8590]"}`}
+            className={`text-xs font-mono ${located.status.kind === "error" ? "text-[#ff7b72]" : "text-[#8b949e]"}`}
             aria-live="polite"
             aria-atomic="true"
           >
