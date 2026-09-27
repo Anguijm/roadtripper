@@ -162,6 +162,28 @@ describe("the Overpass client", () => {
     expect(pauses).toEqual([...RETRY_PAUSES_MS]);
   });
 
+  it("treats a client-side timeout like a 504: retried on the same schedule, then reported as a timeout", async () => {
+    const timeout = () => { const e = new Error("The operation timed out."); e.name = "TimeoutError"; return Promise.reject(e); };
+    const once = vi.fn().mockImplementationOnce(timeout).mockResolvedValueOnce(reply(200, { elements: [] }));
+    const sleep = vi.fn(async () => {});
+    await fetchBoxFromOverpass(box, { fetch: once as never, sleep });
+    expect(once).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(RETRY_PAUSES_MS[0]);
+
+    const always = vi.fn().mockImplementation(timeout);
+    const err = await fetchBoxFromOverpass(box, { fetch: always as never, sleep: vi.fn(async () => {}) }).catch((e) => e);
+    expect(err).toBeInstanceOf(OverpassError);
+    expect(err.message).toMatch(/timed out/);
+    expect(always).toHaveBeenCalledTimes(1 + RETRY_PAUSES_MS.length);
+
+    // a cancellation is not a timeout: it is thrown as it is, no retry
+    const controller = new AbortController();
+    const aborted = vi.fn(async () => { controller.abort(); const e = new Error("aborted"); e.name = "AbortError"; throw e; });
+    const cancelled = await fetchBoxFromOverpass(box, { fetch: aborted as never, sleep: vi.fn(async () => {}), signal: controller.signal }).catch((e) => e);
+    expect(cancelled.name).toBe("AbortError");
+    expect(aborted).toHaveBeenCalledTimes(1);
+  });
+
   it("can be pointed at another instance", async () => {
     let url: string | undefined;
     const fetchMock = vi.fn(async (u: RequestInfo | URL) => { url = String(u); return reply(200, { elements: [] }); });

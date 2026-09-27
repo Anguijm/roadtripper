@@ -42,3 +42,7 @@ one stopped, which is the honest best a shared free service allows.
 - Rule 1: with the rerun ignoring the tiles it already holds, "resumes: tiles already held are not fetched again" fails. Restored. The script's progress file is exercised by the real run of step 19, which was started against this branch's code the moment the tests passed.
 - Rule 2: the retry test asserts the exact pause series 10, 30, 60 s and that a fourth failure stops with the status; "can be pointed at another instance" asserts the URL override.
 - 402 tests, 2 new; lint and types clean.
+
+## Found by the third run, before council answered
+
+- Tile 3 took longer than the client's 60 s and died with a TimeoutError, which was not on the retry list. A client-side timeout on a busy instance means the same as a 504 and is now retried on the same 10, 30, 60 s schedule; the limit is 90 s to give the queue room. A cancellation is still thrown as it is. Tested for both. The script stops with one line naming the saved tiles instead of dumping a DOMException.

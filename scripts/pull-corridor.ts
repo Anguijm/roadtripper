@@ -71,7 +71,9 @@ const already = new Map<number, RoadsideStop[]>(Object.entries(progress.tiles).m
 console.log(`  ${tiles.length} tiles of up to ${DEFAULT_TILE_KM} km, buffer ${bufferKm} km; ${already.size} already held, pulling the rest from Overpass`);
 
 const overpassUrl = env.OVERPASS_URL;
-const raw = await fetchCorridorFromOverpass(
+let raw: RoadsideStop[];
+try {
+  raw = await fetchCorridorFromOverpass(
   tiles.map((t) => t.box),
   { fetch: (...a) => fetch(...a), sleep: (ms) => new Promise((r) => setTimeout(r, ms)), url: overpassUrl },
   (i, n, stops) => {
@@ -80,7 +82,14 @@ const raw = await fetchCorridorFromOverpass(
     console.log(`  tile ${i}/${n}: ${stops.length} named stops in the box`);
   },
   already
-);
+  );
+} catch (err) {
+  // One line, not a stack: the progress file holds every tile that
+  // answered, so the fix for a busy instance is to run this again later.
+  console.error(`pull stopped: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+  console.error(`${Object.keys(progress.tiles).length} of ${tiles.length} tiles are saved in ${progressPath}; rerun the same command to resume`);
+  process.exit(1);
+}
 const inCorridor = raw.filter((s) => withinCorridor(s, route, bufferKm));
 console.log(`  ${raw.length} in the boxes, ${inCorridor.length} within ${bufferKm} km of the road`);
 

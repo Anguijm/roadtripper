@@ -35,11 +35,13 @@ export const PAUSE_MS = 1500;
  */
 export const RETRY_PAUSES_MS = [10_000, 30_000, 60_000] as const;
 /**
- * Client-side; the query carries its own 45 s server-side timeout too, so
- * a healthy instance answers or refuses within that, and this only catches
- * a connection that hangs.
+ * Client-side. The query carries its own 45 s server-side timeout, but a
+ * busy instance queues a request before it starts counting, so the third
+ * run of step 19 saw a healthy tile take longer than 60 s. Ninety gives the
+ * queue room; past it the request is abandoned and counts as transient,
+ * retried on the same schedule as a 504, since it means the same thing.
  */
-export const REQUEST_TIMEOUT_MS = 60_000;
+export const REQUEST_TIMEOUT_MS = 90_000;
 
 /**
  * The tags a road-tripper stops for. Overpass QL, applied to nodes, ways
@@ -95,12 +97,27 @@ export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps 
       signal,
     });
 
-  let res = await attempt();
+  // One try. A response comes back as is; a client-side timeout comes back
+  // as null (transient, like a 504); a cancellation or any other failure is
+  // thrown as it is.
+  const tryOnce = async (): Promise<Response | null> => {
+    try {
+      return await attempt();
+    } catch (err) {
+      if (deps.signal?.aborted) throw err;
+      if (err instanceof Error && err.name === "TimeoutError") return null;
+      throw err;
+    }
+  };
+  const transient = (r: Response | null) => r === null || r.status === 429 || r.status === 504;
+
+  let res = await tryOnce();
   for (const pause of RETRY_PAUSES_MS) {
-    if (res.status !== 429 && res.status !== 504) break;
+    if (!transient(res)) break;
     await deps.sleep(pause);
-    res = await attempt();
+    res = await tryOnce();
   }
+  if (res === null) throw new OverpassError(0, `timed out after ${REQUEST_TIMEOUT_MS} ms, ${RETRY_PAUSES_MS.length + 1} tries`);
   if (!res.ok) throw new OverpassError(res.status, await res.text());
 
   const json = (await res.json()) as { elements?: OsmElement[] };
