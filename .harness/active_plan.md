@@ -4,61 +4,64 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/arrival-date-through`
+Branch: `feat/feasibility-line`
 
 ## Goal
 
-Step 9: carry the arrival date through. The picker has an arrival mode,
-the plan page derives a start date from it and shows deadline pressure,
-and that is where it stops. A saved trip forgets it was an arrival-date
-trip, the plan header does not say the date, and the today screen has no
-idea you have somewhere to be. Done when every screen knows your deadline.
+Step 10: the feasibility line. "Two nights here and you still make Austin
+by Oct 14." On the today screen, when a deadline and its destination are
+known, every city in range gets one sentence saying how long you can stay
+there and still arrive on time, or that you cannot. Done when it is right
+on five hand-checked cases, including one where the answer is no.
 
 ## Ship rule, written before the work
 
-1. One module says what a deadline means: `src/lib/plan/deadline.ts`, pure,
-   with `daysUntil`, `formatDeadline` and `deadlineLine`, tested including
-   "today", "tomorrow" and "passed".
-2. The plan header shows it: "Arrive by Oct 14" in arrival mode, the range
-   otherwise. Server-rendered, tested.
-3. A saved trip remembers it was an arrival-date trip. Reopening it sends
-   `dateMode=arrival` and the end date, so the start date is re-derived
-   from the route, not frozen at save time. Old saved trips without the
-   field still open exactly as before. Tested at the storage layer.
-4. The today screen can be told the deadline and the destination
-   (`arriveBy`, `toName`, `toLat`, `toLng`). It shows one line, "Arrive in
-   Austin by Oct 14, 6 days left", on the start screen and the results, and
-   offers one link, "Plan the trip to Austin from here", which opens the
-   planner in arrival mode with the date set. The per-city "plan a trip
-   here" links stay trips to that city and carry no date: the deadline is
-   for Austin, not for Lubbock, and putting it on Lubbock would be a lie.
-   (Amended from the first draft, which said every link would carry it.)
-   Locating on the start screen keeps the deadline through Go. Without
-   those parameters the screen is unchanged.
-5. The home page accepts `dateMode=arrival` and `endDate` in the handoff,
-   so a link can open the planner already in arrival mode.
-6. Nothing here calls out. Cost per open stays $0 on the today screen; the
-   plan page's calls are unchanged.
+1. The arithmetic is one pure function, `maxNights`, with the same
+   overnight quantization the plan page already uses (a six-hour leg on a
+   five-hour budget is two days): days to reach the city beyond today, plus
+   nights there, plus driving days from the city to the destination, must
+   land on or before the deadline. Tested on its own.
+2. Three answers, each one sentence: "Two nights here and you still make
+   Austin by Oct 14." "Pass through today and you still make Austin by
+   Oct 14." "Stop here and you miss Austin: one day late even driving
+   straight on." Numbers up to ten are words, spoken.
+3. Minutes from a city to the destination come from the drive graph when
+   the pair exists. When it does not (the destination is more than 650 km
+   from that city), the sentence uses an estimate from the graph's own
+   median pace per straight-line kilometre and starts with "Roughly".
+   Never silent, never a guess presented as exact.
+4. Five hand-checked cases against the real graph, the expected sentence
+   written out in full in the test, the arithmetic shown in the test from
+   the graph's minutes: two "nights" cases, one "pass through", one
+   "roughly", and one "no".
+5. Without a deadline the today screen is unchanged. Nothing calls out.
 
-**Cost:** $0. Dates are arithmetic.
+**Cost:** $0. Two more SQLite reads per city shown, at most ten cities.
 
-**Weakest part:** The today screen knows the deadline but does not yet use
-it to judge the cities it lists; "six days left and Albuquerque is on the
-way" is step 10, the feasibility line. Here the deadline is carried, shown
-and passed on, not reasoned about. And "days left" is computed against the
-server's clock in UTC, which near midnight can differ from John's day by
-one; the line says the date, so the number is a convenience, not the
-truth.
+**Weakest part:** The plan page's candidate list does not get the line
+yet. Its numbers come from the Routes API per leg, a different data path,
+and the sentence there would need candidate-to-destination minutes the
+page does not have. The today screen is where the morning decision is
+made, so it goes first; the plan page is a follow-up. And the deadline day
+is counted from the server's UTC date, as in step 9.
 
 ## Gate 1 proofs
 
-- Rule 2: with the header's arrival branch disabled, "arrival mode: says Arrive by the date" fails. Restored.
-- Rule 3: with `dateMode` removed from the saved-trip schema, both storage tests fail (the field is stripped on save, and an invalid mode is accepted). Restored. With the card's arrival branch disabled, "reopens an arrival-date trip in arrival mode" fails. Restored.
-- Rule 4: the today page test asserts the deadline line, the one arrival-mode link to the destination, that per-city links carry no date, that the change link keeps the deadline, that the start screen shows it, and that a bad date or a missing destination shows nothing.
-- Rule 5: the home page test opens in arrive-by mode with "Arrive by Oct 14" from the URL, and a bad date leaves the picker empty.
-- 351 tests, 17 new; lint and types clean. The plan page now has a server-render test of its own, with the paid calls mocked.
+- Rule 1: with floor instead of ceil in the driving-day count (half a night on the road), six tests fail, including hand-checked cases 1, 2 and 3. Restored.
+- Rule 3: with the estimate no longer saying "Roughly", the sentence test, hand-checked case 4 and the page test fail. Restored.
+- Rule 4: the five cases pass against the real graph on the first run; the expected sentences are literal in the test, and the arithmetic is written beside each from the graph's minutes (Lubbock to Austin 321.5, Oklahoma City to Austin 312.3, Albuquerque to Austin absent, estimated at about 728).
+- Rule 5: the page test renders without a deadline and finds no such line.
+- 366 tests, 15 new; lint and types clean.
 
-## Council round 1 on #55 (CONDITIONAL, bugs 8), and what changed
+## Council round 1 on #56 (CONDITIONAL, bugs 6), and what changed
 
-- `DAY_MS` named, with why UTC midnight makes plain division exact and local midnight would not
-- Answered, not changed: there are no Firestore rules to verify. Saved trips have lived in localStorage since #47; the schema is the only rule, `dateMode` is optional there, and the storage test loads a record written without it.
+- the 650 km neighbourhood names `NEIGHBOUR_RADIUS_KM` in scripts/build-drive-graph.mjs; the two `Math.max(0, ...)` guards are explained; the ten-word boundary says which tests pin it
+- Pushed back on a module-level prepared statement (no query in the file caches one; this is the least-called) and on validating `hours` and the coordinates (already done by `hoursFrom` and `pointFrom`, both tested)
+
+## Council round 2 on #56 (CONDITIONAL, bugs 6), and what changed
+
+- **A real catch:** the estimate marker was a prefix on every sentence, giving "Roughly stop here and you miss Austin". It now sits on the number when there is one ("roughly one day late", "roughly two nights") and on the verdict when there is not ("probably still make"). Tested, including that no sentence starts "Roughly stop" or "Roughly pass".
+- a small statement cache in queries.ts, keyed by SQL, used by the pair lookup that runs once per city shown; the comment says which queries should and should not use it
+- an empty graph no longer throws from the pace function; the last measured pace stands in and the log says so
+- the budget's sign is checked where the budget is used, with a comment that `hoursFrom` already guarantees it
+- Items 1 and 2 were pushed back on in round 1 and asked for again. Applied this round because both are harmless and a third round on them would cost more than the change.

@@ -9,7 +9,10 @@ import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scori
 import { parsePersonaId, PERSONAS } from "@/lib/personas";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
-import { parseIsoDate, deadlineLine, todayIso } from "@/lib/plan/deadline";
+import { parseIsoDate, deadlineLine, todayIso, daysUntil } from "@/lib/plan/deadline";
+import { feasibility, feasibilityLine } from "@/lib/plan/feasibility";
+import { snapToCity, driveMinutesBetween, driveGraphPaceMinutesPerKm } from "@/lib/atlas/queries";
+import { haversineKm } from "@/lib/routing/polyline";
 
 interface TodaySearchParams {
   lat?: string;
@@ -162,6 +165,33 @@ export default async function TodayPage({
   const groups = buildRankedGroups(fetchResult, personaId);
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
   const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
+
+  // The feasibility line, per city, when there is a deadline: how long you
+  // can stay there and still make the destination. Minutes on to the
+  // destination come from the graph when the pair exists; otherwise from the
+  // graph's median pace over the straight line, and the sentence says so.
+  const destCity = deadline ? (snapToCity(deadline.point)?.city ?? null) : null;
+  const daysToDeadline = deadline ? daysUntil(deadline.endDate, todayIso()) : 0;
+  const pace = deadline ? driveGraphPaceMinutesPerKm() : 0;
+  const feasibilityFor = (cityId: string): string | null => {
+    if (!deadline) return null;
+    // hoursFrom only ever returns a preset from 2 to 8, so this cannot fail;
+    // it is here so the budget's sign is checked where the budget is used,
+    // since maxNights throws on zero.
+    if (!(hours > 0)) return null;
+    const city = cityById.get(cityId);
+    if (!city) return null;
+    if (destCity && destCity.id === cityId) return null;  // that city is the destination
+    const exact = destCity ? driveMinutesBetween(cityId, destCity.id) : null;
+    const minutesOn = exact ?? haversineKm(city, deadline.point) * pace;
+    const f = feasibility({
+      daysToDeadline,
+      budgetMinutes: hours * 60,
+      minutesToCity: oneWay.get(cityId) ?? 0,
+      minutesCityToDestination: minutesOn,
+    });
+    return feasibilityLine(f, { toName: deadline.toName, endDate: deadline.endDate, estimated: exact === null });
+  };
   const shown = groups.length;
   const total = plan.reachable.length;
   const persona = PERSONAS[personaId];
@@ -230,6 +260,10 @@ export default async function TodayPage({
                   tap from a route. Every group comes from plan.reachable, so
                   the lookup cannot miss; if it ever did, no link is better
                   than a link to the equator. */}
+              {(() => {
+                const verdict = feasibilityFor(g.cityId);
+                return verdict ? <p className="text-sm text-[#f0f6fc] mb-2">{verdict}</p> : null;
+              })()}
               {(() => {
                 const city = cityById.get(g.cityId);
                 if (!city) return null;

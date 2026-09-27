@@ -1,4 +1,5 @@
 import "server-only";
+import type Database from "better-sqlite3";
 import { atlasDb } from "./db";
 import type { City } from "@/lib/urban-explorer/cityAtlas";
 import type { LiteWaypoint } from "@/lib/routing/scoring";
@@ -270,6 +271,75 @@ export function hasDriveGraphFor(cityId: string): boolean {
     )
     .get(cityId);
   return (row?.c ?? 0) > 0;
+}
+
+// Prepared statements, by SQL text, for queries called several times per
+// request. atlasDb() is one read-only handle for the life of the process, so
+// a statement prepared on it stays valid. Other queries in this file prepare
+// per call because they run once per request; use this where a query runs in
+// a loop.
+const prepared = new Map<string, ReturnType<Database.Database["prepare"]>>();
+function stmt<P extends unknown[], R>(sql: string) {
+  let s = prepared.get(sql);
+  if (!s) {
+    s = atlasDb().prepare(sql);
+    prepared.set(sql, s);
+  }
+  return s as Database.Statement<P, R>;
+}
+
+/** Stored one-way minutes for one directed pair, or null when the graph has
+ *  no row for it: the pair is farther apart than the build's neighbourhood,
+ *  or one id is unknown. The neighbourhood is `NEIGHBOUR_RADIUS_KM` (650 km,
+ *  straight line) in scripts/build-drive-graph.mjs; only pairs inside it are
+ *  ever fetched, so absence here means "not built", never "unroutable". */
+export function driveMinutesBetween(fromCityId: string, toCityId: string): number | null {
+  const row = stmt<[string, string], { minutes: number }>(
+    `select minutes from city_drive_times where from_city_id = ? and to_city_id = ?`
+  ).get(fromCityId, toCityId);
+  return row ? row.minutes : null;
+}
+
+let pacePerKm: number | null = null;
+/** The median measured on 2026-09-27 over 5,132 pairs; only used if the graph is empty. */
+const FALLBACK_PACE_MIN_PER_KM = 0.7355;
+
+/**
+ * The graph's median pace in minutes per straight-line kilometre, for
+ * estimating a pair the graph does not hold. Median, not mean, so a few
+ * mountain or coastal pairs do not pull it. Computed once per process from
+ * every stored pair (about 5,000 rows, a few milliseconds) and cached; the
+ * atlas is read-only for the life of the process, so it cannot go stale.
+ * Measured 0.7355 on 2026-09-27, about 82 km/h as the crow flies.
+ */
+export function driveGraphPaceMinutesPerKm(): number {
+  if (pacePerKm !== null) return pacePerKm;
+  const rows = atlasDb()
+    .prepare<[], { minutes: number; alat: number; alng: number; blat: number; blng: number }>(
+      `select t.minutes, a.lat as alat, a.lng as alng, b.lat as blat, b.lng as blng
+         from city_drive_times t
+         join cities a on a.id = t.from_city_id
+         join cities b on b.id = t.to_city_id`
+    )
+    .all();
+  const paces = rows
+    .map((r) => {
+      const km = haversineKm({ lat: r.alat, lng: r.alng }, { lat: r.blat, lng: r.blng });
+      return km > 0 ? r.minutes / km : NaN;
+    })
+    .filter((x) => Number.isFinite(x))
+    .sort((x, y) => x - y);
+  if (paces.length === 0) {
+    // An empty graph cannot reach this in practice: the today screen only
+    // asks for a pace after planToday found graph rows for the origin. If it
+    // ever does, an estimate labelled "roughly" is still better than a crash,
+    // so the last measured value stands in, and the log says so.
+    console.error("[atlas] drive graph has no pairs; using the last measured pace 0.7355 min/km");
+    pacePerKm = FALLBACK_PACE_MIN_PER_KM;
+    return pacePerKm;
+  }
+  pacePerKm = paces[Math.floor(paces.length / 2)];
+  return pacePerKm;
 }
 
 /** Provenance, so a caller (or a human) can see what built the graph and how
