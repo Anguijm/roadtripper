@@ -52,3 +52,11 @@ as with step 6, the phone itself is not exercised from here.
 - `DriveBudgetSelector` imports the one preset list from presets.ts, so the two screens cannot drift
 - home nav contrast to #8b949e; focus rings on every button and link on the today screen
 - Pushed back with evidence on three: capping `reachable` (max 56 rows per origin in the graph, pipeline already slices to 10, a cap would make the count lie); throttling `maybeSweep` (already interval-guarded at 5 min, and Node runs one request at a time); bounding `LatLngSchema` (already ±90/±180 in plan/types.ts, tested in #52)
+
+## Council round 2 on #53 (CONDITIONAL, bugs 8, product 5), and what changed
+
+- double-submit guard on the start screen, with a "Looking..." state
+- comments: why `reachable` is uncapped (56 rows max per origin, pipeline slices to 10), and which test pins the 3 km threshold
+- Pushed back on handling a `"failed"` status: `WaypointFetchResult` has two members, fresh and degraded, and degraded was handled in round 1
+- **The product reviewer's real point, a dead end, fixed:** every city on the results links into the planner with both ends filled. The home page now reads a start and an end from the URL, validated with `LatLngSchema` and cut at 80 characters, and hands them to `RouteInput`. Tested on both pages.
+- **Recorded for John, not decided:** the product reviewer would rather this lived inside the map workspace as pins than as its own text screen. That is the map-first question. The plan says the today screen first; a map view of it is a candidate step, not a rewrite of this one.

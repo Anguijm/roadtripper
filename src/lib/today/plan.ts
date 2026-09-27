@@ -44,6 +44,11 @@ export function planToday(origin: LatLng, hours: number): TodayPlan {
   const byId = new Map(allCities().map((c) => [c.id, c]));
   // driveTimesFrom already filters to the budget and sorts ascending; the
   // minutes it holds are calibrated, one-way, city centre to city centre.
+  // Deliberately not capped here. The graph holds at most 56 rows for any
+  // origin (650 km neighbourhood; mean 27), read by one indexed query, and
+  // the waypoint pipeline slices to its own MAX_WAYPOINT_CITIES before it
+  // touches waypoints. A cap here would only make "N cities within 5 hours"
+  // a lie; the page shows the count and says how many it left out.
   const reachable = driveTimesFrom(id, hours * 60).flatMap((row) => {
     const city = byId.get(row.cityId);
     return city ? [{ city, oneWayDriveMinutes: row.minutes }] : [];

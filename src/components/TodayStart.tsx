@@ -26,10 +26,12 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
   const [origin, setOrigin] = useState<CitySelection | null>(null);
   const [hours, setHours] = useState<HoursPreset>(initialHours);
   const [persona, setPersona] = useState<PersonaId>(initialPersonaId);
+  const [submitting, setSubmitting] = useState(false);
   const located = useLocatedOrigin(setOrigin);
 
   function go() {
-    if (!origin) return;
+    if (!origin || submitting) return;
+    setSubmitting(true);
     const params = new URLSearchParams({
       lat: origin.lat.toString(),
       lng: origin.lng.toString(),
@@ -107,10 +109,10 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
 
         <button
           type="submit"
-          disabled={!origin}
+          disabled={!origin || submitting}
           className="mt-1 min-h-[44px] py-3 text-sm font-mono uppercase tracking-widest border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
-          {origin ? `Show me what is within ${hours} hours` : "Pick where you are first"}
+          {submitting ? "Looking..." : origin ? `Show me what is within ${hours} hours` : "Pick where you are first"}
         </button>
       </form>
     </APIProvider>

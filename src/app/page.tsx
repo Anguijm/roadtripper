@@ -1,7 +1,32 @@
 import Link from "next/link";
 import RouteInput from "@/components/RouteInput";
+import type { CitySelection } from "@/components/CityAutocomplete";
+import { LatLngSchema } from "@/lib/plan/types";
 
-export default function Home() {
+interface HomeSearchParams {
+  fromName?: string;
+  fromLat?: string;
+  fromLng?: string;
+  toName?: string;
+  toLat?: string;
+  toLng?: string;
+}
+
+/** A place handed in by the URL, or nothing. Never trusts the text past 80 characters. */
+function selectionFrom(name: string | undefined, lat: string | undefined, lng: string | undefined, prefix: string): CitySelection | undefined {
+  if (lat === undefined || lng === undefined) return undefined;
+  const point = LatLngSchema.safeParse({ lat: Number(lat), lng: Number(lng) });
+  if (!point.success) return undefined;
+  const label = (name ?? "").trim().slice(0, 80) || `${prefix}`;
+  return { placeId: `geo:${point.data.lat.toFixed(5)},${point.data.lng.toFixed(5)}`, name: label, ...point.data };
+}
+
+export default async function Home({ searchParams }: { searchParams: Promise<HomeSearchParams> }) {
+  // The today screen hands a start and an end here ("plan a trip to
+  // Albuquerque from where you are"), so the form opens filled in.
+  const params = await searchParams;
+  const initialFrom = selectionFrom(params.fromName, params.fromLat, params.fromLng, "Start");
+  const initialTo = selectionFrom(params.toName, params.toLat, params.toLng, "End");
   return (
     <div className="flex flex-col min-h-screen">
       <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
@@ -35,7 +60,7 @@ export default function Home() {
               themed stops along the way.
             </p>
           </div>
-          <RouteInput />
+          <RouteInput initialFrom={initialFrom} initialTo={initialTo} />
           <p className="mt-6 text-xs text-center text-[#4a5159] font-mono">
             Powered by Urban Explorer — 258 cities, thousands of waypoints
           </p>

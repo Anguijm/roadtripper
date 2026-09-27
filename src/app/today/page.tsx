@@ -137,6 +137,7 @@ export default async function TodayPage({
   const spotsDegraded = fetchResult.status === "degraded";
   const groups = buildRankedGroups(fetchResult, personaId);
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
+  const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
   const shown = groups.length;
   const total = plan.reachable.length;
   const persona = PERSONAS[personaId];
@@ -149,7 +150,9 @@ export default async function TodayPage({
         </h1>
         <p className="text-sm text-[#8b949e]">
           From {whereLabel}
-          {/* Same 3 km as the "Near <city>" label: inside it you are in the city; beyond it, say how far. */}
+          {/* Same 3 km as the "Near <city>" label, imported so it cannot drift:
+              inside it you are in the city; beyond it, say how far. The
+              boundary is pinned at exactly 3.0 by locate.test.ts. */}
           {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
           . One-way drive times.
         </p>
@@ -176,6 +179,22 @@ export default async function TodayPage({
                   {formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)}
                 </span>
               </div>
+              {/* The way out of this screen into the trip planner: start and
+                  end filled in, so "five hours, Albuquerque looks good" is one
+                  tap from a route. */}
+              <Link
+                href={`/?${new URLSearchParams({
+                  fromName: whereLabel,
+                  fromLat: origin.data.lat.toString(),
+                  fromLng: origin.data.lng.toString(),
+                  toName: g.cityName,
+                  toLat: (cityById.get(g.cityId)?.lat ?? 0).toString(),
+                  toLng: (cityById.get(g.cityId)?.lng ?? 0).toString(),
+                }).toString()}`}
+                className="inline-block mb-2 text-xs font-mono uppercase tracking-widest text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+              >
+                Plan a trip here
+              </Link>
               {g.rows.length === 0 ? (
                 <p className="text-xs font-mono text-[#8b949e]">
                   {spotsDegraded ? "Spots did not load." : `Nothing in the atlas for a ${persona.label.toLowerCase()} here yet.`}
