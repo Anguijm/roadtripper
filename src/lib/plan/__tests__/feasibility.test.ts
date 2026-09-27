@@ -53,13 +53,20 @@ describe("the sentence", () => {
     );
   });
 
-  it("says Roughly up front when the minutes were estimated", () => {
+  it("marks an estimate on the number when there is one, and on the verdict when there is not", () => {
     expect(feasibilityLine({ kind: "nights", nights: 3 }, { ...BY, estimated: true })).toBe(
       "Roughly three nights here and you still make Austin by Oct 14."
     );
     expect(feasibilityLine({ kind: "pass-through" }, { ...BY, estimated: true })).toBe(
-      "Roughly pass through today and you still make Austin by Oct 14."
+      "Pass through today and you probably still make Austin by Oct 14."
     );
+    expect(feasibilityLine({ kind: "late", daysLate: 1 }, { ...BY, estimated: true })).toBe(
+      "Stop here and you miss Austin: roughly one day late even driving straight on."
+    );
+    // never "Roughly stop" or "Roughly pass"
+    for (const f of [{ kind: "pass-through" } as const, { kind: "late", daysLate: 2 } as const]) {
+      expect(feasibilityLine(f, { ...BY, estimated: true })).not.toMatch(/^Roughly/);
+    }
   });
 
   it("spells numbers to ten and uses digits past it", () => {

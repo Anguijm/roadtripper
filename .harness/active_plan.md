@@ -57,3 +57,11 @@ is counted from the server's UTC date, as in step 9.
 
 - the 650 km neighbourhood names `NEIGHBOUR_RADIUS_KM` in scripts/build-drive-graph.mjs; the two `Math.max(0, ...)` guards are explained; the ten-word boundary says which tests pin it
 - Pushed back on a module-level prepared statement (no query in the file caches one; this is the least-called) and on validating `hours` and the coordinates (already done by `hoursFrom` and `pointFrom`, both tested)
+
+## Council round 2 on #56 (CONDITIONAL, bugs 6), and what changed
+
+- **A real catch:** the estimate marker was a prefix on every sentence, giving "Roughly stop here and you miss Austin". It now sits on the number when there is one ("roughly one day late", "roughly two nights") and on the verdict when there is not ("probably still make"). Tested, including that no sentence starts "Roughly stop" or "Roughly pass".
+- a small statement cache in queries.ts, keyed by SQL, used by the pair lookup that runs once per city shown; the comment says which queries should and should not use it
+- an empty graph no longer throws from the pace function; the last measured pace stands in and the log says so
+- the budget's sign is checked where the budget is used, with a comment that `hoursFrom` already guarantees it
+- Items 1 and 2 were pushed back on in round 1 and asked for again. Applied this round because both are harmless and a third round on them would cost more than the change.

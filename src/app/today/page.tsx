@@ -175,6 +175,10 @@ export default async function TodayPage({
   const pace = deadline ? driveGraphPaceMinutesPerKm() : 0;
   const feasibilityFor = (cityId: string): string | null => {
     if (!deadline) return null;
+    // hoursFrom only ever returns a preset from 2 to 8, so this cannot fail;
+    // it is here so the budget's sign is checked where the budget is used,
+    // since maxNights throws on zero.
+    if (!(hours > 0)) return null;
     const city = cityById.get(cityId);
     if (!city) return null;
     if (destCity && destCity.id === cityId) return null;  // that city is the destination

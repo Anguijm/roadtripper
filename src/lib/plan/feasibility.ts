@@ -84,17 +84,19 @@ export function feasibilityLine(
   opts: { toName: string; endDate: string; estimated: boolean }
 ): string {
   const by = `${opts.toName} by ${formatDeadline(opts.endDate)}`;
-  const lead = opts.estimated ? "Roughly " : "";
+  // The marker for an estimate sits on the number when there is one
+  // ("roughly two nights", "roughly one day late") and on the verdict when
+  // there is not ("probably still make"). "Roughly stop here" is not English.
   switch (f.kind) {
     case "nights": {
       const stay = f.nights === 1 ? "one night" : `${numberWord(f.nights)} nights`;
-      return capitalise(`${lead}${stay} here and you still make ${by}.`);
+      return capitalise(`${opts.estimated ? "roughly " : ""}${stay} here and you still make ${by}.`);
     }
     case "pass-through":
-      return capitalise(`${lead}pass through today and you still make ${by}.`);
+      return `Pass through today and you ${opts.estimated ? "probably " : ""}still make ${by}.`;
     case "late": {
       const late = f.daysLate === 1 ? "one day" : `${numberWord(f.daysLate)} days`;
-      return capitalise(`${lead}stop here and you miss ${opts.toName}: ${late} late even driving straight on.`);
+      return `Stop here and you miss ${opts.toName}: ${opts.estimated ? "roughly " : ""}${late} late even driving straight on.`;
     }
   }
 }
