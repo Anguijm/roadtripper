@@ -28,12 +28,35 @@ export interface CorridorTile {
   box: BoundingBox;
 }
 
-/** Route per tile. Smaller tiles mean more, smaller Overpass queries. */
+/**
+ * Route per tile. A tile's box is roughly (tile + 2 x buffer) on a side, so
+ * 25 km of route with a 10 km buffer is a box of about 45 by 45 km, about
+ * 2,000 square kilometres: small enough that Overpass answers in a few
+ * seconds and never near its result limits, large enough that an 800 km
+ * corridor is about 32 requests, a minute at the client's pace. Halving it
+ * doubles the requests for no gain in what is found; doubling it makes the
+ * boxes around diagonal stretches hold far more land that is not near the
+ * road, all of which Overpass has to scan.
+ */
 export const DEFAULT_TILE_KM = 25;
-/** How far from the road a stop can be and still count. */
+/**
+ * How far from the road a stop can be and still count, straight line to
+ * the polyline. 10 km is about ten minutes off the highway each way, the
+ * most a roadside stop asks of you without becoming a detour; wider brings
+ * in whole towns beside the road, narrower drops the things you can see
+ * from it. A caller can pass its own; the pull script takes --buffer.
+ */
 export const DEFAULT_BUFFER_KM = 10;
 
 const KM_PER_DEG_LAT = 111.32;
+/**
+ * A degree of longitude shrinks with the cosine of latitude and reaches
+ * zero at the poles, where padding "10 km east" would need infinite
+ * degrees. The clamp at 0.2 (about 78 degrees of latitude) keeps the
+ * padding finite; above that the box is over-wide rather than broken. No
+ * US road trip is anywhere near it.
+ */
+const MIN_COS_LAT = 0.2;
 
 /** A box around `points`, grown by `padKm` on every side. */
 export function paddedBox(points: LatLng[], padKm: number): BoundingBox {
@@ -48,7 +71,7 @@ export function paddedBox(points: LatLng[], padKm: number): BoundingBox {
   const midLat = (minLat + maxLat) / 2;
   const dLat = padKm / KM_PER_DEG_LAT;
   // Longitude degrees shrink with latitude; pad by the widest the box needs.
-  const dLng = padKm / (KM_PER_DEG_LAT * Math.max(0.2, Math.cos((midLat * Math.PI) / 180)));
+  const dLng = padKm / (KM_PER_DEG_LAT * Math.max(MIN_COS_LAT, Math.cos((midLat * Math.PI) / 180)));
   return {
     minLat: Math.max(-90, minLat - dLat),
     maxLat: Math.min(90, maxLat + dLat),

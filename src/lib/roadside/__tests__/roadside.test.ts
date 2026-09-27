@@ -177,3 +177,20 @@ describe("the Overpass client", () => {
     expect(sleep).toHaveBeenCalledWith(PAUSE_MS);
   });
 });
+
+describe("cancelling a pull", () => {
+  it("stops between tiles once the signal is aborted, and passes the signal to fetch", async () => {
+    const controller = new AbortController();
+    let signalSeen: AbortSignal | null | undefined;
+    const fetchMock = vi.fn(async (_u: RequestInfo | URL, i?: RequestInit) => {
+      signalSeen = i?.signal;
+      controller.abort();  // cancel after the first tile answers
+      return reply(200, { elements: [node] });
+    });
+    const err = await fetchCorridorFromOverpass([box, box, box], { fetch: fetchMock as never, sleep: vi.fn(async () => {}), signal: controller.signal }).catch((e) => e);
+    expect(err).toBeInstanceOf(OverpassError);
+    expect(err.message).toMatch(/cancelled/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(signalSeen).toBeInstanceOf(AbortSignal);
+  });
+});

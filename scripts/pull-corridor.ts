@@ -42,8 +42,11 @@ console.log(`route ${from.lat},${from.lng} -> ${to.lat},${to.lng} via ORS direct
 const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${encodeURIComponent(key)}&start=${from.lng},${from.lat}&end=${to.lng},${to.lat}`;
 const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
 if (!res.ok) throw new Error(`ORS ${res.status}: ${(await res.text()).slice(0, 200)}`);
-const geo = (await res.json()) as { features: Array<{ geometry: { coordinates: [number, number][] }; properties: { summary: { distance: number; duration: number } } }> };
-const feature = geo.features[0];
+const geo = (await res.json()) as { features?: Array<{ geometry: { coordinates: [number, number][] }; properties: { summary: { distance: number; duration: number } } }> };
+const feature = geo.features?.[0];
+if (!feature || !Array.isArray(feature.geometry?.coordinates) || feature.geometry.coordinates.length < 2) {
+  throw new Error("ORS returned no route for these points; check they are drivable and on the same landmass");
+}
 const route: LatLng[] = feature.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
 console.log(`  ${route.length} points, ${Math.round(feature.properties.summary.distance / 1000)} km, ${Math.round(feature.properties.summary.duration / 60)} min`);
 

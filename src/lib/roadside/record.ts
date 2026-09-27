@@ -9,6 +9,17 @@
  */
 
 import { z } from "zod/v4";
+import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
+
+/**
+ * 200 is the same bound the saved-trip schema puts on a city or place name
+ * (src/lib/trips/types.ts) and well above any real OSM name; the id gets
+ * the same so a source cannot hand us a key that dwarfs its record. The
+ * reason takes MAX_REASON_LENGTH, the bound every rendered description
+ * already has, so a roadside reason can never be longer on screen than a
+ * city waypoint's.
+ */
+const MAX_TEXT = 200;
 
 export const RoadsideKindSchema = z.enum([
   "attraction",
@@ -29,18 +40,18 @@ export type RoadsideKind = z.infer<typeof RoadsideKindSchema>;
 
 export const RoadsideStopSchema = z.object({
   /** Source-qualified, so two sources cannot collide: "osm:node:123". */
-  id: z.string().min(1).max(200),
-  name: z.string().min(1).max(200),
+  id: z.string().min(1).max(MAX_TEXT),
+  name: z.string().min(1).max(MAX_TEXT),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   kind: RoadsideKindSchema,
   source: z.enum(["osm", "wikidata", "google"]),
   /** Why you would stop. Null until step 23; untrusted text, render as text only. */
-  reason: z.string().max(240).nullable(),
+  reason: z.string().max(MAX_REASON_LENGTH).nullable(),
   /** A Wikidata Q-id when the source carried one; the door to a real reason. */
   wikidata: z.string().regex(/^Q\d+$/).nullable(),
   /** "en:Cadillac Ranch" style, when the source carried one. */
-  wikipedia: z.string().max(200).nullable(),
+  wikipedia: z.string().max(MAX_TEXT).nullable(),
 });
 export type RoadsideStop = z.infer<typeof RoadsideStopSchema>;
 
@@ -88,14 +99,14 @@ export function fromOsmElement(el: OsmElement): RoadsideStop | null {
   if (!kind) return null;
   const parsed = RoadsideStopSchema.safeParse({
     id: `osm:${el.type}:${el.id}`,
-    name: name.slice(0, 200),
+    name: name.slice(0, MAX_TEXT),
     lat,
     lng,
     kind,
     source: "osm",
     reason: null,
     wikidata: /^Q\d+$/.test(tags.wikidata ?? "") ? tags.wikidata : null,
-    wikipedia: tags.wikipedia ? tags.wikipedia.slice(0, 200) : null,
+    wikipedia: tags.wikipedia ? tags.wikipedia.slice(0, MAX_TEXT) : null,
   });
   return parsed.success ? parsed.data : null;
 }

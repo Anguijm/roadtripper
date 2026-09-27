@@ -56,3 +56,10 @@ with no bridge is "in the corridor"; the drive-time check is a later step.
 - Rule 1: with the name no longer trimmed, "refuses an element with no name" fails on the whitespace-only case. (Removing the empty-name guard alone did not fail anything: the zod schema's `min(1)` also refuses it. Two layers, and the proof had to target the one the schema cannot see.) Restored.
 - Rule 3: with the retry on 429 and 504 removed, "retries once after a long pause" fails. Restored.
 - 399 tests, 14 new; lint and types clean. Overpass answered a probe query in 5.8 s and ORS directions returned a 3,712-point LineString for Amarillo to Austin; the pull script is not run in this PR.
+
+## Council round 1 on #60 (BLOCK, maintainability 4, bugs 6), and what changed
+
+- every constant says why: the tile size against Overpass's limits and the request count, the buffer as minutes off the highway, the pole clamp, the pacing against the public instance's published policy (about two a second, about 10,000 a day), the retry pause and why only one retry, the 200 and 240 bounds and where they come from (the saved-trip schema; `MAX_REASON_LENGTH`, now imported rather than repeated)
+- a pull can be cancelled: an optional signal stops between tiles and aborts the request in flight; tested
+- the script refuses to continue when ORS returns no route
+- `data/corridors/` is gitignored: raw pulls are read locally for step 19; the hand-labelled set from step 20 is the committed artifact

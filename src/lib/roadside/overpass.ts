@@ -13,11 +13,28 @@ import { fromOsmElement, type OsmElement, type RoadsideStop } from "./record";
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 export const USER_AGENT = "roadtripper (road-trip planner in development; contact: anguijm@gmail.com)";
-/** Between tiles. The public instance asks for restraint; a corridor of 30 tiles takes a minute. */
+/**
+ * Pacing, set against the public instance's published policy: it asks for
+ * no more than about two requests a second and about 10,000 a day per
+ * client, with a rate limit it enforces by answering 429 and a load limit
+ * it enforces with 504. This client runs one request at a time; 1.5 s
+ * between tiles is well under two a second, and an 800 km corridor is
+ * about 32 requests, a rounding error against the daily allowance. Running
+ * two pulls at once from the same address doubles the rate, so do not.
+ */
 export const PAUSE_MS = 1500;
-/** After a 429 or 504, before the one retry. */
+/**
+ * After a 429 or 504, before the one retry. Ten seconds is long enough for
+ * a busy instance to clear a queue; retrying sooner is what gets an address
+ * blocked. One retry, not a loop: if the instance is down, the answer is to
+ * come back later, not to hammer it.
+ */
 export const RETRY_PAUSE_MS = 10_000;
-/** Client-side; the query carries its own server-side timeout too. */
+/**
+ * Client-side; the query carries its own 45 s server-side timeout too, so
+ * a healthy instance answers or refuses within that, and this only catches
+ * a connection that hangs.
+ */
 export const REQUEST_TIMEOUT_MS = 60_000;
 
 /**
@@ -41,6 +58,8 @@ export function overpassQuery(box: BoundingBox, timeoutSeconds = 45): string {
 export interface OverpassDeps {
   fetch: typeof fetch;
   sleep: (ms: number) => Promise<void>;
+  /** Cancels the pull: no further tiles, and the request in flight is aborted. */
+  signal?: AbortSignal;
 }
 
 const realDeps: OverpassDeps = {
@@ -60,12 +79,14 @@ export class OverpassError extends Error {
 /** Everything with a name and one of our kinds inside the box, as roadside records. */
 export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps = realDeps): Promise<RoadsideStop[]> {
   const query = overpassQuery(box);
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const signal = deps.signal ? AbortSignal.any([deps.signal, timeout]) : timeout;
   const attempt = async (): Promise<Response> =>
     deps.fetch(OVERPASS_URL, {
       method: "POST",
       headers: { "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded" },
       body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal,
     });
 
   let res = await attempt();
@@ -97,6 +118,10 @@ export async function fetchCorridorFromOverpass(
   const byId = new Map<string, RoadsideStop>();
   for (let i = 0; i < boxes.length; i++) {
     if (i > 0) await deps.sleep(PAUSE_MS);
+    // Checked between tiles so a cancelled pull stops here rather than
+    // after the whole corridor; the request in flight is aborted by the
+    // same signal inside fetchBoxFromOverpass.
+    if (deps.signal?.aborted) throw new OverpassError(0, "pull cancelled");
     const stops = await fetchBoxFromOverpass(boxes[i], deps);
     for (const s of stops) byId.set(s.id, s);
     onTile?.(i + 1, boxes.length, stops.length);
