@@ -4,69 +4,62 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/reason-leads`
+Branch: `feat/roadside-corridor`
 
 ## Goal
 
-Step 14, the last of stage 3: rebuild the plan screen so the reason leads.
-Today a candidate card is a city name, an add button, then spots; on a
-phone the sheet's sticky header (persona bar, budget block, candidates
-line, save button) and the itinerary sit above the first card, so "why
-this city" is below the fold. Done when you can answer "why this city"
-without scrolling.
+Stage 4 begins: roadside stops, the thing Urban Explorer structurally
+cannot hold (Cadillac Ranch, the Big Texan). Steps 16, 17 and 18 together,
+because each alone is a type or a function with nothing to run: pick the
+sources, build the corridor query, define the roadside record. Then step
+19 runs it once for real and the raw output gets read by eye.
 
 ## Ship rule, written before the work
 
-1. Each candidate card leads with its reason: the top-ranked spot for the
-   persona that has a description, its name and its description, comes
-   first in the card, before the other spots. In the server render the lead
-   precedes every other row of that card. (Amended during the work: the
-   first draft said "top-ranked spot"; a fixture where the top spot had no
-   description showed that leads with nothing to say. Every real waypoint
-   has one, so in practice they are the same.)
-2. The sticky header gets shorter: the Save button moves to the bottom of
-   the scroll area (still one tap), and the "Candidates (N) · max" line
-   folds into the status row. Nothing is removed, only moved down or
-   merged.
-3. With stops in the trip, the itinerary shows as one line, "2 stops ·
-   Lubbock, Austin · 7 h 20 min", with a toggle (a button, aria-expanded)
-   that opens the itinerary as it is today. Collapsed by default, so the
-   first card follows it directly. The prior council decision that the
-   itinerary sits above the recommendations is kept.
-4. The arithmetic for "without scrolling", on a 667 px phone at the sheet's
-   middle snap (55% visible, 367 px): handle 44, persona bar about 44,
-   status row about 40, itinerary line about 36, card header 44: the lead
-   begins about 208 px down, with about 160 px to spare for it. Written in
-   the plan; not measured by a test.
-5. Nothing calls out. Cost $0.
+1. The roadside record: a name, a lat/lng, a reason that may be null, a
+   source, a kind, the source's own id, and nothing else required. No city,
+   no neighbourhood. A zod schema, and a parser from an OpenStreetMap
+   element that refuses an element without a name or a position. Tested.
+2. The corridor query is pure geometry: decode the route polyline, cut it
+   into tiles of at most 25 km of route, pad each tile's bounding box by the
+   buffer (10 km by default), and keep a result only if its true distance
+   to the polyline is inside the buffer. Tested: every point inside the
+   buffer of a zigzag route falls in some tile; a point just outside the
+   buffer is dropped even when its tile's box contains it.
+3. Sources: OpenStreetMap through Overpass for the pull, tags for the
+   things a road-tripper stops for (tourism attraction, museum, viewpoint,
+   artwork, theme park, zoo; historic; man_made lighthouse, tower;
+   natural waterfall, arch, cave entrance). Wikidata is step 23's source for
+   reasons and is not called here. Google Places is not used. The Overpass
+   client sends a descriptive User-Agent with a contact, one request per
+   tile at least a second apart, a timeout, and one retry after a pause on
+   429 or 504. Nothing is cached; step 19 runs once.
+4. A script pulls one corridor for step 19: the route polyline from ORS
+   directions (free, within the 200 a day), the tiles, the Overpass pull,
+   and writes the raw records as JSON plus a plain listing to read, one
+   line per stop, no filtering except "has a name". Not run in this PR.
+5. No secrets added, no Google calls, no atlas changes.
 
-**Cost:** $0.
+**Cost:** $0. Overpass and ORS directions are free; the script runs once
+per corridor by hand.
 
-**Weakest part:** Rule 4 is arithmetic, not a screenshot. There is no
-browser test runner, so the pixel claim rests on the class list and the
-sum above. The lead is the top-ranked spot's description, which is only as
-good as the description (steps 19 to 25 make it good). And the map still
-draws the old 180-degree arc, unchanged since step 8, noted again because
-this is the map's screen.
+**Weakest part:** The tag list is a guess until step 19's eyeballing says
+what it missed and what it dragged in; that is what step 19 is for. The
+public Overpass instance is best effort: it can answer 504 under load, and
+the script's one retry is the whole strategy. And the buffer is
+straight-line distance to the polyline, so a stop 9 km away across a river
+with no bridge is "in the corridor"; the drive-time check is a later step.
 
 ## Gate 1 proofs
 
-- Rule 1: with the lead rendered after the rows (the old order), "leads each card with the top spot that has a reason, before every other row" fails. Restored.
-- Rule 3: with the summary line dropping the stop names, both summary tests fail. Restored.
-- Rule 2: the workspace server-render test still passes with the header restructured and Save at the bottom.
-- 384 tests, 5 new; lint and types clean.
+- Rule 2: with `withinCorridor` trusting the box (always true), the far-corner test and the coverage test fail. Restored.
+- Rule 1: with the name no longer trimmed, "refuses an element with no name" fails on the whitespace-only case. (Removing the empty-name guard alone did not fail anything: the zod schema's `min(1)` also refuses it. Two layers, and the proof had to target the one the schema cannot see.) Restored.
+- Rule 3: with the retry on 429 and 504 removed, "retries once after a long pause" fails. Restored.
+- 399 tests, 14 new; lint and types clean. Overpass answered a probe query in 5.8 s and ORS directions returned a 3,712-point LineString for Amarillo to Austin; the pull script is not run in this PR.
 
-## Council round 1 on #59 (CONDITIONAL, bugs 6, maintainability 5), and what changed
+## Council round 1 on #60 (BLOCK, maintainability 4, bugs 6), and what changed
 
-- the itinerary details element is always in the DOM, `hidden` when collapsed, so `aria-controls` resolves; the Itinerary stays mounted across a collapse
-- one unknown leg makes the summary's drive unknown rather than a smaller partial sum; tested
-- the updating pulse is #e3b341, brighter amber
-- the fold budget arithmetic is written above the sticky header, with the instruction that anything added there comes out of the lead's 160 px
-
-## Council round 2 on #59 (CONDITIONAL, bugs 8), and what changed
-
-- Save is disabled while a recompute is in flight; deliberately not after a save, since the trip can change again and saving again is how it is kept
-- the lead is excluded from the rows by `waypointId`, not by reference
-- comments: why the pulse is #e3b341; that legs are seconds and the direct leg is minutes converted
-- Pushed back on optional chaining for `tripState.legs`: never undefined, and the identical expression has fed the Itinerary since before this PR
-- Verified by a phone-emulated screenshot (390 by 844): the first candidate's reason is fully visible at the sheet's middle snap without scrolling. The first capture with Chrome's plain --screenshot flag looked clipped; that was the tool, not the page, and was measured (scrollWidth 390 at innerWidth 390).
+- every constant says why: the tile size against Overpass's limits and the request count, the buffer as minutes off the highway, the pole clamp, the pacing against the public instance's published policy (about two a second, about 10,000 a day), the retry pause and why only one retry, the 200 and 240 bounds and where they come from (the saved-trip schema; `MAX_REASON_LENGTH`, now imported rather than repeated)
+- a pull can be cancelled: an optional signal stops between tiles and aborts the request in flight; tested
+- the script refuses to continue when ORS returns no route
+- `data/corridors/` is gitignored: raw pulls are read locally for step 19; the hand-labelled set from step 20 is the committed artifact
