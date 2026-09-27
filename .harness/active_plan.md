@@ -4,17 +4,49 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/session-27-learnings`
+Branch: `feat/use-where-you-are`
 
 ## Goal
 
-Record the session-27 lessons in `learnings.md` while they are exact: ORS
-counts requests, the timezone error, coverage-dependent tests, and a council
-condition answered by citation. Docs only; `[skip council]`.
+Step 6: use where you are. The home page fills "From" from the phone's
+location, snapped to the nearest atlas city, with the typed city as the
+override. Done when the app opens knowing your city.
 
-**Cost:** $0.
+## Ship rule, written before the work
 
-**Weakest part:** Three of the four are prose. The one that became code is
-the planner; the timezone rule lives in a memory file and this text, and a
-future session can still misread the date banner. The coverage lesson is
-enforced only by the comment in radial.test.ts.
+1. With location permission already granted, opening the home page fills
+   "From" with the nearest atlas city within 10 seconds and no tap.
+2. Without permission, one tap on "Use where I am" does the same. A denial
+   shows one plain line and the form still works by typing.
+3. The exact coordinates are the origin; the snapped city is the label. More
+   than 3 km from the city centre reads "Near <city>". No atlas city within
+   40 km reads "Your location" and the plan still works (the API path).
+4. Typing a city replaces the located one. The button can re-locate.
+5. No browser global is touched during render; the home page renders on the
+   server exactly as before. Tested the way the RouteMap SSR crash is.
+6. Coordinates leave the browser only to this app's own snap action, which
+   validates them, is rate limited like the other actions, and reads SQLite.
+
+**Cost:** $0. Geolocation is free, the snap is a local SQLite scan of 277
+cities, and Places autocomplete is unchanged. No new Google calls.
+
+**Weakest part:** The hook's on-mount path (permission already granted, so
+it locates with no tap) has no unit test, because the repo has no DOM test
+runner: no jsdom, no testing-library. Everything below it is tested with a
+fake phone, the server render is tested, and the action is tested against
+the real atlas, but the line that decides "granted, so go" is exercised only
+by a real browser. Adding jsdom is a separate decision. Also, I cannot
+exercise a real phone from here; Safari on iOS prompts only on HTTPS and
+after a gesture, so rule 1 holds only after the first grant. The true
+morning launch, five hours and no destination, is step 7; this step still
+needs a destination to reach the plan page.
+
+## Gate 1 proofs
+
+- Rule 5: with one line added that reads `navigator.geolocation` during
+  render, the RouteInput server-render test fails with `TypeError: Cannot
+  read properties of undefined (reading 'getCurrentPosition')`. Restored.
+- Rule 3: with the try/catch around the snap removed, "still yields an origin
+  called Your location when the snap finds nothing, fails, or throws" fails.
+  Restored.
+- 327 tests, 15 new; lint and types clean.
