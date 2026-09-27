@@ -4,62 +4,31 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/label-sample`
+Branch: `fix/overpass-timeout-per-try`
 
 ## Goal
 
-Step 20's tooling: pick the 100 stops John labels, and get them in front of
-him in a form he can label on a phone. The corridor is still pulling under
-the second tag list, so this is the sampler and the writer, tested on
-synthetic stops, ready to run the moment the corridor is in. The labels
-themselves are his hour, not mine, and nothing downstream is trustworthy
-without them.
+The corridor pull's retries on a timeout never happened. The timeout
+signal was created once per tile, outside the retry loop, so after it
+fired on the first try every retry started already aborted and failed at
+once: the log shows "timed out after 90000 ms, 4 tries" arriving 2 minutes
+18 seconds after the run began, when four real tries and the pauses would
+take over seven. Every earlier "4 tries" on this corridor was one try.
 
 ## Ship rule, written before the work
 
-1. The sample is deterministic: same stops, same seed, same 100, so the
-   set can be regenerated and reviewed. Seeded shuffle, no Math.random.
-2. It is stratified by kind with a cap per kind, so no kind can be more
-   than a quarter of the sheet and every kind with at least one stop gets
-   at least one row. A kind with fewer stops than its share gives all it
-   has. The remainder is shared round-robin, so the big kinds end up
-   within one of each other: the flood of 300 historic entries gets no
-   more rows than the 25 museums. (Amended: the first draft said "filled
-   by the largest kinds", and the test written to that showed the
-   round-robin gives the better sheet.) Tested: caps hold, every kind
-   present, big kinds balanced, exactly 100 when there are at least 100,
-   all of them when there are fewer, no duplicates.
-3. Each row carries what a person needs to judge it from a phone in ten
-   seconds: the name, the kind, how far along the corridor it is, a map
-   link at its coordinates, and the OpenStreetMap link. Nothing else.
-4. The sample is written to `data/labels/<corridor>.sample.json` and is
-   committed; the labels come back into `data/labels/<corridor>.labels.json`
-   by a second script in a later PR, once the sheet exists to read from.
-5. No network. The sampler reads the corridor file; the doc is built from
-   the sample by hand through the Docs tools, with a dropdown per row.
+1. Every try gets its own timeout signal. Tested: a fetch that fails twice
+   then succeeds sees three different signals, none already aborted.
+2. Proven against the old code: the new test fails on main's overpass.ts.
+3. Nothing else changes.
 
 **Cost:** $0.
 
-**Weakest part:** A stratified sample of 100 from a corridor of a few
-hundred is a sample of one corridor. The Noul bench in step 21 measures
-agreement with John on Amarillo to Austin, not on the country; that is
-what the plan says and it is the honest scope. The map link uses the
-stop's coordinates, which for a park is its centre and may be well off the
-road.
+**Weakest part:** This is the third fix to the same client in an evening.
+Each was found by a real run against a loaded free service, which is the
+only place these show up; the tests now pin all three. The watcher on the
+corridor picks this up on its next run without restarting anything.
 
-## Gate 1 proofs
+## Council round 1 on #65 (CONDITIONAL, bugs 8), and what changed
 
-- Rule 2: with the per-kind cap removed, "fills a sheet even when the caps would leave it short" fails. Restored. The balance assertion (big kinds within one of each other) and the one-of-each assertion pin the round-robin.
-- Rule 1: the determinism test asserts the same ids for the same seed and different ids for another.
-- 413 tests, 5 new; lint and types clean. The script is not run in this PR; the corridor is still pulling under the second tag list.
-
-## Council round 1 on #64 (BLOCK, maintainability 4), and what changed
-
-- six comments: the hundred is John's hour; the quarter cap against step 19's 71% flood; the seed and why changing it would orphan a labelled sheet; the two passes; the Earth's radius; the five decimals
-- Answered, not changed: `data/corridors/` has been in `.gitignore` since #60
-
-## Council round 2 on #64 (CONDITIONAL, bugs 8), and what changed
-
-- when the caps leave the sheet short while stops remain, the rest is filled the same round-robin way without the cap: two kinds of 80 give a full sheet, half and half; with enough variety the cap still binds at 25. Rule 2 amended again: "a kind with fewer stops than its share gives all it has" stays; "the sheet stays short" does not.
-- `alongKm` is clamped to the route's length
-- the OpenStreetMap link is built only for an id of the expected shape; anything else gets null rather than a broken link
+- the timeout's value, reason and how to tune it are stated where it is used, pointing at the constant's own comment and at the tests that inspect the signal without waiting it out

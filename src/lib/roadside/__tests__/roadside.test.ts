@@ -249,6 +249,19 @@ describe("the Overpass client", () => {
     expect(aborted).toHaveBeenCalledTimes(1);
   });
 
+  it("gives every retry a fresh, unaborted timeout signal", async () => {
+    const signals: AbortSignal[] = [];
+    const fetchMock = vi.fn(async (_u: RequestInfo | URL, i?: RequestInit) => {
+      signals.push(i!.signal as AbortSignal);
+      if (signals.length < 3) return reply(504, "busy");
+      return reply(200, { elements: [] });
+    });
+    await fetchBoxFromOverpass(box, { fetch: fetchMock as never, sleep: vi.fn(async () => {}) });
+    expect(signals).toHaveLength(3);
+    expect(new Set(signals).size).toBe(3);            // a different signal each try
+    for (const s of signals) expect(s.aborted).toBe(false);  // none of them already fired
+  });
+
   it("can be pointed at another instance", async () => {
     let url: string | undefined;
     const fetchMock = vi.fn(async (u: RequestInfo | URL) => { url = String(u); return reply(200, { elements: [] }); });
