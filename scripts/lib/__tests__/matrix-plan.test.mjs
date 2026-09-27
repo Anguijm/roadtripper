@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { planRequests, neighboursWithin } from "../matrix-plan.mjs";
+import { planRequests, splitRequest, neighboursWithin } from "../matrix-plan.mjs";
 
 const city = (id, lat, lng) => ({ id, name: id, lat, lng });
 
@@ -87,5 +87,44 @@ describe("planRequests on the real atlas", () => {
     expect(reqs.length).toBeLessThan(100);
     expect(new Set(promisedPairs(reqs))).toEqual(wanted);
     for (const r of reqs) expect(r.sources.length * r.destinations.length).toBeLessThanOrEqual(625);
+  });
+});
+
+describe("splitRequest", () => {
+  const a = city("a", 30, -100), b = city("b", 31, -100), c = city("c", 32, -100), d = city("d", 33, -100);
+  const plan = [
+    { city: a, neighbours: [b, c] },
+    { city: b, neighbours: [a, c, d] },
+    { city: c, neighbours: [a, b, d] },
+    { city: d, neighbours: [b, c] },
+  ];
+
+  it("carries forward exactly the promised pairs, split across two halves", () => {
+    const [whole] = planRequests(plan, 20);
+    expect(whole.sources).toHaveLength(4);
+    const halves = splitRequest(whole, 20);
+    expect(halves.length).toBeGreaterThanOrEqual(2);
+    const promised = halves.flatMap((r) => [...r.pairs]);
+    expect(new Set(promised)).toEqual(whole.pairs);
+    expect(promised.length).toBe(whole.pairs.size);
+    for (const r of halves) expect(r.sources.length * r.destinations.length).toBeLessThanOrEqual(20);
+  });
+
+  it("does not resurrect pairs the request never promised", () => {
+    // Trim the promise to one pair and split: only that pair may come back,
+    // even though the origins' full neighbour lists hold more.
+    const [whole] = planRequests(plan, 20);
+    const trimmed = { ...whole, pairs: new Set(["a|b", "d|c"]) };
+    const promised = splitRequest(trimmed, 20).flatMap((r) => [...r.pairs]);
+    expect(new Set(promised)).toEqual(new Set(["a|b", "d|c"]));
+  });
+
+  it("cannot split a single-origin request", () => {
+    expect(splitRequest({ sources: [a], destinations: [b, c], pairs: new Set(["a|b", "a|c"]) }, 20)).toEqual([]);
+  });
+
+  it("sorts numeric ids without throwing", () => {
+    const n1 = city(1, 30, -100), n2 = city(2, 30.5, -100);
+    expect(() => planRequests([{ city: n1, neighbours: [n2] }, { city: n2, neighbours: [n1] }], 10)).not.toThrow();
   });
 });

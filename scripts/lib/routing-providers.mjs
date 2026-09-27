@@ -38,6 +38,10 @@ const GOOGLE_MAX_ELEMENTS = 625;
 const GOOGLE_MS_PER_ELEMENT = 20;
 const GOOGLE_MIN_PAUSE_MS = 120;
 
+/** A 3,500-pair ORS request answers in seconds; two minutes is far past that
+ *  and stops a hung connection from holding an unattended run forever. */
+const REQUEST_TIMEOUT_MS = 120_000;
+
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -71,6 +75,7 @@ export function openRouteService(apiKey) {
       const res = await fetch("https://api.openrouteservice.org/v2/matrix/driving-car", {
         method: "POST",
         headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         body: JSON.stringify({
           locations,
           sources: sources.map((_, i) => i),
@@ -81,6 +86,12 @@ export function openRouteService(apiKey) {
       });
       if (!res.ok) throw new ProviderError("ORS", res.status, await res.text());
       const json = await res.json();
+      // A 200 without a durations grid is a malformed answer, not "nothing is
+      // routable"; treating it as all-null would silently write nothing and
+      // count every pair as unroutable.
+      if (!Array.isArray(json?.durations)) {
+        throw new ProviderError("ORS", res.status, `malformed body, no durations grid: ${JSON.stringify(json)}`);
+      }
       return sources.map((_, s) =>
         destinations.map((_, d) => {
           const secs = json.durations?.[s]?.[d];
@@ -122,6 +133,7 @@ export function googleRoutes(apiKey) {
           "X-Goog-Api-Key": apiKey,
           "X-Goog-FieldMask": "originIndex,destinationIndex,duration,distanceMeters,condition",
         },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         body: JSON.stringify({
           origins: sources.map(waypoint),
           destinations: destinations.map(waypoint),
@@ -130,8 +142,13 @@ export function googleRoutes(apiKey) {
       });
       if (!res.ok) throw new ProviderError("Google", res.status, await res.text());
       const rows = await res.json();
+      // Same rule as ORS: a 200 that is not the element array is malformed and
+      // must fail the request rather than write an all-null grid.
+      if (!Array.isArray(rows)) {
+        throw new ProviderError("Google", res.status, `malformed body, not an element array: ${JSON.stringify(rows)}`);
+      }
       const out = sources.map(() => destinations.map(() => null));
-      for (const el of Array.isArray(rows) ? rows : []) {
+      for (const el of rows) {
         // A null element must not crash the whole batch, and both indexes are
         // trusted only inside the arrays we sent: a malformed or reordered
         // response must not be able to write past them.

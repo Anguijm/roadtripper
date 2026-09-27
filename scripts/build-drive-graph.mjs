@@ -23,7 +23,7 @@
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { openRouteService, googleRoutes, sleep } from "./lib/routing-providers.mjs";
-import { planRequests, neighboursWithin } from "./lib/matrix-plan.mjs";
+import { planRequests, splitRequest, neighboursWithin } from "./lib/matrix-plan.mjs";
 import { loadEnv } from "./lib/env.mjs";
 
 // ---------------------------------------------------------------------------
@@ -314,7 +314,6 @@ const writeBatch = db.transaction((rows) => { for (const r of rows) ins.run(...r
 
 let written = 0, unroutable = 0, failedRequests = 0, sent = 0, quotaHit = false;
 const t0 = Date.now();
-const planById = new Map(plan.map((p) => [p.city.id, p]));
 
 // A request the provider rejects with a non-quota 4xx (too many locations, a
 // location it cannot snap) is split by origin and retried. A 403 is the daily
@@ -350,16 +349,17 @@ while (queue.length && !quotaHit) {
       console.warn("  the rows fetched so far are saved; rerun when the window reopens to resume");
       break;
     }
-    if (r.sources.length > 1 && err.status >= 400 && err.status < 500) {
-      const half = Math.ceil(r.sources.length / 2);
-      const replan = (srcs) => planRequests(srcs.map((c) => planById.get(c.id)), provider.maxRoutesPerRequest);
-      queue.unshift(...replan(r.sources.slice(0, half)), ...replan(r.sources.slice(half)));
-      console.warn(`  request rejected, split into two: ${String(err.message).slice(0, 120)}`);
-      continue;
+    const halves = err.status >= 400 && err.status < 500 ? splitRequest(r, provider.maxRoutesPerRequest) : [];
+    if (halves.length > 0) {
+      queue.unshift(...halves);
+      console.warn(`  request rejected, split into ${halves.length}: ${String(err.message).slice(0, 120)}`);
+    } else {
+      failedRequests++;
+      console.warn(`  request failed: ${String(err.message).slice(0, 140)}`);
     }
-    failedRequests++;
-    console.warn(`  request failed: ${String(err.message).slice(0, 140)}`);
   }
+  // Every path that sent a request pauses, including a rejected one that was
+  // just re-queued as smaller ones. Only the quota break above skips it.
   await sleep(provider.pauseAfter(elements));
 }
 
@@ -386,4 +386,11 @@ console.log(`  unroutable ${unroutable}, failed requests ${failedRequests}`);
 console.log(`  calibration factor ${factor.toFixed(4)} from ${sampled} pairs, held-out mean error ${heldOutMeanPct.toFixed(1)}%`);
 db.pragma("wal_checkpoint(TRUNCATE)");
 db.close();
+// Exit codes. 0: the graph is complete. 1: some requests failed for a reason
+// other than quota; look at the warnings before rerunning. 2: the daily quota
+// closed the run; rerunning unattended is safe once the window reopens, since
+// resume skips every pair already stored. The scratchpad waiter treats 2 as
+// "sleep ten minutes and try again" and 1 as "stop for a human". Nothing in CI
+// or the deploy runs this script: the atlas is a committed file, and a partial
+// graph is visible as an absent drive_graph_built_at rather than as an exit code.
 process.exit(failedRequests > 0 ? 1 : quotaHit ? 2 : 0);

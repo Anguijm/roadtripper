@@ -92,3 +92,31 @@ describe("googleRoutes.durationsMatrix", () => {
     expect(p.pauseAfter(625)).toBe(12500);  // 625 x 20 ms
   });
 });
+
+describe("malformed 200s and timeouts", () => {
+  it("ORS: a 200 without a durations grid throws instead of writing an all-null grid", async () => {
+    vi.stubGlobal("fetch", () => reply(200, { info: "ok but empty" }));
+    const err = await openRouteService("k").durationsMatrix([A], [B]).catch((e) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect(err.status).toBe(200);
+    expect(err.message).toMatch(/malformed/);
+  });
+
+  it("Google: a 200 that is not an element array throws", async () => {
+    vi.stubGlobal("fetch", () => reply(200, { error: { message: "nope" } }));
+    const err = await googleRoutes("k").durationsMatrix([A], [B]).catch((e) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect(err.status).toBe(200);
+    expect(err.message).toMatch(/malformed/);
+  });
+
+  it("both providers send an abort signal so a hung connection cannot hold the run", async () => {
+    const signals = [];
+    vi.stubGlobal("fetch", (_url, init) => { signals.push(init.signal); return reply(200, []); });
+    await googleRoutes("k").durationsMatrix([A], [B]);
+    vi.stubGlobal("fetch", (_url, init) => { signals.push(init.signal); return reply(200, { durations: [[1]] }); });
+    await openRouteService("k").durationsMatrix([A], [B]);
+    expect(signals).toHaveLength(2);
+    for (const s of signals) expect(s).toBeInstanceOf(AbortSignal);
+  });
+});

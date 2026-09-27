@@ -37,3 +37,14 @@ origin until it fits, and in the worst case degrades to one origin per request,
 which is the old shape and the old quota problem. The first real run at
 22:30 Japan time on 2026-09-27 settles it; nothing can be proven before the
 window reopens.
+
+## Council round 1 on #49 (BLOCK, bugs 4), and what changed
+
+- the pause now runs on every path that sent a request, including a rejected one that was re-queued as smaller ones
+- `splitRequest` in matrix-plan.mjs carries forward only the pairs the refused request promised, never an origin's whole neighbour list; tested, including a trimmed promise that must not grow back
+- city ids are cast to strings before `localeCompare`; tested with numeric ids
+- both providers throw on a 200 whose body is not the expected grid or element array, instead of writing an all-null grid that reads as "everything unroutable"; tested for both
+- both fetches carry a two-minute abort signal; tested that the signal is sent
+- exit codes documented at the exit: 0 complete, 1 failed requests (a human looks), 2 quota closed (safe to rerun unattended, which the scratchpad waiter does)
+- the 5-degree longitude band is named `BAND_DEGREES` and its trade-off is explained
+- Pushed back on the CI item: no workflow or deploy step runs this script (grep of .github/workflows and apphosting.yaml finds nothing). The atlas is a committed file; a partial graph shows as an absent `drive_graph_built_at`, which the health page already reports. There is no exit code for CI to catch.

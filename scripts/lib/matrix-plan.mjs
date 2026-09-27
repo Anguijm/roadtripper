@@ -25,6 +25,8 @@ export const neighboursWithin = (c, cities, radiusKm) =>
 
 const pairKey = (from, to) => `${from.id}|${to.id}`;
 
+const BAND_DEGREES = 5;
+
 /**
  * Groups the pairs a build still needs into as few requests as the provider
  * allows.
@@ -49,9 +51,16 @@ export function planRequests(plan, maxRoutes) {
     throw new Error(`maxRoutes must be a positive integer, got ${maxRoutes}`);
   }
   const wanted = plan.filter((p) => p.neighbours.length > 0);
-  const band = (c) => Math.floor((c.lng + 180) / 5);
+  // Origins are swept in 5-degree longitude bands, about 450 km wide at US
+  // latitudes, which is under the 650 km neighbour radius: origins in one
+  // band mostly share neighbours, so the union of destinations stays small
+  // and more origins fit under the cap. Narrower bands make the sweep taller
+  // (a band from Texas to North Dakota shares less); wider ones stop
+  // overlapping. 5 gave 5 requests for the US on 2026-09-27; it is a tuning
+  // number, not a correctness one, and any value yields a complete plan.
+  const band = (c) => Math.floor((c.lng + 180) / BAND_DEGREES);
   const sorted = [...wanted].sort(
-    (a, b) => band(a.city) - band(b.city) || a.city.lat - b.city.lat || a.city.id.localeCompare(b.city.id)
+    (a, b) => band(a.city) - band(b.city) || a.city.lat - b.city.lat || String(a.city.id).localeCompare(String(b.city.id))
   );
   const needs = new Map(sorted.map((p) => [p.city.id, p.neighbours]));
 
@@ -91,4 +100,25 @@ export function planRequests(plan, maxRoutes) {
     i = j;
   }
   return requests;
+}
+
+/**
+ * Re-plans a request the provider refused as two smaller ones, split by
+ * origin. Only the pairs this request promised are carried forward, never an
+ * origin's whole neighbour list, so nothing another request already covers is
+ * fetched twice. Returns [] for a single-origin request, which cannot be
+ * split this way; the caller counts that as a failed request.
+ */
+export function splitRequest(request, maxRoutes) {
+  if (request.sources.length < 2) return [];
+  const half = Math.ceil(request.sources.length / 2);
+  const sub = (sources) =>
+    planRequests(
+      sources.map((city) => ({
+        city,
+        neighbours: request.destinations.filter((d) => request.pairs.has(pairKey(city, d))),
+      })),
+      maxRoutes
+    );
+  return [...sub(request.sources.slice(0, half)), ...sub(request.sources.slice(half))];
 }
