@@ -63,3 +63,7 @@ evidence.
 - comments: the `+540 % 360 -180` fold explained; the destination's 3-decimal rounding explained next to the line; the test's 1,000 floor explained; the cache header no longer says "snapped compass heading"
 - Answered, not changed: the LRU has a hard cap, `MAX_ENTRIES = 256`, oldest evicted, one-hour TTL, in cache.ts
 - Pushed back on null guards for `destination` in `radialCacheKey`: the parameter is typed, both callers pass a typed LatLng, and none of the function's other parameters carry runtime guards either
+
+## Council round 2 on #54 (CONDITIONAL, bugs 8), and what changed
+
+- the test's continental-US box is explained: same box as the drive-graph build, keeps ocean-separated pairs out of the sweep

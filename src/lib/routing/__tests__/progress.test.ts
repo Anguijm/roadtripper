@@ -49,6 +49,9 @@ describe("makesProgress, the geometry", () => {
 
 describe("makesProgress, on the real atlas", () => {
   const db = new Database("data/atlas.sqlite", { readonly: true, fileMustExist: true });
+  // Continental US only, the same box the drive-graph build uses: it keeps
+  // Hawaii, Alaska and the atlas's cities abroad out of the random pairs,
+  // since a pair with an ocean between it has no road trip to reason about.
   const cities = db.prepare(
     `select id, name, lat, lng from cities where lat between 24 and 50 and lng between -125 and -66`
   ).all() as Array<{ id: string; name: string; lat: number; lng: number }>;
