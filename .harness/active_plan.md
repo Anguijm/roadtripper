@@ -60,3 +60,8 @@ product decision and this step is about the list.
 - the product reviewer's veto was the touch target: a tiny preview button beside the high-stakes add button. Both buttons now carry an invisible 44 px tall hit area (a ::before overlay) without changing how they look; the add button was the same size before this step, and leaving it small next to a fixed neighbour would have kept the misclick
 - a blank city name falls back to the id in the resolver; tested
 - Pushed back on case-insensitive id comparison: ids are atlas keys compared exactly everywhere (the trip, the cache, the SQLite primary key), and one lookup that folds case would disagree with all of them
+
+## Council round 3 on #58 (CONDITIONAL, bugs 8), and what changed
+
+- the fetch effect depends on `panelHasData`, a boolean, not the merged neighbourhoods object; the object is rebuilt whenever any city's result lands and would have cancelled and restarted the fetch in flight for the panel's city
+- the city header is 44 px tall so the buttons' extended hit areas stay inside it and never reach the rows beneath; the touch-target arithmetic is written next to the class (20 px button, 12 px above and below); tested that the header carries the height

@@ -59,6 +59,8 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(closed).toContain("+ Add city to trip");   // still not added
     const open = render("amarillo");
     expect(open).toMatch(/aria-pressed="true"[^>]*aria-label="See what is in Amarillo"/);
+    // the header is tall enough to hold the 44 px hit areas without them reaching the rows
+    expect(open).toMatch(/<h3[^>]*min-h-\[44px\]/);
   });
 
   it("shows no preview button when the parent does not offer one", () => {

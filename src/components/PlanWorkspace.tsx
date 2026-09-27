@@ -518,10 +518,16 @@ export default function PlanWorkspace({
     setPanelCityId((curr) => nextPanelCityId(curr, tripStops, candidateMarkers));
   }, [tripStops, candidateMarkers]);
 
+  // Whether the panel's city already has data. A boolean on purpose: the
+  // merged neighborhoods object is rebuilt whenever any city's result lands,
+  // and depending on it would cancel and restart the fetch in flight for the
+  // panel's city every time another city's answer arrived.
+  const panelHasData = panelCityId === null || effectiveNeighborhoods[panelCityId] !== undefined;
+
   // Fetch neighborhoods on demand when panelCityId changes and data is absent.
   useEffect(() => {
     if (!panelCityId) return;
-    if (effectiveNeighborhoods[panelCityId] !== undefined) return;
+    if (panelHasData) return;
 
     // City name for aria announcements, from the trip or the candidates.
     const cityName = panelCityName ?? panelCityId;
@@ -551,7 +557,7 @@ export default function PlanWorkspace({
     // Depends on the name, a string, not on the resolved object: the object
     // is rebuilt whenever the lists change, and a rebuilt object would cancel
     // and restart a fetch in flight for the same city.
-  }, [panelCityId, panelCityName, effectiveNeighborhoods]);
+  }, [panelCityId, panelCityName, panelHasData]);
 
   // Brief recommendation panel highlight after each successful refresh
   // (Council ISC-S7-PROD-2 — positive proof of refresh).

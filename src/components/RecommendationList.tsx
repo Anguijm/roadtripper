@@ -142,7 +142,9 @@ export default function RecommendationList({
           <section key={cityId} className="mb-3">
             <h3
               className={[
-                "sticky top-0 z-10 text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b flex items-center justify-between gap-2",
+                // 44 px tall so the buttons' extended hit areas (see below)
+                // stay inside the header and never reach the rows beneath.
+                "sticky top-0 z-10 min-h-[44px] text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b flex items-center justify-between gap-2",
                 isHighlighted
                   ? "bg-[#262c36] text-[#f0f6fc] border-[#6e7681]"
                   : "bg-[#161b22] text-[#7d8590] border-[#30363d]",
@@ -164,9 +166,14 @@ export default function RecommendationList({
                   aria-pressed={previewedCityId === cityId}
                   aria-label={`See what is in ${cityName}`}
                   className={[
-                    // The visible button is small to fit the header; the
-                    // invisible ::before extends the hit area to 44 px tall
-                    // for thumbs without changing how it looks.
+                    // The visible button is about 20 px tall (10 px text,
+                    // 2 px padding each side, 1 px border each side). The
+                    // invisible ::before adds 12 px above and below
+                    // (-inset-y-3), which is 44 px, the touch-target minimum.
+                    // It extends vertically only, so the two side-by-side
+                    // buttons cannot overlap each other, and the header is
+                    // 44 px tall with the buttons centred, so it cannot reach
+                    // the rows beneath either.
                     "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
                     "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                     previewedCityId === cityId
