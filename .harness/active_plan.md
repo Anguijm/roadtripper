@@ -4,56 +4,51 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/roadside-tags-v2`
+Branch: `feat/label-sample`
 
 ## Goal
 
-Step 19's conclusions, made executable. Ten tiles of the Amarillo-to-Austin
-corridor, read by eye: 514 named stops, of which 364 were `historic`
-entries that are registered houses, churches and cemeteries, and 25
-"towers" that are radio masts. Cadillac Ranch, Slug Bug Ranch, Ozymandias,
-the Helium Monument and Buddy Holly's grave were all there; Palo Duro Canyon
-was not, because a state park is none of the tags asked for; the Big Texan
-was only its old building, because a restaurant is none of them either.
-The second tag list fixes what the eye found, so the 100 labels in step 20
-are spent on judgment calls, not on saying no to houses.
+Step 20's tooling: pick the 100 stops John labels, and get them in front of
+him in a form he can label on a phone. The corridor is still pulling under
+the second tag list, so this is the sampler and the writer, tested on
+synthetic stops, ready to run the moment the corridor is in. The labels
+themselves are his hour, not mine, and nothing downstream is trustworthy
+without them.
 
 ## Ship rule, written before the work
 
-1. `historic` narrows to the things people pull over for: monument,
-   memorial, castle, fort, ruins, archaeological site, ship, aircraft,
-   locomotive, railway car, wreck, battlefield, landmark, milestone,
-   boundary stone, cannon, tank, city gate, bridge. A registered house,
-   church, district or "yes" is not pulled. A memorial that is a plaque or a
-   stone is dropped in the parser: Texas has thousands of roadside markers,
-   and a marker is not a stop.
-2. `man_made=tower` is pulled only when `tower:type=observation`. Radio
-   masts are not stops.
-3. Parks join: `boundary=national_park`, `boundary=protected_area`,
-   `leisure=nature_reserve`, as kind "park". Their centre may sit well off
-   the road; that is noted, not solved.
-4. Anything named with a `wikidata` tag joins as kind "notable" when no
-   other kind claims it, except places, roads, railways, waterways,
-   administrative boundaries and land use, which are not stops however
-   notable. That is how the Big Texan, a restaurant, gets in.
-5. The Overpass query carries `QUERY_VERSION`, and the pull script's
-   progress key includes it, so tiles pulled under the old tags are not
-   merged with tiles pulled under the new ones.
-6. Every rule above is a test on `kindFromTags` or `fromOsmElement`, with
-   the real tag sets from the corridor as fixtures.
+1. The sample is deterministic: same stops, same seed, same 100, so the
+   set can be regenerated and reviewed. Seeded shuffle, no Math.random.
+2. It is stratified by kind with a cap per kind, so no kind can be more
+   than a quarter of the sheet and every kind with at least one stop gets
+   at least one row. A kind with fewer stops than its share gives all it
+   has. The remainder is shared round-robin, so the big kinds end up
+   within one of each other: the flood of 300 historic entries gets no
+   more rows than the 25 museums. (Amended: the first draft said "filled
+   by the largest kinds", and the test written to that showed the
+   round-robin gives the better sheet.) Tested: caps hold, every kind
+   present, big kinds balanced, exactly 100 when there are at least 100,
+   all of them when there are fewer, no duplicates.
+3. Each row carries what a person needs to judge it from a phone in ten
+   seconds: the name, the kind, how far along the corridor it is, a map
+   link at its coordinates, and the OpenStreetMap link. Nothing else.
+4. The sample is written to `data/labels/<corridor>.sample.json` and is
+   committed; the labels come back into `data/labels/<corridor>.labels.json`
+   by a second script in a later PR, once the sheet exists to read from.
+5. No network. The sampler reads the corridor file; the doc is built from
+   the sample by hand through the Docs tools, with a dropdown per row.
 
 **Cost:** $0.
 
-**Weakest part:** The "notable" rule is only as good as OpenStreetMap's
-wikidata tagging, which the first ten tiles put at 4% of named stops. It
-will find the famous restaurant and miss the great unfamous one; the
-persona-driven food picks stay Urban Explorer's job. And the parser drops
-plaques by `memorial=plaque|stone`, which only catches markers tagged that
-way; untagged ones survive into the labels, which is fine, because then
-John's labels teach the Noul to drop them.
+**Weakest part:** A stratified sample of 100 from a corridor of a few
+hundred is a sample of one corridor. The Noul bench in step 21 measures
+agreement with John on Amarillo to Austin, not on the country; that is
+what the plan says and it is the honest scope. The map link uses the
+stop's coordinates, which for a park is its centre and may be well off the
+road.
 
-## Council round 1 on #63 (CONDITIONAL, bugs 6), and what changed
+## Gate 1 proofs
 
-- `wikidataId` reads the first Q-id anywhere in the tag (a full URL, "Q1;Q2", spaces, lower case); tested
-- the version says what bumping it does and where it is consumed; the historic list says how to change it against the fixtures; the notable rule says why administrative boundaries are excluded
-- Answered, not changed: positions on ways and relations already use `el.center?.lat`, and a way without a centre is tested to yield null
+- Rule 2: with the per-kind cap removed, "fills a sheet even when the caps would leave it short" fails. Restored. The balance assertion (big kinds within one of each other) and the one-of-each assertion pin the round-robin.
+- Rule 1: the determinism test asserts the same ids for the same seed and different ids for another.
+- 413 tests, 5 new; lint and types clean. The script is not run in this PR; the corridor is still pulling under the second tag list.
