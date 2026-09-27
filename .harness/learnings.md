@@ -429,3 +429,36 @@ Keep each bullet tight. The goal is fast recall for the next session, not a blog
   `count("drive_graph_built_at") == 1` failed because the edit's `console.log`
   mentioned the key. Verify the structural change with a targeted grep, not a
   name count.
+
+## Session 27 (2026-09-27): the ORS window and the many-origins build
+
+**ORS counts requests, not pairs.** The free matrix quota is a small number
+of requests a day (about 50 emptied it), refilled on a rolling 24-hour window
+from the first call, and one request may carry 3,500 origin-destination pairs
+("e.g. 50 x 50"; a 47 x 73 request was accepted). One request per city was
+the whole problem. The fix is executable: `scripts/lib/matrix-plan.mjs` packs
+origins that share neighbours into requests under the provider's cap, tested
+against the real atlas, and the build stops on a 403 instead of spamming.
+The complete US graph was 5 requests and 18 seconds.
+
+**I reported "quota dead for 25 hours" when it had been under two.** The
+harness announces the date in the machine's local time (Asia/Tokyo, UTC+9),
+and I read a local date change as a day passing in UTC. John caught it by
+asking whether one request could carry 3,000 pairs, which forced me to
+re-derive the timeline. Rule from here: every duration or deadline I state
+carries the UTC time and the Japan time, and I compute intervals from
+timestamps, never from the date banner. The plan doc's status line was
+corrected the same hour.
+
+**A complete graph flips tests that assumed a partial one.** Six tests of the
+live Routes API path used Los Angeles as the origin, which was a graph miss at
+3.7% coverage and a hit at 100%, so the API path was never reached and they
+failed. They now force a miss with a module mock and say why. Tests that
+depend on data coverage should state the assumption in a mock, not inherit it
+from whatever the committed file happens to hold.
+
+**A council "verify" item can be answered with a citation.** #50's one
+condition was to verify that SQLite read failures fall back to the live API.
+The try/catch in `candidatesFromGraph` and `radial-graph-fallback.test.ts`
+already did that, so the answer was a comment naming both, and the merge went
+ahead. Not every condition needs a commit; it needs evidence.
