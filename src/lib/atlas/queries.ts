@@ -272,6 +272,50 @@ export function hasDriveGraphFor(cityId: string): boolean {
   return (row?.c ?? 0) > 0;
 }
 
+/** Stored one-way minutes for one directed pair, or null when the graph has
+ *  no row for it (the pair is farther apart than the build's 650 km
+ *  neighbourhood, or one id is unknown). */
+export function driveMinutesBetween(fromCityId: string, toCityId: string): number | null {
+  const row = atlasDb()
+    .prepare<[string, string], { minutes: number }>(
+      `select minutes from city_drive_times where from_city_id = ? and to_city_id = ?`
+    )
+    .get(fromCityId, toCityId);
+  return row ? row.minutes : null;
+}
+
+let pacePerKm: number | null = null;
+
+/**
+ * The graph's median pace in minutes per straight-line kilometre, for
+ * estimating a pair the graph does not hold. Median, not mean, so a few
+ * mountain or coastal pairs do not pull it. Computed once per process from
+ * every stored pair (about 5,000 rows, a few milliseconds) and cached; the
+ * atlas is read-only for the life of the process, so it cannot go stale.
+ * Measured 0.7355 on 2026-09-27, about 82 km/h as the crow flies.
+ */
+export function driveGraphPaceMinutesPerKm(): number {
+  if (pacePerKm !== null) return pacePerKm;
+  const rows = atlasDb()
+    .prepare<[], { minutes: number; alat: number; alng: number; blat: number; blng: number }>(
+      `select t.minutes, a.lat as alat, a.lng as alng, b.lat as blat, b.lng as blng
+         from city_drive_times t
+         join cities a on a.id = t.from_city_id
+         join cities b on b.id = t.to_city_id`
+    )
+    .all();
+  const paces = rows
+    .map((r) => {
+      const km = haversineKm({ lat: r.alat, lng: r.alng }, { lat: r.blat, lng: r.blng });
+      return km > 0 ? r.minutes / km : NaN;
+    })
+    .filter((x) => Number.isFinite(x))
+    .sort((x, y) => x - y);
+  if (paces.length === 0) throw new Error("drive graph is empty; no pace to estimate with");
+  pacePerKm = paces[Math.floor(paces.length / 2)];
+  return pacePerKm;
+}
+
 /** Provenance, so a caller (or a human) can see what built the graph and how
  *  well the calibration held up on data it did not learn from. */
 export function driveGraphInfo(): {

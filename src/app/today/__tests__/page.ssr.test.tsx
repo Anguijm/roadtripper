@@ -13,6 +13,14 @@ vi.mock("@/app/actions/snapOrigin", () => ({
 }));
 
 import TodayPage from "@/app/today/page";
+import { todayIso, formatDeadline } from "@/lib/plan/deadline";
+
+/** A date `days` from today, as the page will count it. */
+const daysFromNow = (days: number) => {
+  const d = new Date(todayIso() + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 
 const render = async (params: Record<string, string>) =>
   renderToString(await TodayPage({ searchParams: Promise.resolve(params) }));
@@ -77,6 +85,25 @@ describe("the today screen, server-rendered", () => {
     const start = await render({ arriveBy: "2026-10-14", toName: "Austin", toLat: "30.2672", toLng: "-97.7431" });
     expect(start).toContain("What is in range today?");
     expect(start).toContain("Arrive in Austin by Oct 14");
+  });
+
+  it("says how long you can stay in each city and still make the deadline", async () => {
+    const endDate = daysFromNow(3);
+    const html = await render({ lat: "35.2073", lng: "-101.8338", hours: "5", arriveBy: endDate, toName: "Austin", toLat: "30.2672", toLng: "-97.7431" });
+    const by = `Austin by ${formatDeadline(endDate)}`;
+    // Lubbock: reach today, two driving days on, so two nights (hand-checked in feasibility.test.ts)
+    expect(html).toContain(`Two nights here and you still make ${by}.`);
+    // Albuquerque: no graph pair to Austin, so the estimate says so
+    expect(html).toMatch(new RegExp(`Roughly [a-z]+ nights? here and you still make ${by}\\.`));
+
+    // the deadline today: the answer is no, and it says so
+    const today = await render({ lat: "35.2073", lng: "-101.8338", hours: "5", arriveBy: daysFromNow(0), toName: "Austin", toLat: "30.2672", toLng: "-97.7431" });
+    expect(today).toContain("Stop here and you miss Austin: one day late even driving straight on.");
+
+    // without a deadline, no such line anywhere
+    const plain = await render({ lat: "35.2073", lng: "-101.8338", hours: "5" });
+    expect(plain).not.toContain("you still make");
+    expect(plain).not.toContain("you miss");
   });
 
   it("ignores a deadline that is not a real date or has no destination", async () => {
