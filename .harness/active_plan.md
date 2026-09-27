@@ -54,3 +54,7 @@ chosen.
 - `clipReason` treats anything that is not a string as "no reason", the way `safeWaypointType` treats an unknown type; tested with a number and a buffer
 - `MAX_REASON_LENGTH` says why 240: longest in the atlas is 234, median 125, nothing real is cut, a pasted paragraph cannot bloat the payload or overflow the two-line clamp
 - the ellipsis arithmetic is explained where it happens
+
+## Council round 2 on #57 (CONDITIONAL, bugs 9), and what changed
+
+- the today screen's reason is clamped to three lines (the candidate list uses two; here the reason is the content and 240 characters is about three lines on a phone)

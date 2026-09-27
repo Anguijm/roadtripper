@@ -296,7 +296,8 @@ export default async function TodayPage({
                         <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e] whitespace-nowrap">{w.type.replace("_", " ")}</span>
                       </div>
                       {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
-                      {w.description && <p className="text-xs text-[#b0b9c2]" data-reason>{w.description}</p>}
+                      {/* Three lines, not two as on the candidate list: here the reason is the content, and 240 characters at this size is about three lines on a phone. */}
+                      {w.description && <p className="text-xs text-[#b0b9c2] line-clamp-3" data-reason>{w.description}</p>}
                     </li>
                   ))}
                 </ul>
