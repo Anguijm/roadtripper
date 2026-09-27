@@ -29,6 +29,10 @@ interface RecommendationListProps {
   pending?: boolean;
   /** Disable Add when the trip is at the cap */
   atCap?: boolean;
+  /** Open the city's neighbourhood write-up without adding it. */
+  onCityPreview?: (cityId: string) => void;
+  /** The city whose write-up is open, so its button reads as pressed. */
+  previewedCityId?: string | null;
 }
 
 const TIER_LABELS: Record<RankedWaypoint["tier"], string> = {
@@ -60,6 +64,8 @@ export default function RecommendationList({
   onRemoveCity,
   pending = false,
   atCap = false,
+  onCityPreview,
+  previewedCityId = null,
 }: RecommendationListProps) {
   const persona = PERSONAS[activePersonaId];
   const accent = persona.accentColor;
@@ -148,6 +154,25 @@ export default function RecommendationList({
                   · +{Math.round(detourMinutes)}m
                 </span>
               </span>
+              {/* Read about the city before deciding. Opens the neighbourhood
+                  panel for a candidate the same way a click on a stop does;
+                  nothing is added. */}
+              {onCityPreview && (
+                <button
+                  type="button"
+                  onClick={() => onCityPreview(cityId)}
+                  aria-pressed={previewedCityId === cityId}
+                  aria-label={`See what is in ${cityName}`}
+                  className={[
+                    "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    previewedCityId === cityId
+                      ? "border-[#f0f6fc] text-[#f0f6fc]"
+                      : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
+                  ].join(" ")}
+                >
+                  See what&apos;s here
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleAddClick}
