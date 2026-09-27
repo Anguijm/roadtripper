@@ -19,6 +19,7 @@ import RecommendationList, {
 } from "@/components/RecommendationList";
 import Itinerary from "@/components/Itinerary";
 import NeighborhoodPanel from "@/components/NeighborhoodPanel";
+import { panelCityFor, nextPanelCityId } from "@/lib/plan/panel-city";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
@@ -323,8 +324,13 @@ export default function PlanWorkspace({
     [effectiveWaypointFetch.neighborhoods, localNeighborhoods]
   );
 
-  // The stop whose neighborhoods are shown in the panel.
-  const panelStop = tripStops.find((s) => s.cityId === panelCityId) ?? null;
+  // The city whose neighborhoods are shown in the panel: a stop, or a
+  // candidate being read about before it is added (step 13).
+  const panelCity = useMemo(
+    () => panelCityFor(panelCityId, tripStops, candidateMarkers),
+    [panelCityId, tripStops, candidateMarkers]
+  );
+  const panelCityName = panelCity?.cityName ?? null;
 
   const panelCityWaypoints = useMemo(
     () =>
@@ -371,11 +377,23 @@ export default function PlanWorkspace({
   }, []);
 
   const handleStopClick = useCallback((cityId: string) => {
+    // A click is also a retry: a city whose on-demand read failed (a rate
+    // limit from clicking through the list quickly, a blip) is forgotten so
+    // the effect fetches it again instead of showing the old failure.
+    setLocalNeighborhoods((prev) => {
+      if (prev[cityId]?.kind !== "failed") return prev;
+      const rest = { ...prev };
+      delete rest[cityId];
+      return rest;
+    });
     setPanelCityId(cityId);
   }, []);
 
   // Tap a candidate marker → add to trip.
   // Tap an already-added stop marker → open its neighborhood panel.
+  // Kept as-is when the list gained "See what's here" (step 13): on a phone
+  // a tap on the map is the fastest way to add, and changing what it means
+  // is a product decision, not a side effect of a list button.
   const handleMapClick = useCallback((cityId: string) => {
     if (addedCityIds.has(cityId)) {
       handleStopClick(cityId);
@@ -495,21 +513,24 @@ export default function PlanWorkspace({
 
   // If the paneled city is removed, reset to the new last stop (or null).
   useEffect(() => {
-    setPanelCityId((curr) => {
-      if (curr === null) return curr;
-      if (tripStops.some((s) => s.cityId === curr)) return curr;
-      return tripStops[tripStops.length - 1]?.cityId ?? null;
-    });
-  }, [tripStops]);
+    // Stays on a stop or a candidate; moves to the last stop only when the
+    // city has left both lists (see nextPanelCityId).
+    setPanelCityId((curr) => nextPanelCityId(curr, tripStops, candidateMarkers));
+  }, [tripStops, candidateMarkers]);
+
+  // Whether the panel's city already has data. A boolean on purpose: the
+  // merged neighborhoods object is rebuilt whenever any city's result lands,
+  // and depending on it would cancel and restart the fetch in flight for the
+  // panel's city every time another city's answer arrived.
+  const panelHasData = panelCityId === null || effectiveNeighborhoods[panelCityId] !== undefined;
 
   // Fetch neighborhoods on demand when panelCityId changes and data is absent.
   useEffect(() => {
     if (!panelCityId) return;
-    if (effectiveNeighborhoods[panelCityId] !== undefined) return;
+    if (panelHasData) return;
 
-    // Find city name for aria announcements.
-    const cityName =
-      tripStops.find((s) => s.cityId === panelCityId)?.cityName ?? panelCityId;
+    // City name for aria announcements, from the trip or the candidates.
+    const cityName = panelCityName ?? panelCityId;
 
     let cancelled = false;
     setPanelAnnouncement(`Loading ${cityName} neighborhoods`);
@@ -533,7 +554,10 @@ export default function PlanWorkspace({
         setPanelAnnouncement(`Could not load neighborhoods for ${cityName}`);
       });
     return () => { cancelled = true; };
-  }, [panelCityId, effectiveNeighborhoods]);
+    // Depends on the name, a string, not on the resolved object: the object
+    // is rebuilt whenever the lists change, and a rebuilt object would cancel
+    // and restart a fetch in flight for the same city.
+  }, [panelCityId, panelCityName, panelHasData]);
 
   // Brief recommendation panel highlight after each successful refresh
   // (Council ISC-S7-PROD-2 — positive proof of refresh).
@@ -729,20 +753,21 @@ export default function PlanWorkspace({
             />
           )}
 
-          {/* Neighborhood panel — follows panelCityId (click any Itinerary stop).
+          {/* Neighborhood panel — follows panelCityId: a click on an Itinerary
+               stop, or "See what's here" on a candidate not yet added.
                Loading: data absent (fetch in flight or not yet started).
                Loaded / empty / failed: delegated to NeighborhoodPanel. */}
-          {panelCityId && panelStop && (
+          {panelCityId && panelCity && (
             effectiveNeighborhoods[panelCityId] == null ? (
               <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
                 <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] motion-safe:animate-pulse">
-                  Loading {panelStop.cityName}…
+                  Loading {panelCity.cityName}…
                 </p>
               </div>
             ) : (
               <NeighborhoodPanel
                 cityId={panelCityId}
-                cityName={panelStop.cityName}
+                cityName={panelCity.cityName}
                 loadState={effectiveNeighborhoods[panelCityId]}
                 waypoints={panelCityWaypoints}
                 failures={
@@ -894,6 +919,8 @@ export default function PlanWorkspace({
                   onRemoveCity={handleRemoveCity}
                   pending={isPending}
                   atCap={tripCount >= MAX_TRIP_STOPS}
+                  onCityPreview={handleStopClick}
+                  previewedCityId={panelCityId}
                 />
               </div>
             </>

@@ -38,4 +38,42 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(html.match(/data-reason/g)?.length ?? 0).toBe(1);
     expect(html).toContain("A bare name");
   });
+
+  it("offers to show a city's lore before it is added, and marks the open one as pressed", () => {
+    const render = (previewed: string | null) =>
+      renderToString(
+        <RecommendationList
+          fetchResult={result}
+          activePersonaId="nerd"
+          cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
+          addedCityIds={new Set()}
+          onAddCity={() => {}}
+          onRemoveCity={() => {}}
+          onCityPreview={() => {}}
+          previewedCityId={previewed}
+        />
+      );
+    const closed = render(null);
+    expect(closed).toContain('aria-label="See what is in Amarillo"');
+    expect(closed).toMatch(/aria-pressed="false"[^>]*aria-label="See what is in Amarillo"/);
+    expect(closed).toContain("+ Add city to trip");   // still not added
+    const open = render("amarillo");
+    expect(open).toMatch(/aria-pressed="true"[^>]*aria-label="See what is in Amarillo"/);
+    // the header is tall enough to hold the 44 px hit areas without them reaching the rows
+    expect(open).toMatch(/<h3[^>]*min-h-\[44px\]/);
+  });
+
+  it("shows no preview button when the parent does not offer one", () => {
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={result}
+        activePersonaId="nerd"
+        cityCoords={new Map()}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+      />
+    );
+    expect(html).not.toContain("See what is in");
+  });
 });

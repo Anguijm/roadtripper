@@ -4,57 +4,64 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/reason-under-every-stop`
+Branch: `feat/lore-before-commit`
 
 ## Goal
 
-Steps 11 and 12 together, because 11 alone is a field in a type with
-nothing to look at. Step 11: fetch the descriptions; the atlas holds one
-for every waypoint (13,390 of 13,390, median 125 characters, longest 234)
-and the query already selects it, then the projection drops it. Done when
-the field arrives in the payload. Step 12: render the reason under every
-stop. Done when no stop is a bare name.
+Step 13: surface the neighbourhood write-up before you commit. Today the
+panel that shows a city's neighbourhoods opens only for a city already in
+the trip; to read about Lubbock you have to add Lubbock. Done when a
+candidate city shows its lore without being added first.
 
 ## Ship rule, written before the work
 
-1. `description` travels the whole chain: SQLite row, `LiteWaypoint`,
-   `RankedWaypoint`. Null when the atlas has none. Tested at the payload
-   (`buildRankedGroups` output carries it) and at the read (`waypointsForCities`
-   returns it for a real city).
-2. The text is untrusted model output. It is rendered as text only, never as
-   markup, and cut at 240 characters at the read so nothing downstream can
-   grow past a sentence or two.
-3. On the plan page's candidate list and on the today screen, every stop
-   shows its reason under its name. A stop with no description shows the
-   name alone rather than an empty line, and the count of such stops on the
-   real atlas today is zero, asserted.
-4. Server-render tests on both screens find a known description under its
-   stop.
-5. Nothing calls out; the field is already in every row read.
+1. Every candidate city on the plan page's list has a button, "See what's
+   here", that opens its neighbourhood panel without adding it. A real
+   button, labelled with the city name, keyboard reachable, and marked
+   pressed while that city is the one shown.
+2. The panel's city resolves from the trip when the city is a stop and from
+   the candidates otherwise: one pure function, `panelCityFor`, tested with
+   a stop, a candidate, an unknown id and null.
+3. Adding a previewed city keeps the panel on it; removing a stop that is
+   also a candidate keeps the panel on it too. Nothing flickers to "nothing
+   selected" when the city is still on screen.
+4. Nothing new calls out. The neighbourhood action already exists and is
+   rate limited; a preview costs one call for that city, cached in the
+   workspace like a click on a stop.
+5. Server-render tests: the candidate list shows the button per city with
+   its label; the workspace still renders.
 
-**Cost:** $0. The bytes were already read and thrown away.
+**Cost:** $0.
 
-**Weakest part:** The reason is Urban Explorer's one-line description,
-which the survey in the plan found is often generic ("a charming spot") and
-food-heavy. This step makes the field visible; it does not make it good.
-Making it good is steps 19 to 25, the labels and the Jev scores. Seeing the
-weak ones on screen is the point: it is how the labelling in step 19 gets
-chosen.
+**Weakest part:** The click itself is not exercised here; there is still no
+DOM test runner, so the button's presence and label are tested at the
+server render and the state change behind it through the pure resolver.
+The map's tap on a candidate marker still adds the city rather than
+previewing it, unchanged, because changing what a tap means on a phone is a
+product decision and this step is about the list.
 
 ## Gate 1 proofs
 
-- Rule 1: with the pipeline mapping the description to null, the today page test fails on "every spot rendered carries its reason" (spots counted against reasons). Restored.
-- Rule 2: `clipReason` is unit-tested: trims, blank to null, 500 characters cut to 240 with an ellipsis, exactly 240 kept. The candidate-list render test feeds a description containing `<b>` and asserts it comes out escaped, never as markup.
-- Rule 3: the read-layer test walks every city in the atlas (13,390 waypoints in batches of 50) and asserts zero without a description.
-- Rule 4: the candidate list (plan page) and the today screen both have server-render tests finding a reason under a stop.
-- 370 tests, 4 new; lint and types clean. Fixtures in two files gained the field; the health page's fixed waypoint has a reason too.
+- Rule 2: with the candidate lookup removed from `panelCityFor` (the panel follows the trip only, as before), "resolves a candidate that is not in the trip" and "keeps the panel on a city that leaves the trip" fail. Restored.
+- Rule 1: with the preview button never rendered, "offers to show a city's lore before it is added, and marks the open one as pressed" fails. Restored.
+- Rule 5: the candidate-list render shows the button per city with `aria-label="See what is in Amarillo"` and `aria-pressed` true only for the open city; the workspace server-render test still passes.
+- 376 tests, 6 new; lint and types clean.
 
-## Council round 1 on #57 (CONDITIONAL, bugs 8), and what changed
+## Council round 1 on #58 (BLOCK, bugs 4), and what changed
 
-- `clipReason` treats anything that is not a string as "no reason", the way `safeWaypointType` treats an unknown type; tested with a number and a buffer
-- `MAX_REASON_LENGTH` says why 240: longest in the atlas is 234, median 125, nothing real is cut, a pasted paragraph cannot bloat the payload or overflow the two-line clamp
-- the ellipsis arithmetic is explained where it happens
+- the fetch effect depends on the city's name, a string, not the resolved object, so trip edits cannot cancel and restart a fetch in flight
+- **found on the way:** the existing effect that moves the panel when the trip changes knew only stops, so a previewed candidate would have been thrown away the moment any stop was added or removed. Now `nextPanelCityId`, pure and tested: stays on a stop or a candidate, moves to the last stop only when the city left both lists, closes when there is none. This is what makes ship rule 3 true at the workspace level, not only in the resolver.
+- a click on a city whose on-demand read failed forgets the failure and fetches again, so clicking through the list fast is not a permanent "could not load"
+- comments: why the trip is checked first in the resolver; why a map tap still adds
+- Pushed back on an AbortController: a server action's promise cannot be cancelled; ignoring the answer is the only abort, and the flag does that (same as #52 round 2)
 
-## Council round 2 on #57 (CONDITIONAL, bugs 9), and what changed
+## Council round 2 on #58 (CONDITIONAL, bugs 9, product 6), and what changed
 
-- the today screen's reason is clamped to three lines (the candidate list uses two; here the reason is the content and 240 characters is about three lines on a phone)
+- the product reviewer's veto was the touch target: a tiny preview button beside the high-stakes add button. Both buttons now carry an invisible 44 px tall hit area (a ::before overlay) without changing how they look; the add button was the same size before this step, and leaving it small next to a fixed neighbour would have kept the misclick
+- a blank city name falls back to the id in the resolver; tested
+- Pushed back on case-insensitive id comparison: ids are atlas keys compared exactly everywhere (the trip, the cache, the SQLite primary key), and one lookup that folds case would disagree with all of them
+
+## Council round 3 on #58 (CONDITIONAL, bugs 8), and what changed
+
+- the fetch effect depends on `panelHasData`, a boolean, not the merged neighbourhoods object; the object is rebuilt whenever any city's result lands and would have cancelled and restarted the fetch in flight for the panel's city
+- the city header is 44 px tall so the buttons' extended hit areas stay inside it and never reach the rows beneath; the touch-target arithmetic is written next to the class (20 px button, 12 px above and below); tested that the header carries the height

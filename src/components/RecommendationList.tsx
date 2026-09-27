@@ -29,6 +29,10 @@ interface RecommendationListProps {
   pending?: boolean;
   /** Disable Add when the trip is at the cap */
   atCap?: boolean;
+  /** Open the city's neighbourhood write-up without adding it. */
+  onCityPreview?: (cityId: string) => void;
+  /** The city whose write-up is open, so its button reads as pressed. */
+  previewedCityId?: string | null;
 }
 
 const TIER_LABELS: Record<RankedWaypoint["tier"], string> = {
@@ -60,6 +64,8 @@ export default function RecommendationList({
   onRemoveCity,
   pending = false,
   atCap = false,
+  onCityPreview,
+  previewedCityId = null,
 }: RecommendationListProps) {
   const persona = PERSONAS[activePersonaId];
   const accent = persona.accentColor;
@@ -136,7 +142,9 @@ export default function RecommendationList({
           <section key={cityId} className="mb-3">
             <h3
               className={[
-                "sticky top-0 z-10 text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b flex items-center justify-between gap-2",
+                // 44 px tall so the buttons' extended hit areas (see below)
+                // stay inside the header and never reach the rows beneath.
+                "sticky top-0 z-10 min-h-[44px] text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b flex items-center justify-between gap-2",
                 isHighlighted
                   ? "bg-[#262c36] text-[#f0f6fc] border-[#6e7681]"
                   : "bg-[#161b22] text-[#7d8590] border-[#30363d]",
@@ -148,6 +156,34 @@ export default function RecommendationList({
                   · +{Math.round(detourMinutes)}m
                 </span>
               </span>
+              {/* Read about the city before deciding. Opens the neighbourhood
+                  panel for a candidate the same way a click on a stop does;
+                  nothing is added. */}
+              {onCityPreview && (
+                <button
+                  type="button"
+                  onClick={() => onCityPreview(cityId)}
+                  aria-pressed={previewedCityId === cityId}
+                  aria-label={`See what is in ${cityName}`}
+                  className={[
+                    // The visible button is about 20 px tall (10 px text,
+                    // 2 px padding each side, 1 px border each side). The
+                    // invisible ::before adds 12 px above and below
+                    // (-inset-y-3), which is 44 px, the touch-target minimum.
+                    // It extends vertically only, so the two side-by-side
+                    // buttons cannot overlap each other, and the header is
+                    // 44 px tall with the buttons centred, so it cannot reach
+                    // the rows beneath either.
+                    "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
+                    "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    previewedCityId === cityId
+                      ? "border-[#f0f6fc] text-[#f0f6fc]"
+                      : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
+                  ].join(" ")}
+                >
+                  See what&apos;s here
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleAddClick}
@@ -160,7 +196,10 @@ export default function RecommendationList({
                     : "Add city to trip"
                 }
                 className={[
-                  "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors",
+                  // Same 44 px hit area as the preview button beside it, so
+                  // neither is the hard one to hit on a phone.
+                  "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
+                  "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                   isAdded
                     ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
                     : canAdd
