@@ -52,3 +52,8 @@ road.
 - Rule 2: with the per-kind cap removed, "fills a sheet even when the caps would leave it short" fails. Restored. The balance assertion (big kinds within one of each other) and the one-of-each assertion pin the round-robin.
 - Rule 1: the determinism test asserts the same ids for the same seed and different ids for another.
 - 413 tests, 5 new; lint and types clean. The script is not run in this PR; the corridor is still pulling under the second tag list.
+
+## Council round 1 on #64 (BLOCK, maintainability 4), and what changed
+
+- six comments: the hundred is John's hour; the quarter cap against step 19's 71% flood; the seed and why changing it would orphan a labelled sheet; the two passes; the Earth's radius; the five decimals
+- Answered, not changed: `data/corridors/` has been in `.gitignore` since #60

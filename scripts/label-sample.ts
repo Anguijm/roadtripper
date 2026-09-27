@@ -28,6 +28,7 @@ const sample = labelSample(corridor.stops);
 // How far along: the pull did not store the route, so this is the straight
 // line from the start as a fraction of the straight line start to end, in
 // kilometres. Good enough to say "near the start" or "past the middle".
+// Haversine; 6371 is the Earth's mean radius in kilometres.
 const km = (a: LatLng, b: LatLng) => { const R = 6371, r = (x: number) => (x * Math.PI) / 180; const dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng); const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(Math.min(1, h))); };
 const total = km(corridor.from, corridor.to);
 const rows = sample
@@ -39,6 +40,8 @@ const rows = sample
     lat: s.lat,
     lng: s.lng,
     wikidata: s.wikidata,
+    // Five decimals is about a metre: the pin lands on the thing, and the
+    // link stays short enough to read in a table cell.
     map: `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`,
     osm: `https://www.openstreetmap.org/${s.id.replace("osm:", "").replace(":", "/")}`,
   }))

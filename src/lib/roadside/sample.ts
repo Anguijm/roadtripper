@@ -20,8 +20,26 @@ export interface SampleOptions {
   seed?: number;
 }
 
+/**
+ * The labelling budget: the plan's step 20 is "hand-label 100 of them, an
+ * hour of John's time", and a hundred is what fits in an hour at ten
+ * seconds a row on a phone. More rows would be a better bench and a worse
+ * hour; the number is his, not the model's.
+ */
 export const DEFAULT_SAMPLE_SIZE = 100;
+/**
+ * No kind may be more than a quarter of the sheet. Step 19's first pull
+ * was 71% one kind (historic); a quarter caps any such flood at 25 rows,
+ * leaves 75 for everything else, and still gives the flood enough rows
+ * for the bench to learn what "no" looks like in it.
+ */
 export const DEFAULT_MAX_SHARE = 0.25;
+/**
+ * Fixed so the same corridor gives the same 100. Changing it, or the
+ * sampler's order, changes which stops are picked: a sheet already
+ * labelled would no longer match a regenerated sample, and the labels
+ * could not be merged back by id. Keep it; the value itself means nothing.
+ */
 export const DEFAULT_SEED = 1337;
 
 /** A small deterministic generator (mulberry32). Good enough to shuffle. */
@@ -80,10 +98,13 @@ export function labelSample(stops: readonly RoadsideStop[], opts: SampleOptions 
     return true;
   };
 
-  // One of each kind first, smallest kinds included.
+  // Two passes. First, one of each kind, so a kind with a single stop (the
+  // one zoo) is on the sheet at all; a size-proportional draw would never
+  // reach it. Second, round-robin across the kinds, largest first within a
+  // round, taking one more from each until the sheet is full or every kind
+  // is at its cap or out of stops: the big kinds end up within one row of
+  // each other, and the flood cannot crowd the rest.
   for (const kind of groups.keys()) if (picked.length < size) take(kind);
-  // Then round-robin through the kinds, largest first, until the sheet is full
-  // or every kind is capped or exhausted.
   const order = [...groups.keys()].sort((a, b) => groups.get(b)!.length - groups.get(a)!.length);
   let progress = true;
   while (picked.length < size && progress) {
