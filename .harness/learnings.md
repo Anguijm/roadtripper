@@ -462,3 +462,57 @@ condition was to verify that SQLite read failures fall back to the live API.
 The try/catch in `candidatesFromGraph` and `radial-graph-fallback.test.ts`
 already did that, so the answer was a comment naming both, and the merge went
 ahead. Not every condition needs a commit; it needs evidence.
+
+## Session 27, second half (2026-09-27 to 28 UTC): steps 6 through 19
+
+**Chrome's plain --screenshot flag does not emulate a phone.** A 390-wide
+capture of the plan page looked clipped on the right, and I told John it
+was a page-wide overflow that predated the step. It was not. Measured
+through the debugging port with a real mobile viewport, the page was
+exactly 390 wide at a 390 viewport. Rule: measure `scrollWidth` against
+`innerWidth` before claiming an overflow, and take phone screenshots with
+`Emulation.setDeviceMetricsOverride`, never with `--window-size` alone. The
+script that does it right is in the scratchpad as `shot.mjs`; it belongs
+in the repo the next time a screenshot is part of a PR.
+
+**A council item that is already true is answered with the lines, and the
+PR merges on Conditional.** Done on #50, #59 and #61: "verify X", where X
+is in the code, gets a comment naming the file and lines, and the merge goes
+ahead. A Conditional whose condition is met is not a block. The council
+does not read comments before its next round, so an item can come back;
+twice in a row is the point to apply the harmless version and stop
+arguing (#56, items 1 and 2).
+
+**A ship rule can be amended mid-step, in writing, with the reason.** Step
+9's rule 4 said every link would carry the deadline; the deadline is for
+Austin, not for Lubbock, so per-city links stayed plain. Step 14's rule 1
+said "top-ranked spot"; a fixture where the top spot had no description
+showed a lead with nothing to say, so it became "top-ranked spot with a
+reason". Both amendments are in the plan file and the PR, marked as such.
+
+**A mutation proof can be silent when two layers guard the same thing.**
+Removing the empty-name guard in `fromOsmElement` failed no test, because
+the zod schema's `min(1)` refuses the same input. The proof had to target
+the whitespace-only case, which only the trim handles. When a guard is
+redundant with a schema, either prove the layer the schema cannot see or
+say the guard is defence in depth and untested.
+
+**The free Overpass instance is a weather system.** Step 19 died on a 504
+at tile 2, then tile 4, then a 90 s client timeout at tile 3 and tile 6,
+across four runs in an hour, with two other public instances worse. What
+made it finish was not a longer wait but resumption: every tile written the
+moment it arrives, keyed by a hash of the route, and a watcher that reruns
+the script every ten minutes. Patience is not availability; resumption is.
+
+**The progress file's key must include what the tiles depend on.** The
+first key was name, tile count and buffer; a re-routed corridor with the
+same name would have merged tiles cut along two different lines. The
+council caught it. The migration for the one file already written was a
+one-off script, not a shim in the code.
+
+**The product reviewer's low score was the useful one twice.** Step 7's
+today screen scored 5 on product for being a dead end; a "plan a trip
+here" link per city fixed it and the score went to 9. Step 13's preview
+button scored 6 for a tiny target beside the add button; 44 px hit areas
+on both fixed it. When one persona's score stays low across rounds, read
+its raw critique, not the synthesis.
