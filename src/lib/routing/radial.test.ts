@@ -18,13 +18,7 @@ vi.mock("@/lib/atlas/queries", async (importOriginal) => {
   return { ...actual, hasDriveGraphFor: () => false };
 });
 
-import {
-  bearingDeg,
-  snapToCompassPoint,
-  bearingFromCompassPoint,
-  withinSemicircle,
-  findCitiesInRadius,
-} from "./radial";
+import { bearingDeg, findCitiesInRadius } from "./radial";
 import { getAllCities } from "@/lib/urban-explorer/cities";
 import { cacheGet, cacheSet } from "./cache";
 
@@ -75,94 +69,6 @@ describe("bearingDeg", () => {
   });
 });
 
-// ── snapToCompassPoint ────────────────────────────────────────────────────────
-
-describe("snapToCompassPoint", () => {
-  it("snaps 0° to N", () => expect(snapToCompassPoint(0)).toBe("N"));
-  it("snaps 45° to NE", () => expect(snapToCompassPoint(45)).toBe("NE"));
-  it("snaps 90° to E", () => expect(snapToCompassPoint(90)).toBe("E"));
-  it("snaps 135° to SE", () => expect(snapToCompassPoint(135)).toBe("SE"));
-  it("snaps 180° to S", () => expect(snapToCompassPoint(180)).toBe("S"));
-  it("snaps 225° to SW", () => expect(snapToCompassPoint(225)).toBe("SW"));
-  it("snaps 270° to W", () => expect(snapToCompassPoint(270)).toBe("W"));
-  it("snaps 315° to NW", () => expect(snapToCompassPoint(315)).toBe("NW"));
-
-  it("snaps 22° to N (closer to N than NE)", () => expect(snapToCompassPoint(22)).toBe("N"));
-  it("snaps 23° to NE (closer to NE than N)", () => expect(snapToCompassPoint(23)).toBe("NE"));
-  it("snaps 359° to N (wraps from NW back to N)", () => expect(snapToCompassPoint(359)).toBe("N"));
-  it("snaps 360° to N (same as 0°)", () => expect(snapToCompassPoint(360)).toBe("N"));
-
-  it("handles bearing > 360 by wrapping", () => {
-    expect(snapToCompassPoint(405)).toBe("NE"); // 405 mod 360 = 45
-  });
-});
-
-// ── bearingFromCompassPoint ───────────────────────────────────────────────────
-
-describe("bearingFromCompassPoint", () => {
-  it("returns correct bearing for each compass point", () => {
-    expect(bearingFromCompassPoint("N")).toBe(0);
-    expect(bearingFromCompassPoint("NE")).toBe(45);
-    expect(bearingFromCompassPoint("E")).toBe(90);
-    expect(bearingFromCompassPoint("SE")).toBe(135);
-    expect(bearingFromCompassPoint("S")).toBe(180);
-    expect(bearingFromCompassPoint("SW")).toBe(225);
-    expect(bearingFromCompassPoint("W")).toBe(270);
-    expect(bearingFromCompassPoint("NW")).toBe(315);
-  });
-
-  it("round-trips through snapToCompassPoint", () => {
-    for (const bearing of [0, 45, 90, 135, 180, 225, 270, 315]) {
-      const cp = snapToCompassPoint(bearing);
-      expect(bearingFromCompassPoint(cp)).toBe(bearing);
-    }
-  });
-});
-
-// ── withinSemicircle ──────────────────────────────────────────────────────────
-
-describe("withinSemicircle", () => {
-  const origin = { lat: 0, lng: 0 };
-
-  it("city directly ahead (0° diff from heading) is inside", () => {
-    // heading N (0°), city due north
-    expect(withinSemicircle({ lat: 1, lng: 0 }, origin, 0)).toBe(true);
-  });
-
-  it("city exactly 90° off heading is on the boundary (inside)", () => {
-    // heading N (0°), city due east (90°) → diff = 90 → inside
-    expect(withinSemicircle({ lat: 0, lng: 1 }, origin, 0)).toBe(true);
-  });
-
-  it("city exactly 90° off heading on the other side is inside", () => {
-    // heading N (0°), city due west (270°) → diff = |270-0|=270, 360-270=90 → inside
-    expect(withinSemicircle({ lat: 0, lng: -1 }, origin, 0)).toBe(true);
-  });
-
-  it("city behind (180° from heading) is outside", () => {
-    // heading N (0°), city due south (180°) → diff = 180 → outside
-    expect(withinSemicircle({ lat: -1, lng: 0 }, origin, 0)).toBe(false);
-  });
-
-  it("city slightly behind (91° off heading) is outside", () => {
-    // heading N (0°), city at bearing 91° → diff = 91 → outside
-    // Create a city bearing ~91° east-slightly-south
-    expect(withinSemicircle({ lat: -0.01, lng: 1 }, origin, 0)).toBe(false);
-  });
-
-  it("handles heading 270 (west) correctly", () => {
-    // heading W (270°), city due west → inside
-    expect(withinSemicircle({ lat: 0, lng: -1 }, origin, 270)).toBe(true);
-    // heading W (270°), city due east (90°) → diff = |90-270| = 180 → outside
-    expect(withinSemicircle({ lat: 0, lng: 1 }, origin, 270)).toBe(false);
-  });
-
-  it("handles 0°/360° wrap for heading near north", () => {
-    // heading N (0°), city at bearing 350° (NNW) → diff = |350-0|=350, 360-350=10 → inside
-    const cityNNW = { lat: Math.cos((350 * Math.PI) / 180), lng: Math.sin((350 * Math.PI) / 180) };
-    expect(withinSemicircle(cityNNW, origin, 0)).toBe(true);
-  });
-});
 
 // ── findCitiesInRadius ────────────────────────────────────────────────────────
 
