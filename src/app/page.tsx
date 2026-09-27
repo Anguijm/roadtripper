@@ -8,12 +8,20 @@ export default function Home() {
         <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-[#b0b9c2]">
           Roadtripper
         </h1>
-        <Link
-          href="/trips"
-          className="text-xs font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-        >
-          Saved trips
-        </Link>
+        <nav className="flex items-center gap-4">
+          <Link
+            href="/today"
+            className="text-xs font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          >
+            Just today
+          </Link>
+          <Link
+            href="/trips"
+            className="text-xs font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          >
+            Saved trips
+          </Link>
+        </nav>
       </header>
 
       <main className="flex-1 flex items-center justify-center p-6">

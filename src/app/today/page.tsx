@@ -1,0 +1,185 @@
+import { headers } from "next/headers";
+import Link from "next/link";
+import TodayStart from "@/components/TodayStart";
+import TodayPersonaBar from "@/components/TodayPersonaBar";
+import { planToday } from "@/lib/today/plan";
+import { hoursFrom, formatDrive } from "@/lib/today/presets";
+import { fetchWaypointsForCandidates } from "@/lib/routing/recommend";
+import { buildRankedGroups } from "@/lib/routing/scoring";
+import { parsePersonaId, PERSONAS } from "@/lib/personas";
+import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { LatLngSchema } from "@/lib/plan/types";
+
+interface TodaySearchParams {
+  lat?: string;
+  lng?: string;
+  hours?: string;
+  persona?: string;
+  name?: string;
+}
+
+export const dynamic = "force-dynamic";
+
+/** The label under the header. User-supplied, so bounded and rendered as text. */
+const MAX_NAME_LENGTH = 80;
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col min-h-screen bg-[#0d1117]">
+      <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
+        <Link
+          href="/"
+          className="text-sm font-mono uppercase tracking-[0.3em] text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors"
+        >
+          ← Roadtripper
+        </Link>
+        <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e]">Today</span>
+      </header>
+      <main className="flex-1 p-6">
+        <div className="w-full max-w-md mx-auto">{children}</div>
+      </main>
+    </div>
+  );
+}
+
+function Notice({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="border border-[#30363d] bg-[#161b22] p-6 flex flex-col gap-3">
+      <p className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">{title}</p>
+      <p className="text-sm text-[#b0b9c2]">{text}</p>
+      <Link
+        href="/today"
+        className="self-start text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors"
+      >
+        Type a city
+      </Link>
+    </div>
+  );
+}
+
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<TodaySearchParams>;
+}) {
+  const params = await searchParams;
+  const personaId = parsePersonaId(params.persona);
+  const hours = hoursFrom(params.hours);
+
+  // No point yet: ask. The start screen locates on its own once permission
+  // has been granted, so this is the page that opens knowing your city.
+  const hasPoint = params.lat !== undefined && params.lng !== undefined;
+  const origin = hasPoint
+    ? LatLngSchema.safeParse({ lat: Number(params.lat), lng: Number(params.lng) })
+    : null;
+  if (!origin || !origin.success) {
+    return (
+      <Shell>
+        <div className="mb-6">
+          <h1 className="text-2xl font-mono tracking-tight text-[#f0f6fc] mb-2">What is in range today?</h1>
+          <p className="text-sm text-[#8b949e]">No destination needed. Where you are, how long you have, what you like.</p>
+        </div>
+        <TodayStart initialHours={hours} initialPersonaId={personaId} />
+      </Shell>
+    );
+  }
+
+  // Everything below is SQLite, but it is still CPU on a shared box, so the
+  // same per-IP limiter as the plan page applies.
+  maybeSweep();
+  const limit = checkRateLimit(getClientIp(await headers()));
+  if (!limit.ok) {
+    return (
+      <Shell>
+        <Notice title="Slow down" text={`Too many requests. Try again in ${limit.retryAfterSeconds} seconds.`} />
+      </Shell>
+    );
+  }
+
+  const plan = planToday(origin.data, hours);
+  const rawName = typeof params.name === "string" ? params.name.trim() : "";
+  const whereLabel = rawName ? rawName.slice(0, MAX_NAME_LENGTH) : plan.here ? plan.here.city.name : "Your location";
+
+  if (plan.reach === "no-city") {
+    return (
+      <Shell>
+        <Notice
+          title="Not near a city we know"
+          text="There is no atlas city within 40 km of that point, so the drive graph cannot answer from here. Type the nearest city instead."
+        />
+      </Shell>
+    );
+  }
+  if (plan.reach === "no-graph") {
+    return (
+      <Shell>
+        <Notice
+          title={`No drive times for ${plan.here?.city.name ?? "this city"}`}
+          text="The atlas knows the city but has no drive graph rows for it yet. Type a nearby city instead."
+        />
+      </Shell>
+    );
+  }
+
+  const fetchResult = await fetchWaypointsForCandidates(plan.reachable);
+  const groups = buildRankedGroups(fetchResult, personaId);
+  const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
+  const shown = groups.length;
+  const total = plan.reachable.length;
+  const persona = PERSONAS[personaId];
+
+  return (
+    <Shell>
+      <div className="mb-5">
+        <h1 className="text-2xl font-mono tracking-tight text-[#f0f6fc] mb-1">
+          {total === 0 ? `Nothing within ${hours} hours` : `${total} ${total === 1 ? "city" : "cities"} within ${hours} hours`}
+        </h1>
+        <p className="text-sm text-[#8b949e]">
+          From {whereLabel}
+          {plan.here && plan.here.distanceKm > 3 ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
+          . One-way drive times.
+        </p>
+      </div>
+
+      <div className="mb-5">
+        <TodayPersonaBar activePersonaId={personaId} />
+      </div>
+
+      {total === 0 ? (
+        <Notice title="Try more hours" text={`No atlas city is within ${hours} hours of ${whereLabel}.`} />
+      ) : (
+        <ol className="flex flex-col gap-4" aria-label={`Cities within ${hours} hours, nearest first`}>
+          {groups.map((g) => (
+            <li key={g.cityId} className="border border-[#30363d] bg-[#161b22] p-4">
+              <div className="flex items-baseline justify-between gap-3 mb-2">
+                <h2 className="text-base font-mono text-[#f0f6fc]">{g.cityName}</h2>
+                <span className="text-sm font-mono text-[#8b949e] whitespace-nowrap">
+                  {formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)}
+                </span>
+              </div>
+              {g.rows.length === 0 ? (
+                <p className="text-xs font-mono text-[#8b949e]">Nothing in the atlas for a {persona.label.toLowerCase()} here yet.</p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {g.rows.map((w) => (
+                    <li key={w.waypointId} className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="text-[#f0f6fc]">{w.name}</span>
+                      <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e] whitespace-nowrap">{w.type.replace("_", " ")}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <p className="mt-5 text-xs font-mono text-[#8b949e]">
+        {shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
+        <Link href={`/today?hours=${hours}&persona=${personaId}`} className="underline hover:text-[#f0f6fc]">
+          Change where or how long
+        </Link>
+      </p>
+    </Shell>
+  );
+}
