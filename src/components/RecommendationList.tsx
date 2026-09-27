@@ -123,6 +123,8 @@ export default function RecommendationList({
         const isAdded = addedCityIds.has(cityId);
         const coords = cityCoords.get(cityId);
         const canAdd = !isAdded && !pending && !atCap && Boolean(coords);
+        const lead = rows.find((r) => r.description) ?? rows[0];
+        const rest = rows.filter((r) => r !== lead);
 
         const handleAddClick = () => {
           if (isAdded) {
@@ -213,8 +215,32 @@ export default function RecommendationList({
                 {isAdded ? "✓ Added" : "+ Add city to trip"}
               </button>
             </h3>
+            {/* The reason leads (step 14): the persona's top-ranked spot that
+                has a description, name and description, before anything else
+                in the card. It is the answer to "why this city" and must be
+                the first thing seen. Every atlas waypoint has a description
+                today (asserted in the atlas tests), so in practice this is the
+                top-ranked spot; the fallback to a spot without one only
+                matters if that ever changes. */}
+            {lead && (
+              <div
+                data-lead
+                onMouseEnter={() => onCityHover?.(cityId)}
+                onMouseLeave={() => onCityHover?.(null)}
+                className="px-2 pt-2 pb-1"
+                style={{ borderLeft: `2px solid ${accent}` }}
+              >
+                <p className="text-sm text-[#f0f6fc]">
+                  <span aria-hidden className="mr-1.5" style={{ color: accent }}>{TYPE_GLYPHS[lead.type] ?? "·"}</span>
+                  {lead.name}
+                </p>
+                {lead.description && (
+                  <p className="text-sm text-[#b0b9c2] mt-1 line-clamp-3" data-reason>{lead.description}</p>
+                )}
+              </div>
+            )}
             <ul className="space-y-1 pt-1">
-              {rows.map((r) => (
+              {rest.map((r) => (
                 <li
                   key={r.waypointId}
                   onMouseEnter={() => onCityHover?.(cityId)}
