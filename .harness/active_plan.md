@@ -4,27 +4,36 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/gate1-deletes-and-google-pacing`
+Branch: `feat/matrix-many-origins`
 
 ## Goal
 
-Two things the #45 and #46 merges exposed. Gate 1 refused to delete a merged
-branch from main because the active plan named the merged branch, so a
-deletion-only push now skips the gate (deleting main is still blocked). And
-the Google matrix pause was sized for one-element calibration calls; a full
-build in 60-element batches would have run at 30,000 elements a minute against
-a 3,000 a minute quota. It is now 1.5 s, 2,400 a minute.
+Finish the drive graph on the free ORS tier in one day. ORS counts requests
+against its daily quota, not pairs, and allows 3,500 pairs per request. The
+first build sent one request per city and emptied the day after 13 cities
+(190 of 5,132 pairs). This branch packs many origins into each request: a
+planner (`scripts/lib/matrix-plan.mjs`) groups origins that share neighbours
+under the provider's cap, both providers gain `durationsMatrix(sources,
+destinations)`, and the build loop stops on a 403 so a quota hit ends the run
+instead of spamming failures. A dry run on 2026-09-27 planned the remaining
+4,942 pairs as 5 ORS requests, reused the stored factor for zero calibration
+requests, hit today's 403 on the first request and exited 2 with nothing lost.
 
-**Cost:** $0 for this change. The build it enables sends 5,132 elements under
-the Essentials SKU, which has 10,000 free a month; worst case if the allowance
-is spent is $25.66.
+## Ship rule
 
-**Weakest part:** The hook has no automated test. The proof is a simulated
-deletion on stdin, refused before the change and accepted after, recorded in
-the PR. A push mixing a deletion with an update still runs the full gate,
-which is correct but untested.
+- Every pair the build still needs is promised by exactly one request, and no
+  request exceeds the provider's cap. Tested on the real atlas.
+- Zero ORS requests spent on calibration when resuming.
+- A 403 stops the run; a non-quota 4xx splits the request by origin and retries.
 
-## Council round 1 on #48 (CONDITIONAL, bugs 6), and what changed
+**Cost:** $0. ORS is free; the Google path is unchanged in price and now paced
+at 20 ms per element so a full 625-element request cannot trip the 3,000 a
+minute quota.
 
-- the deletion check matches any all-zero sha, so it holds in a SHA-256 repository (64 zeros) as well as SHA-1 (40); proven with both lengths, plus main still refused and a normal push still gated
-- the pacing comment names `BATCH` in scripts/build-drive-graph.mjs and says the pause must grow with it, because the quota is on elements
+**Weakest part:** ORS's 3,500 cap is documented as origins times destinations
+("e.g. 50 x 50"). If it turns out to also cap total locations, a request of
+40 origins and 90 destinations is refused with a 400, the splitter halves it by
+origin until it fits, and in the worst case degrades to one origin per request,
+which is the old shape and the old quota problem. The first real run at
+22:30 Japan time on 2026-09-27 settles it; nothing can be proven before the
+window reopens.

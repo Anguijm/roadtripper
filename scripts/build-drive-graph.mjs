@@ -23,6 +23,7 @@
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { openRouteService, googleRoutes, sleep } from "./lib/routing-providers.mjs";
+import { planRequests, neighboursWithin } from "./lib/matrix-plan.mjs";
 import { loadEnv } from "./lib/env.mjs";
 
 // ---------------------------------------------------------------------------
@@ -38,13 +39,6 @@ import { loadEnv } from "./lib/env.mjs";
  *  12,000, and the free ORS matrix quota is measured in hundreds of pairs a
  *  day. `SNAP_RADIUS_KM` in src/lib/atlas/queries.ts is tuned against this. */
 const NEIGHBOUR_RADIUS_KM = 650;
-
-/** Destinations per matrix request, one origin each. Per-request caps that
- *  bound it: ORS allows 3,500 locations per matrix call; Google's
- *  computeRouteMatrix allows 625 elements (origins x destinations). Past either
- *  cap the provider answers 400, which this script treats as a failed request,
- *  not a retry. 60 keeps one city to a single request on both. */
-const BATCH = 60;
 
 /**
  * Pairs sampled against Google to derive the factor, and a disjoint set to test
@@ -72,14 +66,6 @@ const args = new Map(
 );
 
 const E = loadEnv();
-
-const haversineKm = (a, b) => {
-  const R = 6371, rad = (x) => (x * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(Math.min(1, h)));  // clamp: float error can push h past 1 and asin(>1) is NaN
-};
 
 const median = (xs) => {
   const s = [...xs].sort((x, y) => x - y);
@@ -172,8 +158,7 @@ const limit = args.has("limit") ? parseInt(args.get("limit"), 10) : cities.lengt
 const working = cities.slice(0, limit);
 
 /** Every directed pair inside the radius. */
-const neighboursOf = (c) =>
-  cities.filter((o) => o.id !== c.id && haversineKm(c, o) <= NEIGHBOUR_RADIUS_KM);
+const neighboursOf = (c) => neighboursWithin(c, cities, NEIGHBOUR_RADIUS_KM);
 
 const plan = working
   .map((c) => ({
@@ -182,8 +167,7 @@ const plan = working
   }))
   .filter((p) => p.neighbours.length > 0);
 const totalPairs = plan.reduce((s, p) => s + p.neighbours.length, 0);
-const requests = plan.reduce((s, p) => s + Math.ceil(p.neighbours.length / BATCH), 0);
-console.log(`  ${totalPairs} directed pairs within ${NEIGHBOUR_RADIUS_KM} km, ${requests} matrix requests`);
+console.log(`  ${totalPairs} directed pairs within ${NEIGHBOUR_RADIUS_KM} km still to fetch`);
 
 const providerName = args.get("provider") ?? "ors";
 const provider = providerName === "google"
@@ -191,6 +175,13 @@ const provider = providerName === "google"
   : openRouteService(E.ORS_API_KEY);
 const reference = googleRoutes(E.GOOGLE_MAPS_KEY);
 console.log(`  provider: ${provider.name}`);
+
+// Many origins per request. ORS counts requests, not pairs, against its daily
+// quota, so one request per city (the first build's shape) spent the day on
+// 13 cities. The planner packs origins that share neighbours into requests of
+// up to the provider's cap; the US graph is about a dozen ORS requests.
+const requests = planRequests(plan, provider.maxRoutesPerRequest);
+console.log(`  ${requests.length} matrix requests at up to ${provider.maxRoutesPerRequest} pairs each`);
 
 // ---------------------------------------------------------------------------
 // Calibration
@@ -202,9 +193,9 @@ async function ratiosFor(pairs) {
   for (const [from, to] of pairs) {
     try {
       const [mine] = await provider.durationsFromOne(from, [to]);
-      await sleep(provider.pauseMs);
+      await sleep(provider.pauseAfter(1));
       const [ref] = await reference.durationsFromOne(from, [to]);
-      await sleep(reference.pauseMs);
+      await sleep(reference.pauseAfter(1));
       if (mine && ref && ref.minutes > 0) {
         out.push({ from: from.name, to: to.name, mine: mine.minutes, ref: ref.minutes, ratio: mine.minutes / ref.minutes });
       }
@@ -321,32 +312,55 @@ const ins = db.prepare(
 );
 const writeBatch = db.transaction((rows) => { for (const r of rows) ins.run(...r); });
 
-let done = 0, written = 0, unroutable = 0, failedRequests = 0;
+let written = 0, unroutable = 0, failedRequests = 0, sent = 0, quotaHit = false;
 const t0 = Date.now();
+const planById = new Map(plan.map((p) => [p.city.id, p]));
 
-for (const { city, neighbours } of plan) {
-  for (let i = 0; i < neighbours.length; i += BATCH) {
-    const chunk = neighbours.slice(i, i + BATCH);
-    try {
-      const res = await provider.durationsFromOne(city, chunk);
-      const rows = [];
-      res.forEach((r, j) => {
-        if (!r) { unroutable++; return; }
-        rows.push([city.id, chunk[j].id, r.minutes / factor, r.meters]);
+// A request the provider rejects with a non-quota 4xx (too many locations, a
+// location it cannot snap) is split by origin and retried. A 403 is the daily
+// quota: every further request would fail the same way and each one counts,
+// so the run stops there and resumes tomorrow. 5xx and network errors count
+// as failed requests and the run carries on.
+const queue = [...requests];
+while (queue.length && !quotaHit) {
+  const r = queue.shift();
+  const elements = r.sources.length * r.destinations.length;
+  try {
+    const grid = await provider.durationsMatrix(r.sources, r.destinations);
+    const rows = [];
+    r.sources.forEach((from, si) => {
+      r.destinations.forEach((to, di) => {
+        // The planner promises exactly the neighbour set; a destination one
+        // origin needs and another does not is computed but not kept, so the
+        // graph stays the 650 km neighbour set and coverage arithmetic holds.
+        if (!r.pairs.has(`${from.id}|${to.id}`)) return;
+        const cell = grid[si]?.[di];
+        if (!cell) { unroutable++; return; }
+        rows.push([from.id, to.id, cell.minutes / factor, cell.meters]);
       });
-      writeBatch(rows);
-      written += rows.length;
-    } catch (err) {
-      failedRequests++;
-      console.warn(`  ${city.name} batch failed: ${String(err.message).slice(0, 140)}`);
+    });
+    writeBatch(rows);
+    written += rows.length;
+    sent++;
+    console.log(`  request ${sent}: ${r.sources.length} origins x ${r.destinations.length} destinations, ${rows.length} pairs kept, ${written} written, ${queue.length} requests left, ${Math.round((Date.now() - t0) / 1000)}s`);
+  } catch (err) {
+    if (err.status === 403) {
+      quotaHit = true;
+      console.warn(`  quota exhausted after ${sent} requests: ${String(err.message).slice(0, 140)}`);
+      console.warn("  the rows fetched so far are saved; rerun when the window reopens to resume");
+      break;
     }
-    await sleep(provider.pauseMs);
+    if (r.sources.length > 1 && err.status >= 400 && err.status < 500) {
+      const half = Math.ceil(r.sources.length / 2);
+      const replan = (srcs) => planRequests(srcs.map((c) => planById.get(c.id)), provider.maxRoutesPerRequest);
+      queue.unshift(...replan(r.sources.slice(0, half)), ...replan(r.sources.slice(half)));
+      console.warn(`  request rejected, split into two: ${String(err.message).slice(0, 120)}`);
+      continue;
+    }
+    failedRequests++;
+    console.warn(`  request failed: ${String(err.message).slice(0, 140)}`);
   }
-  done++;
-  if (done % 10 === 0 || done === plan.length) {
-    const pct = ((done / plan.length) * 100).toFixed(0);
-    console.log(`  ${done}/${plan.length} cities (${pct}%), ${written} pairs written, ${Math.round((Date.now() - t0) / 1000)}s`);
-  }
+  await sleep(provider.pauseAfter(elements));
 }
 
 db.prepare(`insert or replace into meta values (?,?)`).run("drive_graph_last_run_at", new Date().toISOString());
@@ -372,4 +386,4 @@ console.log(`  unroutable ${unroutable}, failed requests ${failedRequests}`);
 console.log(`  calibration factor ${factor.toFixed(4)} from ${sampled} pairs, held-out mean error ${heldOutMeanPct.toFixed(1)}%`);
 db.pragma("wal_checkpoint(TRUNCATE)");
 db.close();
-process.exit(failedRequests > 0 ? 1 : 0);
+process.exit(failedRequests > 0 ? 1 : quotaHit ? 2 : 0);
