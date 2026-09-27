@@ -63,3 +63,7 @@ the tooling written ahead of the corridor finishing, like the sampler was.
 - Answered, not changed: `zod/v4` is the repo's import, in six files including `record.ts`, and zod 4.3 ships that subpath; `"zod"` alone is the one outlier
 - Taken from the deferred list: the sample file is validated on read through `SampleFileSchema` (fields named, ids unique) instead of trusted through a cast; an unlabelled sheet is refused rather than written empty (rule 1 amended)
 - The corridor finished under the second tag list (32 tiles, 1,074 stops within 10 km), so the sample itself is in this PR: `data/labels/amarillo-austin.sample.json`, 100 rows, eleven kinds, none over twelve rows
+
+## Round 2 on #66 (CLEAR, all tens but product 8)
+
+- Rebased onto main after #65 merged, since both PRs rewrite this file and a conflicting PR runs no council. The code diff against main is the one round 2 cleared; the push after the rebase carries `[skip council]` in the title so a round on an identical diff does not spend a request.
