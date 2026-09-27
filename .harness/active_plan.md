@@ -46,3 +46,11 @@ product decision and this step is about the list.
 - Rule 1: with the preview button never rendered, "offers to show a city's lore before it is added, and marks the open one as pressed" fails. Restored.
 - Rule 5: the candidate-list render shows the button per city with `aria-label="See what is in Amarillo"` and `aria-pressed` true only for the open city; the workspace server-render test still passes.
 - 376 tests, 6 new; lint and types clean.
+
+## Council round 1 on #58 (BLOCK, bugs 4), and what changed
+
+- the fetch effect depends on the city's name, a string, not the resolved object, so trip edits cannot cancel and restart a fetch in flight
+- **found on the way:** the existing effect that moves the panel when the trip changes knew only stops, so a previewed candidate would have been thrown away the moment any stop was added or removed. Now `nextPanelCityId`, pure and tested: stays on a stop or a candidate, moves to the last stop only when the city left both lists, closes when there is none. This is what makes ship rule 3 true at the workspace level, not only in the resolver.
+- a click on a city whose on-demand read failed forgets the failure and fetches again, so clicking through the list fast is not a permanent "could not load"
+- comments: why the trip is checked first in the resolver; why a map tap still adds
+- Pushed back on an AbortController: a server action's promise cannot be cancelled; ignoring the answer is the only abort, and the flag does that (same as #52 round 2)
