@@ -112,6 +112,11 @@ export async function fetchBoxFromOverpass(box: BoundingBox, deps: OverpassDeps 
   // started already aborted and failed at once: four "tries" in two
   // minutes on 2026-09-27, none of them a real second attempt.
   const attempt = async (): Promise<Response> => {
+    // REQUEST_TIMEOUT_MS is 90 s: the query's own server-side timeout is
+    // 45 s and a busy instance queues before that timer starts (see the
+    // constant's comment for the run that set it). To tune it, change the
+    // constant and run the roadside tests: the timeout tests mock fetch
+    // and inspect the signal, so they finish at once and do not wait it out.
     const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
     const signal = deps.signal ? AbortSignal.any([deps.signal, timeout]) : timeout;
     return deps.fetch(deps.url ?? OVERPASS_URL, {

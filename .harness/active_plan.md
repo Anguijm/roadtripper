@@ -28,3 +28,7 @@ take over seven. Every earlier "4 tries" on this corridor was one try.
 Each was found by a real run against a loaded free service, which is the
 only place these show up; the tests now pin all three. The watcher on the
 corridor picks this up on its next run without restarting anything.
+
+## Council round 1 on #65 (CONDITIONAL, bugs 8), and what changed
+
+- the timeout's value, reason and how to tune it are stated where it is used, pointing at the constant's own comment and at the tests that inspect the signal without waiting it out
