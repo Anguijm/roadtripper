@@ -64,3 +64,7 @@ needs a destination to reach the plan page.
 
 - a late error goes through the same staleness check as a late fix: typed meanwhile, or left the page, and nothing lands on the user; one `stale()` shared by both paths
 - Pushed back on an AbortController: `getCurrentPosition` has no cancel and a server action's promise cannot be cancelled, so the only possible "abort" is ignoring the answer, which the mounted ref already does. Said so in the code.
+
+## Council round 3 on #52 (CONDITIONAL, bugs 9), and what changed
+
+- the callback lives in a ref synced after each render, so `run` and the mount effect depend on nothing that changes; an inline callback from a caller can no longer re-arm the mount effect. Written in an effect, which the react-hooks/refs rule requires.

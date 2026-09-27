@@ -36,6 +36,15 @@ export function useLocatedOrigin(onLocated: (selection: OriginSelection) => void
   const busy = useRef(false);
   const mounted = useRef(false);
   const manualEdits = useRef(0);
+  // The callback lives in a ref, synced after each render, so `run` and the
+  // mount effect depend on nothing that changes. A caller passing an inline
+  // function would otherwise re-arm the mount effect on every render and
+  // query permission again each time. (Written in an effect, not during
+  // render, which is what the react-hooks/refs rule requires.)
+  const onLocatedRef = useRef(onLocated);
+  useEffect(() => {
+    onLocatedRef.current = onLocated;
+  }, [onLocated]);
 
   const noteManualChange = useCallback(() => {
     manualEdits.current += 1;
@@ -60,7 +69,7 @@ export function useLocatedOrigin(onLocated: (selection: OriginSelection) => void
         if (mounted.current) setStatus({ kind: "idle", message: "" });
         return;
       }
-      onLocated(selection);
+      onLocatedRef.current(selection);
       setStatus({ kind: "located", message: label });
     } catch (err) {
       if (stale()) {
@@ -71,7 +80,7 @@ export function useLocatedOrigin(onLocated: (selection: OriginSelection) => void
     } finally {
       busy.current = false;
     }
-  }, [onLocated]);
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
