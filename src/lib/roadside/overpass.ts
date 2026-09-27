@@ -13,9 +13,13 @@ import { fromOsmElement, HISTORIC_STOP_VALUES, type OsmElement, type RoadsideSto
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 /**
- * Bumped whenever `overpassQuery` asks for different things, so a pull's
- * progress file, which carries it, does not merge tiles pulled under two
- * different tag lists. 1 was the first guess; 2 is step 19's list.
+ * Bumped whenever `overpassQuery` asks for different things. The pull
+ * script (scripts/pull-corridor.ts) puts it in the key of each corridor's
+ * progress file, so a bump makes every existing progress file "for a
+ * different version": the next run starts that corridor over from tile 1
+ * under the new list, and never merges tiles pulled under two lists. That
+ * costs a corridor's worth of Overpass requests, which is the price of
+ * changing the question. 1 was the first guess; 2 is step 19's list.
  */
 export const QUERY_VERSION = 2;
 export const USER_AGENT = "roadtripper (road-trip planner in development; contact: anguijm@gmail.com)";

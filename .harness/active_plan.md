@@ -51,3 +51,9 @@ persona-driven food picks stay Urban Explorer's job. And the parser drops
 plaques by `memorial=plaque|stone`, which only catches markers tagged that
 way; untagged ones survive into the labels, which is fine, because then
 John's labels teach the Noul to drop them.
+
+## Council round 1 on #63 (CONDITIONAL, bugs 6), and what changed
+
+- `wikidataId` reads the first Q-id anywhere in the tag (a full URL, "Q1;Q2", spaces, lower case); tested
+- the version says what bumping it does and where it is consumed; the historic list says how to change it against the fixtures; the notable rule says why administrative boundaries are excluded
+- Answered, not changed: positions on ways and relations already use `el.center?.lat`, and a way without a centre is tested to yield null

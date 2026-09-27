@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fromOsmElement, kindFromTags, RoadsideStopSchema, type OsmElement } from "../record";
+import { fromOsmElement, kindFromTags, wikidataId, RoadsideStopSchema, type OsmElement } from "../record";
 import { corridorTiles, paddedBox, withinCorridor } from "../corridor";
 import { fetchBoxFromOverpass, fetchCorridorFromOverpass, overpassQuery, OverpassError, PAUSE_MS, RETRY_PAUSES_MS, USER_AGENT } from "../overpass";
 import { haversineKm, projectOntoPolyline, type LatLng } from "@/lib/routing/polyline";
@@ -70,6 +70,16 @@ describe("the roadside record", () => {
     for (const notAStop of notStops) expect(kindFromTags(notAStop)).toBeNull();
     // tourism still wins over notable
     expect(kindFromTags({ tourism: "attraction", amenity: "restaurant", name: "Cadillac Ranch", wikidata: "Q254602" })).toBe("attraction");
+  });
+
+  it("reads the Q-id out of the forms the wikidata tag actually takes", () => {
+    expect(wikidataId("Q254602")).toBe("Q254602");
+    expect(wikidataId("https://www.wikidata.org/wiki/Q254602")).toBe("Q254602");
+    expect(wikidataId("Q254602;Q2112754")).toBe("Q254602");
+    expect(wikidataId(" q254602 ")).toBe("Q254602");
+    expect(wikidataId("not-a-qid")).toBeNull();
+    expect(wikidataId(undefined)).toBeNull();
+    expect(fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { tourism: "museum", name: "M", wikidata: "https://www.wikidata.org/wiki/Q42" } })?.wikidata).toBe("Q42");
   });
 
   it("maps tags to kinds, tourism first, and drops a malformed wikidata id", () => {
