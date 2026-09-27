@@ -51,3 +51,8 @@ GitHub declines to run for any other reason will still look like a queue.
 - the check now runs on each branch head in the push (gathered from the ref lines git hands the hook), not on HEAD, so pushing another branch from this checkout checks the right commit; a push of tags alone, or deletions alone, skips it and says so
 - the fetch is bounded to 20 s with coreutils `timeout` where present. Answered, not changed: `git fetch` has no `--timeout` flag; the bound is the process timeout
 - Proven again: the old head of #66 pushed from a checkout of main is refused by its own sha; a tags-only ref line skips the check and the gate goes on; this branch's head passes
+
+## Council round 2 on #67 (CONDITIONAL, product 5), and what changed
+
+- the twenty seconds is explained where it is set: not reached by a slow network, only a dead one, and short enough to be seen at the terminal
+- Answered, not changed: quoting `"$PUSHED_BRANCH_SHAS"` in the loop would make one word of the whole list and check nothing; the list holds only 40-digit hex shas git itself handed the hook. The portable fallback for a system without coreutils `timeout` is left as it was: an unbounded fetch, which is what every push did before this PR.

@@ -73,6 +73,12 @@ fi
 if [ -z "$PUSHED_BRANCH_SHAS" ]; then
   echo "${YEL}gate1: no branch head in this push; skipping the conflict check${OFF}" >&2
 else
+  # Twenty seconds: a fetch of one ref from GitHub takes about a second on a
+  # normal connection and five on a bad hotel one, so twenty is not reached by
+  # a slow network, only by a dead one; and it is short enough that a person
+  # waiting at the terminal sees the warning and the rest of the gate rather
+  # than wondering whether the push hung. Without coreutils timeout (stock
+  # macOS) the fetch runs unbounded, which is what every push did before.
   BOUND=""; command -v timeout >/dev/null 2>&1 && BOUND="timeout 20"
   if $BOUND git fetch -q origin main 2>/dev/null; then
     BASE=$(git rev-parse -q --verify FETCH_HEAD)
