@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { fromOsmElement, kindFromTags, RoadsideStopSchema, type OsmElement } from "../record";
 import { corridorTiles, paddedBox, withinCorridor } from "../corridor";
-import { fetchBoxFromOverpass, fetchCorridorFromOverpass, overpassQuery, OverpassError, PAUSE_MS, RETRY_PAUSE_MS, USER_AGENT } from "../overpass";
+import { fetchBoxFromOverpass, fetchCorridorFromOverpass, overpassQuery, OverpassError, PAUSE_MS, RETRY_PAUSES_MS, USER_AGENT } from "../overpass";
 import { haversineKm, projectOntoPolyline, type LatLng } from "@/lib/routing/polyline";
 
 // ───────────────────────── the record ─────────────────────────
@@ -146,18 +146,61 @@ describe("the Overpass client", () => {
     expect(deps.sleep).not.toHaveBeenCalled();
   });
 
-  it("retries once after a long pause on 429 or 504, then gives up with the status", async () => {
+  it("retries with growing pauses on 429 or 504, at most three times, then gives up with the status", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(reply(504, "busy")).mockResolvedValueOnce(reply(200, { elements: [] }));
     const sleep = vi.fn(async () => {});
     await fetchBoxFromOverpass(box, { fetch: fetchMock as never, sleep });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(sleep).toHaveBeenCalledWith(RETRY_PAUSE_MS);
+    expect(sleep).toHaveBeenCalledWith(RETRY_PAUSES_MS[0]);
 
-    const twice = vi.fn().mockResolvedValue(reply(429, "slow down"));
-    const err = await fetchBoxFromOverpass(box, { fetch: twice as never, sleep: vi.fn(async () => {}) }).catch((e) => e);
+    const always = vi.fn().mockResolvedValue(reply(429, "slow down"));
+    const pauses: number[] = [];
+    const err = await fetchBoxFromOverpass(box, { fetch: always as never, sleep: vi.fn(async (ms: number) => { pauses.push(ms); }) }).catch((e) => e);
     expect(err).toBeInstanceOf(OverpassError);
     expect(err.status).toBe(429);
-    expect(twice).toHaveBeenCalledTimes(2);
+    expect(always).toHaveBeenCalledTimes(1 + RETRY_PAUSES_MS.length);
+    expect(pauses).toEqual([...RETRY_PAUSES_MS]);
+  });
+
+  it("also retries 502 and 503, the gateway and overload answers", async () => {
+    for (const status of [502, 503]) {
+      const once = vi.fn().mockResolvedValueOnce(reply(status, "later")).mockResolvedValueOnce(reply(200, { elements: [] }));
+      await fetchBoxFromOverpass(box, { fetch: once as never, sleep: vi.fn(async () => {}) });
+      expect(once).toHaveBeenCalledTimes(2);
+    }
+    // a 400 is our fault and is not retried
+    const bad = vi.fn().mockResolvedValue(reply(400, "bad query"));
+    await expect(fetchBoxFromOverpass(box, { fetch: bad as never, sleep: vi.fn(async () => {}) })).rejects.toBeInstanceOf(OverpassError);
+    expect(bad).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a client-side timeout like a 504: retried on the same schedule, then reported as a timeout", async () => {
+    const timeout = () => { const e = new Error("The operation timed out."); e.name = "TimeoutError"; return Promise.reject(e); };
+    const once = vi.fn().mockImplementationOnce(timeout).mockResolvedValueOnce(reply(200, { elements: [] }));
+    const sleep = vi.fn(async () => {});
+    await fetchBoxFromOverpass(box, { fetch: once as never, sleep });
+    expect(once).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(RETRY_PAUSES_MS[0]);
+
+    const always = vi.fn().mockImplementation(timeout);
+    const err = await fetchBoxFromOverpass(box, { fetch: always as never, sleep: vi.fn(async () => {}) }).catch((e) => e);
+    expect(err).toBeInstanceOf(OverpassError);
+    expect(err.message).toMatch(/timed out/);
+    expect(always).toHaveBeenCalledTimes(1 + RETRY_PAUSES_MS.length);
+
+    // a cancellation is not a timeout: it is thrown as it is, no retry
+    const controller = new AbortController();
+    const aborted = vi.fn(async () => { controller.abort(); const e = new Error("aborted"); e.name = "AbortError"; throw e; });
+    const cancelled = await fetchBoxFromOverpass(box, { fetch: aborted as never, sleep: vi.fn(async () => {}), signal: controller.signal }).catch((e) => e);
+    expect(cancelled.name).toBe("AbortError");
+    expect(aborted).toHaveBeenCalledTimes(1);
+  });
+
+  it("can be pointed at another instance", async () => {
+    let url: string | undefined;
+    const fetchMock = vi.fn(async (u: RequestInfo | URL) => { url = String(u); return reply(200, { elements: [] }); });
+    await fetchBoxFromOverpass(box, { fetch: fetchMock as never, sleep: vi.fn(async () => {}), url: "https://example.test/api" });
+    expect(url).toBe("https://example.test/api");
   });
 
   it("fails on a malformed 200 rather than returning nothing", async () => {
@@ -175,6 +218,27 @@ describe("the Overpass client", () => {
     expect(seen).toEqual([1, 2, 3]);
     expect(sleep).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(PAUSE_MS);
+  });
+
+  it("resumes: tiles already held are not fetched again, and a failure names its tile", async () => {
+    const other = { ...node, id: 8, tags: { ...node.tags, name: "Palo Duro Canyon" } };
+    const held = new Map<number, ReturnType<typeof fromOsmElement>[]>();
+    // First run: tile 3 fails after the retries; tiles 1 and 2 were reported and kept by the caller.
+    let calls = 0;
+    const failing = vi.fn(async () => (++calls <= 2 ? reply(200, { elements: [node] }) : reply(504, "busy")));
+    const quiet = { sleep: vi.fn(async () => {}) };
+    const err = await fetchCorridorFromOverpass([box, box, box], { fetch: failing as never, ...quiet }, (i, _n, stops) => held.set(i - 1, stops)).catch((e) => e);
+    expect(err).toBeInstanceOf(OverpassError);
+    expect(err.message).toMatch(/tile 3 of 3/);
+    expect(held.size).toBe(2);
+    // Second run, with what the first run held: only tile 3 is fetched, with
+    // no pause first, since nothing was fetched before it in this run.
+    const second = vi.fn(async () => reply(200, { elements: [other] }));
+    const sleep2 = vi.fn(async () => {});
+    const stops = await fetchCorridorFromOverpass([box, box, box], { fetch: second as never, sleep: sleep2 }, undefined, held as never);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(stops.map((s) => s.name).sort()).toEqual(["Big Texan", "Palo Duro Canyon"]);
+    expect(sleep2).not.toHaveBeenCalled();
   });
 });
 
