@@ -22,8 +22,9 @@ catch it.
 1. Three labels and no more: worth it, no, unsure. The sheet's dropdown
    words are accepted as typed on a phone: any case, spaces or
    underscores between the words. A blank cell is "not labelled yet", not
-   an error, since a half-labelled sheet is still a bench. Anything else
-   is an error that names the line.
+   an error, since a half-labelled sheet is still a bench. (Amended after
+   round 1: a sheet with no label at all is refused, not written as an
+   empty file.) Anything else is an error that names the line.
 2. Every id on the sheet must be in the sample, and an id labelled twice
    with different words is a conflict; both stop the import with the ids
    named. The same id labelled twice the same way is not a conflict. The
@@ -54,3 +55,11 @@ the tooling written ahead of the corridor finishing, like the sampler was.
 - Rule 1: with the word normalisation removed from `labelFromWord`, five tests fail, starting with "accepts the dropdown's three words in any case or spacing". Restored, `cmp` clean.
 - Script smoked both ways on a three-row sample: a sheet with one blank cell writes two of three and says so; a sheet with an unknown word, an unknown id and a conflict names all three problems, exits 1, writes nothing. The smoke files were removed.
 - 421 tests, 8 new; lint and types clean.
+
+## Council round 1 on #66 (CONDITIONAL, maintainability 7, product 7), and what changed
+
+- a comment above `LabelSchema` names the step 21 bench as its reader and what a fourth value would break
+- a comment says why the file is tab-separated and not comma-separated: names carry commas
+- Answered, not changed: `zod/v4` is the repo's import, in six files including `record.ts`, and zod 4.3 ships that subpath; `"zod"` alone is the one outlier
+- Taken from the deferred list: the sample file is validated on read through `SampleFileSchema` (fields named, ids unique) instead of trusted through a cast; an unlabelled sheet is refused rather than written empty (rule 1 amended)
+- The corridor finished under the second tag list (32 tiles, 1,074 stops within 10 km), so the sample itself is in this PR: `data/labels/amarillo-austin.sample.json`, 100 rows, eleven kinds, none over twelve rows

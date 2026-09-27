@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { labelFromWord, parseLabelSheet, mergeLabels, LabelsFileSchema, type SampleRow } from "../labels";
+import { labelFromWord, parseLabelSheet, mergeLabels, LabelsFileSchema, SampleFileSchema, type SampleRow } from "../labels";
 
 const sample: SampleRow[] = [
   { id: "osm:node:1", name: "Cadillac Ranch", kind: "artwork" },
@@ -72,6 +72,18 @@ describe("merging labels into the sample", () => {
     const merged = mergeLabels(sample, rows);
     expect(merged.conflicts).toEqual([]);
     expect(merged.labels.map((l) => l.label)).toEqual(["worth_it"]);
+  });
+});
+
+describe("the sample file", () => {
+  it("refuses a duplicate id and a kind outside the enum, and ignores the sheet's columns", () => {
+    const row = { id: "osm:node:1", name: "Cadillac Ranch", kind: "artwork", alongKm: 3, map: "https://example.test", osm: null };
+    const good = { corridor: "amarillo-austin", sampledAt: "2026-09-28T00:00:00Z", size: 1, rows: [row] };
+    const parsed = SampleFileSchema.safeParse(good);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.rows[0]).toEqual({ id: "osm:node:1", name: "Cadillac Ranch", kind: "artwork" });
+    expect(SampleFileSchema.safeParse({ ...good, rows: [row, { ...row, name: "Again" }] }).success).toBe(false);
+    expect(SampleFileSchema.safeParse({ ...good, rows: [{ ...row, kind: "diner" }] }).success).toBe(false);
   });
 });
 

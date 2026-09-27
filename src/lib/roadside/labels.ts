@@ -10,8 +10,16 @@
  */
 
 import { z } from "zod/v4";
-import { RoadsideKindSchema, type RoadsideKind } from "./record";
+import { RoadsideKindSchema } from "./record";
 
+/**
+ * Three, and the step 21 bench (scripts/bench-roadside.ts, to come) reads
+ * them back through LabelsFileSchema below. A fourth value here changes
+ * what "agreement" means there: every count the bench prints is over these
+ * three, and a file labelled with a fourth word fails validation until the
+ * bench knows what to make of it. Add a value only together with the
+ * bench and with the dropdown on the sheet.
+ */
 export const LabelSchema = z.enum(["worth_it", "no", "unsure"]);
 export type Label = z.infer<typeof LabelSchema>;
 
@@ -38,6 +46,21 @@ export const LabelsFileSchema = z.object({
   labels: z.array(LabelledRowSchema),
 });
 export type LabelsFile = z.infer<typeof LabelsFileSchema>;
+
+/**
+ * The part of `data/labels/<corridor>.sample.json` the import needs; the
+ * sheet's columns (distance, map link) are not read here. Ids must be
+ * unique: the sampler dedupes by id, and a duplicate would mean one stop
+ * on the sheet twice and one label silently doubled in the output.
+ */
+export const SampleFileSchema = z.object({
+  corridor: z.string().min(1),
+  sampledAt: z.string().min(1),
+  rows: z
+    .array(z.object({ id: z.string().min(1), name: z.string().min(1), kind: RoadsideKindSchema }))
+    .refine((rows) => new Set(rows.map((r) => r.id)).size === rows.length, { message: "sample ids must be unique" }),
+});
+export type SampleFile = z.infer<typeof SampleFileSchema>;
 
 export interface ParsedLabelRow {
   /** One-based, for the error messages. */
@@ -66,7 +89,10 @@ export function labelFromWord(raw: string): Label | null | "unknown" {
 }
 
 /**
- * Tab-separated, one row a line: id, then the label word. A first line
+ * Tab-separated, not comma-separated: a stop's name can carry a comma
+ * (OpenStreetMap names do) and the sheet's cells copy out with it, so a
+ * comma file would need quoting and a tab file does not. No name carries
+ * a tab. One row a line: id, then the label word. A first line
  * whose id cell is "id" is a header and skipped. Blank lines are skipped.
  * Every problem is an error naming its line; parsing goes on past it so
  * one run reports them all.
@@ -100,11 +126,7 @@ export function parseLabelSheet(text: string): ParsedSheet {
   return { rows, errors };
 }
 
-export interface SampleRow {
-  id: string;
-  name: string;
-  kind: RoadsideKind;
-}
+export type SampleRow = SampleFile["rows"][number];
 export interface MergedLabels {
   /** One per labelled sample row, in sample order. */
   labels: LabelledRow[];
