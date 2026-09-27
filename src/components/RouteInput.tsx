@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
 import DriveBudgetSelector from "./DriveBudgetSelector";
+import { useLocatedOrigin } from "./useLocatedOrigin";
 import { totalDays, totalBudgetMinutes } from "@/lib/plan/types";
 
 interface RouteInputProps {
@@ -40,6 +41,9 @@ export default function RouteInput({
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [dateMode, setDateMode] = useState<"range" | "arrival">("range");
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Where you are, as the start. Fills on its own once permission has been
+  // granted; before that it is one tap. Typing a city replaces it.
+  const located = useLocatedOrigin(setFrom);
 
   const dateOrderValid = !startDate || !endDate || startDate <= endDate;
   // arrival mode: only endDate required (startDate derived server-side from route)
@@ -109,8 +113,26 @@ export default function RouteInput({
           label="From"
           placeholder="Start city"
           value={from ?? undefined}
-          onChange={setFrom}
+          onChange={(city) => { located.noteManualChange(); setFrom(city); }}
+          onTyping={located.noteManualChange}
         />
+        <div className="flex items-center gap-3 -mt-2">
+          <button
+            type="button"
+            onClick={() => void located.locate()}
+            disabled={located.status.kind === "locating"}
+            className="min-h-[44px] px-3 text-xs font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] text-[#b0b9c2] hover:text-[#f0f6fc] disabled:opacity-40 disabled:cursor-wait transition-colors focus:outline-none focus:border-[#f0f6fc]"
+          >
+            Use where I am
+          </button>
+          <p
+            className={`text-xs font-mono ${located.status.kind === "error" ? "text-[#ff7b72]" : "text-[#8b949e]"}`}
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {located.status.message}
+          </p>
+        </div>
         <CityAutocomplete
           label="To"
           placeholder="End city"
