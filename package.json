@@ -13,7 +13,8 @@
     "prepare": "bash .harness/scripts/install_hooks.sh || true",
     "atlas:export": "node scripts/export-atlas.mjs",
     "atlas:drive-graph": "node scripts/build-drive-graph.mjs",
-    "corridor:pull": "bun scripts/pull-corridor.ts"
+    "corridor:pull": "bun scripts/pull-corridor.ts",
+    "label:sample": "bun scripts/label-sample.ts"
   },
   "dependencies": {
     "@vis.gl/react-google-maps": "^1.8.2",
