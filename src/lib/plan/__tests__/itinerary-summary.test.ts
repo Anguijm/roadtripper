@@ -17,6 +17,11 @@ describe("itinerarySummary", () => {
     expect(itinerarySummary([{ cityName: "Lubbock" }], [NaN], NaN)).toBe("1 stop · Lubbock");
   });
 
+  it("never shows a partial sum: one unknown leg makes the whole drive unknown", () => {
+    expect(itinerarySummary([{ cityName: "Lubbock" }, { cityName: "Austin" }], [6000, NaN], 1200)).toBe("2 stops · Lubbock, Austin");
+    expect(itinerarySummary([{ cityName: "Lubbock" }], [6000], -1)).toBe("1 stop · Lubbock");
+  });
+
   it("says 0 stops with nothing else when the trip is empty", () => {
     expect(itinerarySummary([], [], 0)).toBe("0 stops");
   });

@@ -660,6 +660,14 @@ export default function PlanWorkspace({
           <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
         </div>
 
+        {/* The fold budget (step 14). On a 667 px phone at the sheet's middle
+            snap, 55% is visible: 367 px. Above the first candidate's reason:
+            the drag handle 44, this header (persona bar about 44, status row
+            about 40), the itinerary line about 36 when there are stops, and
+            the card header 44. That is about 208 px, leaving about 160 px for
+            the lead. Anything added to this sticky header comes out of that
+            160; put new things in the scroll area below instead. The 44 px
+            figures are the touch-target minimum every button here keeps. */}
         <div className="p-3 border-b border-[#30363d] space-y-3">
           <PersonaSelector
             activePersonaId={activePersonaId}
@@ -707,7 +715,7 @@ export default function PlanWorkspace({
               card's reason sits higher (step 14). */}
           {isPending && (
             <p
-              className="text-[10px] font-mono uppercase tracking-widest text-[#d29922] animate-pulse"
+              className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
               aria-live="polite"
             >
               Updating route + recs…
@@ -733,8 +741,11 @@ export default function PlanWorkspace({
               <span aria-hidden className="text-[#8b949e]">{itineraryOpen ? "▲" : "▼"}</span>
             </button>
           )}
-          {showItinerary && itineraryOpen && (
-            <div id="itinerary-details">
+          {/* Always in the DOM so aria-controls resolves; `hidden` when
+              collapsed. The Itinerary stays mounted, which also keeps its
+              per-stop failed state across a collapse. */}
+          {showItinerary && (
+            <div id="itinerary-details" hidden={!itineraryOpen}>
             <Itinerary
               fromName={fromName}
               toName={toName}

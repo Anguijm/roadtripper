@@ -15,7 +15,12 @@ export function itinerarySummary(
   const count = stops.length;
   const head = `${count} ${count === 1 ? "stop" : "stops"}`;
   const names = stops.map((s) => s.cityName).join(", ");
-  const total = legDurationsSeconds.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) + (Number.isFinite(finalLegSeconds) ? finalLegSeconds : 0);
-  const drive = total > 0 ? formatDuration(total) : null;
+  // One unknown leg makes the total unknown; a partial sum presented as the
+  // drive would be a smaller number than the truth, which is the wrong way
+  // to be wrong on a deadline.
+  const parts = [...legDurationsSeconds, finalLegSeconds];
+  const known = parts.every((x) => Number.isFinite(x) && x >= 0);
+  const total = known ? parts.reduce((a, b) => a + b, 0) : 0;
+  const drive = known && total > 0 ? formatDuration(total) : null;
   return [head, names || null, drive].filter(Boolean).join(" · ");
 }

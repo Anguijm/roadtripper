@@ -55,3 +55,10 @@ this is the map's screen.
 - Rule 3: with the summary line dropping the stop names, both summary tests fail. Restored.
 - Rule 2: the workspace server-render test still passes with the header restructured and Save at the bottom.
 - 384 tests, 5 new; lint and types clean.
+
+## Council round 1 on #59 (CONDITIONAL, bugs 6, maintainability 5), and what changed
+
+- the itinerary details element is always in the DOM, `hidden` when collapsed, so `aria-controls` resolves; the Itinerary stays mounted across a collapse
+- one unknown leg makes the summary's drive unknown rather than a smaller partial sum; tested
+- the updating pulse is #e3b341, brighter amber
+- the fold budget arithmetic is written above the sticky header, with the instruction that anything added there comes out of the lead's 160 px
