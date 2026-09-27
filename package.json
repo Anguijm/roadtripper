@@ -14,7 +14,8 @@
     "atlas:export": "node scripts/export-atlas.mjs",
     "atlas:drive-graph": "node scripts/build-drive-graph.mjs",
     "corridor:pull": "bun scripts/pull-corridor.ts",
-    "label:sample": "bun scripts/label-sample.ts"
+    "label:sample": "bun scripts/label-sample.ts",
+    "label:import": "bun scripts/label-import.ts"
   },
   "dependencies": {
     "@vis.gl/react-google-maps": "^1.8.2",
