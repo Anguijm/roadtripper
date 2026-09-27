@@ -72,3 +72,9 @@ needs a destination to reach the plan page.
 ## Council round 4 on #52 (CONDITIONAL, bugs 8), and what changed
 
 - the keyed remount of the From field is gone; it dropped keyboard focus after every selection. `CityAutocomplete` now follows a changed `value` prop with React's compare-the-last-prop-and-set-during-render pattern, which the lint accepts and which keeps the input node. Still only testable at the server-render level here.
+
+## Council round 5 on #52 (CONDITIONAL, bugs 8), and what changed
+
+- the autocomplete follows a changed name as well as a changed placeId
+- the Google Autocomplete widget's listeners are detached on unmount (`clearInstanceListeners`), inside the effect cleanup, never at render
+- Answered, not changed: the snap uses the short-window limiter only, 20 requests per 60 s per IP. One page open is one snap plus one plan render, two of twenty. It does not touch the daily quota, which exists for Routes API recomputes (25 per IP per day) because those cost money; the snap costs nothing. Shared-IP starvation would need ten people behind one address opening the page in the same minute.

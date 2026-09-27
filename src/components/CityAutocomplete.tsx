@@ -39,9 +39,9 @@ export default function CityAutocomplete({
   // prop seen and set during render, which React applies before painting.
   // Not an effect (a frame late, and the set-state-in-effect rule), and not
   // a key on the component (which would remount the input and drop focus).
-  const [seenPlaceId, setSeenPlaceId] = useState(value?.placeId);
-  if (value?.placeId !== seenPlaceId) {
-    setSeenPlaceId(value?.placeId);
+  const [seen, setSeen] = useState({ placeId: value?.placeId, name: value?.name });
+  if (value?.placeId !== seen.placeId || value?.name !== seen.name) {
+    setSeen({ placeId: value?.placeId, name: value?.name });
     setDisplayValue(value?.name ?? "");
   }
 
@@ -54,6 +54,13 @@ export default function CityAutocomplete({
       fields: ["place_id", "name", "formatted_address", "geometry.location"],
     });
     setAutocomplete(ac);
+    // The widget attaches listeners to the input and to the document for its
+    // dropdown. Detach them when the component goes, or they outlive it.
+    // `google` is read only here, inside an effect that runs after the
+    // places library has loaded, never during render.
+    return () => {
+      google.maps.event.clearInstanceListeners(ac);
+    };
   }, [places]);
 
   useEffect(() => {
