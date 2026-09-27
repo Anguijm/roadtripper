@@ -11,13 +11,13 @@ export default function Home() {
         <nav className="flex items-center gap-4">
           <Link
             href="/today"
-            className="text-xs font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+            className="text-xs font-mono uppercase tracking-widest text-[#8b949e] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
           >
             Just today
           </Link>
           <Link
             href="/trips"
-            className="text-xs font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+            className="text-xs font-mono uppercase tracking-widest text-[#8b949e] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
           >
             Saved trips
           </Link>

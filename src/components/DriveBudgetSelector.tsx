@@ -1,11 +1,15 @@
 "use client";
 
+import { HOURS_PRESETS } from "@/lib/today/presets";
+
 interface DriveBudgetSelectorProps {
   value: number;
   onChange: (hours: number) => void;
 }
 
-const PRESETS = [2, 3, 4, 5, 6, 8] as const;
+// One list for "hours per day" here and "hours today" on the today screen,
+// so the two cannot drift apart.
+const PRESETS = HOURS_PRESETS;
 
 export default function DriveBudgetSelector({ value, onChange }: DriveBudgetSelectorProps) {
   return (

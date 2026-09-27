@@ -9,6 +9,7 @@ import { buildRankedGroups } from "@/lib/routing/scoring";
 import { parsePersonaId, PERSONAS } from "@/lib/personas";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { LatLngSchema } from "@/lib/plan/types";
+import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
 
 interface TodaySearchParams {
   lat?: string;
@@ -20,7 +21,14 @@ interface TodaySearchParams {
 
 export const dynamic = "force-dynamic";
 
-/** The label under the header. User-supplied, so bounded and rendered as text. */
+/**
+ * The label under the header, from the `name` URL parameter. It is whatever
+ * the start screen put there ("Near Amarillo", or a typed city), but a link
+ * can carry anything, so it is rendered as text and cut at 80 characters:
+ * the longest Google place name the autocomplete returns is well under
+ * that, and 80 is about what fits on one line under the header on a phone
+ * before it wraps the lead sentence.
+ */
 const MAX_NAME_LENGTH = 80;
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -49,7 +57,7 @@ function Notice({ title, text }: { title: string; text: string }) {
       <p className="text-sm text-[#b0b9c2]">{text}</p>
       <Link
         href="/today"
-        className="self-start text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors"
+        className="self-start min-h-[44px] text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
       >
         Type a city
       </Link>
@@ -122,6 +130,11 @@ export default async function TodayPage({
   }
 
   const fetchResult = await fetchWaypointsForCandidates(plan.reachable);
+  // The pipeline is a union: "fresh", or "degraded" with the cities still
+  // present but some or all waypoints missing. The city list is still the
+  // answer; the spots are not, so the page says so rather than showing
+  // "nothing here yet" for a city whose read failed.
+  const spotsDegraded = fetchResult.status === "degraded";
   const groups = buildRankedGroups(fetchResult, personaId);
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
   const shown = groups.length;
@@ -136,9 +149,15 @@ export default async function TodayPage({
         </h1>
         <p className="text-sm text-[#8b949e]">
           From {whereLabel}
-          {plan.here && plan.here.distanceKm > 3 ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
+          {/* Same 3 km as the "Near <city>" label: inside it you are in the city; beyond it, say how far. */}
+          {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
           . One-way drive times.
         </p>
+        {spotsDegraded && (
+          <p className="mt-2 text-xs font-mono text-[#ff7b72]" role="status">
+            The cities are right, but some spots could not be loaded just now.
+          </p>
+        )}
       </div>
 
       <div className="mb-5">
@@ -158,7 +177,9 @@ export default async function TodayPage({
                 </span>
               </div>
               {g.rows.length === 0 ? (
-                <p className="text-xs font-mono text-[#8b949e]">Nothing in the atlas for a {persona.label.toLowerCase()} here yet.</p>
+                <p className="text-xs font-mono text-[#8b949e]">
+                  {spotsDegraded ? "Spots did not load." : `Nothing in the atlas for a ${persona.label.toLowerCase()} here yet.`}
+                </p>
               ) : (
                 <ul className="flex flex-col gap-1">
                   {g.rows.map((w) => (
@@ -176,7 +197,7 @@ export default async function TodayPage({
 
       <p className="mt-5 text-xs font-mono text-[#8b949e]">
         {shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
-        <Link href={`/today?hours=${hours}&persona=${personaId}`} className="underline hover:text-[#f0f6fc]">
+        <Link href={`/today?hours=${hours}&persona=${personaId}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
           Change where or how long
         </Link>
       </p>

@@ -3,7 +3,8 @@
  * is server-only because it reads SQLite.
  */
 
-/** Hours of driving you can spend today. Same presets as the daily budget. */
+/** Hours of driving you can spend today. Also the daily-budget presets in
+ *  src/components/DriveBudgetSelector.tsx, which imports this list. */
 export const HOURS_PRESETS = [2, 3, 4, 5, 6, 8] as const;
 export type HoursPreset = (typeof HOURS_PRESETS)[number];
 

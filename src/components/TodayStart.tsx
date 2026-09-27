@@ -87,7 +87,7 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
                   type="button"
                   aria-pressed={active}
                   onClick={() => setHours(h)}
-                  className={`flex-1 min-h-[44px] text-sm font-mono border transition-colors ${
+                  className={`flex-1 min-h-[44px] text-sm font-mono border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none ${
                     active
                       ? "bg-[#1c2128] border-[#6e7681] text-[#f0f6fc]"
                       : "bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:border-[#3d444d] hover:text-[#b0b9c2]"
@@ -108,7 +108,7 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
         <button
           type="submit"
           disabled={!origin}
-          className="mt-1 min-h-[44px] py-3 text-sm font-mono uppercase tracking-widest border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="mt-1 min-h-[44px] py-3 text-sm font-mono uppercase tracking-widest border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
           {origin ? `Show me what is within ${hours} hours` : "Pick where you are first"}
         </button>

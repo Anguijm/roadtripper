@@ -44,3 +44,11 @@ as with step 6, the phone itself is not exercised from here.
 - Rule 4, one-way: with the page showing the pipeline's doubled detour instead of the graph's one-way minutes, the page test fails looking for "3 h 45 min". Restored.
 - Rule 3, no network: the page test stubs `fetch` to throw and asserts it was never called while rendering Amarillo's answer.
 - 339 tests, 11 new; lint and types clean.
+
+## Council round 1 on #53 (CONDITIONAL, bugs 5, product 5), and what changed
+
+- a degraded waypoint pipeline gets its own line ("the cities are right, but some spots could not be loaded") and per-city "Spots did not load." instead of "nothing here yet"; tested in its own file with the pipeline forced degraded
+- `MAX_NAME_LENGTH` explained; the 3 km threshold is imported from locate.ts instead of repeated
+- `DriveBudgetSelector` imports the one preset list from presets.ts, so the two screens cannot drift
+- home nav contrast to #8b949e; focus rings on every button and link on the today screen
+- Pushed back with evidence on three: capping `reachable` (max 56 rows per origin in the graph, pipeline already slices to 10, a cap would make the count lie); throttling `maybeSweep` (already interval-guarded at 5 min, and Node runs one request at a time); bounding `LatLngSchema` (already ±90/±180 in plan/types.ts, tested in #52)
