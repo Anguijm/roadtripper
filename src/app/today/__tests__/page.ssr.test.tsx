@@ -61,6 +61,37 @@ describe("the today screen, server-rendered", () => {
     expect(html).toContain("Type a city");
   });
 
+  it("knows the deadline when a link carries one, and passes it into the planner", async () => {
+    const withDeadline = { lat: "35.2073", lng: "-101.8338", hours: "5", arriveBy: "2026-10-14", toName: "Austin", toLat: "30.2672", toLng: "-97.7431" };
+    const html = await render(withDeadline);
+    expect(html).toContain("Arrive in Austin by Oct 14");
+    expect(html).toContain("Plan the trip to Austin from here");
+    expect(html).toMatch(/href="\/\?[^"]*toName=Austin[^"]*dateMode=arrival[^"]*endDate=2026-10-14/);
+    // the per-city links are trips to those cities, not to the deadline; they carry no date
+    expect(html).toMatch(/href="\/\?[^"]*toName=Albuquerque[^"]*"/);
+    expect(html).not.toMatch(/toName=Albuquerque[^"]*dateMode=arrival/);
+    // the change link keeps the deadline
+    expect(html).toMatch(/href="\/today\?[^"]*arriveBy=2026-10-14/);
+
+    // the start screen knows it too
+    const start = await render({ arriveBy: "2026-10-14", toName: "Austin", toLat: "30.2672", toLng: "-97.7431" });
+    expect(start).toContain("What is in range today?");
+    expect(start).toContain("Arrive in Austin by Oct 14");
+  });
+
+  it("ignores a deadline that is not a real date or has no destination", async () => {
+    const cases: Record<string, string>[] = [
+      { arriveBy: "2026-02-31", toName: "Austin", toLat: "30.2672", toLng: "-97.7431" },
+      { arriveBy: "2026-10-14", toName: "Austin" },
+      { arriveBy: "2026-10-14", toName: "Austin", toLat: "", toLng: "" },
+    ];
+    for (const p of cases) {
+      const html = await render({ lat: "35.2073", lng: "-101.8338", hours: "5", ...p });
+      expect(html).not.toContain("Arrive in");
+      expect(html).not.toContain("dateMode=arrival");
+    }
+  });
+
   it("renders a supplied name as text, bounded", async () => {
     const html = await render({ lat: "35.2073", lng: "-101.8338", name: "<b>x</b>" + "y".repeat(200) });
     expect(html).not.toContain("<b>x</b>");

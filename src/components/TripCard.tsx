@@ -18,8 +18,15 @@ function resumeUrl(trip: SavedTrip): string {
     fromName: trip.fromName,
     toName: trip.toName,
   });
-  if (trip.startDate) p.set("startDate", trip.startDate);
-  if (trip.endDate) p.set("endDate", trip.endDate);
+  if (trip.dateMode === "arrival" && trip.endDate) {
+    // A deadline, not a range: the start date is re-derived from the route
+    // on open, so a trip saved with fewer stops does not keep a stale one.
+    p.set("dateMode", "arrival");
+    p.set("endDate", trip.endDate);
+  } else {
+    if (trip.startDate) p.set("startDate", trip.startDate);
+    if (trip.endDate) p.set("endDate", trip.endDate);
+  }
   return `/plan?${p.toString()}`;
 }
 
@@ -64,7 +71,9 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
           </p>
           <p className="text-xs text-[#7d8590] mt-0.5">
             {trip.budgetHours}h/day
-            {trip.startDate && trip.endDate
+            {trip.dateMode === "arrival" && trip.endDate
+              ? ` · Arrive by ${formatDate(trip.endDate)}`
+              : trip.startDate && trip.endDate
               ? ` · ${formatDate(trip.startDate)} – ${formatDate(trip.endDate)}`
               : ""}
             {trip.stops.length > 0

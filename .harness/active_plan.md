@@ -4,66 +4,56 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/direction-progress`
+Branch: `feat/arrival-date-through`
 
 ## Goal
 
-Step 8: fix the direction filter. Today a candidate city is "ahead" if its
-bearing is within 90 degrees of the heading, and the heading is first
-snapped to one of eight compass points. That is a 180-degree fan that can
-swing 22.5 degrees off the true line, so a city at right angles to the
-trip, or a little behind it, is offered as a stop. Replace it with actual
-progress toward the destination. Done when nothing behind you is ever
-offered.
+Step 9: carry the arrival date through. The picker has an arrival mode,
+the plan page derives a start date from it and shows deadline pressure,
+and that is where it stops. A saved trip forgets it was an arrival-date
+trip, the plan header does not say the date, and the today screen has no
+idea you have somewhere to be. Done when every screen knows your deadline.
 
 ## Ship rule, written before the work
 
-1. A city is offered only if it makes progress: its along-track distance
-   toward the destination is positive and no more than the distance from
-   origin to destination. Nothing behind, nothing sideways, nothing past
-   the destination.
-2. Proven on the real atlas, not on three points: for a few hundred random
-   city pairs, every city the filter keeps is closer to the destination
-   than the origin is, and every city it drops is either behind, sideways
-   or past.
-3. A concrete case people can check: Amarillo to Austin no longer offers a
-   city the old fan offered and a driver would call behind them, and still
-   offers Lubbock. The old rule is computed in the test so the difference
-   is shown, not asserted.
-4. The cache key carries the destination, not an eight-way heading, so two
-   trips from one origin to different destinations never share a candidate
-   list.
-5. The graph path still makes zero API calls (existing tests), and the API
-   fallback is unchanged apart from which cities it asks about.
+1. One module says what a deadline means: `src/lib/plan/deadline.ts`, pure,
+   with `daysUntil`, `formatDeadline` and `deadlineLine`, tested including
+   "today", "tomorrow" and "passed".
+2. The plan header shows it: "Arrive by Oct 14" in arrival mode, the range
+   otherwise. Server-rendered, tested.
+3. A saved trip remembers it was an arrival-date trip. Reopening it sends
+   `dateMode=arrival` and the end date, so the start date is re-derived
+   from the route, not frozen at save time. Old saved trips without the
+   field still open exactly as before. Tested at the storage layer.
+4. The today screen can be told the deadline and the destination
+   (`arriveBy`, `toName`, `toLat`, `toLng`). It shows one line, "Arrive in
+   Austin by Oct 14, 6 days left", on the start screen and the results, and
+   offers one link, "Plan the trip to Austin from here", which opens the
+   planner in arrival mode with the date set. The per-city "plan a trip
+   here" links stay trips to that city and carry no date: the deadline is
+   for Austin, not for Lubbock, and putting it on Lubbock would be a lie.
+   (Amended from the first draft, which said every link would carry it.)
+   Locating on the start screen keeps the deadline through Go. Without
+   those parameters the screen is unchanged.
+5. The home page accepts `dateMode=arrival` and `endDate` in the handoff,
+   so a link can open the planner already in arrival mode.
+6. Nothing here calls out. Cost per open stays $0 on the today screen; the
+   plan page's calls are unchanged.
 
-**Cost:** $0. The filter is arithmetic on the city list before the graph
-read. On the API fallback path it asks about fewer cities, not more.
+**Cost:** $0. Dates are arithmetic.
 
-**Weakest part:** "Progress" is straight-line, not road. A city that is
-ahead as the crow flies but reached by a road that first doubles back is
-still offered; the drive-time budget bounds how bad that can be, and the
-graph's minutes are road minutes, but the direction test itself is
-geometry. Also the "no sideways" cut is a straight positive along-track
-test; a stop 2 km forward and 80 km to the side passes it. A minimum
-progress fraction would fix that and is not in this step, because the
-step's done condition is about behind, and every extra rule needs its own
-evidence.
+**Weakest part:** The today screen knows the deadline but does not yet use
+it to judge the cities it lists; "six days left and Albuquerque is on the
+way" is step 10, the feasibility line. Here the deadline is carried, shown
+and passed on, not reasoned about. And "days left" is computed against the
+server's clock in UTC, which near midnight can differ from John's day by
+one; the line says the date, so the number is a convenience, not the
+truth.
 
 ## Gate 1 proofs
 
-- Rule 1: with the old fan put back inside `makesProgress`, the geometry tests fail (right angles, past the destination, sideways, coincident) and the Amarillo-to-Austin cases fail. Restored.
-- Rule 4: with the destination zeroed out of the cache key, "produces distinct keys for different destinations" fails. Restored.
-- Rule 2: 300 seeded random atlas pairs, every kept city closer to the destination, within 90 degrees of the true line, and not past it. Over a thousand kept cities checked.
-- Rule 3: Amarillo to Austin keeps Lubbock and drops Wichita; the test computes the old fan and shows it kept Wichita.
-- 334 tests (22 fan tests removed, 10 progress tests added); lint and types clean.
-- Not changed, noted: `RouteMap` still draws a 180-degree arc as the visual hint of the search area. It is decoration, not the filter, and it now over-promises at the edges. Worth a follow-up when the map gets its next pass.
-
-## Council round 1 on #54 (CONDITIONAL, bugs 7), and what changed
-
-- comments: the `+540 % 360 -180` fold explained; the destination's 3-decimal rounding explained next to the line; the test's 1,000 floor explained; the cache header no longer says "snapped compass heading"
-- Answered, not changed: the LRU has a hard cap, `MAX_ENTRIES = 256`, oldest evicted, one-hour TTL, in cache.ts
-- Pushed back on null guards for `destination` in `radialCacheKey`: the parameter is typed, both callers pass a typed LatLng, and none of the function's other parameters carry runtime guards either
-
-## Council round 2 on #54 (CONDITIONAL, bugs 8), and what changed
-
-- the test's continental-US box is explained: same box as the drive-graph build, keeps ocean-separated pairs out of the sweep
+- Rule 2: with the header's arrival branch disabled, "arrival mode: says Arrive by the date" fails. Restored.
+- Rule 3: with `dateMode` removed from the saved-trip schema, both storage tests fail (the field is stripped on save, and an invalid mode is accepted). Restored. With the card's arrival branch disabled, "reopens an arrival-date trip in arrival mode" fails. Restored.
+- Rule 4: the today page test asserts the deadline line, the one arrival-mode link to the destination, that per-city links carry no date, that the change link keeps the deadline, that the start screen shows it, and that a bad date or a missing destination shows nothing.
+- Rule 5: the home page test opens in arrive-by mode with "Arrive by Oct 14" from the URL, and a bad date leaves the picker empty.
+- 351 tests, 17 new; lint and types clean. The plan page now has a server-render test of its own, with the paid calls mocked.

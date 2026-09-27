@@ -28,6 +28,15 @@ describe("the home page, server-rendered", () => {
     expect(html).toContain('value="Albuquerque"');
   });
 
+  it("opens in arrive-by mode with the date when handed a deadline", async () => {
+    const html = await render({ dateMode: "arrival", endDate: "2026-10-14" });
+    expect(html).toContain("Arrive by Oct 14");
+    // a bad date opens the picker with nothing selected
+    expect(await render({ dateMode: "arrival", endDate: "2026-02-31" })).toContain("Select arrival date");
+    // no mode means a range, whatever the dates
+    expect(await render({ startDate: "2026-10-10", endDate: "2026-10-14" })).toContain("Oct 10 → Oct 14");
+  });
+
   it("ignores a handoff with bad coordinates and escapes the names", async () => {
     expect(await render({ fromName: "x", fromLat: "999", fromLng: "0" })).not.toContain('value="x"');
     const html = await render({ fromName: "<b>x</b>", fromLat: "35.2", fromLng: "-101.8" });

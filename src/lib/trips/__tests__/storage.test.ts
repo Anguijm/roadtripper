@@ -201,3 +201,23 @@ describe("trip storage", () => {
     expect(getTripsServerSnapshot()).toBe(getTripsServerSnapshot());
   });
 });
+
+describe("dateMode", () => {
+  beforeEach(() => { mem = new MemoryStorage(); install(mem); });
+
+  it("round-trips arrival mode, and loads a trip saved before the field existed", () => {
+    expect(saveTrip({ ...INPUT, dateMode: "arrival", endDate: "2026-10-14" }, "t1").ok).toBe(true);
+    expect(loadTrips()[0]?.dateMode).toBe("arrival");
+
+    const before = { ...INPUT, id: "old", createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z" };
+    mem.setItem("roadtripper.trips.v1", JSON.stringify([before]));
+    const [t] = loadTrips();
+    expect(t.id).toBe("old");
+    expect(t.dateMode).toBeUndefined();
+  });
+
+  it("refuses a mode that is not range or arrival", () => {
+    const r = saveTrip({ ...INPUT, dateMode: "deadline" as unknown as "arrival" }, "t2");
+    expect(r.ok).toBe(false);
+  });
+});

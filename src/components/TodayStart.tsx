@@ -12,6 +12,10 @@ import type { PersonaId } from "@/lib/personas/types";
 interface TodayStartProps {
   initialHours: HoursPreset;
   initialPersonaId: PersonaId;
+  /** Extra URL parameters to keep through Go: the deadline and its destination. */
+  carry?: Record<string, string>;
+  /** "Arrive in Austin by Oct 14, 6 days left", when the link carried one. */
+  deadlineText?: string | null;
 }
 
 /**
@@ -20,7 +24,7 @@ interface TodayStartProps {
  * one tap, or a typed city. Go sends the answer to the server-rendered
  * results, which read only the atlas.
  */
-export default function TodayStart({ initialHours, initialPersonaId }: TodayStartProps) {
+export default function TodayStart({ initialHours, initialPersonaId, carry, deadlineText }: TodayStartProps) {
   const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
   const [origin, setOrigin] = useState<CitySelection | null>(null);
@@ -43,6 +47,7 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
     if (!origin || submitting) return;
     setSubmitting(true);
     const params = new URLSearchParams({
+      ...(carry ?? {}),
       lat: origin.lat.toString(),
       lng: origin.lng.toString(),
       hours: hours.toString(),
@@ -58,6 +63,9 @@ export default function TodayStart({ initialHours, initialPersonaId }: TodayStar
         onSubmit={(e) => { e.preventDefault(); go(); }}
         className="flex flex-col gap-5"
       >
+        {deadlineText && (
+          <p className="text-sm text-[#f0f6fc]" role="status">{deadlineText}</p>
+        )}
         <div className="flex flex-col gap-2">
           <p className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">Where are you</p>
           <div className="flex items-center gap-3">
