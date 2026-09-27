@@ -59,3 +59,8 @@ needs a destination to reach the plan page.
 - comments on the timeout, the cache age, the 3 km threshold and the `geo:` id explain the reason, the failure mode and which test pins each
 - status colours raised to #8b949e and #ff7b72, the same pair PlanWorkspace uses
 - **Found while fixing the race, not raised by the council:** the From box never showed a located city. `CityAutocomplete` reads `value` only on first render. The From field is now keyed on the selection's placeId, so a new selection remounts it with the right text; the key does not change on keystrokes. Tested at the server-render level (a given origin's name appears in the box); the update path itself still needs a DOM runner.
+
+## Council round 2 on #52 (CONDITIONAL, bugs 8), and what changed
+
+- a late error goes through the same staleness check as a late fix: typed meanwhile, or left the page, and nothing lands on the user; one `stale()` shared by both paths
+- Pushed back on an AbortController: `getCurrentPosition` has no cancel and a server action's promise cannot be cancelled, so the only possible "abort" is ignoring the answer, which the mounted ref already does. Said so in the code.

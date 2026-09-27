@@ -45,22 +45,28 @@ export function useLocatedOrigin(onLocated: (selection: OriginSelection) => void
     if (busy.current) return;
     busy.current = true;
     const editsWhenStarted = manualEdits.current;
+    // Neither getCurrentPosition nor a server action can be cancelled, so
+    // "abort" here means: when the answer lands, check whether anyone still
+    // wants it. Gone from the page, or the user typed meanwhile: it is stale,
+    // and neither a city nor an error message may land on top of them.
+    const stale = () => !mounted.current || manualEdits.current !== editsWhenStarted;
     setStatus({ kind: "locating", message: "Finding you." });
     try {
       const { selection, label } = await locateAndSnap({
         geolocation: navigator.geolocation,
         snap: (p) => snapOriginAction(p),
       });
-      if (!mounted.current) return;
-      if (manualEdits.current !== editsWhenStarted) {
-        // They typed or picked a city while we were looking. Theirs stands.
-        setStatus({ kind: "idle", message: "" });
+      if (stale()) {
+        if (mounted.current) setStatus({ kind: "idle", message: "" });
         return;
       }
       onLocated(selection);
       setStatus({ kind: "located", message: label });
     } catch (err) {
-      if (!mounted.current) return;
+      if (stale()) {
+        if (mounted.current) setStatus({ kind: "idle", message: "" });
+        return;
+      }
       setStatus({ kind: "error", message: locateFailureMessage(err) });
     } finally {
       busy.current = false;
