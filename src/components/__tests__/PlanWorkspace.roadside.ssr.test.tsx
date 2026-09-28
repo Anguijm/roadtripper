@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { renderToString } from "react-dom/server";
+import { formatDistance } from "@/lib/routing/format";
 import { existsSync, readFileSync } from "node:fs";
 import React from "react";
 
@@ -54,7 +55,6 @@ const base = {
   initialDurationSeconds: 29_000,
   fromName: "Amarillo",
   toName: "Austin",
-  maxDetourMinutes: 270,
 };
 const stops: RoadsideMarker[] = [
   { id: "osm:way:1", name: "The Big Texan Steak Ranch", lat: 35.19381, lng: -101.7551, kind: "notable", p: 0.83, about: "A large steakhouse and motel. A roadside attraction known for competitive eating.", url: "https://en.wikipedia.org/wiki/Big_Texan_Steak_Ranch", alongKm: 9 },
@@ -118,9 +118,12 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toContain("The Big Texan Steak Ranch");
     // The sheet's unit (the summary says "497 mi") and the town, the card's
     // own sentence: both stops are within 10 km of the start (round-3
-    // critic: three rows at the end read "494 mi in" and nothing else).
-    expect(html).toContain("well-known place · 6 mi in, at Amarillo");
-    expect(html).toContain("historic place · 6 mi in, at Amarillo");
+    // critic: three rows at the end read "494 mi in" and nothing else), in
+    // a person's words (U2's round-2 critic: "494 mi in, at Austin" read
+    // as engineer shorthand).
+    expect(html).toContain("well-known place · 6 miles along, in Amarillo");
+    expect(html).toContain("historic place · 6 miles along, in Amarillo");
+    expect(html).not.toContain(" mi in");
     expect(html).not.toContain("km in");
     // Two stops, both shown: no "Show all" control below the ten.
     expect(html).not.toContain("data-roadside-show-all");
@@ -157,7 +160,11 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(section).toBeLessThan(html.indexOf("on the road"));
     expect(section).toBeLessThan(html.indexOf("of driving left today"));
     expect(section).toBeLessThan(html.indexOf("I&#x27;m in the mood for"));
-    expect(section).toBeLessThan(html.indexOf("First stop from Amarillo"));
+    // The one line above the section is the sheet's title on the handle
+    // row (U2, round 2: the sentence over the towns is the first thing
+    // seen), which is not in the scroll box and costs it nothing.
+    expect(html.indexOf("Lubbock fits today")).toBeLessThan(section);
+    expect(html.indexOf("Lubbock fits today")).toBeLessThan(html.indexOf("plan-sheet-scroll"));
     expect(section).toBeLessThan(html.indexOf("sticky top-0"));
     // The tenth row and the control come before the first town too.
     expect(html.indexOf("data-roadside-show-all")).toBeLessThan(html.indexOf("What&#x27;s in Lubbock"));
@@ -194,7 +201,14 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // Nothing between the box's top and the section: it is the box's first child.
     expect(html).toMatch(/class="plan-sheet-scroll [^"]*"><section data-roadside="true"/);
     const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
-    expect(css).toMatch(/\.plan-sheet-scroll\s*\{[^}]*height:\s*calc\(100% - var\(--sheet-y, 25%\) - 45px\)/);
+    // The visible part of the sheet is a column of the handle row and the
+    // box (U2, round 2, when the sheet's title joined the handle row): the
+    // box is what the handle leaves, so it ends at the screen's edge
+    // whatever the handle's height, where the fixed
+    // calc(100% - var(--sheet-y) - 45px) assumed a 44 px handle.
+    expect(css).toMatch(/\.plan-sheet-visible\s*\{[^}]*height:\s*calc\(100% - var\(--sheet-y, 25%\)\)/);
+    expect(css).toMatch(/\.plan-sheet-scroll\s*\{[^}]*flex:\s*1 1 0%;\s*min-height:\s*0/);
+    expect(html).toMatch(/class="plan-sheet-visible"><div [^>]*class="relative [^"]*min-h-\[44px\]/);
     expect(css).toMatch(/\.plan-sheet\s*\{[^}]*height:\s*92dvh/);
     // Nothing above the heading, nothing between it and the first row.
     expect(html).toMatch(/<section data-roadside="true" [^>]*class="font-sans px-1 pt-0 pb-2"/);
@@ -284,7 +298,7 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toMatch(/data-roadside-line[^>]*>A large steakhouse and motel\. A roadside attraction known for competitive eating\.</);
     // 3 and 4. The kind in plain words and how far along the road, with the
     // town it is at: the Big Texan is 7 km from the start, Amarillo.
-    expect(html).toMatch(/data-roadside-where[^>]*>well-known place · 6 mi in, at Amarillo</);
+    expect(html).toMatch(/data-roadside-where[^>]*>well-known place · 6 miles along, in Amarillo</);
     // 5. One link-button that opens the place in Maps.
     expect(html).toMatch(/<a href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=35\.19381,-101\.75510"[^>]*>Open in Maps<\/a>/);
     expect(html).not.toContain("×");
@@ -308,20 +322,24 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(roadsideMapLine("other")).toBe("On the map as a place; nothing written about it yet.");
     const html = renderToString(<RoadsideCard stop={stops[1]} />).replace(/<!-- -->/g, "");
     expect(html).toMatch(/data-roadside-line[^>]*>On the map as a historic place; nothing written about it yet\.</);
-    expect(html).toMatch(/data-roadside-where[^>]*>historic place · 6 mi in</);
+    expect(html).toMatch(/data-roadside-where[^>]*>historic place · 6 miles along the road</);
     expect(html).not.toContain("No write-up");
     expect(html).not.toContain("A historic place.");
   });
 
-  it("says how far in miles, the sheet's own unit, and which town it is at or past", () => {
-    expect(roadsideAlongText(211.6)).toBe("131 mi in");
-    expect(roadsideAlongText(9, { name: "Amarillo", near: true })).toBe("6 mi in, at Amarillo");
-    expect(roadsideAlongText(211.6, { name: "Lubbock", near: false })).toBe("131 mi in, past Lubbock");
+  it("says how far in miles, the sheet's own unit, in a person's words, and which town it is in or past", () => {
+    // "131 miles along the road", not "131 mi in" (U2's round-2 critic:
+    // engineer shorthand). Rounded as the sheet's summary rounds.
+    expect(roadsideAlongText(211.6)).toBe("131 miles along the road");
+    expect(roadsideAlongText(211.6)).toContain(formatDistance(211_600).replace(" mi", " miles"));
+    expect(roadsideAlongText(9, { name: "Amarillo", near: true })).toBe("6 miles along, in Amarillo");
+    expect(roadsideAlongText(211.6, { name: "Lubbock", near: false })).toBe("131 miles along, past Lubbock");
+    expect(roadsideAlongText(1.6)).toBe("1 mile along the road");
     // Under a mile the same shape, not a different sentence (round-2 critic:
     // "Right at the start" beside "6 km in" read as two styles), and in
     // lower case, since it always follows the kind mid-line (round 3).
-    expect(roadsideAlongText(0.3)).toBe("less than a mile in");
-    expect(roadsideAlongText(0.3, { name: "Amarillo", near: true })).toBe("less than a mile in, at Amarillo");
+    expect(roadsideAlongText(0.3)).toBe("less than a mile along the road");
+    expect(roadsideAlongText(0.3, { name: "Amarillo", near: true })).toBe("less than a mile along, in Amarillo");
   });
 
   it("places the towns along the road and names the one a stop is at or past", () => {
@@ -394,8 +412,10 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // read on the sheet with a town listed and the roadside list open.
     const never = /budget left|candidate|max \d+ min|persona|see what.s here|add city to trip|\bprimary\b|waypoint|neighbou?rhood|recompute|refresh|pending|roadside stops along the way/i;
     expect(text).not.toMatch(never);
-    // The replacements are there instead.
-    expect(text).toContain("First stop from Amarillo · 1 town that fits today");
+    // The replacements are there instead: the header over the towns is a
+    // sentence built from the data (U2), not a count.
+    expect(text).toContain("Lubbock fits today");
+    expect(text).not.toMatch(/\d+ towns? that fit/);
     expect(text).toContain("What&#x27;s in Lubbock");
     expect(text).toContain("+ Stop here");
     expect(text).toContain("★ The pick");

@@ -1,7 +1,7 @@
 "use client";
 
 import type { TripStopMarker } from "@/components/RouteMap";
-import { formatDuration } from "@/lib/routing/format";
+import { formatDurationPlain } from "@/lib/routing/format";
 
 export interface ItineraryProps {
   fromName: string;
@@ -21,6 +21,15 @@ export interface ItineraryProps {
   accent: string;
 }
 
+/** A leg's drive as a phrase: "1 h 20 min of driving". The number is the mono face. */
+function LegTime({ seconds }: { seconds: number }) {
+  return (
+    <span className="block text-base text-[#8b949e]">
+      <span className="num">{formatDurationPlain(seconds)}</span> of driving
+    </span>
+  );
+}
+
 /**
  * Ordered list of the user's trip:  Start → Stop 1 → Stop 2 → … → End.
  *
@@ -28,7 +37,17 @@ export interface ItineraryProps {
  *   PROD-2  rendered ABOVE recommendations whenever stops.length > 0
  *   PROD-3  failed stops surface a warning indicator (failedStopIds set)
  *   PROD-4  Remove buttons disabled while pending
+ *
+ * Every word in sentence case in the body face at 16 px; a town's name
+ * wraps and is never cut with an ellipsis (quality bar, rules 1 and 2).
+ * The start and end marks are CSS dots and the stop's number a 16 px
+ * digit in a 24 px badge: nothing here is text under 16 px.
  */
+
+/** A start or end mark: a dot drawn in CSS, no glyph, so no text under 16 px. */
+function Dot({ color }: { color: string }) {
+  return <span aria-hidden className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />;
+}
 export default function Itinerary({
   fromName,
   toName,
@@ -47,10 +66,10 @@ export default function Itinerary({
   if (stops.length === 0) {
     return (
       <div className="p-3 border border-dashed border-[#30363d] bg-[#0d1117]">
-        <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] mb-1">
-          Trip
+        <p className="text-base text-[#8b949e] mb-1">
+          Your trip
         </p>
-        <p className="text-xs text-[#b0b9c2] leading-relaxed">
+        <p className="text-base text-[#b0b9c2] leading-relaxed">
           Pick stops from the list to build your trip.
         </p>
       </div>
@@ -59,29 +78,23 @@ export default function Itinerary({
 
   return (
     <div className="border border-[#30363d] bg-[#0d1117]">
-      <div className="px-3 py-2 border-b border-[#30363d] flex items-center justify-between">
-        <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-          Trip · {stops.length} stop{stops.length === 1 ? "" : "s"}
+      <div className="px-3 py-2 border-b border-[#30363d] flex items-center justify-between gap-2">
+        <p className="text-base text-[#8b949e]">
+          Your trip: {stops.length} stop{stops.length === 1 ? "" : "s"}
         </p>
         {pending && (
-          <span className="text-[10px] font-mono uppercase tracking-widest text-[#d29922]">
+          <span className="text-base text-[#d29922]">
             Updating…
           </span>
         )}
       </div>
       <ol className="divide-y divide-[#30363d]">
         <li className="px-3 py-2 flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono"
-            style={{ color: "#3fb950" }}
-          >
-            ●
-          </span>
-          <span className="text-sm text-[#f0f6fc] truncate flex-1">
+          <Dot color="#3fb950" />
+          <span className="text-base text-[#f0f6fc] break-words min-w-0 flex-1">
             {fromName}
           </span>
-          <span className="text-[10px] font-mono uppercase tracking-widest text-[#4a5159]">
+          <span className="text-base text-[#8b949e] shrink-0">
             Start
           </span>
         </li>
@@ -89,7 +102,39 @@ export default function Itinerary({
         {stops.map((stop, index) => {
           const failed = failedStopId === stop.cityId;
           const selected = selectedCityId === stop.cityId;
+          // The legs lag the stops: a stop is in the list before its
+          // recompute returns, and stays when that recompute fails, so the
+          // legs can be fewer than the stops, or absent. A stop with no
+          // leg is drawn without a drive time, never with "NaN".
           const legSecs = legDurations?.[index];
+          const stopBody = (
+            <>
+              <span
+                aria-hidden
+                className="inline-flex items-center justify-center w-6 h-6 text-base num shrink-0"
+                style={{
+                  backgroundColor: failed ? "#f85149" : accent,
+                  color: "#0d1117",
+                }}
+              >
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-base text-[#f0f6fc] break-words">
+                  {stop.cityName}
+                </span>
+                {failed && (
+                  <span
+                    className="block text-base text-[#f85149]"
+                    title="The last route update failed for this stop"
+                  >
+                    Didn&apos;t update
+                  </span>
+                )}
+                {legSecs !== undefined && !failed && <LegTime seconds={legSecs} />}
+              </span>
+            </>
+          );
           return (
             <li
               key={stop.cityId}
@@ -100,64 +145,14 @@ export default function Itinerary({
                 <button
                   type="button"
                   onClick={() => onStopClick(stop.cityId)}
-                  aria-label={`View neighborhoods for ${stop.cityName}${selected ? " (selected)" : ""}`}
-                  className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7d8590]"
+                  aria-label={`What's in ${stop.cityName}${selected ? " (open)" : ""}`}
+                  className="flex items-center gap-2 flex-1 min-w-0 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#8b949e]"
                 >
-                  <span
-                    aria-hidden
-                    className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold shrink-0"
-                    style={{
-                      backgroundColor: failed ? "#f85149" : accent,
-                      color: "#0d1117",
-                    }}
-                  >
-                    {index + 1}
-                  </span>
-                  <span className="text-sm text-[#f0f6fc] truncate">
-                    {stop.cityName}
-                    {failed && (
-                      <span
-                        className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#f85149]"
-                        title="Last route update failed for this stop"
-                      >
-                        ⚠ failed
-                      </span>
-                    )}
-                    {legSecs !== undefined && !failed && (
-                      <span className="ml-2 text-[10px] font-mono text-[#b0b9c2]">
-                        · {formatDuration(legSecs)}
-                      </span>
-                    )}
-                  </span>
+                  {stopBody}
                 </button>
               ) : (
-                <div className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2">
-                  <span
-                    aria-hidden
-                    className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono font-bold shrink-0"
-                    style={{
-                      backgroundColor: failed ? "#f85149" : accent,
-                      color: "#0d1117",
-                    }}
-                  >
-                    {index + 1}
-                  </span>
-                  <span className="text-sm text-[#f0f6fc] truncate flex-1">
-                    {stop.cityName}
-                    {failed && (
-                      <span
-                        className="ml-2 text-[10px] font-mono uppercase tracking-widest text-[#f85149]"
-                        title="Last route update failed for this stop"
-                      >
-                        ⚠ failed
-                      </span>
-                    )}
-                    {legSecs !== undefined && !failed && (
-                      <span className="ml-2 text-[10px] font-mono text-[#b0b9c2]">
-                        · {formatDuration(legSecs)}
-                      </span>
-                    )}
-                  </span>
+                <div className="flex items-center gap-2 flex-1 min-w-0 min-h-[44px] px-3 py-2">
+                  {stopBody}
                 </div>
               )}
               <div className="px-3 shrink-0">
@@ -165,7 +160,7 @@ export default function Itinerary({
                   type="button"
                   onClick={() => onRemoveStop(stop.cityId)}
                   disabled={pending}
-                  className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="min-h-[44px] text-base text-[#8b949e] hover:text-[#f85149] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Remove
                 </button>
@@ -185,38 +180,26 @@ export default function Itinerary({
             <button
               type="button"
               onClick={onDestinationClick}
-              aria-label={destinationSelected ? `${toName} — tap to resume planning` : `Select ${toName} as final destination`}
-              className="flex items-center gap-2 flex-1 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7d8590]"
+              aria-label={destinationSelected ? `${toName}: tap to keep planning` : `Lock the route at ${toName}`}
+              className="flex items-center gap-2 flex-1 min-w-0 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#8b949e]"
             >
-              <span aria-hidden className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono shrink-0" style={{ color: "#f85149" }}>
-                ●
+              <Dot color="#f85149" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-base text-[#f0f6fc] break-words">{toName}</span>
+                {finalLegSeconds !== undefined && <LegTime seconds={finalLegSeconds} />}
               </span>
-              <span className="text-sm text-[#f0f6fc] truncate flex-1">
-                {toName}
-                {finalLegSeconds !== undefined && (
-                  <span className="ml-2 text-[10px] font-mono text-[#b0b9c2]">
-                    · {formatDuration(finalLegSeconds)}
-                  </span>
-                )}
-              </span>
-              <span className={`text-[10px] font-mono uppercase tracking-widest whitespace-nowrap ${destinationSelected ? "text-[#3fb950]" : "text-[#7d8590]"}`}>
-                {destinationSelected ? "Done ✓" : "End"}
+              <span className={`text-base whitespace-nowrap shrink-0 ${destinationSelected ? "text-[#3fb950]" : "text-[#8b949e]"}`}>
+                {destinationSelected ? "Done" : "End"}
               </span>
             </button>
           ) : (
             <>
-              <span aria-hidden className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-mono" style={{ color: "#f85149" }}>
-                ●
+              <Dot color="#f85149" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-base text-[#f0f6fc] break-words">{toName}</span>
+                {finalLegSeconds !== undefined && <LegTime seconds={finalLegSeconds} />}
               </span>
-              <span className="text-sm text-[#f0f6fc] truncate flex-1">
-                {toName}
-                {finalLegSeconds !== undefined && (
-                  <span className="ml-2 text-[10px] font-mono text-[#b0b9c2]">
-                    · {formatDuration(finalLegSeconds)}
-                  </span>
-                )}
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#4a5159]">
+              <span className="text-base text-[#8b949e] shrink-0">
                 End
               </span>
             </>

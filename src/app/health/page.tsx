@@ -92,7 +92,6 @@ export default function HealthPage() {
         initialDurationSeconds={148384}
         fromName="Health Origin"
         toName="Health Destination"
-        maxDetourMinutes={270}
       />
       {/* The uptime check (Google Cloud, every minute; the definition is
           scratchpad/health_check.json) matches the string "Budget left",

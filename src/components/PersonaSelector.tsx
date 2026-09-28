@@ -25,7 +25,8 @@ export default function PersonaSelector({
       // Wraps to a second row on a phone: five chips at 16 px do not fit
       // 390 px, and a strip that scrolled sideways clipped the last one to
       // "GEARH" (round-1 critic, rule 7: no horizontal scroll, nothing
-      // truncated). Shorter chip words are U2's.
+      // truncated). The chip words are one short word each (Culture, Food,
+      // Nerd, Gear, Outdoors; Gauntlet U2), from src/lib/personas/index.ts.
       className="flex flex-wrap gap-2 font-sans"
     >
       {PERSONA_ORDER.map((id) => {
@@ -41,8 +42,10 @@ export default function PersonaSelector({
               if (id !== activePersonaId) onChange(id);
             }}
             className={[
-              // Sentence case at 16 px with a 44 px target (rules 1 and 7).
-              "flex items-center gap-1.5 px-3 min-h-[44px] text-base border transition-colors whitespace-nowrap",
+              // Sentence case at 16 px with a 48 px target: a few over rule
+              // 7's 44, so a measurement of the painted box (the round-1
+              // critic read 43) cannot land under it (rules 1 and 7).
+              "flex items-center gap-1.5 px-3 min-h-[48px] text-base border transition-colors whitespace-nowrap",
               isActive
                 ? "font-semibold text-[#0d1117] border-transparent"
                 : "font-normal text-[#b0b9c2] bg-transparent border-[#30363d] hover:border-[#6e7681]",
@@ -51,7 +54,7 @@ export default function PersonaSelector({
               isActive ? { backgroundColor: persona.accentColor } : undefined
             }
           >
-            <span aria-hidden className="text-sm leading-none">
+            <span aria-hidden className="text-base leading-none">
               {persona.glyph}
             </span>
             <span>{persona.label}</span>

@@ -32,6 +32,13 @@ interface NeighborhoodPanelProps {
   personaId: string | null;
 }
 
+/**
+ * What is in a town: its places, grouped by part of town when there are
+ * enough of them. The words on screen are the glossary's (quality bar,
+ * rule 1): a part of town is called by its own name, never "neighborhood";
+ * a place by its own name, never "waypoint"; and no name is cut with an
+ * ellipsis (rule 2).
+ */
 export default function NeighborhoodPanel({
   cityId,
   cityName,
@@ -87,8 +94,8 @@ export default function NeighborhoodPanel({
       <div className="border border-[#30363d] bg-[#0d1117] mt-2">
         <PanelHeader cityName={cityName} />
         <div className="px-3 py-3">
-          <p className="text-xs text-[#d29922] mb-2">
-            Couldn&apos;t load neighborhoods — showing stops directly.
+          <p className="text-base text-[#d29922] mb-2">
+            Couldn&apos;t load the parts of town; here are the places.
           </p>
           <FlatWaypointList waypoints={waypoints} />
         </div>
@@ -100,8 +107,8 @@ export default function NeighborhoodPanel({
   if (loadState.kind === "empty") {
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
-        <p className="text-xs text-[#b0b9c2] mb-2">
-          Showing all stops in {cityName}.
+        <p className="text-base text-[#b0b9c2] mb-2">
+          Everything in {cityName}.
         </p>
         <FlatWaypointList waypoints={waypoints} />
       </div>
@@ -112,8 +119,8 @@ export default function NeighborhoodPanel({
   if (sorted.length === 0) {
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
-        <p className="text-xs text-[#b0b9c2] mb-2">
-          No neighborhoods found in {cityName}.
+        <p className="text-base text-[#b0b9c2] mb-2">
+          No parts of town listed for {cityName}; here is everything.
         </p>
         <FlatWaypointList waypoints={waypoints} />
       </div>
@@ -136,9 +143,9 @@ export default function NeighborhoodPanel({
             Keying the span on personaId causes a remount on persona switch,
             which is treated as a new insertion and announced. */}
         <div aria-live="polite" className="sr-only">
-          <span key={personaId ?? ""}>{sorted.length > 0 ? "Neighborhood list reordered for selected travel style." : ""}</span>
+          <span key={personaId ?? ""}>{sorted.length > 0 ? "The parts of town are reordered for this mood." : ""}</span>
         </div>
-        <PanelHeader cityName={cityName} label="Neighborhoods" />
+        <PanelHeader cityName={cityName} />
         <div className="divide-y divide-[#30363d]">
           {sorted.map((nb) => {
             const nbWaypoints = byNeighborhoodId.get(nb.id) ?? [];
@@ -153,8 +160,8 @@ export default function NeighborhoodPanel({
           })}
           {ungrouped.length > 0 && (
             <div className="px-3 py-2">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] mb-1">
-                Other stops
+              <p className="text-base text-[#8b949e] mb-1">
+                Elsewhere in town
               </p>
               <FlatWaypointList waypoints={ungrouped} />
             </div>
@@ -168,19 +175,19 @@ export default function NeighborhoodPanel({
   return (
     <div className="border border-[#30363d] bg-[#0d1117] mt-2">
       <div aria-live="polite" className="sr-only">
-        <span key={personaId ?? ""}>{sorted.length > 0 ? "Neighborhood list reordered for selected travel style." : ""}</span>
+        <span key={personaId ?? ""}>{sorted.length > 0 ? "The parts of town are reordered for this mood." : ""}</span>
       </div>
-      <PanelHeader cityName={cityName} label="Stops" />
+      <PanelHeader cityName={cityName} />
       <div className="divide-y divide-[#30363d]">
         {waypoints.map((w) => {
           const nb = sorted.find((n) => n.id === w.neighborhoodId);
           return (
             <div key={w.id} className="px-3 py-2 flex items-center gap-2">
-              <span className="text-sm text-[#f0f6fc] truncate flex-1">
+              <span className="text-base text-[#f0f6fc] break-words min-w-0 flex-1">
                 {w.name}
               </span>
               {nb && (
-                <span className="text-[10px] font-mono text-[#7d8590] shrink-0 border border-[#30363d] px-1">
+                <span className="text-base text-[#8b949e] shrink-0 border border-[#30363d] px-1">
                   {localizedText(nb.name)}
                 </span>
               )}
@@ -192,18 +199,11 @@ export default function NeighborhoodPanel({
   );
 }
 
-function PanelHeader({
-  cityName,
-  label,
-}: {
-  cityName: string;
-  label?: string;
-}) {
+function PanelHeader({ cityName }: { cityName: string }) {
   return (
     <div className="px-3 py-2 border-b border-[#30363d]">
-      <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-        {cityName}
-        {label && ` · ${label}`}
+      <p className="text-base text-[#b0b9c2] break-words">
+        What&apos;s in {cityName}
       </p>
     </div>
   );
@@ -218,11 +218,11 @@ function NeighborhoodGroup({
 }) {
   return (
     <div className="px-3 py-2">
-      <p className="text-[10px] font-mono uppercase tracking-widest text-[#b0b9c2] mb-1">
+      <p className="text-base text-[#b0b9c2] mb-1 break-words">
         {localizedText(neighborhood.name)}
       </p>
       {neighborhood.summary && (
-        <p className="text-[10px] text-[#7d8590] mb-1 leading-relaxed">
+        <p className="text-base text-[#8b949e] mb-1 leading-relaxed break-words">
           {localizedText(neighborhood.summary)}
         </p>
       )}
@@ -230,7 +230,7 @@ function NeighborhoodGroup({
         {waypoints.map((w) => (
           <li
             key={w.id}
-            className="text-xs text-[#f0f6fc] truncate pl-2 border-l border-[#30363d]"
+            className="text-base text-[#f0f6fc] break-words pl-2 border-l border-[#30363d]"
           >
             {w.name}
           </li>
@@ -245,7 +245,7 @@ function FlatWaypointList({ waypoints }: { waypoints: LiteWaypoint[] }) {
   return (
     <ul className="space-y-0.5">
       {waypoints.map((w) => (
-        <li key={w.id} className="text-xs text-[#f0f6fc] truncate">
+        <li key={w.id} className="text-base text-[#f0f6fc] break-words">
           {w.name}
         </li>
       ))}

@@ -36,15 +36,18 @@ const BASE = {
   toName: "Austin", toLat: "30.2672", toLng: "-97.7431",
   budget: "4",
 };
+/** The page's text: the dates sit in `.num` spans (the mono face is for numbers, U2), and React puts a comment between adjacent expressions. */
 const render = async (params: Record<string, string>) =>
-  renderToString(await PlanPage({ searchParams: Promise.resolve({ ...BASE, ...params }) }));
+  renderToString(await PlanPage({ searchParams: Promise.resolve({ ...BASE, ...params }) }))
+    .replace(/<!-- -->/g, "")
+    .replace(/<\/?span[^>]*>/g, "");
 
 describe("the plan page header knows the deadline", () => {
   it("arrival mode: says Arrive by the date", async () => {
     const html = await render({ dateMode: "arrival", endDate: "2026-10-14" });
     expect(html).toContain("Arrive by Oct 14");
-    expect(html).toContain("Amarillo");
-    expect(html).toContain("Austin");
+    expect(html).toContain("Amarillo to Austin");
+    expect(html).not.toContain("Amarillo → Austin");
   });
 
   it("range mode: says the range", async () => {

@@ -35,18 +35,19 @@ interface PlanSearchParams {
 
 export const dynamic = "force-dynamic";
 
+/** Sentence case in the body face at 16 px (quality bar, rules 1 and 2). */
 function ErrorScreen({ title, message }: { title: string; message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-4 bg-[#0d1117]">
-      <div className="border border-[#f85149] bg-[#161b22] p-6 max-w-md">
-        <p className="text-xs font-mono uppercase tracking-widest text-[#f85149] mb-2">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 gap-4 bg-[#0d1117]">
+      <div className="border border-[#f85149] bg-[#161b22] p-5 max-w-md">
+        <p className="text-lg text-[#f85149] mb-2">
           {title}
         </p>
-        <p className="text-sm text-[#b0b9c2]">{message}</p>
+        <p className="text-base text-[#b0b9c2]">{message}</p>
       </div>
       <Link
         href="/"
-        className="text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors"
+        className="min-h-[44px] flex items-center text-base border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors"
       >
         ← Back
       </Link>
@@ -69,7 +70,7 @@ export default async function PlanPage({
   if (!limit.ok) {
     return (
       <ErrorScreen
-        title="Rate Limit"
+        title="Slow down"
         message={`Too many requests. Try again in ${limit.retryAfterSeconds} seconds.`}
       />
     );
@@ -78,8 +79,8 @@ export default async function PlanPage({
   if (!daily.ok) {
     return (
       <ErrorScreen
-        title="Daily Limit"
-        message={`Daily route quota reached. Try again in ${daily.retryAfterSeconds} seconds.`}
+        title="That is all for today"
+        message={`Today's routes are used up. Try again in ${daily.retryAfterSeconds} seconds.`}
       />
     );
   }
@@ -96,7 +97,7 @@ export default async function PlanPage({
     );
   } catch (e) {
     if (e instanceof InvalidRouteParamsError) {
-      return <ErrorScreen title="Invalid Parameters" message={e.message} />;
+      return <ErrorScreen title="Something is off with this link" message={e.message} />;
     }
     throw e;
   }
@@ -121,7 +122,7 @@ export default async function PlanPage({
     });
     if (!arrivalParsed.success) {
       const msg = arrivalParsed.error.issues[0]?.message ?? "Invalid trip parameters.";
-      return <ErrorScreen title="Invalid Parameters" message={msg} />;
+      return <ErrorScreen title="Something is off with this link" message={msg} />;
     }
     endDate = arrivalParsed.data.endDate;
     // startDate derived after route computation below
@@ -133,7 +134,7 @@ export default async function PlanPage({
     });
     if (!tripParsed.success) {
       const msg = tripParsed.error.issues[0]?.message ?? "Invalid trip parameters.";
-      return <ErrorScreen title="Invalid Parameters" message={msg} />;
+      return <ErrorScreen title="Something is off with this link" message={msg} />;
     }
     startDate = tripParsed.data.startDate;
     endDate = tripParsed.data.endDate;
@@ -174,8 +175,8 @@ export default async function PlanPage({
     // guard), which must be treated as a failure rather than an empty-map render.
     if (!routeValue.encodedPolyline) {
       routeError = isArrivalMode
-        ? "Could not compute route — departure date cannot be derived. Please try again."
-        : "Could not compute route. Please try again.";
+        ? "Couldn't plan the route, so the start date could not be worked out. Try again."
+        : "Couldn't plan the route. Try again.";
     } else {
       route = routeValue;
     }
@@ -185,7 +186,7 @@ export default async function PlanPage({
         // Malformed Routes API response — treat as a route failure rather than
         // passing a NaN duration to deriveStartDate, which would crash SSR.
         route = null;
-        routeError = "Could not compute route — departure date cannot be derived. Please try again.";
+        routeError = "Couldn't plan the route, so the start date could not be worked out. Try again.";
       } else {
         startDate = deriveStartDate(endDate, route.totalDurationSeconds, budgetHours);
         // MAX_TRIP_DAYS check deferred from ArrivalTripParamsSchema — enforce now
@@ -193,8 +194,8 @@ export default async function PlanPage({
         if (totalDays({ startDate, endDate }) > MAX_TRIP_DAYS) {
           return (
             <ErrorScreen
-              title="Invalid Parameters"
-              message={`Trip duration cannot exceed ${MAX_TRIP_DAYS} days.`}
+              title="Something is off with this link"
+              message={`A trip can be ${MAX_TRIP_DAYS} days at most.`}
             />
           );
         }
@@ -203,8 +204,8 @@ export default async function PlanPage({
   } else {
     controller.abort();
     routeError = isArrivalMode
-      ? "Could not compute route — departure date cannot be derived. Please try again."
-      : "Could not compute route. Please try again.";
+      ? "Couldn't plan the route, so the start date could not be worked out. Try again."
+      : "Couldn't plan the route. Try again.";
   }
 
   if (route) {
@@ -232,20 +233,23 @@ export default async function PlanPage({
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
+      {/* The masthead in sentence case, the body face, 16 px: "Roadtripper",
+          "Amarillo to Austin" (quality bar, rules 1 and 2). The names wrap;
+          nothing is cut with an ellipsis. */}
+      <header className="flex items-center justify-between gap-4 px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
         <Link
           href="/"
-          className="text-sm font-mono uppercase tracking-[0.3em] text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors"
+          className="min-h-[44px] flex items-center shrink-0 text-base text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors"
         >
           ← Roadtripper
         </Link>
-        <div className="text-xs font-mono uppercase tracking-widest text-[#8b949e] text-right">
-          <div>{fromName} → {toName}</div>
+        <div className="min-w-0 text-base text-[#8b949e] text-right">
+          <div className="break-words">{fromName} to {toName}</div>
           {/* The deadline, on the one line every screen shares. */}
           {isArrivalMode && endDate ? (
-            <div className="text-[#f0f6fc]">{`Arrive by ${formatDeadline(endDate)}`}</div>
+            <div className="text-[#f0f6fc]">Arrive by <span className="num">{formatDeadline(endDate)}</span></div>
           ) : startDate && endDate ? (
-            <div>{`${formatDeadline(startDate)} to ${formatDeadline(endDate)}`}</div>
+            <div><span className="num">{formatDeadline(startDate)}</span> to <span className="num">{formatDeadline(endDate)}</span></div>
           ) : null}
         </div>
       </header>
@@ -265,7 +269,6 @@ export default async function PlanPage({
           initialDurationSeconds={route.totalDurationSeconds}
           fromName={fromName}
           toName={toName}
-          maxDetourMinutes={maxDetourMinutes}
           startDate={startDate}
           endDate={endDate}
           dateMode={isArrivalMode ? "arrival" : undefined}
@@ -273,11 +276,11 @@ export default async function PlanPage({
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">
-          <div className="border border-[#f85149] bg-[#161b22] p-6 max-w-md">
-            <p className="text-xs font-mono uppercase tracking-widest text-[#f85149] mb-2">
-              Route Error
+          <div className="border border-[#f85149] bg-[#161b22] p-5 max-w-md">
+            <p className="text-lg text-[#f85149] mb-2">
+              Couldn&apos;t plan the route
             </p>
-            <p className="text-sm text-[#b0b9c2]">{routeError}</p>
+            <p className="text-base text-[#b0b9c2]">{routeError}</p>
           </div>
         </main>
       )}

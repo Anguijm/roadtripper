@@ -26,7 +26,8 @@ import { itinerarySummary } from "@/lib/plan/itinerary-summary";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
-import { formatDistance, formatDuration, formatDurationPlain } from "@/lib/routing/format";
+import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
+import { fitsTodayLine } from "@/lib/plan/words";
 import {
   recomputeAndRefreshAction,
   fetchNeighborhoodsAction,
@@ -54,13 +55,9 @@ interface PlanWorkspaceProps {
   initialDurationSeconds: number;
   fromName: string;
   toName: string;
-  /**
-   * Not read since Gauntlet U1 round 2: the frontier line lost its counts
-   * ("max 270 min" is in the glossary's never column). U2 decides whether
-   * "up to four and a half hours off the road" comes back, and drops the
-   * prop from here and the plan page if not.
-   */
-  maxDetourMinutes: number;
+  // The detour cap ("max 270 min") is not said on the sheet: its
+  // replacement in the glossary is nothing, so the prop that carried it is
+  // gone (Gauntlet U2, deciding what U1 round 2 left open).
   startDate?: string;
   endDate?: string;
   dateMode?: string;
@@ -107,19 +104,22 @@ export function roadsideMapLine(kind: RoadsideMarker["kind"]): string {
 }
 
 /**
- * How far along the road a stop sits, as the sheet says it: "132 mi in",
- * and with the town when the caller has one, "6 mi in, at Amarillo" or
- * "132 mi in, past Lubbock". Miles, because the sheet's own summary says
- * "497 mi" (round-2 critic: one sheet, one unit), through the same
- * `formatDistance` so the two can never round differently.
+ * How far along the road a stop sits, as a person in the car says it:
+ * "131 miles along the road", and with the town when the caller has one,
+ * "6 miles along, in Amarillo" or "131 miles along, past Lubbock" (U2's
+ * round-2 critic: "494 mi in, at Austin" read as engineer shorthand).
+ * Miles, because the sheet's own summary says "497 mi" (U1's round-2
+ * critic: one sheet, one unit), rounded as `formatDistance` rounds
+ * (`Math.round` of the miles) so the two can never disagree.
  */
 export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null): string {
   const mi = Math.round((alongKm * 1000) / 1609.34);
   // Lower case: the text always follows the kind ("well-known place · less
-  // than a mile in"), and a capital there read as a second sentence
-  // (round-3 critic, rule 1).
-  const dist = mi < 1 ? "less than a mile in" : `${formatDistance(alongKm * 1000)} in`;
-  return anchor ? `${dist}, ${anchor.near ? "at" : "past"} ${anchor.name}` : dist;
+  // than a mile along"), and a capital there read as a second sentence
+  // (U1's round-3 critic, rule 1).
+  const dist = mi < 1 ? "less than a mile along" : mi === 1 ? "1 mile along" : `${mi} miles along`;
+  if (!anchor) return `${dist} the road`;
+  return `${dist}, ${anchor.near ? "in" : "past"} ${anchor.name}`;
 }
 
 /**
@@ -132,15 +132,19 @@ export const ROADSIDE_SHOWN_FIRST = 10;
 /**
  * The phone's bottom sheet (`.plan-sheet` in src/app/globals.css): 92 dvh
  * tall, fixed at the bottom, translated down by the snap's share of its own
- * height. The scroll box inside it is the visible part only
- * (`.plan-sheet-scroll`, the same file), so no content ever sits below the
- * screen's edge out of reach; as `flex-1` the box was the whole sheet and
- * the bottom 350 px could not be scrolled to at rest (Gauntlet U1, round
- * 4). The rest snap is set so the roadside section fits the box on a 390
- * by 844 phone: `sheetScrollBoxPx(844, 1)` is at least ROADSIDE_LIST_PX
- * plus SHEET_BOX_PADDING_PX, the box's own padding above the section, which
- * is first in the box (round 6). Held by a test; change the CSS and these
- * together.
+ * height. The visible part of it (`.plan-sheet-visible`, the same file) is
+ * a column of the handle row and the scroll box, so the box is the visible
+ * part less the handle and no content ever sits below the screen's edge
+ * out of reach; as `flex-1` of the whole sheet the box's bottom 350 px
+ * could not be scrolled to at rest (Gauntlet U1, round 4). The handle row
+ * carries the sheet's title (U2, round 2), one line on the fresh sheet, so
+ * the handle is SHEET_HANDLE_PX tall; a title that wraps makes the handle
+ * taller and the box shorter by the same amount, never the box longer than
+ * the screen. The rest snap is set so the roadside section fits the box on
+ * a 390 by 844 phone: `sheetScrollBoxPx(844, 1)` is at least
+ * ROADSIDE_LIST_PX plus SHEET_BOX_PADDING_PX, the box's own padding above
+ * the section, which is first in the box (round 6). Held by a test; change
+ * the CSS and these together.
  */
 export const SHEET_HEIGHT_DVH = 92;
 /**
@@ -162,7 +166,7 @@ export const SHEET_HEIGHT_DVH = 92;
  * plan page at 390 by 844 shows "Show all N" whole above the fold.
  */
 export const SHEET_SNAPS = [80, 25, 8] as const;
-/** The drag handle (44 px) and the sheet's top border. */
+/** The handle row (44 px, the pill and the sheet's one-line title) and the sheet's top border. */
 export const SHEET_HANDLE_PX = 45;
 /** The scroll box's padding (`p-2`), above the first section. */
 export const SHEET_BOX_PADDING_PX = 8;
@@ -279,17 +283,27 @@ export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideM
   );
 }
 
-// 7 stops balances itinerary richness against UI clarity and API cost per recompute.
+// Seven is this project's own cap on stops, not the Routes API's: the API
+// takes up to 25 intermediates. `computeRouteWithStops` in
+// src/lib/routing/directions.ts throws above its MAX_INTERMEDIATES of 7,
+// and MAX_STOPS in src/app/plan/actions.ts answers "too_many_stops" above
+// the same 7, so the three must move together. Seven because every stop
+// added or removed is one recompute, a Routes API call and then the towns
+// and places along the new route read again, so the cap bounds what one
+// trip can cost; and seven stops with the start and the end is nine rows
+// on the sheet, about as long a list as a person reads on a phone.
 const MAX_TRIP_STOPS = 7;
 
 // Compile-time exhaustiveness — adding a new RecomputeErrorCode forces a label.
+// Sentences a person would say (quality bar, rule 1); none of the
+// glossary's words.
 const ERROR_LABELS: Record<RecomputeErrorCode, string> = {
-  invalid_input: "Couldn't update route — invalid stop coordinates.",
-  too_many_stops: "Trip is at the maximum number of stops.",
-  rate_limited: "Slow down — too many recompute requests. Try again in a moment.",
-  quota_exceeded: "Daily route-recompute quota reached. Try again tomorrow.",
-  upstream_unavailable: "Routes service is unavailable. Retry in a moment.",
-  internal_error: "Something went wrong recomputing the route.",
+  invalid_input: "Couldn't update the route: a stop has no place on the map.",
+  too_many_stops: `The trip has all the stops it can hold (${MAX_TRIP_STOPS}).`,
+  rate_limited: "Slow down; too many route updates. Try again in a moment.",
+  quota_exceeded: "Today's route updates are used up. Try again tomorrow.",
+  upstream_unavailable: "The route service is not answering. Try again in a moment.",
+  internal_error: "Something went wrong updating the route.",
 };
 
 export default function PlanWorkspace({
@@ -406,6 +420,9 @@ export default function PlanWorkspace({
   }, []);
 
   const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    // On a wide screen the sheet is a side panel and does not move; a touch
+    // on its title row (which is the drag row on a phone) is not a drag.
+    if (window.matchMedia("(min-width: 768px)").matches) return;
     touchStartYRef.current = e.touches[0].clientY;
     // Read base position from CSS var (set by React style prop) so we never
     // depend on the sheetSnap closure value during move.
@@ -466,7 +483,11 @@ export default function PlanWorkspace({
   const onTheRoadText = formatDurationPlain(liveDuration);
 
   // The recommendation set the user actually sees — refreshed when present,
-  // initial server prop otherwise (Council ISC-S7-ARCH-2).
+  // initial server prop otherwise (Council ISC-S7-ARCH-2). Never missing
+  // and never a failure: the prop is required, a page whose town read
+  // failed passes an empty "fresh" set with `initialCandidateFetchFailed`,
+  // and `liveWaypointFetch` is only ever set from a refresh that returned
+  // a set. Both members of WaypointFetchResult carry cities and waypoints.
   const effectiveWaypointFetch = liveWaypointFetch ?? waypointFetch;
 
   // Live candidate markers derived from the effective waypoint set so the
@@ -721,7 +742,7 @@ export default function PlanWorkspace({
           setRefreshTick((t) => t + 1);
           const count = result.waypointFetch.cities.length;
           setCandidatePoolAnnouncement(
-            `Candidate pool updated: ${count} cit${count === 1 ? "y" : "ies"} found.`
+            count === 1 ? "1 town fits now." : `${count} towns fit now.`
           );
         } else {
           // Degraded — keep the prior liveWaypointFetch (Council S7-ARCH-2).
@@ -730,7 +751,7 @@ export default function PlanWorkspace({
         if (result.dateDerivation?.status === "ok") {
           setEffectiveStartDate(result.dateDerivation.date);
           setStartDateDerivationFailed(false);
-          setStartDateAnnouncement(`Departure date updated to ${result.dateDerivation.date}`);
+          setStartDateAnnouncement(`The start date is now ${result.dateDerivation.date}`);
         } else if (result.dateDerivation?.status === "failed") {
           setStartDateDerivationFailed(true);
         }
@@ -775,7 +796,7 @@ export default function PlanWorkspace({
     const cityName = panelCityName ?? panelCityId;
 
     let cancelled = false;
-    setPanelAnnouncement(`Loading ${cityName} neighborhoods`);
+    setPanelAnnouncement(`Loading what's in ${cityName}`);
     fetchNeighborhoodsAction(panelCityId)
       .then((result) => {
         if (cancelled) return;
@@ -784,7 +805,7 @@ export default function PlanWorkspace({
           [result.cityId]: result.ok ? result.loadState : { kind: "failed" },
         }));
         setPanelAnnouncement(
-          result.ok ? `Showing neighborhoods for ${cityName}` : `Could not load neighborhoods for ${cityName}`
+          result.ok ? `Showing what's in ${cityName}` : `Couldn't load what's in ${cityName}`
         );
       })
       .catch(() => {
@@ -793,7 +814,7 @@ export default function PlanWorkspace({
           ...prev,
           [panelCityId]: { kind: "failed" },
         }));
-        setPanelAnnouncement(`Could not load neighborhoods for ${cityName}`);
+        setPanelAnnouncement(`Couldn't load what's in ${cityName}`);
       });
     return () => { cancelled = true; };
     // Depends on the name, a string, not on the resolved object: the object
@@ -879,6 +900,29 @@ export default function PlanWorkspace({
   const tripCount = tripStops.length;
   const showItinerary = tripCount > 0;
 
+  // The sheet's title: a sentence built from the data, "Lubbock and
+  // Abilene fit today" or "Nothing fits today; drive on to Austin", and
+  // after a stop where it counts from. Never a count or a minutes figure
+  // as a label (quality bar, rule 1; Gauntlet U2). It sits on the handle
+  // row, above everything and at every snap (round 2: the critic saw the
+  // sheet open on the roadside heading and no sentence). When the towns
+  // could not be read the title says that instead, since "nothing fits"
+  // would be false. `liveWaypointFetch` is null until a refresh returns a
+  // set, and a refresh whose town read failed leaves it as it was (the
+  // action answers waypointFetch: null, which is never stored) and shows
+  // "Couldn't update the places" instead; so once a refresh has replaced
+  // the failed page fetch the title is the sentence again, and a later
+  // failure keeps the last set on the sheet rather than saying the towns
+  // never loaded.
+  const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
+  const sheetTitle = townsFailed
+    ? "Couldn't load the towns along the road"
+    : fitsTodayLine(
+        effectiveWaypointFetch.cities.map((c) => c.name),
+        toName,
+        tripStops.length > 0 ? tripStops[tripStops.length - 1].cityName : null
+      );
+
   return (
     <div className="flex flex-1 min-h-0">
       {/* Screen-reader live regions */}
@@ -894,20 +938,38 @@ export default function PlanWorkspace({
         style={{ "--sheet-y": `${SHEET_SNAPS[sheetSnap]}%` } as React.CSSProperties}
         className="plan-sheet md:static md:w-[360px] md:z-auto border-t md:border-t-0 md:border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0"
       >
-        {/* Drag handle — mobile only */}
-        <div
-          className="flex justify-center items-center min-h-[44px] cursor-grab active:cursor-grabbing touch-none md:hidden"
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
-          onTouchCancel={handleSheetTouchCancel}
-          role="button"
-          tabIndex={0}
-          aria-label={`Panel ${SNAP_LABELS[sheetSnap]}. Tap to ${sheetSnap < 2 ? "expand" : "collapse"}.`}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") cycleSnap(); }}
-        >
-          <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
-        </div>
+        {/* The visible part of the sheet: the handle row and the scroll box
+            as a column, so the box is whatever the handle leaves. */}
+        <div className="plan-sheet-visible">
+          {/* The handle row, and the sheet's title on it: the sentence built
+              from the towns ("Lubbock and Abilene fit today"), the first
+              thing seen at every snap and the side panel's title on a wide
+              screen. On a phone the whole row is the drag zone, and the
+              grab handle is a 44 px button laid over it (the pill at its
+              top) for a keyboard and a screen reader; the title is its
+              sibling, not its child, so a reader reaches the sentence and
+              its updates. One line is 44 px, SHEET_HANDLE_PX less the
+              sheet's border; two lines shorten the scroll box instead. */}
+          <div
+            className="relative flex flex-col items-center justify-center min-h-[44px] px-3 pt-3 pb-1 touch-none md:touch-auto md:pt-2 md:pb-2 md:border-b md:border-[#30363d]"
+            onTouchStart={handleSheetTouchStart}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={handleSheetTouchEnd}
+            onTouchCancel={handleSheetTouchCancel}
+          >
+            <div
+              className="absolute inset-0 flex justify-center pt-1.5 cursor-grab active:cursor-grabbing md:hidden focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+              role="button"
+              tabIndex={0}
+              aria-label={`Panel ${SNAP_LABELS[sheetSnap]}. Tap to ${sheetSnap < 2 ? "expand" : "collapse"}.`}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") cycleSnap(); }}
+            >
+              <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
+            </div>
+            <p aria-live="polite" data-fits-today className="font-sans text-base leading-5 text-center text-[#f0f6fc] break-words">
+              {sheetTitle}
+            </p>
+          </div>
 
         <div className="plan-sheet-scroll flex-1 overflow-y-auto p-2 space-y-2">
           {/* On a phone the box is the visible part of the sheet only
@@ -992,16 +1054,21 @@ export default function PlanWorkspace({
           )}
 
           <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
-            <PersonaSelector
-              activePersonaId={activePersonaId}
-              onChange={handlePersonaChange}
-            />
+            {/* The glossary's words for "persona" (quality bar, rule 1),
+                said once above the chips. */}
+            <div className="space-y-2">
+              <p className="text-base text-[#b0b9c2]">I&apos;m in the mood for</p>
+              <PersonaSelector
+                activePersonaId={activePersonaId}
+                onChange={handlePersonaChange}
+              />
+            </div>
             {/* Two sentences, not three labelled stats: the glossary's
                 replacement for "budget left (as a stat)" is "4 h of driving
                 left today" (quality bar, rule 1). */}
             <div className="text-base leading-snug space-y-1">
               <p className="text-[#f0f6fc]">
-                {totalDistanceText} · {onTheRoadText} on the road
+                <span className="num">{totalDistanceText}</span> · <span className="num">{onTheRoadText}</span> on the road
                 {isPending && (
                   <span className="text-[#d29922]" aria-hidden> …</span>
                 )}
@@ -1020,14 +1087,11 @@ export default function PlanWorkspace({
             </div>
             {/* Only while updating; idle it costs no height. */}
             {isPending && (
-              // #e3b341 rather than the #d29922 used for budget warnings: at
-              // 10 px this text needs the brighter amber to clear WCAG AA
-              // contrast on the #0d1117 background.
               <p
-                className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
+                className="text-base text-[#e3b341] animate-pulse"
                 aria-live="polite"
               >
-                Updating route + recs…
+                Updating…
               </p>
             )}
           </div>
@@ -1041,9 +1105,10 @@ export default function PlanWorkspace({
               onClick={() => setItineraryOpen((o) => !o)}
               aria-expanded={itineraryOpen}
               aria-controls="itinerary-details"
-              className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 text-left text-xs font-mono uppercase tracking-widest text-[#b0b9c2] border border-[#30363d] bg-[#161b22] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+              className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 py-2 text-left text-base text-[#b0b9c2] border border-[#30363d] bg-[#161b22] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
             >
-              <span className="truncate">
+              {/* Town names are in this line, so it wraps; never an ellipsis. */}
+              <span className="min-w-0 break-words">
                 {/* Legs are in seconds already; the direct leg is held in
                     minutes and converted, the same way the Itinerary's
                     finalLegSeconds prop below is built. */}
@@ -1082,8 +1147,8 @@ export default function PlanWorkspace({
           {panelCityId && panelCity && (
             effectiveNeighborhoods[panelCityId] == null ? (
               <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
-                <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] motion-safe:animate-pulse">
-                  Loading {panelCity.cityName}…
+                <p className="text-base text-[#8b949e] motion-safe:animate-pulse break-words">
+                  Loading what&apos;s in {panelCity.cityName}…
                 </p>
               </div>
             ) : (
@@ -1105,14 +1170,14 @@ export default function PlanWorkspace({
           {/* Recompute error banner with Retry */}
           {recomputeError && (
             <div className="px-3 py-2 border border-[#f85149] bg-[#161b22] flex items-start justify-between gap-2">
-              <p className="text-xs text-[#f85149] leading-snug">{recomputeError}</p>
+              <p className="text-base text-[#f85149] leading-snug">{recomputeError}</p>
               <button
                 type="button"
                 onClick={handleRetry}
                 disabled={isPending}
-                className="text-[10px] font-mono uppercase tracking-widest border border-[#f85149] text-[#f85149] px-2 py-0.5 hover:bg-[#f85149] hover:text-[#0d1117] disabled:opacity-40 transition-colors whitespace-nowrap"
+                className="min-h-[44px] text-base border border-[#f85149] text-[#f85149] px-3 hover:bg-[#f85149] hover:text-[#0d1117] disabled:opacity-40 transition-colors whitespace-nowrap"
               >
-                Retry
+                Try again
               </button>
             </div>
           )}
@@ -1121,8 +1186,8 @@ export default function PlanWorkspace({
               (Council ISC-S7-ARCH-2 / S7-PROD-1). */}
           {recommendationsDegraded && (
             <div className="px-3 py-2 border border-[#d29922] bg-[#161b22]">
-              <p className="text-xs text-[#d29922] leading-snug">
-                Couldn&apos;t refresh recommendations — showing previous.
+              <p className="text-base text-[#d29922] leading-snug">
+                Couldn&apos;t update the places; showing the last ones.
               </p>
             </div>
           )}
@@ -1138,14 +1203,14 @@ export default function PlanWorkspace({
                   : "border-[#d29922]"
               }`}
             >
-              <p className={`text-xs leading-snug ${
+              <p className={`text-base leading-snug ${
                 tripState.status.kind === "over_budget"
                   ? "text-[#f85149]"
                   : "text-[#d29922]"
               }`}>
                 {tripState.status.kind === "over_budget"
-                  ? `Over budget by ${formatDuration(tripState.status.overageMinutes * 60)}.`
-                  : `Budget tight — ${formatDuration(tripState.status.directMinutesToDestination * 60)} direct to ${toName} with ${formatDuration(tripState.status.remainingBudgetMinutes * 60)} remaining.`}
+                  ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}.`
+                  : `Tight: ${formatDurationPlain(tripState.status.directMinutesToDestination * 60)} straight on to ${toName}, with ${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left.`}
               </p>
             </div>
           )}
@@ -1156,8 +1221,8 @@ export default function PlanWorkspace({
               role="alert"
               className="px-3 py-2 border border-[#d29922] bg-[#161b22]"
             >
-              <p className="text-xs text-[#d29922]">
-                Departure date could not be updated — showing last known date.
+              <p className="text-base text-[#d29922]">
+                The start date couldn&apos;t be updated; showing the last one.
               </p>
             </div>
           )}
@@ -1176,54 +1241,33 @@ export default function PlanWorkspace({
                   : "border-[#d29922]"
               }`}
             >
-              <p className={`text-xs leading-snug break-words ${
+              <p className={`text-base leading-snug break-words ${
                 deadlinePressure.daysLate >= 1 ? "text-[#f85149]" : "text-[#d29922]"
               }`}>
                 {/* daysRemaining ≤ 0: deadline already passed, pivot to direct-drive message. */}
                 {deadlinePressure.daysRemaining <= 0
-                  ? `No days left — ${formatDuration(tripState.directMinutesToDestination * 60)} still needed to reach ${toName}.`
-                  : `Won't make ${toName} on time — need ${formatDuration(deadlinePressure.requiredMinutesPerDay * 60)}/day for ${Math.ceil(deadlinePressure.daysRemaining)} day${Math.ceil(deadlinePressure.daysRemaining) === 1 ? "" : "s"}, ${formatDuration((deadlinePressure.requiredMinutesPerDay - deadlinePressure.budgetMinutesPerDay) * 60)} over budget.`}
+                  ? `No days left, and ${formatDurationPlain(tripState.directMinutesToDestination * 60)} of driving still to reach ${toName}.`
+                  : `Won't make ${toName} on time: that takes ${formatDurationPlain(deadlinePressure.requiredMinutesPerDay * 60)} a day for ${Math.ceil(deadlinePressure.daysRemaining)} day${Math.ceil(deadlinePressure.daysRemaining) === 1 ? "" : "s"}, ${formatDurationPlain((deadlinePressure.requiredMinutesPerDay - deadlinePressure.budgetMinutesPerDay) * 60)} a day more than planned.`}
               </p>
             </div>
           )}
 
           {routeSealed ? (
-            <p className="text-[10px] font-mono text-[#7d8590] px-1 py-2 text-center">
-              Route locked · tap destination to explore more stops
+            <p className="text-base text-[#8b949e] px-1 py-2 text-center break-words">
+              Route locked. Tap {toName} to keep planning.
             </p>
           ) : (
             <>
-              {/* Distinguish API error from genuine empty-radius result. */}
-              {initialCandidateFetchFailed && liveWaypointFetch === null && (
+              {/* An error is not an empty answer: the title already says
+                  the towns could not be read; this says what is still
+                  true and what to do. The sentence over the towns is the
+                  sheet's title on the handle row, above. */}
+              {townsFailed && (
                 <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
-                  <p className="text-xs text-[#f85149] leading-snug">
-                    Couldn&apos;t load nearby cities — route is still available.
+                  <p className="text-base text-[#f85149] leading-snug">
+                    The route is still here. Reload to try the towns again.
                   </p>
                 </div>
-              )}
-              {!initialCandidateFetchFailed &&
-                liveWaypointFetch === null &&
-                effectiveWaypointFetch.cities.length === 0 && (
-                  <div className="px-3 py-2">
-                    <p className="text-xs font-mono text-[#b0b9c2]">
-                      No nearby cities found within range.
-                    </p>
-                  </div>
-                )}
-
-              {/* Frontier label — tells the user which stop the next candidates
-                  are radiating from so the changing list makes sense. */}
-              {effectiveWaypointFetch.cities.length > 0 && (
-                <p aria-live="polite" className="font-sans text-base text-[#8b949e] px-1 pt-1">
-                  {tripStops.length > 0
-                    ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
-                    : `First stop from ${fromName}`}
-                  {/* The glossary's words for the count; the detour cap is
-                      not said (its replacement is "nothing"). */}
-                  {effectiveWaypointFetch.cities.length === 1
-                    ? " · 1 town that fits today"
-                    : ` · ${effectiveWaypointFetch.cities.length} towns that fit today`}
-                </p>
               )}
 
               {/* Council ISC-S7-PROD-2 — brief panel highlight on each
@@ -1268,7 +1312,7 @@ export default function PlanWorkspace({
                 // kept; the label already says "Saved" until it does.
                 disabled={isPending}
                 className={[
-                  "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                  "w-full min-h-[44px] text-base px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                   saveState === "saved"
                     ? "border-[#238636] text-[#3fb950]"
                     : saveState === "error"
@@ -1276,10 +1320,11 @@ export default function PlanWorkspace({
                     : "border-[#30363d] text-[#8b949e] hover:border-[#555] hover:text-[#f0f6fc]",
                 ].join(" ")}
               >
-                {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+                {saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed; try again" : "Save trip"}
               </button>
             </div>
           )}
+        </div>
         </div>
       </aside>
 

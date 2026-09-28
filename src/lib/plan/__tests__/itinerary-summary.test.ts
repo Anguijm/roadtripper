@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { itinerarySummary } from "../itinerary-summary";
-import { formatDuration } from "@/lib/routing/format";
+import { formatDurationPlain } from "@/lib/routing/format";
 
 describe("itinerarySummary", () => {
   it("says the count, the names and the total drive in one line", () => {
@@ -9,7 +9,8 @@ describe("itinerarySummary", () => {
       [100 * 60, 320 * 60],
       20 * 60
     );
-    expect(line).toBe(`2 stops · Lubbock, Austin · ${formatDuration(440 * 60)}`);
+    expect(line).toBe(`2 stops · Lubbock, Austin · ${formatDurationPlain(440 * 60)} of driving`);
+    expect(line).toBe("2 stops · Lubbock, Austin · 7 h 20 min of driving");
   });
 
   it("uses the singular for one stop and leaves out a drive it does not know", () => {

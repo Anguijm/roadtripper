@@ -61,45 +61,52 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
     onDeleted(trip.id, `Trip from ${trip.fromName} to ${trip.toName} deleted.`);
   };
 
+  // The words in the body face, the dates alone in the mono face (quality
+  // bar, rule 2: numbers only).
+  const dates: React.ReactNode =
+    trip.dateMode === "arrival" && trip.endDate
+      ? <>Arrive by <span className="num">{formatDate(trip.endDate)}</span></>
+      : trip.startDate && trip.endDate
+      ? <><span className="num">{formatDate(trip.startDate)}</span> to <span className="num">{formatDate(trip.endDate)}</span></>
+      : null;
+  const stops = trip.stops.length > 0 ? `${trip.stops.length} stop${trip.stops.length === 1 ? "" : "s"}` : "";
+
   return (
     <div className="border border-[#30363d] bg-[#161b22] p-4 flex flex-col gap-3">
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-[#f0f6fc] font-mono truncate">
-            {trip.fromName} → {trip.toName}
+          {/* The trip's name is two town names; it wraps and is never cut
+              with an ellipsis (quality bar, rule 2). */}
+          <p className="text-lg text-[#f0f6fc] break-words">
+            {trip.fromName} to {trip.toName}
           </p>
-          <p className="text-xs text-[#7d8590] mt-0.5">
-            {trip.budgetHours}h/day
-            {trip.dateMode === "arrival" && trip.endDate
-              ? ` · Arrive by ${formatDate(trip.endDate)}`
-              : trip.startDate && trip.endDate
-              ? ` · ${formatDate(trip.startDate)} – ${formatDate(trip.endDate)}`
-              : ""}
-            {trip.stops.length > 0
-              ? ` · ${trip.stops.length} stop${trip.stops.length === 1 ? "" : "s"}`
-              : ""}
+          <p className="text-base text-[#8b949e] mt-0.5">
+            <span className="num">{trip.budgetHours} h</span> a day
+            {dates ? " · " : ""}
+            {dates}
+            {stops ? ` · ${stops}` : ""}
           </p>
         </div>
         <button
           type="button"
           onClick={handleDelete}
-          aria-label={`Delete trip from ${trip.fromName} to ${trip.toName}`}
-          className="text-[10px] font-mono uppercase tracking-widest text-[#7d8590] hover:text-[#f85149] disabled:opacity-40 transition-colors whitespace-nowrap flex-shrink-0 min-h-[44px] flex items-center"
+          aria-label={`Delete the trip from ${trip.fromName} to ${trip.toName}`}
+          className="text-base text-[#8b949e] hover:text-[#f85149] disabled:opacity-40 transition-colors whitespace-nowrap flex-shrink-0 min-h-[44px] flex items-center"
         >
           {"Delete"}
         </button>
       </div>
 
       {error && (
-        <p className="text-xs text-[#f85149]" role="alert">{error}</p>
+        <p className="text-base text-[#f85149]" role="alert">{error}</p>
       )}
 
       <Link
         href={resumeUrl(trip)}
-        className="text-xs font-mono uppercase tracking-widest border border-[#30363d] text-[#b0b9c2] px-3 min-h-[44px] flex items-center justify-center hover:border-[#555] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        className="text-base border border-[#30363d] text-[#b0b9c2] px-3 min-h-[44px] flex items-center justify-center hover:border-[#555] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
       >
-        Resume →
+        Open this trip
       </Link>
     </div>
   );

@@ -835,8 +835,8 @@ export default function RouteMap({
   if (!apiKey) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-[#161b22] border border-[#30363d]">
-        <p className="text-sm text-[#7d8590] font-mono uppercase tracking-widest">
-          Configure NEXT_PUBLIC_GOOGLE_MAPS_KEY
+        <p className="text-base text-[#8b949e] px-4 text-center">
+          Set <span className="num">NEXT_PUBLIC_GOOGLE_MAPS_KEY</span> to show the map
         </p>
       </div>
     );

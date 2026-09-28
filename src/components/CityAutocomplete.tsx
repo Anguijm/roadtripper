@@ -86,18 +86,20 @@ export default function CityAutocomplete({
   }, [autocomplete, onChange]);
 
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
+    <label className="flex flex-col gap-1">
+      {/* Sentence case in the body face, 16 px, and the box the same: a
+          typed city name is a name, not a code (quality bar, rule 2). */}
+      <span className="text-base text-[#b0b9c2]">
         {label}
-      </label>
+      </span>
       <input
         ref={inputRef}
         type="text"
         placeholder={placeholder}
         value={displayValue}
         onChange={(e) => { onTyping?.(); setDisplayValue(e.target.value); }}
-        className="bg-[#0d1117] border border-[#30363d] focus:border-[#6e7681] outline-none px-3 py-2 text-sm text-[#f0f6fc] placeholder:text-[#4a5159] font-mono"
+        className="min-h-[44px] bg-[#0d1117] border border-[#30363d] focus:border-[#6e7681] outline-none px-3 py-2 text-base text-[#f0f6fc] placeholder:text-[#6e7681]"
       />
-    </div>
+    </label>
   );
 }

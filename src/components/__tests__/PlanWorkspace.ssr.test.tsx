@@ -49,15 +49,19 @@ describe("PlanWorkspace server rendering", () => {
           initialDurationSeconds={148384}
           fromName="New York"
           toName="Los Angeles"
-          maxDetourMinutes={270}
         />
       )
     ).not.toThrow();
   });
-  it("renders zero-state (no candidates, no waypoints) without throwing", () => {
+  it("renders the failed town read (no candidates, an empty set, the flag) as the sheet's title and an alert, with no 'fits today' sentence", () => {
     // Council R1 (bugs): guards the branches a populated fixture skips.
-    expect(() =>
-      renderToString(
+    // Council round 1 on #85, items 2 and 3: a page whose town read failed
+    // passes exactly this, an empty "fresh" set and the flag; there is no
+    // "failed" member of WaypointFetchResult to narrow on, and no refresh
+    // has replaced the set, so the title says the towns could not be read.
+    let html = "";
+    expect(() => {
+      html = renderToString(
         <PlanWorkspace
           origin={{ lat: 40.7127753, lng: -74.0059728 }}
           destination={{ lat: 34.0549076, lng: -118.242643 }}
@@ -70,10 +74,50 @@ describe("PlanWorkspace server rendering", () => {
           initialDurationSeconds={0}
           fromName="New York"
           toName="Los Angeles"
-          maxDetourMinutes={270}
           initialCandidateFetchFailed
         />
-      )
-    ).not.toThrow();
+      );
+    }).not.toThrow();
+    const text = html.replace(/<!-- -->/g, "").replace(/&#x27;/g, "'");
+    const visible = text.replace(/<[^>]+>/g, " ");
+    expect(visible).toContain("Couldn't load the towns along the road");
+    expect(text).toContain('role="alert"');
+    expect(visible).toContain("The route is still here. Reload to try the towns again.");
+    expect(visible).not.toMatch(/fits? today/);
+  });
+
+  it("renders a degraded initial set (the towns read, some places not) with the towns' sentence and the note that places did not load", () => {
+    let html = "";
+    expect(() => {
+      html = renderToString(
+        <PlanWorkspace
+          origin={{ lat: 40.7127753, lng: -74.0059728 }}
+          destination={{ lat: 34.0549076, lng: -118.242643 }}
+          encodedPolyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+          candidateMarkers={[
+            { id: "philadelphia", name: "Philadelphia", lat: 39.9526, lng: -75.1652, detourMinutes: 225 },
+          ]}
+          waypointFetch={{
+            status: "degraded",
+            cities: [
+              { id: "philadelphia", name: "Philadelphia", vibeClass: null, detourMinutes: 225, lat: 39.9526, lng: -75.1652 },
+            ],
+            waypoints: [],
+            neighborhoods: {},
+            failures: [{ kind: "waypoints", cityId: "philadelphia", reason: "atlas read failed" }],
+          }}
+          initialPersonaId="culture"
+          budgetHours={4}
+          initialDistanceMeters={4469715}
+          initialDurationSeconds={148384}
+          fromName="New York"
+          toName="Los Angeles"
+        />
+      );
+    }).not.toThrow();
+    const visible = html.replace(/<!-- -->/g, "").replace(/&#x27;/g, "'").replace(/<[^>]+>/g, " ");
+    expect(visible).toContain("Philadelphia fits today");
+    expect(visible).toContain("Some of the places did not load. Reload to try again.");
+    expect(visible).not.toContain("Couldn't load the towns along the road");
   });
 });

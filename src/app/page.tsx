@@ -39,35 +39,37 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
   const initialStartDate = initialDateMode === "range" ? parseIsoDate(params.startDate) ?? "" : "";
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
-        <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-[#b0b9c2]">
+      {/* The masthead in sentence case, the body face, 16 px (quality bar,
+          rules 1 and 2): no letter-spaced capitals anywhere on the screen. */}
+      <header className="flex items-center justify-between gap-4 px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
+        <h1 className="text-base text-[#b0b9c2]">
           Roadtripper
         </h1>
         <nav className="flex items-center gap-4">
           <Link
             href="/today"
-            className="text-xs font-mono uppercase tracking-widest text-[#8b949e] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+            className="min-h-[44px] flex items-center text-base text-[#8b949e] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
           >
             Just today
           </Link>
           <Link
             href="/trips"
-            className="text-xs font-mono uppercase tracking-widest text-[#8b949e] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+            className="min-h-[44px] flex items-center text-base text-[#8b949e] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
           >
             Saved trips
           </Link>
         </nav>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-6">
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl font-mono tracking-tight text-[#f0f6fc] mb-2">
+            <h2 className="text-2xl text-[#f0f6fc] mb-2">
               Plan your road trip
             </h2>
-            <p className="text-sm text-[#7d8590]">
-              Set your start, destination, and daily drive budget. We&apos;ll suggest
-              themed stops along the way.
+            <p className="text-base text-[#8b949e]">
+              Where you start, where you end and how long you will drive each
+              day. We show what is worth stopping for along the way.
             </p>
           </div>
           <RouteInput
@@ -77,8 +79,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
             initialStartDate={initialStartDate}
             initialEndDate={initialEndDate}
           />
-          <p className="mt-6 text-xs text-center text-[#4a5159] font-mono">
-            Powered by Urban Explorer — 258 cities, thousands of waypoints
+          <p className="mt-6 text-base text-center text-[#7d8590]">
+            Built on Urban Explorer: <span className="num">258</span> cities and thousands of places.
           </p>
         </div>
       </main>

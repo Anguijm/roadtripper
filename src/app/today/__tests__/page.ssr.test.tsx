@@ -39,9 +39,12 @@ describe("the today screen, server-rendered", () => {
     expect(html).toMatch(/\d+ cities within 5 hours/);
     expect(html).toContain("Albuquerque");
     expect(html).toContain("3 h 45 min");           // one-way, from the graph, not doubled
+    // The time in the mono face, "away" in the body face (quality bar, rule 2).
+    expect(html).toContain('<span class="num">3 h 45 min</span> away');
+    expect(html).not.toMatch(/class="[^"]*\bnum\b[^"]*"[^>]*>[^<]*away</);
     expect(html).not.toContain("7 h 30 min");        // the doubled number must not appear
     expect(html).not.toContain("Denver");
-    expect(html).toContain("One-way drive times");
+    expect(html).toContain("Drive times are one way.");
     // No stop is a bare name: every spot rendered carries its reason.
     const spots = html.match(/data-spot/g)?.length ?? 0;
     const reasons = html.match(/data-reason/g)?.length ?? 0;
@@ -56,7 +59,11 @@ describe("the today screen, server-rendered", () => {
     const html = await render({});
     expect(html).toContain("What is in range today?");
     expect(html).toContain("Use where I am");
-    expect(html).toContain("Pick where you are first");
+    // The button keeps its verb; the reason it cannot be pressed is a line
+    // beside it (quality bar, rule 3).
+    expect(html).toContain("Show me what&#x27;s in range");
+    expect(html).toContain("Choose where you are first");
+    expect(html).not.toContain("Pick where you are first");
     expect(html).toContain("5 h");
   });
 

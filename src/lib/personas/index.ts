@@ -7,11 +7,13 @@ export { PersonaIdSchema } from "./types";
  * Persona definitions come from Plans/partitioned-prancing-beacon.md
  * (Session 5 mapping table). Tweaking these is copy work — no code changes
  * required downstream because every consumer reads through `getPersona`.
+ * The labels are the chips' one short word each under "I'm in the mood
+ * for" (Gauntlet U2): five chips that fit 390 px without scrolling.
  */
 export const PERSONAS: Readonly<Record<PersonaId, PersonaConfig>> = {
   outdoorsman: {
     id: "outdoorsman",
-    label: "Outdoorsman",
+    label: "Outdoors",
     glyph: "▲",
     primaryTypes: ["nature", "viewpoint"],
     secondaryTypes: ["landmark", "hidden_gem"],
@@ -20,7 +22,7 @@ export const PERSONAS: Readonly<Record<PersonaId, PersonaConfig>> = {
   },
   foodie: {
     id: "foodie",
-    label: "Foodie",
+    label: "Food",
     glyph: "◆",
     primaryTypes: ["food", "drink"],
     secondaryTypes: ["shopping", "culture"],
@@ -29,7 +31,7 @@ export const PERSONAS: Readonly<Record<PersonaId, PersonaConfig>> = {
   },
   gearhead: {
     id: "gearhead",
-    label: "Gearhead",
+    label: "Gear",
     glyph: "■",
     primaryTypes: ["landmark", "viewpoint"],
     secondaryTypes: ["hidden_gem", "nature"],
