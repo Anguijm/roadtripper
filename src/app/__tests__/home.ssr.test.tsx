@@ -8,8 +8,11 @@ vi.mock("@/app/actions/snapOrigin", () => ({ snapOriginAction: vi.fn() }));
 
 import Home from "@/app/page";
 
+/** The page's markup with the date spans opened: a chosen date sits in a `.num` span (the mono face is for numbers only, U2), and React puts a comment between adjacent text and an expression. */
 const render = async (params: Record<string, string>) =>
-  renderToString(await Home({ searchParams: Promise.resolve(params) }));
+  renderToString(await Home({ searchParams: Promise.resolve(params) }))
+    .replace(/<!-- -->/g, "")
+    .replace(/<\/?span[^>]*>/g, "");
 
 describe("the home page, server-rendered", () => {
   it("opens empty by default", async () => {

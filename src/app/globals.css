@@ -63,16 +63,29 @@ body {
       transition: none;
     }
   }
-  /* The sheet's scroll box is the part of the sheet on screen: the sheet's
-     height less the hidden share less the handle and the border. As flex-1
-     alone it was the whole sheet, and at rest its bottom 350 px were below
-     the screen's edge where no scroll could reach them (Gauntlet U1, round
-     4). Percentages here resolve against the sheet's height, the same
-     length the transform's percentage uses. */
-  .plan-sheet-scroll {
+  /* The visible part of the sheet: the sheet's height less the hidden
+     share, a column of the handle row and the scroll box. The box is what
+     the handle leaves, so it ends at the screen's edge whatever the
+     handle's height: 44 px with the sheet's one-line title on it, more
+     when the title wraps (Gauntlet U2, round 2). As flex-1 of the whole
+     sheet the box's bottom 350 px were below the screen's edge where no
+     scroll could reach them (Gauntlet U1, round 4), and as a fixed
+     calc(100% - var(--sheet-y) - 45px) it assumed the handle's height. The
+     percentage here resolves against the sheet's height, the same length
+     the transform's percentage uses. On a wide screen the sheet is a side
+     panel and the column fills it. */
+  .plan-sheet-visible {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     @media (max-width: 767px) {
       flex: none;
-      height: calc(100% - var(--sheet-y, 25%) - 45px);
+      height: calc(100% - var(--sheet-y, 25%));
     }
+  }
+  .plan-sheet-scroll {
+    flex: 1 1 0%;
+    min-height: 0;
   }
 }

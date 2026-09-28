@@ -41,7 +41,7 @@ describe("the today screen, server-rendered", () => {
     expect(html).toContain("3 h 45 min");           // one-way, from the graph, not doubled
     expect(html).not.toContain("7 h 30 min");        // the doubled number must not appear
     expect(html).not.toContain("Denver");
-    expect(html).toContain("One-way drive times");
+    expect(html).toContain("Drive times are one way.");
     // No stop is a bare name: every spot rendered carries its reason.
     const spots = html.match(/data-spot/g)?.length ?? 0;
     const reasons = html.match(/data-reason/g)?.length ?? 0;

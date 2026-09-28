@@ -99,7 +99,7 @@ export default async function TodayPage({
     return (
       <Shell>
         <div className="mb-6">
-          <h1 className="text-2xl tracking-tight text-[#f0f6fc] mb-2">What is in range today?</h1>
+          <h1 className="text-2xl text-[#f0f6fc] mb-2">What is in range today?</h1>
           <p className="text-base text-[#8b949e]">No destination needed. Where you are, how long you have, what you like.</p>
         </div>
         <TodayStart initialHours={hours} initialPersonaId={personaId} carry={carry} deadlineText={deadlineText} />
@@ -201,7 +201,7 @@ export default async function TodayPage({
   return (
     <Shell>
       <div className="mb-5">
-        <h1 className="text-2xl tracking-tight text-[#f0f6fc] mb-1">
+        <h1 className="text-2xl text-[#f0f6fc] mb-1">
           {total === 0 ? `Nothing within ${hours} hours` : `${total} ${total === 1 ? "city" : "cities"} within ${hours} hours`}
         </h1>
         <p className="text-base text-[#8b949e]">
@@ -210,7 +210,7 @@ export default async function TodayPage({
               inside it you are in the city; beyond it, say how far. The
               boundary is pinned at exactly 3.0 by locate.test.ts. */}
           {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
-          . One-way drive times.
+          . Drive times are one way.
         </p>
         {deadline && deadlineText && (
           <div className="mt-3 flex flex-col gap-2">
@@ -304,8 +304,8 @@ export default async function TodayPage({
                         <span className="text-base text-[#8b949e] whitespace-nowrap">{kindWord(w.type)}</span>
                       </div>
                       {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
-                      {/* Three lines: here the reason is the content, and a description at this size is about three lines on a phone. A description may be clamped; a name never is. */}
-                      {w.description && <p className="text-base text-[#b0b9c2] line-clamp-3" data-reason>{w.description}</p>}
+                      {/* It wraps whole: the longest description in the atlas is 234 characters, about five lines here, and a painted ellipsis is a cut (quality bar, rule 2). */}
+                      {w.description && <p className="text-base text-[#b0b9c2]" data-reason>{w.description}</p>}
                     </li>
                   ))}
                 </ul>

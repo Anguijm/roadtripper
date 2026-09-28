@@ -61,12 +61,14 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
     onDeleted(trip.id, `Trip from ${trip.fromName} to ${trip.toName} deleted.`);
   };
 
-  const dates =
+  // The words in the body face, the dates alone in the mono face (quality
+  // bar, rule 2: numbers only).
+  const dates: React.ReactNode =
     trip.dateMode === "arrival" && trip.endDate
-      ? `Arrive by ${formatDate(trip.endDate)}`
+      ? <>Arrive by <span className="num">{formatDate(trip.endDate)}</span></>
       : trip.startDate && trip.endDate
-      ? `${formatDate(trip.startDate)} to ${formatDate(trip.endDate)}`
-      : "";
+      ? <><span className="num">{formatDate(trip.startDate)}</span> to <span className="num">{formatDate(trip.endDate)}</span></>
+      : null;
   const stops = trip.stops.length > 0 ? `${trip.stops.length} stop${trip.stops.length === 1 ? "" : "s"}` : "";
 
   return (
@@ -82,7 +84,7 @@ export default function TripCard({ trip, onDeleted }: TripCardProps) {
           <p className="text-base text-[#8b949e] mt-0.5">
             <span className="num">{trip.budgetHours} h</span> a day
             {dates ? " · " : ""}
-            {dates && <span className="num">{dates}</span>}
+            {dates}
             {stops ? ` · ${stops}` : ""}
           </p>
         </div>

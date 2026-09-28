@@ -64,10 +64,12 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
 /**
  * The towns that fit today, each with the places in it the mood ranks
  * first. Every word in sentence case in the body face at 16 px; a town's
- * or a place's name wraps and is never cut with an ellipsis; only a
- * description paragraph is clamped (quality bar, rules 1 and 2). The
- * sentence above the list ("Lubbock and Abilene fit today", or that
- * nothing does) is the workspace's, so an empty list says nothing here.
+ * or a place's name wraps and is never cut with an ellipsis, and since
+ * round 2 a description wraps whole too: the longest in the atlas is 234
+ * characters, about five lines on a phone, and a painted ellipsis is a
+ * cut (quality bar, rules 1 and 2). The sentence over the list ("Lubbock
+ * and Abilene fit today", or that nothing does) is the sheet's title, so
+ * an empty list says nothing here.
  */
 export default function RecommendationList({
   fetchResult,
@@ -114,6 +116,13 @@ export default function RecommendationList({
 
   return (
     <div className="flex flex-col">
+      {/* Why every "Stop here" is off, said once beside them rather than
+          in a tooltip (quality bar, rule 3). */}
+      {atCap && (
+        <p className="text-base text-[#b0b9c2] px-2 pb-2" role="status">
+          The trip has all the stops it can hold; take one out to add another.
+        </p>
+      )}
       {fetchResult.status === "degraded" && (
         <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
           <p className="text-base text-[#d29922]">
@@ -176,7 +185,6 @@ export default function RecommendationList({
                   type="button"
                   onClick={() => onCityPreview(cityId)}
                   aria-pressed={previewedCityId === cityId}
-                  aria-label={`See what is in ${cityName}`}
                   className={[
                     // The visible button is 30 px tall (24 px line, 2 px
                     // padding each side, 1 px border each side). The
@@ -248,7 +256,7 @@ export default function RecommendationList({
                   {lead.name}
                 </p>
                 {lead.description && (
-                  <p className="text-base text-[#b0b9c2] mt-1 line-clamp-3" data-reason>{lead.description}</p>
+                  <p className="text-base text-[#b0b9c2] mt-1" data-reason>{lead.description}</p>
                 )}
               </div>
             )}
@@ -270,9 +278,9 @@ export default function RecommendationList({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-base text-[#f0f6fc] break-words">{r.name}</p>
-                    {/* The reason to stop. Untrusted text, rendered as text; React escapes it. A description may be clamped; a name never is. */}
+                    {/* The reason to stop. Untrusted text, rendered as text; React escapes it. It wraps whole, like the name. */}
                     {r.description && (
-                      <p className="text-base text-[#b0b9c2] mt-0.5 line-clamp-2" data-reason>{r.description}</p>
+                      <p className="text-base text-[#b0b9c2] mt-0.5" data-reason>{r.description}</p>
                     )}
                     <p className="text-base text-[#8b949e] mt-0.5">
                       {kindWord(r.type)}

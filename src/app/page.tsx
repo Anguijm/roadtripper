@@ -64,7 +64,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h2 className="text-2xl tracking-tight text-[#f0f6fc] mb-2">
+            <h2 className="text-2xl text-[#f0f6fc] mb-2">
               Plan your road trip
             </h2>
             <p className="text-base text-[#8b949e]">

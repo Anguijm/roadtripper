@@ -8,100 +8,110 @@ Branch: `feat/u2-plain-words-and-type`
 
 ## Goal
 
-Gauntlet component U2, round 1: plain words and readable type on the four
-screens (home, plan, today, trips). Every visible string is checked against
-the glossary in `gauntlet/quality-bar.md` and written in sentence case; the
-body face becomes Geist (sans) at 16 px or more on a phone, with the mono
-face kept for numbers, distances, times and codes only; no name is cut with
-an ellipsis; a disabled button says why in a line beside it and keeps its
-verb. Words and type only: no layout change beyond what wrapping needs, no
-change to what the app fetches or scores.
+Gauntlet component U2, round 2: plain words and readable type on the four
+screens (home, plan, today, trips). Round 1 put the glossary's words and
+the Geist body face on every screen. The round-1 critic's one failure
+(rule 2): the home screen's "Pick the dates" button is set in the mono
+face although it is words. Fixed first, then the rest of what the spec
+needs that the critic also saw: the plan sheet's header sentence is not
+the first thing a person sees; nine description lines end in a painted
+ellipsis; the hour buttons and mood chips measure a pixel under 44; the
+trips screen has nothing to press but the back link.
 
 ## Ship rule (written before the code)
 
-1. **No glossary word on a screen.** The never column of the quality bar
-   (candidates, max N min, detour minutes, primary, see what's here, add
-   city to trip, recompute, refresh, pending, budget left, persona,
-   waypoint, neighborhood, roadside stops along the way) appears in no
-   visible string, no `sr-only` text and no `aria-label` on the four
-   screens. The plan sheet's header is a sentence built from the data,
-   `fitsTodayLine`: "Lubbock and Abilene fit today", "Nothing fits today;
-   drive on to Austin", and after a stop "Abilene fits today after
-   Lubbock". Counts and minutes are never labels: the town header carries
-   "2 h 5 min away" as a phrase, the "+40m" is gone. Held by
-   `glossary.ssr.test.tsx`, which renders RouteInput, PlanWorkspace (with
-   a town, two places and two roadside stops) and TodayStart, strips the
-   tags and fails on any never phrase, case-insensitive, and on any text
-   node that is a bare minutes count.
-2. **Sentence case, one normal face.** Geist (sans) is loaded beside Geist
-   Mono in `layout.tsx` and is the body face (`globals.css`); every text on
-   the four screens is `text-base` (16 px) or larger; no `uppercase` and no
-   `tracking-` class remains on a heading, a label or a button there; the
-   masthead reads "Roadtripper" and the plan header "Amarillo to Austin".
-   The mono face is the `.num` class, applied only where a number is shown
-   (distances, times, dates, hour chips). Held by the glossary test, which
-   also fails on any `uppercase` class in the three renders.
-3. **No name cut with an ellipsis.** `truncate` and `line-clamp` are gone
-   from every place name, town name, trip name and persona chip; a name
-   wraps (`break-words`). `line-clamp` stays only on description
-   paragraphs (`data-reason`). Held by the glossary test, which walks the
-   markup with a tag stack and fails if any ancestor of a fixture name or
-   chip word carries `truncate` or `line-clamp`.
-4. **A disabled button says why beside it and keeps its verb.** The home
-   form's button reads "Plan the trip" and the today form's "Show me what's
-   in range" whether or not they are enabled; the reason ("Choose where you
-   are first", "Choose where you're going first", "Pick the dates first")
-   is a line under the button, `aria-live`, and empty when the button is
-   enabled. Held by the existing SSR tests, whose expectations move to the
-   new words.
-5. **Persona chips fit 390 px without scrolling.** Labels are Culture,
-   Food, Nerd, Gear, Outdoors with their glyphs; the row wraps
-   (`flex-wrap`), never scrolls sideways, and no chip carries `truncate`.
-   The label change is copy in `src/lib/personas/index.ts`; scoring reads
-   ids, not labels.
-6. **Nothing the app pays for changes.** No call, no store, no score, no
-   route is touched; `maxDetourMinutes` is dropped from PlanWorkspace's
-   props because no screen says it any more (U1 left the decision to U2:
-   the detour cap's replacement is "nothing").
+1. **The mono face is on numbers only, never on words.** The home form's
+   date button reads "Pick the dates" or "Pick the arrival date" in the
+   body sans; once a date is chosen only the date itself sits in a `.num`
+   span ("Arrive by <num>Oct 14</num>", "<num>Oct 10</num> to <num>Oct
+   14</num>"). A saved trip's card the same: "Arrive by" and "to" are
+   sans, the dates mono. Held by `glossary.ssr.test.tsx`: the idle button
+   carries no `num` class, and a form opened with dates renders the date
+   in a `.num` span with the words outside it.
+2. **The sheet's title is the sentence, and it is the first thing seen.**
+   The plan sheet's handle row carries "Lubbock and Abilene fit today" (or
+   "Nothing fits today; drive on to Austin", or after a stop "Abilene fits
+   today after Lubbock") above everything, at every snap, and on a wide
+   screen as the side panel's title. The roadside section stays the first
+   child of the scroll box (U1's pin), and the box's height is now the
+   visible part of the sheet less the handle, whatever the handle's height
+   (`.plan-sheet-visible`, a flex column), so a title that wraps to two
+   lines shortens the box instead of pushing its bottom off the screen.
+   The rest-snap arithmetic (537 px of box, 520 used) holds for the
+   one-line title, which is every title on the fresh sheet. Held by the
+   glossary test (the title precedes the roadside heading) and U1's
+   roadside test, whose two pins on the order and the CSS move with the
+   structure and pin the new one.
+3. **Text wraps; nothing is cut.** No `line-clamp` remains on the four
+   screens: a description (at most 234 characters in the atlas, five lines
+   on a phone) wraps like a name does. Held by the glossary test, which
+   fails on any `line-clamp` or `truncate` class in the renders.
+4. **No text under 16 px anywhere a screen renders.** The itinerary's
+   10 px bullets become CSS dots and its 10 px stop number a 16 px digit
+   in a 24 px badge; the itinerary joins the glossary test's renders (two
+   stops) so its classes are read too. `tracking-tight` leaves the
+   headings.
+5. **Targets are 48 px.** The hour buttons and the mood chips carry
+   `min-h-[48px]`, a few pixels over rule 7's 44, so a measurement of the
+   painted box cannot land under it. Held by the glossary test.
+6. **Every screen has its one action, and a disabled button says why.**
+   The trips screen's empty state (and its blocked-storage state) ends in
+   a "Plan a trip" button. On the plan sheet, when the trip is full, one
+   line above the towns says "The trip has all the stops it can hold; take
+   one out to add another" instead of seven silently disabled buttons.
+   The trips page joins the glossary test's renders.
+7. **Nothing the app pays for changes.** No call, no store, no score, no
+   route is touched.
 
-**Cost:** $0. Words, classes, one font, and tests. No new call, no store
-write, no deploy.
+**Cost:** $0. Words, classes, one CSS rule, and tests. No new call, no
+store write, no deploy.
 
-**Weakest part:** The 16 px floor is enforced by hand, class by class on
-the four screens, not by a rule the runner can read: a `text-sm` on a
-branch the SSR tests do not render (the plan page's error screens, the
-trips page's blocked-storage notice) would slip through until the
-screenshot; the map's no-key placeholder was one such and was caught by
-reading, not by the test. The bare-minutes rule in the glossary test is a text-node
-rule, so a minutes count typed as part of a longer node ("Lubbock 40m")
-would pass it; the same test's phrase list catches the known shapes.
+**Weakest part:** The sheet's title lives on the handle row, and its
+height is bounded by words, not by a rule: one line for every sentence the
+fresh sheet can say, two lines after a stop when nothing fits and the
+towns' names are long ("Nothing fits today after Lubbock; drive on to
+Austin" is 52 characters, about 420 px at 16 px). Two lines cost the box
+24 px at rest, which the roadside section's 17 px of slack does not
+cover: "Show all N" would then sit 7 px under the fold until a drag. The
+runner's screenshot is the fresh sheet, where the title is one line; the
+two-line case is real but rare and is recorded here rather than solved
+with a shorter sentence.
 
 ## Gate 1 proofs
 
 - `bun run type-check`: clean. `bun run lint`: 0 errors, 9 warnings, all
-  of them there before this branch. `bunx vitest run`: 49 files, 492
-  tests, all green (the new `glossary.ssr.test.tsx` is 7 of them).
-- Mutation 1, rule 1 (a never word back): `TIER_LABELS.primary` in
-  `src/components/RecommendationList.tsx` set to `"Primary"` in place of
-  `"★ The pick"`. `bunx vitest run src/components/__tests__/glossary.ssr.test.tsx`
-  fails one test by name, "carries no phrase from the glossary's never
-  column on the home form, the plan sheet or the today form", with
-  `sheet: /\bprimary\b/i: expected '...' not to match`; the other six
-  pass. Restored from the copy taken first; `cmp` reports the file
-  identical.
-- Mutation 2, rule 3 (an ellipsis back on a name): the row's place name
-  in the same file given `truncate` in place of `break-words`. The same
-  run fails one test by name, "cuts no name with an ellipsis: no place,
-  town or chip sits under truncate or line-clamp", naming the element:
-  `"National Ranching Heritage Center" under text-base text-[#f0f6fc]
-  truncate`. Restored; `cmp` identical.
-- Decisions taken here, for the critic and the council: the detour cap's
-  prop `maxDetourMinutes` is gone from PlanWorkspace, the plan page, the
-  health page and the tests (its replacement is nothing); the "Other"
-  tier badge is no longer drawn (a badge that says "Other" is noise at
-  16 px; "★ The pick" and "Also good" remain); the row's own copy of the
-  town's drive time ("40m") is gone, the town header says "2 h 5 min
-  away" once; `RecommendationList` renders nothing when no town fits,
-  because the sheet's sentence ("Nothing fits today; drive on to
-  Austin") already says so. The health page's hidden "Budget left"
-  canary is untouched: it is the uptime check's matcher, not a screen.
+  of them there before this branch. `bunx vitest run`: 49 files, 495
+  tests, all green (`glossary.ssr.test.tsx` is 10 of them, up from 7: the
+  sheet's title first, the date button's face, the trips screen's action;
+  it now also renders the trips page and the itinerary with two stops).
+- Mutation 1, rule 1 of round 1 (a never word back): the row's add button
+  in `src/components/RecommendationList.tsx` set to `"Add city to trip"`
+  in place of `"+ Stop here"`. `bunx vitest run
+  src/components/__tests__/glossary.ssr.test.tsx` fails two tests by
+  name: "carries no phrase from the glossary's never column on the home
+  form, the plan sheet, the today form, the trips page or the itinerary"
+  with `sheet: /add city to trip/i: expected '...' not to match`, and
+  "keeps the verb on a disabled button and says why beside it" (the full
+  trip's button no longer reads "+ Stop here"); the other eight pass.
+  Restored from the copy taken first; `cmp` reports the file identical.
+- Mutation 2, rule 1 of this round (the mono face back on words): the
+  date button in `src/components/RouteInput.tsx` given `num` in its class
+  again. The same run fails one test by name, "sets the date button's
+  words in the body face and only a chosen date in the mono face", with
+  `expected '<form ...' not to match /<button[^>]*class="[^"]*\bnum\b...`;
+  the other nine pass. Restored; `cmp` identical.
+- Decisions taken here, for the critic and the council: the sheet's
+  sentence moved from the scroll box to the handle row, so U1's roadside
+  test changed two pins to the new structure (the sentence precedes the
+  section instead of following it; the CSS pin reads `.plan-sheet-visible`
+  and the box's `flex: 1 1 0%; min-height: 0` instead of the fixed
+  `calc(... - 45px)`); the section is still the scroll box's first child
+  and the rest-snap arithmetic is untouched. The towns-failed alert box
+  now says "The route is still here. Reload to try the towns again." with
+  the failure itself in the title. The "See what is in X" aria-label on
+  the town's button is gone: its name is its visible words, "What's in
+  X". The today screen's "One-way drive times." is "Drive times are one
+  way." The half-picked range on the home form reads "Starts Oct 10; pick
+  the end date" in place of "Oct 10 to ?". `next-env.d.ts` in this
+  worktree was regenerated by a dev server (`.next/dev/types`) and is
+  left uncommitted.

@@ -76,12 +76,14 @@ describe("the candidate list shows the reason under every stop", () => {
           previewedCityId={previewed}
         />
       );
-    const closed = render(null);
-    expect(closed).toContain('aria-label="See what is in Amarillo"');
-    expect(closed).toMatch(/aria-pressed="false"[^>]*aria-label="See what is in Amarillo"/);
+    // The button's name is its visible words, "What's in Amarillo" (the
+    // glossary's), with no aria-label saying them another way (U2, round 2).
+    const closed = render(null).replace(/<!-- -->/g, "");
+    expect(closed).toMatch(/aria-pressed="false"[^>]*>What&#x27;s in Amarillo<\/button>/);
+    expect(closed).not.toContain("aria-label=\"See what");
     expect(closed).toContain("+ Stop here");   // still not added
-    const open = render("amarillo");
-    expect(open).toMatch(/aria-pressed="true"[^>]*aria-label="See what is in Amarillo"/);
+    const open = render("amarillo").replace(/<!-- -->/g, "");
+    expect(open).toMatch(/aria-pressed="true"[^>]*>What&#x27;s in Amarillo<\/button>/);
     // the header is tall enough to hold the 44 px hit areas without them reaching the rows
     expect(open).toMatch(/<h3[^>]*min-h-\[44px\]/);
   });
@@ -97,6 +99,6 @@ describe("the candidate list shows the reason under every stop", () => {
         onRemoveCity={() => {}}
       />
     );
-    expect(html).not.toContain("See what is in");
+    expect(html).not.toContain("What&#x27;s in Amarillo");
   });
 });

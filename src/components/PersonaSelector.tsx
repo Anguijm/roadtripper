@@ -42,8 +42,10 @@ export default function PersonaSelector({
               if (id !== activePersonaId) onChange(id);
             }}
             className={[
-              // Sentence case at 16 px with a 44 px target (rules 1 and 7).
-              "flex items-center gap-1.5 px-3 min-h-[44px] text-base border transition-colors whitespace-nowrap",
+              // Sentence case at 16 px with a 48 px target: a few over rule
+              // 7's 44, so a measurement of the painted box (the round-1
+              // critic read 43) cannot land under it (rules 1 and 7).
+              "flex items-center gap-1.5 px-3 min-h-[48px] text-base border transition-colors whitespace-nowrap",
               isActive
                 ? "font-semibold text-[#0d1117] border-transparent"
                 : "font-normal text-[#b0b9c2] bg-transparent border-[#30363d] hover:border-[#6e7681]",

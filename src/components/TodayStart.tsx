@@ -107,7 +107,10 @@ export default function TodayStart({ initialHours, initialPersonaId, carry, dead
                   type="button"
                   aria-pressed={active}
                   onClick={() => setHours(h)}
-                  className={`flex-1 min-h-[44px] text-base num border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none ${
+                  // 48 px tall: a few over rule 7's 44, so a measurement of
+                  // the painted box (the round-1 critic read 43) cannot land
+                  // under it. The same on the home form's hour buttons.
+                  className={`flex-1 min-h-[48px] text-base num border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none ${
                     active
                       ? "bg-[#1c2128] border-[#6e7681] text-[#f0f6fc]"
                       : "bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:border-[#3d444d] hover:text-[#b0b9c2]"

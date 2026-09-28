@@ -129,15 +129,19 @@ export const ROADSIDE_SHOWN_FIRST = 10;
 /**
  * The phone's bottom sheet (`.plan-sheet` in src/app/globals.css): 92 dvh
  * tall, fixed at the bottom, translated down by the snap's share of its own
- * height. The scroll box inside it is the visible part only
- * (`.plan-sheet-scroll`, the same file), so no content ever sits below the
- * screen's edge out of reach; as `flex-1` the box was the whole sheet and
- * the bottom 350 px could not be scrolled to at rest (Gauntlet U1, round
- * 4). The rest snap is set so the roadside section fits the box on a 390
- * by 844 phone: `sheetScrollBoxPx(844, 1)` is at least ROADSIDE_LIST_PX
- * plus SHEET_BOX_PADDING_PX, the box's own padding above the section, which
- * is first in the box (round 6). Held by a test; change the CSS and these
- * together.
+ * height. The visible part of it (`.plan-sheet-visible`, the same file) is
+ * a column of the handle row and the scroll box, so the box is the visible
+ * part less the handle and no content ever sits below the screen's edge
+ * out of reach; as `flex-1` of the whole sheet the box's bottom 350 px
+ * could not be scrolled to at rest (Gauntlet U1, round 4). The handle row
+ * carries the sheet's title (U2, round 2), one line on the fresh sheet, so
+ * the handle is SHEET_HANDLE_PX tall; a title that wraps makes the handle
+ * taller and the box shorter by the same amount, never the box longer than
+ * the screen. The rest snap is set so the roadside section fits the box on
+ * a 390 by 844 phone: `sheetScrollBoxPx(844, 1)` is at least
+ * ROADSIDE_LIST_PX plus SHEET_BOX_PADDING_PX, the box's own padding above
+ * the section, which is first in the box (round 6). Held by a test; change
+ * the CSS and these together.
  */
 export const SHEET_HEIGHT_DVH = 92;
 /**
@@ -159,7 +163,7 @@ export const SHEET_HEIGHT_DVH = 92;
  * plan page at 390 by 844 shows "Show all N" whole above the fold.
  */
 export const SHEET_SNAPS = [80, 25, 8] as const;
-/** The drag handle (44 px) and the sheet's top border. */
+/** The handle row (44 px, the pill and the sheet's one-line title) and the sheet's top border. */
 export const SHEET_HANDLE_PX = 45;
 /** The scroll box's padding (`p-2`), above the first section. */
 export const SHEET_BOX_PADDING_PX = 8;
@@ -405,6 +409,9 @@ export default function PlanWorkspace({
   }, []);
 
   const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    // On a wide screen the sheet is a side panel and does not move; a touch
+    // on its title row (which is the drag row on a phone) is not a drag.
+    if (window.matchMedia("(min-width: 768px)").matches) return;
     touchStartYRef.current = e.touches[0].clientY;
     // Read base position from CSS var (set by React style prop) so we never
     // depend on the sheetSnap closure value during move.
@@ -878,15 +885,22 @@ export default function PlanWorkspace({
   const tripCount = tripStops.length;
   const showItinerary = tripCount > 0;
 
-  // The sheet's header over the towns: a sentence built from the data,
-  // "Lubbock and Abilene fit today" or "Nothing fits today; drive on to
-  // Austin", and after a stop where it counts from. Never a count or a
-  // minutes figure as a label (quality bar, rule 1; Gauntlet U2).
-  const fitsToday = fitsTodayLine(
-    effectiveWaypointFetch.cities.map((c) => c.name),
-    toName,
-    tripStops.length > 0 ? tripStops[tripStops.length - 1].cityName : null
-  );
+  // The sheet's title: a sentence built from the data, "Lubbock and
+  // Abilene fit today" or "Nothing fits today; drive on to Austin", and
+  // after a stop where it counts from. Never a count or a minutes figure
+  // as a label (quality bar, rule 1; Gauntlet U2). It sits on the handle
+  // row, above everything and at every snap (round 2: the critic saw the
+  // sheet open on the roadside heading and no sentence). When the towns
+  // could not be read the title says that instead, since "nothing fits"
+  // would be false.
+  const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
+  const sheetTitle = townsFailed
+    ? "Couldn't load the towns along the road"
+    : fitsTodayLine(
+        effectiveWaypointFetch.cities.map((c) => c.name),
+        toName,
+        tripStops.length > 0 ? tripStops[tripStops.length - 1].cityName : null
+      );
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -903,20 +917,38 @@ export default function PlanWorkspace({
         style={{ "--sheet-y": `${SHEET_SNAPS[sheetSnap]}%` } as React.CSSProperties}
         className="plan-sheet md:static md:w-[360px] md:z-auto border-t md:border-t-0 md:border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0"
       >
-        {/* Drag handle — mobile only */}
-        <div
-          className="flex justify-center items-center min-h-[44px] cursor-grab active:cursor-grabbing touch-none md:hidden"
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
-          onTouchCancel={handleSheetTouchCancel}
-          role="button"
-          tabIndex={0}
-          aria-label={`Panel ${SNAP_LABELS[sheetSnap]}. Tap to ${sheetSnap < 2 ? "expand" : "collapse"}.`}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") cycleSnap(); }}
-        >
-          <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
-        </div>
+        {/* The visible part of the sheet: the handle row and the scroll box
+            as a column, so the box is whatever the handle leaves. */}
+        <div className="plan-sheet-visible">
+          {/* The handle row, and the sheet's title on it: the sentence built
+              from the towns ("Lubbock and Abilene fit today"), the first
+              thing seen at every snap and the side panel's title on a wide
+              screen. On a phone the whole row is the drag zone, and the
+              grab handle is a 44 px button laid over it (the pill at its
+              top) for a keyboard and a screen reader; the title is its
+              sibling, not its child, so a reader reaches the sentence and
+              its updates. One line is 44 px, SHEET_HANDLE_PX less the
+              sheet's border; two lines shorten the scroll box instead. */}
+          <div
+            className="relative flex flex-col items-center justify-center min-h-[44px] px-3 pt-3 pb-1 touch-none md:touch-auto md:pt-2 md:pb-2 md:border-b md:border-[#30363d]"
+            onTouchStart={handleSheetTouchStart}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={handleSheetTouchEnd}
+            onTouchCancel={handleSheetTouchCancel}
+          >
+            <div
+              className="absolute inset-0 flex justify-center pt-1.5 cursor-grab active:cursor-grabbing md:hidden focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+              role="button"
+              tabIndex={0}
+              aria-label={`Panel ${SNAP_LABELS[sheetSnap]}. Tap to ${sheetSnap < 2 ? "expand" : "collapse"}.`}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") cycleSnap(); }}
+            >
+              <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
+            </div>
+            <p aria-live="polite" data-fits-today className="font-sans text-base leading-5 text-center text-[#f0f6fc] break-words">
+              {sheetTitle}
+            </p>
+          </div>
 
         <div className="plan-sheet-scroll flex-1 overflow-y-auto p-2 space-y-2">
           {/* On a phone the box is the visible part of the sheet only
@@ -1205,24 +1237,16 @@ export default function PlanWorkspace({
             </p>
           ) : (
             <>
-              {/* An error is not an empty answer: the towns could not be
-                  read, and the sentence below would wrongly say nothing
-                  fits. */}
-              {initialCandidateFetchFailed && liveWaypointFetch === null ? (
+              {/* An error is not an empty answer: the title already says
+                  the towns could not be read; this says what is still
+                  true and what to do. The sentence over the towns is the
+                  sheet's title on the handle row, above. */}
+              {townsFailed && (
                 <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
                   <p className="text-base text-[#f85149] leading-snug">
-                    Couldn&apos;t load the towns along the road. The route is still here.
+                    The route is still here. Reload to try the towns again.
                   </p>
                 </div>
-              ) : (
-                /* The sheet's header over the towns: which fit today and,
-                   after a stop, from where; or that nothing does and the
-                   drive goes on to the end. Built from the data, never a
-                   count or a minutes figure as a label (quality bar, rule
-                   1). */
-                <p aria-live="polite" data-fits-today className="font-sans text-base text-[#f0f6fc] px-1 pt-1 break-words">
-                  {fitsToday}
-                </p>
               )}
 
               {/* Council ISC-S7-PROD-2 — brief panel highlight on each
@@ -1279,6 +1303,7 @@ export default function PlanWorkspace({
               </button>
             </div>
           )}
+        </div>
         </div>
       </aside>
 

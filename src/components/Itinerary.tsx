@@ -40,7 +40,14 @@ function LegTime({ seconds }: { seconds: number }) {
  *
  * Every word in sentence case in the body face at 16 px; a town's name
  * wraps and is never cut with an ellipsis (quality bar, rules 1 and 2).
+ * The start and end marks are CSS dots and the stop's number a 16 px
+ * digit in a 24 px badge: nothing here is text under 16 px.
  */
+
+/** A start or end mark: a dot drawn in CSS, no glyph, so no text under 16 px. */
+function Dot({ color }: { color: string }) {
+  return <span aria-hidden className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />;
+}
 export default function Itinerary({
   fromName,
   toName,
@@ -83,13 +90,7 @@ export default function Itinerary({
       </div>
       <ol className="divide-y divide-[#30363d]">
         <li className="px-3 py-2 flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-flex items-center justify-center w-5 h-5 text-[10px] shrink-0"
-            style={{ color: "#3fb950" }}
-          >
-            ●
-          </span>
+          <Dot color="#3fb950" />
           <span className="text-base text-[#f0f6fc] break-words min-w-0 flex-1">
             {fromName}
           </span>
@@ -106,7 +107,7 @@ export default function Itinerary({
             <>
               <span
                 aria-hidden
-                className="inline-flex items-center justify-center w-5 h-5 text-[10px] num font-bold shrink-0"
+                className="inline-flex items-center justify-center w-6 h-6 text-base num shrink-0"
                 style={{
                   backgroundColor: failed ? "#f85149" : accent,
                   color: "#0d1117",
@@ -178,9 +179,7 @@ export default function Itinerary({
               aria-label={destinationSelected ? `${toName}: tap to keep planning` : `Lock the route at ${toName}`}
               className="flex items-center gap-2 flex-1 min-w-0 min-h-[44px] px-3 py-2 text-left hover:bg-[#161b22] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#8b949e]"
             >
-              <span aria-hidden className="inline-flex items-center justify-center w-5 h-5 text-[10px] shrink-0" style={{ color: "#f85149" }}>
-                ●
-              </span>
+              <Dot color="#f85149" />
               <span className="min-w-0 flex-1">
                 <span className="block text-base text-[#f0f6fc] break-words">{toName}</span>
                 {finalLegSeconds !== undefined && <LegTime seconds={finalLegSeconds} />}
@@ -191,9 +190,7 @@ export default function Itinerary({
             </button>
           ) : (
             <>
-              <span aria-hidden className="inline-flex items-center justify-center w-5 h-5 text-[10px] shrink-0" style={{ color: "#f85149" }}>
-                ●
-              </span>
+              <Dot color="#f85149" />
               <span className="min-w-0 flex-1">
                 <span className="block text-base text-[#f0f6fc] break-words">{toName}</span>
                 {finalLegSeconds !== undefined && <LegTime seconds={finalLegSeconds} />}

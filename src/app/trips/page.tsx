@@ -75,6 +75,16 @@ export default function TripsPage() {
         ) : (
           <TripsList trips={trips} onDelete={handleDelete} />
         )}
+        {/* The one thing to do on a screen with nothing saved (quality bar,
+            rule 3): the largest control, and it goes somewhere. */}
+        {(storage === "blocked" || trips.length === 0) && (
+          <Link
+            href="/"
+            className="mt-4 min-h-[44px] flex items-center justify-center text-base border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          >
+            Plan a trip
+          </Link>
+        )}
         <p className="mt-6 text-base text-[#8b949e]">
           Trips are stored in this browser only. Clearing site data clears them.
         </p>

@@ -25,6 +25,26 @@ function formatDateLabel(iso: string): string {
   return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`;
 }
 
+/** A date on the button, the one thing on it in the mono face (quality bar, rule 2: numbers only). */
+function DateNum({ iso }: { iso: string }) {
+  return <span className="num">{formatDateLabel(iso)}</span>;
+}
+
+/**
+ * What the date button says. Words in the body face; a chosen date in the
+ * mono face and nothing else (the round-1 critic, rule 2: "Pick the dates"
+ * was set in the mono face although it is words, not a number).
+ */
+function dateButtonLabel(dateMode: "range" | "arrival", startDate: string, endDate: string): React.ReactNode {
+  if (dateMode === "arrival") {
+    return endDate ? <>Arrive by <DateNum iso={endDate} /></> : "Pick the arrival date";
+  }
+  if (startDate && endDate) return <><DateNum iso={startDate} /> to <DateNum iso={endDate} /></>;
+  if (startDate) return <>Starts <DateNum iso={startDate} />; pick the end date</>;
+  if (endDate) return <>Ends <DateNum iso={endDate} />; pick the start date</>;
+  return "Pick the dates";
+}
+
 /**
  * Why the button cannot be pressed yet, as a line beside it (quality bar,
  * rule 3): the button keeps its verb, the reason is its own sentence.
@@ -120,14 +140,7 @@ export default function RouteInput({
     router.push(`/plan?${params.toString()}`);
   }
 
-  const dateLabel =
-    dateMode === "arrival"
-      ? endDate ? `Arrive by ${formatDateLabel(endDate)}` : "Pick the arrival date"
-      : startDate && endDate
-        ? `${formatDateLabel(startDate)} to ${formatDateLabel(endDate)}`
-        : startDate
-        ? `${formatDateLabel(startDate)} to ?`
-        : "Pick the dates";
+  const dateLabel = dateButtonLabel(dateMode, startDate, endDate);
 
   return (
     <APIProvider apiKey={apiKey} libraries={["places"]}>
@@ -172,7 +185,8 @@ export default function RouteInput({
             onClick={() => setDateDialogOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={dateDialogOpen}
-            className="min-h-[44px] px-3 py-2 text-base num bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] text-left focus:outline-none focus:border-[#f0f6fc] hover:border-[#f0f6fc] transition-colors"
+            // Words in the body face; only a chosen date inside is mono.
+            className="min-h-[44px] px-3 py-2 text-base bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] text-left focus:outline-none focus:border-[#f0f6fc] hover:border-[#f0f6fc] transition-colors"
           >
             {dateLabel}
           </button>

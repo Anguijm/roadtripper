@@ -156,7 +156,11 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(section).toBeLessThan(html.indexOf("on the road"));
     expect(section).toBeLessThan(html.indexOf("of driving left today"));
     expect(section).toBeLessThan(html.indexOf("I&#x27;m in the mood for"));
-    expect(section).toBeLessThan(html.indexOf("Lubbock fits today"));
+    // The one line above the section is the sheet's title on the handle
+    // row (U2, round 2: the sentence over the towns is the first thing
+    // seen), which is not in the scroll box and costs it nothing.
+    expect(html.indexOf("Lubbock fits today")).toBeLessThan(section);
+    expect(html.indexOf("Lubbock fits today")).toBeLessThan(html.indexOf("plan-sheet-scroll"));
     expect(section).toBeLessThan(html.indexOf("sticky top-0"));
     // The tenth row and the control come before the first town too.
     expect(html.indexOf("data-roadside-show-all")).toBeLessThan(html.indexOf("What&#x27;s in Lubbock"));
@@ -193,7 +197,14 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // Nothing between the box's top and the section: it is the box's first child.
     expect(html).toMatch(/class="plan-sheet-scroll [^"]*"><section data-roadside="true"/);
     const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
-    expect(css).toMatch(/\.plan-sheet-scroll\s*\{[^}]*height:\s*calc\(100% - var\(--sheet-y, 25%\) - 45px\)/);
+    // The visible part of the sheet is a column of the handle row and the
+    // box (U2, round 2, when the sheet's title joined the handle row): the
+    // box is what the handle leaves, so it ends at the screen's edge
+    // whatever the handle's height, where the fixed
+    // calc(100% - var(--sheet-y) - 45px) assumed a 44 px handle.
+    expect(css).toMatch(/\.plan-sheet-visible\s*\{[^}]*height:\s*calc\(100% - var\(--sheet-y, 25%\)\)/);
+    expect(css).toMatch(/\.plan-sheet-scroll\s*\{[^}]*flex:\s*1 1 0%;\s*min-height:\s*0/);
+    expect(html).toMatch(/class="plan-sheet-visible"><div [^>]*class="relative [^"]*min-h-\[44px\]/);
     expect(css).toMatch(/\.plan-sheet\s*\{[^}]*height:\s*92dvh/);
     // Nothing above the heading, nothing between it and the first row.
     expect(html).toMatch(/<section data-roadside="true" [^>]*class="font-sans px-1 pt-0 pb-2"/);

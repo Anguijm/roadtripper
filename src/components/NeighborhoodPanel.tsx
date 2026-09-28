@@ -222,7 +222,7 @@ function NeighborhoodGroup({
         {localizedText(neighborhood.name)}
       </p>
       {neighborhood.summary && (
-        <p className="text-base text-[#8b949e] mb-1 leading-relaxed line-clamp-3">
+        <p className="text-base text-[#8b949e] mb-1 leading-relaxed break-words">
           {localizedText(neighborhood.summary)}
         </p>
       )}
