@@ -48,11 +48,12 @@ type Extra = { group?: string; p_stop?: number } & Partial<Pick<StopDescription,
 let picked: Array<{ stop: RoadsideStop; extra: Extra }>;
 if (scoresPath) {
   if (!existsSync(scoresPath)) throw new Error(`${scoresPath} is missing`);
-  const ScoresSchema = z.object({ rows: z.array(z.object({ id: z.string().min(1), p_stop: z.number().nullable() })) });
+  // A row with no p_stop at all reads like a null one: unscored, left out.
+  const ScoresSchema = z.object({ rows: z.array(z.object({ id: z.string().min(1), p_stop: z.number().nullable().optional() })) });
   const scoresParsed = ScoresSchema.safeParse(readJson(scoresPath));
   if (!scoresParsed.success) throw new Error(`${scoresPath} is not a scores file: ${scoresParsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
   const scores = new Map<string, number>();
-  for (const r of scoresParsed.data.rows) if (r.p_stop !== null) scores.set(r.id, r.p_stop);
+  for (const r of scoresParsed.data.rows) if (typeof r.p_stop === "number") scores.set(r.id, r.p_stop);
   // The whole point of the second sheet is the description beside the name,
   // so a missing sidecar stops the run rather than quietly writing a sheet
   // of bare names; --no-descriptions says you meant that.

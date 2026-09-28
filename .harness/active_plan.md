@@ -63,3 +63,8 @@ free 16-minute re-pull.
 ## Council round 2 on #69 (CONDITIONAL, product 5), and what changed
 
 - The item said `.loose()` does not exist in zod and would crash at runtime. It does: it is zod 4's name for `.passthrough()`, and the round-2 script run on the real sidecar ("163 rows from 1074 stops") went through it. Rather than argue, the schema moved next to the writer: `DescriptionsFileSchema` in `describe.ts` is what `describe-corridor.ts` writes through and `label-sample.ts` reads through, and a test parses a file with an added key (kept) and with a missing field (refused). `.optional()` was not added: the writer always emits every field, null when the source had nothing, and a reader that tolerates a missing field would hide a writer that stopped emitting it.
+
+## Council round 3 on #69 (CONDITIONAL, product 5), and what changed
+
+- the name tie-break uses a fixed locale, so the same scores give the same sheet on a laptop and in CI; tested with accented names
+- a scores row with no `p_stop` at all reads as unscored, like a null one

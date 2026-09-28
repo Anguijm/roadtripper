@@ -31,6 +31,14 @@ describe("the sheet from scores", () => {
     expect(rows.slice(0, 100).every((r) => r.group === "yes")).toBe(true);
   });
 
+  it("breaks a tie by name the same way everywhere, accents included", () => {
+    const names = ["Zilker", "Émile", "eagle", "Ålesund"];
+    const stops = names.map((n, i) => ({ ...stop(i), name: n }));
+    const scores = new Map(stops.map((s) => [s.id, 0.9]));
+    const order = sheetFromScores(stops, scores).map((r) => r.stop.name);
+    expect(order).toEqual(["Ålesund", "eagle", "Émile", "Zilker"]);
+  });
+
   it("is deterministic for a seed and different for another", () => {
     const { stops, scores } = scored(200);
     const a = sheetFromScores(stops, scores).filter((r) => r.group === "random_no").map((r) => r.stop.id);

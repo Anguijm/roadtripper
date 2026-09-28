@@ -193,7 +193,9 @@ export function sheetFromScores(stops: readonly RoadsideStop[], scores: Readonly
   // Ties broken by name so the order is stable across runs; a name is
   // required by the record schema, but a hand-edited corridor file could
   // lack one, and an empty string sorts rather than throws.
-  const byP = (a: { p: number; stop: RoadsideStop }, b: { p: number; stop: RoadsideStop }) => b.p - a.p || (a.stop.name ?? "").localeCompare(b.stop.name ?? "");
+  // A fixed locale, so the same scores give the same sheet on any machine;
+  // the default locale differs between a laptop and CI.
+  const byP = (a: { p: number; stop: RoadsideStop }, b: { p: number; stop: RoadsideStop }) => b.p - a.p || (a.stop.name ?? "").localeCompare(b.stop.name ?? "", "en");
   const seen = new Set<string>();
   const scored: Array<{ stop: RoadsideStop; p: number }> = [];
   for (const stop of stops) {
