@@ -92,11 +92,19 @@ const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
 };
 
 /**
- * The card's line when the store has no write-up. It says so, rather than
- * turning the kind into a sentence ("A historic place."), which only
- * repeated the kind line beneath it (round-1 critic, rule 4).
+ * The card's line when the store has none: `about` is already the
+ * encyclopedia's opening, else Wikidata's short description, else what the
+ * mapper typed (survivors.ts), so a null is a place the map has only a kind
+ * for. The line says so in the map's terms, "On the map as a historic
+ * place; nothing written about it yet.", rather than a placeholder ("No
+ * write-up for this one.", the round-5 critic) or the bare kind as a
+ * sentence, which only repeated the line beneath (round 1). The store's
+ * line itself is a hard stop and is not touched.
  */
-export const ROADSIDE_NO_WRITEUP = "No write-up for this one.";
+export function roadsideMapLine(kind: RoadsideMarker["kind"]): string {
+  const word = ROADSIDE_KIND_WORDS[kind] ?? "place";
+  return `On the map as ${/^[aeiou]/.test(word) ? "an" : "a"} ${word}; nothing written about it yet.`;
+}
 
 /**
  * How far along the road a stop sits, as the sheet says it: "132 mi in",
@@ -129,14 +137,18 @@ export const ROADSIDE_SHOWN_FIRST = 10;
  * screen's edge out of reach; as `flex-1` the box was the whole sheet and
  * the bottom 350 px could not be scrolled to at rest (Gauntlet U1, round
  * 4). The rest snap is set so the roadside section fits the box on a 390
- * by 844 phone: `sheetScrollBoxPx(844, 1)` is at least ROADSIDE_LIST_PX,
- * held by a test. Change the CSS and these together.
+ * by 844 phone: `sheetScrollBoxPx(844, 1)` is at least ROADSIDE_LIST_PX
+ * plus SHEET_BOX_PADDING_PX, the box's own padding above the section, which
+ * is first in the box (round 6). Held by a test; change the CSS and these
+ * together.
  */
 export const SHEET_HEIGHT_DVH = 92;
 /** Hidden share of the sheet's height at each snap: peek, rest (the default), full. */
 export const SHEET_SNAPS = [80, 25, 8] as const;
 /** The drag handle (44 px) and the sheet's top border. */
 export const SHEET_HANDLE_PX = 45;
+/** The scroll box's padding (`p-2`), above the first section. */
+export const SHEET_BOX_PADDING_PX = 8;
 /** Pixels of scroll box on screen at a snap, on a phone `viewportPx` tall. */
 export function sheetScrollBoxPx(viewportPx: number, snap: 0 | 1 | 2): number {
   return Math.floor((viewportPx * SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 10_000) - SHEET_HANDLE_PX;
@@ -163,9 +175,9 @@ function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
  * store's, or that there is none), the kind in plain words with how far
  * along the road and which town it is at or past (`anchor`, from the towns
  * the page already has), and one link-button that opens the place in
- * Google Maps. The close control is a visible 44 px box, not a bare glyph
- * with an invisible hit area (round-4 critic, rule 7). `about` and `name`
- * are untrusted text and are rendered as text.
+ * Google Maps. The close control is the word "Close" in a bordered 44 px
+ * box: a glyph in a faint box read as 18 px in the round-5 capture (rule
+ * 7). `about` and `name` are untrusted text and are rendered as text.
  */
 export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
   return (
@@ -180,13 +192,13 @@ export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideM
           type="button"
           onClick={onClose}
           aria-label={`Close ${stop.name}`}
-          className="shrink-0 w-11 h-11 flex items-center justify-center border border-[#30363d] text-2xl leading-none text-[#c9d1d9] hover:border-[#6e7681] hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          className="shrink-0 h-11 px-3 flex items-center border border-[#6e7681] text-base text-[#f0f6fc] hover:border-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
-          <span aria-hidden>×</span>
+          Close
         </button>
       </div>
       <p data-roadside-line className="text-base leading-snug text-[#c9d1d9] break-words">
-        {stop.about ?? ROADSIDE_NO_WRITEUP}
+        {stop.about ?? roadsideMapLine(stop.kind)}
       </p>
       <p data-roadside-where className="text-base text-[#8b949e]">
         {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm, anchor)}
@@ -834,8 +846,78 @@ export default function PlanWorkspace({
               92 dvh sheet, and at rest the bottom 350 px of it were below
               the screen's edge and out of reach). The header (the mood
               chips, the numbers) scrolls with the content rather than
-              staying pinned under the handle (round 2). At rest nothing
-              moves. Every button here keeps the 44 px target. */}
+              staying pinned under the handle (round 2), and since round 6
+              the roadside section comes before it. At rest nothing moves.
+              Every button here keeps the 44 px target. */}
+          {/* Roadside stops (step 22, first-class in Gauntlet U1): what the
+              model says is worth pulling over for along this road, from a
+              corridor pulled and scored ahead of time. First in the sheet,
+              under the handle (round 6): at rest the heading, ten rows and
+              "Show all" are on screen with no scroll, which they were not
+              under the 170 px header (the round-5 capture showed seven
+              rows); the mood chips and the numbers follow, above the towns
+              they drive. A town's sticky header, which stays inside its own
+              section, can never sit over these rows. Open, strongest
+              first, ten at a time; the card for the tapped one sits at the
+              top of the section, so at the top of the sheet. Outside the
+              sealed branch: a locked route still has a road, and a tap on
+              a diamond must always answer. */}
+          {roadsideStops.length > 0 && (
+            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 pt-2 pb-2">
+              {selectedRoadside && (
+                <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
+                  <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
+                </div>
+              )}
+              {/* The heading, the rows and the control add up to
+                  ROADSIDE_LIST_PX from the section's top, which the sheet's
+                  scroll box holds at rest on a 390 by 844 phone: the rows
+                  are two lines of 22 px with no vertical padding (44, the
+                  target), the gaps 4, the heading 24, the control 44. */}
+              <h2 id="roadside-heading" className="text-base leading-6 text-[#e3b341] px-2">
+                {roadsideStops.length === 1
+                  ? "1 place worth pulling over for"
+                  : `${roadsideStops.length} places worth pulling over for`}
+              </h2>
+              <ul className="mt-1">
+                {roadsideShown.map((s) => (
+                  <li key={s.id} data-roadside-stop={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleRoadsideSelect(s.id)}
+                      aria-expanded={selectedRoadsideId === s.id}
+                      className={[
+                        "w-full min-h-[44px] text-left px-2 py-0 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                        selectedRoadsideId === s.id
+                          ? "border-[#e3b341] bg-[#161b22]"
+                          : "border-transparent hover:bg-[#161b22]",
+                      ].join(" ")}
+                    >
+                      <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
+                      {/* The card's own sentence, town included: three
+                          stops at the end read "at Austin", not three
+                          copies of the route's length (round-3 critic). */}
+                      <span className="block text-base leading-snug text-[#8b949e]">
+                        {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {roadsideByStrength.length > ROADSIDE_SHOWN_FIRST && (
+                <button
+                  type="button"
+                  data-roadside-show-all
+                  onClick={() => setShowAllRoadside((o) => !o)}
+                  aria-expanded={showAllRoadside}
+                  className="mt-1 w-full min-h-[44px] text-base border border-[#30363d] text-[#f0f6fc] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                >
+                  {showAllRoadside ? "Show the ten strongest" : `Show all ${roadsideByStrength.length}`}
+                </button>
+              )}
+            </section>
+          )}
+
           <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
             <PersonaSelector
               activePersonaId={activePersonaId}
@@ -918,72 +1000,6 @@ export default function PlanWorkspace({
               accent={accent}
             />
             </div>
-          )}
-
-          {/* Roadside stops (step 22, first-class in Gauntlet U1): what the
-              model says is worth pulling over for along this road, from a
-              corridor pulled and scored ahead of time. Directly under the
-              header, above the towns (round 4): a person opening the sheet
-              sees the gold heading and the first rows without scrolling,
-              and a town's sticky header, which stays inside its own
-              section, can never sit over these rows. Open, strongest
-              first, ten at a time; the card for the tapped one sits at the
-              top of the section. Outside the sealed branch: a locked route
-              still has a road, and a tap on a diamond must always answer. */}
-          {roadsideStops.length > 0 && (
-            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 pt-2 pb-2">
-              {selectedRoadside && (
-                <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
-                  <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
-                </div>
-              )}
-              {/* The heading, the rows and the control add up to
-                  ROADSIDE_LIST_PX from the section's top, which the sheet's
-                  scroll box holds at rest on a 390 by 844 phone: the rows
-                  are two lines of 22 px with no vertical padding (44, the
-                  target), the gaps 4, the heading 24, the control 44. */}
-              <h2 id="roadside-heading" className="text-base leading-6 text-[#e3b341] px-2">
-                {roadsideStops.length === 1
-                  ? "1 place worth pulling over for"
-                  : `${roadsideStops.length} places worth pulling over for`}
-              </h2>
-              <ul className="mt-1">
-                {roadsideShown.map((s) => (
-                  <li key={s.id} data-roadside-stop={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleRoadsideSelect(s.id)}
-                      aria-expanded={selectedRoadsideId === s.id}
-                      className={[
-                        "w-full min-h-[44px] text-left px-2 py-0 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                        selectedRoadsideId === s.id
-                          ? "border-[#e3b341] bg-[#161b22]"
-                          : "border-transparent hover:bg-[#161b22]",
-                      ].join(" ")}
-                    >
-                      <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
-                      {/* The card's own sentence, town included: three
-                          stops at the end read "at Austin", not three
-                          copies of the route's length (round-3 critic). */}
-                      <span className="block text-base leading-snug text-[#8b949e]">
-                        {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {roadsideByStrength.length > ROADSIDE_SHOWN_FIRST && (
-                <button
-                  type="button"
-                  data-roadside-show-all
-                  onClick={() => setShowAllRoadside((o) => !o)}
-                  aria-expanded={showAllRoadside}
-                  className="mt-1 w-full min-h-[44px] text-base border border-[#30363d] text-[#f0f6fc] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-                >
-                  {showAllRoadside ? "Show the ten strongest" : `Show all ${roadsideByStrength.length}`}
-                </button>
-              )}
-            </section>
           )}
 
           {/* Neighborhood panel — follows panelCityId: a click on an Itinerary

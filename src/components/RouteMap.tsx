@@ -7,7 +7,7 @@ import {
   Map as GMap,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { roadsideSpread } from "@/lib/roadside/spread";
+import { roadsideSpread, diamondBox } from "@/lib/roadside/spread";
 
 export interface CandidateMarker {
   id: string;
@@ -75,6 +75,14 @@ export function roadsideMinProbabilityAt(zoom: number, line = 0.45): number {
 export const ROADSIDE_COLOR = "#e3b341";
 
 /**
+ * The visible diamond's width in the 44 px canvas: 32, so a screenshot
+ * shows most of the target (it was 18, "well under the 44 px target" to the
+ * round-5 critic, rule 7); the tapped one is 38. The spread keeps diamonds
+ * 44 apart, so 32 leaves 12 px of map between neighbours.
+ */
+export const DIAMOND_PX = 32;
+
+/**
  * A roadside marker: a diamond, so it cannot be mistaken for a round city
  * candidate or a numbered square trip stop even in greyscale. Same 44 px
  * canvas as the candidate icon for the touch target. The tapped one
@@ -83,7 +91,7 @@ export const ROADSIDE_COLOR = "#e3b341";
  * caller.
  */
 export function roadsideMarkerSvg(color = ROADSIDE_COLOR, active = false): string {
-  const path = active ? "M22 9 L35 22 L22 35 L9 22 Z" : "M22 13 L31 22 L22 31 L13 22 Z";
+  const path = active ? "M22 3 L41 22 L22 41 L3 22 Z" : "M22 6 L38 22 L22 38 L6 22 Z";
   const stroke = active ? "#f0f6fc" : "#0d1117";
   const sw = active ? 3 : 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><path d="${path}" fill="${color}" fill-opacity="0.95" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
@@ -126,6 +134,26 @@ export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: 40, bottom: 32, lef
 export const STRIP_MIN_PX = 140;
 
 /**
+ * The strip: how much of the map is on screen from its top edge, on a
+ * phone with the sheet at rest (the sheet's top in dvh times the viewport,
+ * less the map's top). Undefined off a phone or with no sheet, where the
+ * whole map is on screen. The fit frames the road in it (fitPaddingPx) and
+ * a moved diamond stays in it (Effect 4's box).
+ */
+export function stripHeightPx(args: {
+  /** The map's top edge in the viewport (under the page's header). */
+  mapTopPx: number;
+  viewportHeightPx: number;
+  /** Where the sheet's top edge sits at rest, in dvh; undefined off a phone. */
+  sheetTopDvh: number | undefined;
+  phone: boolean;
+}): number | undefined {
+  const { mapTopPx, viewportHeightPx, sheetTopDvh, phone } = args;
+  if (!phone || sheetTopDvh === undefined) return undefined;
+  return (viewportHeightPx * sheetTopDvh) / 100 - mapTopPx;
+}
+
+/**
  * The padding for the map's one fit (Gauntlet U1, round 5). On a phone the
  * sheet at rest covers the map from `sheetTopDvh` down; a fit padded for
  * the whole map centred the corridor under the sheet, and the strip above
@@ -138,28 +166,28 @@ export const STRIP_MIN_PX = 140;
  * diamonds in the strip, and a fit applied once stays applied. Pure:
  * pixels in, pixels out, so a test proves the frame without a map.
  */
-export function fitPaddingPx(args: {
-  /** The map's top edge in the viewport (under the page's header). */
-  mapTopPx: number;
-  mapHeightPx: number;
-  viewportHeightPx: number;
-  /** Where the sheet's top edge sits at rest, in dvh; undefined off a phone. */
-  sheetTopDvh: number | undefined;
-  phone: boolean;
-}): FitPadding {
-  const { mapTopPx, mapHeightPx, viewportHeightPx, sheetTopDvh, phone } = args;
-  if (!phone || sheetTopDvh === undefined) return { ...FIT_MARGIN_PX };
-  const stripPx = (viewportHeightPx * sheetTopDvh) / 100 - mapTopPx;
-  if (stripPx < STRIP_MIN_PX) return { ...FIT_MARGIN_PX };
-  return { ...STRIP_MARGIN_PX, bottom: Math.round(mapHeightPx - stripPx) + STRIP_MARGIN_PX.bottom };
+export function fitPaddingPx(args: Parameters<typeof stripHeightPx>[0] & { mapHeightPx: number }): FitPadding {
+  const stripPx = stripHeightPx(args);
+  if (stripPx === undefined || stripPx < STRIP_MIN_PX) return { ...FIT_MARGIN_PX };
+  return { ...STRIP_MARGIN_PX, bottom: Math.round(args.mapHeightPx - stripPx) + STRIP_MARGIN_PX.bottom };
+}
+
+/** Whether the screen is a phone, where the sheet is a bottom sheet over the map. */
+function isPhone(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH_PX}px)`).matches;
+}
+
+/** The strip on screen above the sheet at rest, read from the map's box and the viewport now. */
+function stripOnScreenPx(map: google.maps.Map, sheetTopDvh: number | undefined): number | undefined {
+  return stripHeightPx({ mapTopPx: map.getDiv().getBoundingClientRect().top, viewportHeightPx: window.innerHeight, sheetTopDvh, phone: isPhone() });
 }
 
 /**
  * Must be called inside effects where google.maps is guaranteed loaded.
- * `dx` and `dy` are the diamond's place in a ring when it stacks with
- * others (roadsideSpread): the anchor is the pixel of the image that sits
- * on the marker's position, so moving it left and up draws the diamond
- * right and down, with no second marker and no false position.
+ * `dx` and `dy` are the diamond's slot when its own point is too close to
+ * another diamond's (roadsideSpread): the anchor is the pixel of the image
+ * that sits on the marker's position, so moving it left and up draws the
+ * diamond right and down, with no second marker and no false position.
  */
 function roadsideMarkerIcon(active = false, dx = 0, dy = 0): google.maps.Icon {
   return {
@@ -249,10 +277,11 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
 /**
  * The start (green) and end (red) dots, the same 7 px circle as before on
  * a canvas tall enough to carry the town's name 30 px above the dot: the
- * dot at (32, 40), the label at (32, 10). Thirty is where a ring of
- * stacked diamonds around the town leaves its gap (roadsideSpread: a ring
- * of three reaches 25 px, and its members sit 13 px below the top). Must
- * be called inside effects where google.maps is guaranteed loaded.
+ * dot at (32, 40), the label at (32, 10). Thirty is above the diamonds
+ * moved beside the town (roadsideSpread takes the sideways slots first,
+ * and the upper diagonals at 44 px out sit 38 above, where the name's
+ * ends are drawn over them at zIndex 1800). Must be called inside effects
+ * where google.maps is guaranteed loaded.
  */
 function endpointIcon(fill: string): google.maps.Icon {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="40" r="7" fill="${fill}" stroke="#0d1117" stroke-width="2"/></svg>`;
@@ -300,13 +329,15 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
  *       Numbered square markers for stops the user has added.
  *   4.  Roadside diamonds — `[map, roadsideStops]`
  *       Built wholesale; one pass applies the zoom rule and then the spread
- *       (stacked diamonds take their places in a ring by re-anchoring the
- *       icon) on every zoom change, touching only the markers whose place
- *       changed; a tap goes through `onRoadsideClickRef` so it is never stale.
+ *       (a diamond too close to another takes a free slot beside it, inside
+ *       the strip above the sheet, by re-anchoring the icon) on mount and
+ *       whenever the camera settles (`idle`), touching only the markers
+ *       whose place changed; a tap goes through `onRoadsideClickRef` so it
+ *       is never stale.
  *   4b. Tapped diamond — `[selectedRoadsideId]`
  *       Runs Effect 4's pass again: the selection is read from a ref, so the
  *       previous one goes back to its own icon and rule and the new one is
- *       drawn larger, kept visible and given its stack's first slot.
+ *       drawn larger, kept visible and placed first, on its own point.
  *   5.  Highlight — `[highlightedCandidateId, routeColor]`
  *       Mutates only the two affected markers (prev + next highlight).
  *
@@ -366,6 +397,10 @@ function PolylineRenderer({
   onRoadsideClickRef.current = onRoadsideClick;
   const selectedRoadsideRef = useRef<string | null>(selectedRoadsideId ?? null);
   selectedRoadsideRef.current = selectedRoadsideId ?? null;
+  // The sheet's edge, for Effect 4's box; a ref so the pass reads the
+  // current value without the effect depending on it.
+  const phoneSheetTopDvhRef = useRef(phoneSheetTopDvh);
+  phoneSheetTopDvhRef.current = phoneSheetTopDvh;
   // Effect 4's pass (the zoom rule, then the spread), kept so Effect 4b can
   // run it again after a selection change without rebuilding the markers.
   const applyRoadsideRef = useRef<(() => void) | null>(null);
@@ -408,8 +443,7 @@ function PolylineRenderer({
         path.forEach((p) => b.extend(p));
       }
       const box = map.getDiv().getBoundingClientRect();
-      const phone = typeof window.matchMedia === "function" && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH_PX}px)`).matches;
-      map.fitBounds(b, fitPaddingPx({ mapTopPx: box.top, mapHeightPx: box.height, viewportHeightPx: window.innerHeight, sheetTopDvh: phoneSheetTopDvh, phone }));
+      map.fitBounds(b, fitPaddingPx({ mapTopPx: box.top, mapHeightPx: box.height, viewportHeightPx: window.innerHeight, sheetTopDvh: phoneSheetTopDvh, phone: isPhone() }));
       hasFitOnceRef.current = true;
     }
 
@@ -594,17 +628,33 @@ function PolylineRenderer({
     const given = new Map<string, string>();
     // The zoom rule, then the spread. At a state-wide view only the
     // strongest diamonds, at a town every survivor; and among those shown,
-    // any that sit on one point at this zoom take their places in a ring
-    // (roadsideSpread) by re-anchoring the icon, so every diamond on the
-    // map answers a tap with its own card. The tapped one is always shown
-    // and takes its stack's first slot, so a row tap at a state-wide zoom
-    // still puts its diamond on the map. Applied now and on every zoom
-    // change; markers are toggled and re-anchored, never rebuilt.
+    // any whose point is within a touch canvas of another diamond's takes
+    // a free slot beside it (roadsideSpread, checked against every diamond
+    // on the map) by re-anchoring the icon, so every diamond on the map
+    // answers a tap with its own card. A moved diamond stays inside the
+    // box: the map's bounds at this zoom, cut at the sheet's top edge at
+    // rest on a phone, so none is drawn under the sheet or off an edge
+    // (round-5 critic, rule 4). The tapped one is placed first, on its own
+    // point, so a row tap at a state-wide zoom still puts its diamond on
+    // the map. Applied now and whenever the camera settles (`idle`, after
+    // the first fit, a pan or a zoom); markers are toggled and
+    // re-anchored, never rebuilt. Before the map has drawn once
+    // `getBounds` is undefined and the pass has no box; the `idle` that
+    // follows the fit runs it again with one.
     const apply = () => {
       const zoom = map.getZoom() ?? 0;
       const minP = roadsideMinProbabilityAt(zoom);
       const selected = selectedRoadsideRef.current;
-      const placed = roadsideSpread(roadsideStops.filter((s) => s.p >= minP || s.id === selected), zoom, selected);
+      const b = map.getBounds();
+      const box = b
+        ? diamondBox(
+            { north: b.getNorthEast().lat(), east: b.getNorthEast().lng(), south: b.getSouthWest().lat(), west: b.getSouthWest().lng() },
+            zoom,
+            DIAMOND_PX / 2,
+            stripOnScreenPx(map, phoneSheetTopDvhRef.current)
+          )
+        : undefined;
+      const placed = roadsideSpread(roadsideStops.filter((s) => s.p >= minP || s.id === selected), zoom, selected, box);
       roadsideStops.forEach((s, i) => {
         const marker = markers[i];
         const at = placed.get(s.id);
@@ -624,7 +674,7 @@ function PolylineRenderer({
     };
     apply();
     applyRoadsideRef.current = apply;
-    const listener = map.addListener("zoom_changed", apply);
+    const listener = map.addListener("idle", apply);
     return () => {
       listener.remove();
       markers.forEach((m) => m.setMap(null));
