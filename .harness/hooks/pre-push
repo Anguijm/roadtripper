@@ -104,7 +104,11 @@ fi
 # The dry run resolves nothing and takes about a second; it runs only when a
 # branch head changes package.json or a lockfile against origin/main, so a push
 # that touches neither pays nothing. No npm on the machine is a warning, not a
-# refusal: the check is for the desk that has what CI has.
+# refusal: the check is for the desk that has what CI has. On a failure the
+# message keeps the first eight "npm error" lines: npm prints the cause in
+# the first three or four ("Invalid: lock file's postcss@8.5.12 does not
+# satisfy postcss@8.5.8", "Missing: ... from lock file"), then its usage
+# text, which says nothing about this tree.
 if [ -n "$PUSHED_BRANCH_SHAS" ] && [ -n "${BASE:-}" ]; then
   for SHA in $PUSHED_BRANCH_SHAS; do
     if ! git diff --quiet "$BASE" "$SHA" -- package.json package-lock.json bun.lock; then
