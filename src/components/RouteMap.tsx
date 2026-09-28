@@ -6,6 +6,7 @@ import {
   ControlPosition,
   Map as GMap,
   useMap,
+  useMapsLibrary,
 } from "@vis.gl/react-google-maps";
 
 export interface CandidateMarker {
@@ -303,6 +304,10 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
   return { text: name, color: "#f0f6fc", fontSize: "11px", fontWeight: "500", className: "rt-candidate-label" };
 }
 
+// Set the first time a route polyline fails to decode, so the console hears
+// about it once per page load, not once per rerun of Effect 1a.
+let warnedBadPolyline = false;
+
 /**
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
@@ -387,6 +392,9 @@ function PolylineRenderer({
   phoneSheetTopDvh?: number;
 }) {
   const map = useMap();
+  // Null until the geometry library lands (it lazy-loads after the map);
+  // a value here reruns Effect 1a, which needs it to decode the route.
+  const geometry = useMapsLibrary("geometry");
   const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const previousHighlightRef = useRef<string | null>(null);
   const hasFitOnceRef = useRef(false);
@@ -420,9 +428,23 @@ function PolylineRenderer({
   // `pending` is intentionally NOT in deps — opacity is updated in-place
   // by Effect 1b to avoid tearing down the Polyline on every transition.
   useEffect(() => {
-    if (!map || !window.google?.maps?.geometry) return;
+    // No geometry yet means nothing to decode with; `geometry` is in the
+    // deps, so this effect runs again the moment the library is here.
+    if (!map || !geometry) return;
 
-    const path = google.maps.geometry.encoding.decodePath(encodedPolyline);
+    let path: google.maps.LatLng[];
+    try {
+      path = geometry.encoding.decodePath(encodedPolyline);
+    } catch (err) {
+      // A malformed or truncated polyline must not take the map down with
+      // it: draw no route line (the endpoint markers still stand) and say
+      // so once. The camera fit waits for a route that decodes.
+      if (!warnedBadPolyline) {
+        warnedBadPolyline = true;
+        console.warn("RouteMap: the route polyline did not decode; no route line drawn.", err);
+      }
+      return;
+    }
 
     const line = new google.maps.Polyline({
       path,
@@ -463,7 +485,7 @@ function PolylineRenderer({
     // `pending` and `bounds` intentionally omitted from deps; so is
     // `phoneSheetTopDvh`, read only on the first fit, which runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, encodedPolyline, routeColor]);
+  }, [map, geometry, encodedPolyline, routeColor]);
 
   // ── Effect 1b: polyline opacity (pending state) ────────────────────────
   // Mutates the existing Polyline in place — no rebuild.

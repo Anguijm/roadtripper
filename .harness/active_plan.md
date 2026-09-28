@@ -198,3 +198,48 @@ Gate 1 after: 47 files, 480 tests, all green (none added or changed; the
 guards and the ref effects are read by eye, the constants' tests already
 existed); `bun run type-check` clean; `bun run lint` 0 errors, the same 9
 warnings on the same code (line numbers moved with the comments).
+
+## Council round 2 on #83 (CONDITIONAL, bugs 8), and what changed
+
+1. **Applied, and taken one step further.** Effect 1a already returned when
+   `window.google.maps.geometry` was missing (round 1), but nothing in its
+   deps changed when the library arrived, so a route that reached the map
+   before geometry did would never have been drawn. `PolylineRenderer` now
+   reads `useMapsLibrary("geometry")` from `@vis.gl/react-google-maps`: null
+   until the library lands, a value after, and that value is in Effect 1a's
+   deps, so the effect reruns the moment it is there. The guard is
+   `if (!map || !geometry) return;` with a one-line comment on why, and the
+   decode calls `geometry.encoding.decodePath`, not the global. The hook is
+   safe under the server render (it reads context and returns null without
+   a provider), which the RouteMap.ssr test confirms.
+2. **Applied.** The decode sits in a try/catch. On a throw the effect draws
+   no route line and returns; the endpoint markers (Effect 2a) still stand,
+   `hasFitOnceRef` stays false so the first route that does decode gets the
+   camera fit, and the console gets one `console.warn` per page load
+   (module-level `warnedBadPolyline`), not one per rerun. Comment says why.
+3. **Applied, with a test and a mutation proof.** `formatDurationPlain` now
+   takes the absolute value, formats it, and prepends one minus when the
+   input was negative: "-1 h 30 min", "-1 h", "-45 min". A negative under a
+   minute is "0 min" with no sign, since "-0 min" is not a thing a person
+   says. `formatDuration` (the compact table form) is untouched: the item
+   named the plain form, and nothing feeds the compact one a negative.
+   New file `src/lib/routing/format.test.ts` (there was no test for
+   format.ts; the sibling tests sit next to their modules), five tests:
+   the plain form's positive cases, the negative cases, the signed zero,
+   plus the compact form and `formatDistance` pinned as they are.
+
+   Mutation proof: with the sign handling removed (the original body
+   restored, `Math.floor` on the raw negative), `bunx vitest run
+   src/lib/routing/format.test.ts` gave 2 failed, 3 passed:
+   `expected '-2 h -30 min' to be '-1 h 30 min'` for -5400 and
+   `expected '-1 h -1 min' to be '0 min'` for -30. Note the mutant's
+   output is worse than the council's example: `Math.floor(-1.5)` is -2,
+   so the old code did not merely double the sign, it was an hour off.
+   Restored with `cp` from the scratchpad copy; `cmp` reported identical.
+   The proof for item 1 and item 2 is by eye and by the SSR test: no
+   browser test exercises the Maps library in this repo.
+
+Gate 1 after: 48 files, 485 tests, all green (5 added, in format.test.ts);
+`bun run type-check` clean; `bun run lint` 0 errors, the same 9 warnings
+on the same code (the unused-directive warning in RouteMap.tsx moved from
+line 579 to 601 with the lines added above it).
