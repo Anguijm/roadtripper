@@ -95,6 +95,30 @@ else
   fi
 fi
 
+# 0b. Do the lockfiles agree with package.json, for the installer CI uses? CI
+# installs with `npm ci` from package-lock.json; the desk installs with bun
+# from bun.lock. A change to package.json is right for one lockfile and wrong
+# for the other unless both were regenerated, and `npm ci` refuses a lockfile
+# out of sync, so the required validate check fails after the council has
+# already run. On 2026-09-29 one dependency line took three pushes for this.
+# The dry run resolves nothing and takes about a second; it runs only when a
+# branch head changes package.json or a lockfile against origin/main, so a push
+# that touches neither pays nothing. No npm on the machine is a warning, not a
+# refusal: the check is for the desk that has what CI has.
+if [ -n "$PUSHED_BRANCH_SHAS" ] && [ -n "${BASE:-}" ]; then
+  for SHA in $PUSHED_BRANCH_SHAS; do
+    if ! git diff --quiet "$BASE" "$SHA" -- package.json package-lock.json bun.lock; then
+      if command -v npm >/dev/null 2>&1; then
+        OUT=$(npm ci --dry-run --ignore-scripts --no-audit --no-fund 2>&1) || fail $'package-lock.json is out of sync with package.json; CI installs with npm ci and would refuse it. Run: npm install --package-lock-only\n'"$(echo "$OUT" | grep -i 'npm error' | head -8)"
+        pass "package-lock.json agrees with package.json (npm ci --dry-run)"
+      else
+        echo "${YEL}gate1: package.json or a lockfile changed and npm is not installed; the validate check will decide${OFF}" >&2
+      fi
+      break
+    fi
+  done
+fi
+
 RUN="bun run"; command -v bun >/dev/null 2>&1 || RUN="npm run"
 
 # 1. Lint. ESLint exits 1 when there are errors and 0 when there are only
