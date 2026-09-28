@@ -362,6 +362,12 @@ describe("what the tags say about a place (detail)", () => {
     expect(detailFromTags(null)).toBeNull();
   });
 
+  it("keeps an emoji-dense description inside the schema's bound, so the stop is not dropped", () => {
+    const s = fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { name: "X", tourism: "attraction", description: "🎡".repeat(300) } });
+    expect(s).not.toBeNull();
+    expect(s!.detail!.length).toBeLessThanOrEqual(240);
+  });
+
   it("clips a long description at a word, never mid-word, within the reason bound", () => {
     const long = "word ".repeat(100).trim();
     const d = at({ tourism: "attraction", description: long })!;

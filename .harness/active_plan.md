@@ -62,3 +62,8 @@ unchanged by this.
 
 - an explicit null `tags` returns null rather than throwing; "Yes" and "YES" are "yes". Both tested.
 - Answered, not changed: tag values from Overpass are strings by its JSON contract, so no `String()` coercion; a ZWJ emoji sequence at the cut is a family of code points and the clip may split it, which is a visual glitch at worst on crowd text and not worth a grapheme segmenter here.
+
+## Council round 3 on #70 (CONDITIONAL, bugs 7), and what changed
+
+- a real one: `clip` counted code points while the schema counts UTF-16 units, so an emoji-dense description could pass the clip and fail the schema, and the whole stop would be dropped. The clip now budgets in UTF-16 units, the schema's count, and still never cuts inside a surrogate pair. Proven: with the code-point version restored, the new "emoji-dense" tests fail; a 300-emoji description now yields a stop with a 240-unit detail.
+- Answered, not changed: a warning per element that fails the schema would put logging in a pure function; the pull's summary line already reports how many elements became stops, and the count is the signal to look at.

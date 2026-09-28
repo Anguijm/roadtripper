@@ -79,7 +79,13 @@ describe("clipping a description", () => {
     const e = clip(emoji, 50);
     expect(e.endsWith("…")).toBe(true);
     expect(Array.from(e).every((c) => c === "a" || c === " " || c === "🚀" || c === "…")).toBe(true);
-    expect(clip("🚀".repeat(10), 5)).toBe("🚀🚀🚀🚀…");
+    expect(clip("🚀".repeat(10), 5)).toBe("🚀🚀…");
+    // The budget is UTF-16 units, the count the schema uses: an emoji-dense
+    // text clipped to 240 is at most 240 units and has no lone surrogate.
+    const dense = clip("🚀".repeat(200), 240);
+    expect(dense.length).toBeLessThanOrEqual(240);
+    expect(/[\uD800-\uDBFF]$|^[\uDC00-\uDFFF]/.test(dense.slice(0, -1))).toBe(false);
+    expect(Array.from(dense.slice(0, -1)).every((ch) => ch === "🚀")).toBe(true);
     // A sentence end too early (under a quarter of max) is not used.
     const early = "Hi. " + "y".repeat(300);
     expect(clip(early, 100).endsWith("…")).toBe(true);
