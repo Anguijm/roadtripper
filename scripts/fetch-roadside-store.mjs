@@ -15,6 +15,7 @@
 import { createHash } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
+import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import Database from "better-sqlite3";
@@ -34,7 +35,8 @@ const say = (m) => console.log(`[roadside store] ${m}`);
 const fileSha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 
 if (!existsSync(sumFile)) { say(`${sumFile} is missing; nothing to check against, not fetching`); process.exit(0); }
-const expected = readFileSync(sumFile, "utf8").trim().split(/\s+/)[0];
+// A checksum file saved by an editor can start with a byte-order mark; strip it before the pattern check.
+const expected = readFileSync(sumFile, "utf8").replace(/^\uFEFF/, "").trim().split(/\s+/)[0];
 if (!/^[0-9a-f]{64}$/.test(expected)) { say(`${sumFile} does not hold a SHA-256; not fetching`); process.exit(0); }
 
 if (existsSync(to)) {
@@ -42,7 +44,8 @@ if (existsSync(to)) {
   if (have === expected) { say(`${to} is here and matches; nothing to do`); process.exit(0); }
   say(`${to} is here but does not match the checksum in git (${have.slice(0, 12)}… vs ${expected.slice(0, 12)}…); fetching the published one`);
 }
-const tmp = `${to}.tmp`;
+// A suffix of its own per run, so two builds on one filesystem do not write the same temporary file.
+const tmp = `${to}.${process.pid}.${randomUUID().slice(0, 8)}.tmp`;
 try {
   const res = await fetch(from, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { "User-Agent": UA } });
   if (!res.ok || !res.body) throw new Error(`${from} answered ${res.status}`);
@@ -59,8 +62,12 @@ try {
   // The checksum says the bytes are the published ones; quick_check says
   // those bytes are a database SQLite can read, page by page.
   const db = new Database(tmp, { readonly: true, fileMustExist: true });
-  const check = db.prepare("PRAGMA quick_check").pluck().get();
-  db.close();
+  let check;
+  try {
+    check = db.prepare("PRAGMA quick_check").pluck().get();
+  } finally {
+    db.close();
+  }
   if (check !== "ok") throw new Error(`downloaded file fails SQLite's quick_check: ${String(check).slice(0, 80)}`);
   renameSync(tmp, to);
   say(`fetched ${to}, ${(bytes / 1e6).toFixed(0)} MB, checksum verified, database intact`);

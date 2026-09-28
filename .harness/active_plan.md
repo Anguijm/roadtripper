@@ -59,3 +59,8 @@ scored is one command and one commit.
 - SQLite's `quick_check` runs on the downloaded file before the rename; a User-Agent names us to GitHub; the two-minute timeout says why two minutes
 - the publish script says it needs a signed-in `gh` with release rights and what happens without
 - Answered, not changed: no placeholder file on a failed download. A build without the store was run to check the claim and succeeded (exit 0, 2026-09-28); `outputFileTracingIncludes` is a glob and a missing file traces nothing. A 0-byte placeholder would instead open as an empty database and fail on the first query.
+
+## Council round 3 on #76 (CONDITIONAL, bugs 8), and what changed
+
+- the SQLite check closes its handle in `finally`; the temporary file carries the process id and a random suffix; a byte-order mark at the front of the checksum file is stripped (tested: a BOM-prefixed copy of the checksum passes)
+- Answered with a proof, not a change: the committed checksum is the published asset's. Downloaded again and hashed after this round: `539d40bee67f0a04…` both ways, and the fetch's own verification passes against it.
