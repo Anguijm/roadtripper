@@ -16,17 +16,21 @@ code: gitignored, 58 MB, rebuilt from the steps below.
 
 ## Deploy
 
+The site is Firebase App Hosting, built from `main` on every push, and the store is
+not in git. So the build fetches it:
+
+1. `bun run roadside:publish` takes a compact snapshot (`VACUUM INTO`), writes its
+   SHA-256 to `data/roadside.sqlite.sha256`, and uploads it as the asset
+   `roadside.sqlite` of the GitHub release tagged `roadside-store`, replacing the old
+   one. Then commit the checksum file. In that order: publish, then commit.
+2. `bun run build` runs `scripts/fetch-roadside-store.mjs` first: if `data/roadside.sqlite`
+   is present and matches the checksum in git it does nothing; else it downloads the
+   asset and keeps it only if the checksum matches. Anything that goes wrong leaves no
+   file, prints why, and lets the build go on: the site deploys without roadside stops
+   rather than not at all.
+3. `outputFileTracingIncludes` in `next.config.ts` carries the file into the standalone
+   output beside the atlas, and the store looks there.
+
 The app finds the file, in order, at `ROADSIDE_STORE_PATH`, at `data/roadside.sqlite`
-in the working directory, or under `.next/standalone/data/` when the build traced it
-in, the same three places the atlas is looked for. A missing file is not an error:
-the plan page shows no roadside stops and logs one warning.
-
-The file is not in git. Two ways to get it onto the deployed app, and which one
-depends on where the app runs, which this repository does not decide:
-
-- **A volume.** Copy the file to a mounted volume once per build and point
-  `ROADSIDE_STORE_PATH` at it. The store changes only when rebuilt.
-- **A build-time download.** Publish the file as a release asset or to object
-  storage, download it into `data/` in the build step, and let
-  `outputFileTracingIncludes` carry it like the atlas. 58 MB is inside a serverless
-  function's limit but makes every cold start heavier; a volume is the better home.
+in the working directory, or under `.next/standalone/data/`. A missing file logs one
+warning per process and the plan page shows no roadside stops.

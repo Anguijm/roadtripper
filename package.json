@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/fetch-roadside-store.mjs && next build",
+    "roadside:publish": "node scripts/publish-roadside-store.mjs",
     "start": "next start",
     "lint": "eslint",
     "type-check": "tsc --noEmit",

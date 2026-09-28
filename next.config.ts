@@ -5,7 +5,9 @@ const nextConfig: NextConfig = {
   // atlas file it opens has to survive output tracing into the deployed image.
   serverExternalPackages: ["better-sqlite3"],
   outputFileTracingIncludes: {
-    "/**": ["./data/atlas.sqlite"],
+    // The roadside store is fetched before the build (scripts/fetch-roadside-store.mjs)
+    // and rides along the same way; absent, the plan page shows no roadside stops.
+    "/**": ["./data/atlas.sqlite", "./data/roadside.sqlite"],
   },
   // Server Action origin allowlist (Council ISC-S6-SEC-5).
   // Next.js compares the request Origin / Host headers against this list
