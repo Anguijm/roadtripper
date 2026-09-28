@@ -28,6 +28,14 @@ Push back on these unless there's a clear demand:
 - Premature personalization (ML-tuned ranking) before the persona system has a clear win.
 - AI features that don't reduce friction in the core loop.
 
+## The screen's words (from gauntlet/quality-bar.md, 2026-09-29)
+
+Every label is a sentence a person in a car would say, in sentence case. The glossary in
+`gauntlet/quality-bar.md` lists words that must not appear on a screen (candidates, max
+N min, primary, see what's here, add city to trip, recompute, persona, waypoint) and their
+replacements. A diff that adds one of them to a visible string is a required remediation.
+No name may be cut with an ellipsis at 390 px. The trip is told as days.
+
 ## Review checklist
 
 1. Does this change move a single user closer to a complete saved trip? How, specifically?
