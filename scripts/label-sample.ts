@@ -20,7 +20,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { labelSample, sheetFromScores, SHEET_THRESHOLD } from "../src/lib/roadside/sample";
-import type { StopDescription } from "../src/lib/roadside/describe";
+import { DescriptionsFileSchema, type StopDescription } from "../src/lib/roadside/describe";
 import { RoadsideStopSchema } from "../src/lib/roadside/record";
 import { z } from "zod/v4";
 import type { LatLng } from "../src/lib/routing/polyline";
@@ -60,8 +60,7 @@ if (scoresPath) {
   // Only the three fields the sheet shows; the sidecar's other fields are not read here.
   let descriptions: Record<string, Pick<StopDescription, "short" | "extract" | "url">> = {};
   if (existsSync(descPath)) {
-    const DescSchema = z.object({ byId: z.record(z.string(), z.object({ short: z.string().nullable(), extract: z.string().nullable(), url: z.string().nullable() }).loose()) });
-    const descParsed = DescSchema.safeParse(readJson(descPath));
+    const descParsed = DescriptionsFileSchema.safeParse(readJson(descPath));
     if (!descParsed.success) throw new Error(`${descPath} is not a descriptions file: ${descParsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
     descriptions = descParsed.data.byId;
   } else if (args.get("no-descriptions") === "true") {

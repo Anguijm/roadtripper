@@ -11,6 +11,7 @@
  * the reading and writing.
  */
 
+import { z } from "zod/v4";
 import type { RoadsideStop } from "./record";
 import { USER_AGENT } from "./overpass";
 import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
@@ -60,6 +61,32 @@ export interface StopDescription {
   /** The page's opening, clipped. */
   extract: string | null;
 }
+
+/**
+ * The sidecar `data/corridors/<name>.descriptions.json` as the script writes
+ * it and the sampler reads it: one entry per described stop, every field
+ * present (null when the source had nothing). `.loose()` is zod 4's name
+ * for keeping keys the schema does not list (zod 3 called it
+ * `.passthrough()`), so a field added to the writer later does not break
+ * the reader; a field removed does, loudly, which is the point of a schema.
+ */
+export const StopDescriptionSchema = z
+  .object({
+    wikidata: z.string().nullable(),
+    title: z.string().nullable(),
+    url: z.string().nullable(),
+    short: z.string().nullable(),
+    extract: z.string().nullable(),
+  })
+  .loose();
+export const DescriptionsFileSchema = z.object({
+  name: z.string().min(1),
+  describedAt: z.string().min(1),
+  stops: z.number().int().nonnegative(),
+  described: z.number().int().nonnegative(),
+  byId: z.record(z.string(), StopDescriptionSchema),
+});
+export type DescriptionsFile = z.infer<typeof DescriptionsFileSchema>;
 
 /** "en:Big Texan Steak Ranch" -> "Big Texan Steak Ranch". Other languages and bare values are not English pages. */
 export function wikipediaTitle(tag: string | null | undefined): string | null {

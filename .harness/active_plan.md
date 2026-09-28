@@ -59,3 +59,7 @@ free 16-minute re-pull.
 - the corridor, scores and descriptions files are checked on read through schemas with the path named; a bad JSON file says so instead of a stack trace; the name compare tolerates a missing name
 - a missing descriptions sidecar now stops the run, since the description is the point of this sheet; `--no-descriptions` says you meant it
 - Corrected in the proofs above: the mutation proof named the wrong test; the new test makes it deterministic
+
+## Council round 2 on #69 (CONDITIONAL, product 5), and what changed
+
+- The item said `.loose()` does not exist in zod and would crash at runtime. It does: it is zod 4's name for `.passthrough()`, and the round-2 script run on the real sidecar ("163 rows from 1074 stops") went through it. Rather than argue, the schema moved next to the writer: `DescriptionsFileSchema` in `describe.ts` is what `describe-corridor.ts` writes through and `label-sample.ts` reads through, and a test parses a file with an added key (kept) and with a missing field (refused). `.optional()` was not added: the writer always emits every field, null when the source had nothing, and a reader that tolerates a missing field would hide a writer that stopped emitting it.
