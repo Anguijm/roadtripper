@@ -68,6 +68,13 @@ def candidate(tags) -> bool:
         return True
     if tags.get("man_made") in MAN_MADE:
         return True
+    # `waterway=waterfall` is how waterfalls are actually tagged (the old
+    # `natural=waterfall` turned up once in the whole country). It is the one
+    # `waterway` value that is a stop: rivers and creeks are not, and the
+    # parser's Wikidata-only rule excludes anything else with a `waterway`
+    # key. Keep this in step with `kindFromTags` in
+    # src/lib/roadside/record.ts, which makes the real decision; this test
+    # only has to be a superset of it.
     if tags.get("natural") in NATURAL or tags.get("waterway") == "waterfall":
         return True
     if tags.get("boundary") in BOUNDARY or tags.get("leisure") == "nature_reserve":

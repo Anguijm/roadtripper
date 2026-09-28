@@ -64,3 +64,9 @@ nodes, which is on the water and close enough.
 
 - the removal floor is never under ten once the store holds anything, and zero for an empty store (nothing to remove, and a first small build must go through)
 - the summary line now tells "not JSON" from "not a stop": the second is the extractor's loose superset being cut by the parser, expected and reported, not broken
+
+## Council round 3 on #78 (CONDITIONAL, bugs 8), and what changed
+
+- the extractor's waterfall line says why it is the one `waterway` that is a stop and that the parser in record.ts makes the real decision
+- a parser throw on one element is counted and named, not fatal to the run
+- Answered, not changed: writing to a temporary database and renaming would break the point of the upsert, which is to keep the live file's paid-for columns and let a rerun resume; every write is a transaction and an aborted run leaves a valid file with the rows written so far

@@ -55,7 +55,17 @@ for await (const line of rl) {
   read++;
   let el: OsmElement;
   try { el = JSON.parse(line) as OsmElement; } catch { bad++; continue; }
-  const stop = fromOsmElement(el);
+  // The parser refuses what it cannot make a stop of (no name, no
+  // position, none of our kinds) by returning null; a throw would be a
+  // shape it never expected, which one bad element in 600,000 must not
+  // turn into a lost run. Counted with the refused, named on the first.
+  let stop: RoadsideStop | null;
+  try {
+    stop = fromOsmElement(el);
+  } catch (err) {
+    if (notAStop === 0 || bad === 0) console.warn(`  element ${el.type}/${el.id} threw in the parser: ${err instanceof Error ? err.message : String(err)}`);
+    stop = null;
+  }
   if (!stop) { notAStop++; continue; }
   kept++;
   batch.push(stop);
