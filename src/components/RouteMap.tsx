@@ -29,6 +29,27 @@ export interface RoadsideMapMarker {
   name: string;
   lat: number;
   lng: number;
+  /** The model's probability that a road-tripper would stop; the zoom rule keys on it. */
+  p: number;
+}
+
+/**
+ * How sure a roadside stop has to be to show at a given zoom. At a
+ * state-wide view (zoom 7 and under) a corridor holds hundreds of
+ * survivors and the diamonds pile up on every city, so only the strongest
+ * show; zoomed to a region, the middle; zoomed to a town (10 and up),
+ * every survivor. The line at 10 is where Google's map shows individual
+ * streets, which is where a person is choosing a stop rather than a
+ * region. The bottom value is the store's own line (MAP_THRESHOLD, 0.45),
+ * so nothing is hidden at town zoom that the sidebar lists.
+ */
+export const ROADSIDE_ZOOM_STEPS: ReadonlyArray<readonly [zoomBelow: number, minP: number]> = [
+  [8, 0.7],
+  [10, 0.55],
+];
+export function roadsideMinProbabilityAt(zoom: number, line = 0.45): number {
+  for (const [below, minP] of ROADSIDE_ZOOM_STEPS) if (zoom < below) return Math.max(minP, line);
+  return line;
 }
 
 /**
@@ -424,9 +445,19 @@ function PolylineRenderer({
       scaledSize: new google.maps.Size(44, 44),
     };
     const markers = roadsideStops.map(
-      (s) => new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon })
+      (s) => new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon, visible: false })
     );
+    // The zoom rule: at a state-wide view only the strongest diamonds, at a
+    // town every survivor. Applied now and on every zoom change; markers are
+    // toggled, not rebuilt, so zooming costs nothing but a visibility flag.
+    const apply = () => {
+      const minP = roadsideMinProbabilityAt(map.getZoom() ?? 0);
+      roadsideStops.forEach((s, i) => markers[i].setVisible(s.p >= minP));
+    };
+    apply();
+    const listener = map.addListener("zoom_changed", apply);
     return () => {
+      listener.remove();
       markers.forEach((m) => m.setMap(null));
     };
   }, [map, roadsideStops]);

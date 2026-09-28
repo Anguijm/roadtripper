@@ -8,7 +8,7 @@ vi.mock("@/app/plan/actions", () => ({
 }));
 
 import PlanWorkspace from "@/components/PlanWorkspace";
-import { roadsideMarkerSvg, ROADSIDE_COLOR } from "@/components/RouteMap";
+import { roadsideMarkerSvg, ROADSIDE_COLOR, roadsideMinProbabilityAt, ROADSIDE_ZOOM_STEPS } from "@/components/RouteMap";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 const base = {
@@ -63,6 +63,18 @@ describe("roadside stops on the plan page (step 22)", () => {
     const html = renderToString(<PlanWorkspace {...base} roadsideStops={[]} />);
     expect(html).not.toContain("data-roadside");
     expect(html).not.toContain("Roadside stops");
+  });
+
+  it("shows only the strongest stops at a state-wide zoom and every survivor at a town", () => {
+    expect(roadsideMinProbabilityAt(5)).toBe(0.7);
+    expect(roadsideMinProbabilityAt(7.9)).toBe(0.7);
+    expect(roadsideMinProbabilityAt(8)).toBe(0.55);
+    expect(roadsideMinProbabilityAt(9.5)).toBe(0.55);
+    expect(roadsideMinProbabilityAt(10)).toBe(0.45);
+    expect(roadsideMinProbabilityAt(15)).toBe(0.45);
+    // A line above a step's value wins, so nothing shows below the store's own line.
+    expect(roadsideMinProbabilityAt(9, 0.6)).toBe(0.6);
+    expect(ROADSIDE_ZOOM_STEPS.map(([z]) => z)).toEqual([8, 10]);
   });
 
   it("draws a diamond in amber, a different shape and colour from a city dot or a numbered square", () => {
