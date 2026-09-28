@@ -32,7 +32,6 @@ const scored = db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE p IS NO
 db.close();
 const bytes = readFileSync(snapshot);
 const sha = createHash("sha256").update(bytes).digest("hex");
-writeFileSync("data/roadside.sqlite.sha256", `${sha}  ${ASSET}\n`);
 console.log(`snapshot ${snapshot}: ${(bytes.length / 1e6).toFixed(0)} MB, ${stops.toLocaleString()} stops, ${scored.toLocaleString()} scored, sha256 ${sha.slice(0, 16)}…`);
 
 const notes = `Roadside store snapshot, ${new Date().toISOString()}: ${stops.toLocaleString()} stops, ${scored.toLocaleString()} scored. Built by scripts/osm/extract-roadside.py and scripts/roadside-store.ts; see docs/roadside-store.md. The checksum lives in data/roadside.sqlite.sha256.`;
@@ -53,4 +52,8 @@ if (!exists) {
 const url = `https://github.com/Anguijm/roadtripper/releases/download/${TAG}/${ASSET}`;
 const head = await fetch(url, { method: "HEAD", redirect: "follow" });
 if (!head.ok) throw new Error(`published, but ${url} answers ${head.status}; the fetch at build would find nothing`);
+// The checksum file is written only now, after the asset is up and answers:
+// a failed upload must not leave a checksum in the working tree that no
+// published file matches, waiting to be committed by mistake.
+writeFileSync("data/roadside.sqlite.sha256", `${sha}  ${ASSET}\n`);
 console.log(`published ${ASSET} to release ${TAG}; ${url} answers ${head.status}. Now commit data/roadside.sqlite.sha256, or the next build will refuse the new file.`);

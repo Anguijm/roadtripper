@@ -64,3 +64,8 @@ scored is one command and one commit.
 
 - the SQLite check closes its handle in `finally`; the temporary file carries the process id and a random suffix; a byte-order mark at the front of the checksum file is stripped (tested: a BOM-prefixed copy of the checksum passes)
 - Answered with a proof, not a change: the committed checksum is the published asset's. Downloaded again and hashed after this round: `539d40bee67f0a04…` both ways, and the fetch's own verification passes against it.
+
+## Council round 4 on #76 (CONDITIONAL, bugs 8), and what changed
+
+- the SQLite binding is imported inside the try, so a runner without the native module degrades to "not fetched" instead of dying at import; a failed removal of a stale file is said on stderr; the publish script writes the checksum file only after the asset is up and its URL answers
+- the four fetch cases rerun and pass

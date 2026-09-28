@@ -18,7 +18,6 @@ import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import Database from "better-sqlite3";
 
 const args = new Map(process.argv.slice(2).filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.replace(/^--/, "").split("="); return [k, v ?? "true"]; }));
 const to = args.get("to") ?? "data/roadside.sqlite";
@@ -60,7 +59,11 @@ try {
   const got = hash.digest("hex");
   if (got !== expected) throw new Error(`downloaded file's checksum ${got.slice(0, 12)}… does not match ${expected.slice(0, 12)}… in git`);
   // The checksum says the bytes are the published ones; quick_check says
-  // those bytes are a database SQLite can read, page by page.
+  // those bytes are a database SQLite can read, page by page. The binding
+  // is loaded here, inside the try, so a build runner without the native
+  // module degrades to "not fetched" like any other failure instead of
+  // dying at import time before the first line of this script.
+  const { default: Database } = await import("better-sqlite3");
   const db = new Database(tmp, { readonly: true, fileMustExist: true });
   let check;
   try {
@@ -72,7 +75,10 @@ try {
   renameSync(tmp, to);
   say(`fetched ${to}, ${(bytes / 1e6).toFixed(0)} MB, checksum verified, database intact`);
 } catch (err) {
-  for (const p of [tmp, to]) { if (existsSync(p)) { try { unlinkSync(p); } catch { /* leave it */ } } }
+  for (const p of [tmp, to]) {
+    if (!existsSync(p)) continue;
+    try { unlinkSync(p); } catch (e) { console.error(`[roadside store] could not remove ${p}: ${e instanceof Error ? e.message : String(e)}; a stale file may be left in place`); }
+  }
   say(`not fetched: ${err instanceof Error ? err.message : String(err)}. The site builds without roadside stops.`);
   process.exit(0);
 }
