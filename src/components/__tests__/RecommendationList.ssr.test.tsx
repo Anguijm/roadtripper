@@ -102,3 +102,66 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(html).not.toContain("What&#x27;s in Amarillo");
   });
 });
+
+const baseProps = {
+  activePersonaId: "nerd" as const,
+  cityCoords: new Map<string, { lat: number; lng: number }>(),
+  addedCityIds: new Set<string>(),
+  onAddCity: () => {},
+  onRemoveCity: () => {},
+};
+
+/**
+ * Council round 1 on #85, item 1. WaypointFetchResult has no "failed"
+ * member: a page whose town read failed passes an empty "fresh" set and
+ * `initialCandidateFetchFailed` to the workspace, which says the failure
+ * as the sheet's title. So the list's failed state is an empty set, which
+ * draws nothing, and its degraded state carries the towns it could read.
+ */
+describe("the candidate list on a failed or degraded fetch", () => {
+  it("draws nothing, and does not throw, for the empty set the page passes when the towns could not be read", () => {
+    const empty: WaypointFetchResult = { status: "fresh", cities: [], waypoints: [], neighborhoods: {} };
+    const emptyDegraded: WaypointFetchResult = {
+      status: "degraded",
+      cities: [],
+      waypoints: [],
+      neighborhoods: {},
+      failures: [{ kind: "waypoints", reason: "atlas read failed" }],
+    };
+    let html = "x";
+    expect(() => {
+      html = renderToString(<RecommendationList {...baseProps} fetchResult={empty} />);
+    }).not.toThrow();
+    expect(html).toBe("");
+    expect(() => {
+      html = renderToString(<RecommendationList {...baseProps} fetchResult={emptyDegraded} />);
+    }).not.toThrow();
+    expect(html).toBe("");
+  });
+
+  it("says the places did not load when the fetch was degraded and no place came back", () => {
+    const degraded: WaypointFetchResult = {
+      status: "degraded",
+      cities: result.cities,
+      waypoints: [],
+      neighborhoods: {},
+      failures: [{ kind: "waypoints", cityId: "amarillo", reason: "atlas read failed" }],
+    };
+    const html = renderToString(<RecommendationList {...baseProps} fetchResult={degraded} />);
+    expect(html).toContain("Nothing written up for these towns yet");
+    expect(html).toContain("Some of the places did not load. Reload to try again.");
+  });
+
+  it("says the places did not load above the rows when the fetch was degraded and some came back", () => {
+    const degraded: WaypointFetchResult = {
+      status: "degraded",
+      cities: result.cities,
+      waypoints: result.waypoints,
+      neighborhoods: {},
+      failures: [{ kind: "neighborhoods", cityId: "amarillo", reason: "timeout" }],
+    };
+    const html = renderToString(<RecommendationList {...baseProps} fetchResult={degraded} />);
+    expect(html).toContain("Some of the places did not load.");
+    expect(html).toContain("Cadillac Ranch");
+  });
+});

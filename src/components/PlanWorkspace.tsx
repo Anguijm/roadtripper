@@ -283,7 +283,15 @@ export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideM
   );
 }
 
-// 7 stops balances itinerary richness against UI clarity and API cost per recompute.
+// Seven is this project's own cap on stops, not the Routes API's: the API
+// takes up to 25 intermediates. `computeRouteWithStops` in
+// src/lib/routing/directions.ts throws above its MAX_INTERMEDIATES of 7,
+// and MAX_STOPS in src/app/plan/actions.ts answers "too_many_stops" above
+// the same 7, so the three must move together. Seven because every stop
+// added or removed is one recompute, a Routes API call and then the towns
+// and places along the new route read again, so the cap bounds what one
+// trip can cost; and seven stops with the start and the end is nine rows
+// on the sheet, about as long a list as a person reads on a phone.
 const MAX_TRIP_STOPS = 7;
 
 // Compile-time exhaustiveness — adding a new RecomputeErrorCode forces a label.
@@ -291,7 +299,7 @@ const MAX_TRIP_STOPS = 7;
 // glossary's words.
 const ERROR_LABELS: Record<RecomputeErrorCode, string> = {
   invalid_input: "Couldn't update the route: a stop has no place on the map.",
-  too_many_stops: `The trip has all the stops it can hold (${7}).`,
+  too_many_stops: `The trip has all the stops it can hold (${MAX_TRIP_STOPS}).`,
   rate_limited: "Slow down; too many route updates. Try again in a moment.",
   quota_exceeded: "Today's route updates are used up. Try again tomorrow.",
   upstream_unavailable: "The route service is not answering. Try again in a moment.",
@@ -475,7 +483,11 @@ export default function PlanWorkspace({
   const onTheRoadText = formatDurationPlain(liveDuration);
 
   // The recommendation set the user actually sees — refreshed when present,
-  // initial server prop otherwise (Council ISC-S7-ARCH-2).
+  // initial server prop otherwise (Council ISC-S7-ARCH-2). Never missing
+  // and never a failure: the prop is required, a page whose town read
+  // failed passes an empty "fresh" set with `initialCandidateFetchFailed`,
+  // and `liveWaypointFetch` is only ever set from a refresh that returned
+  // a set. Both members of WaypointFetchResult carry cities and waypoints.
   const effectiveWaypointFetch = liveWaypointFetch ?? waypointFetch;
 
   // Live candidate markers derived from the effective waypoint set so the
@@ -895,7 +907,13 @@ export default function PlanWorkspace({
   // row, above everything and at every snap (round 2: the critic saw the
   // sheet open on the roadside heading and no sentence). When the towns
   // could not be read the title says that instead, since "nothing fits"
-  // would be false.
+  // would be false. `liveWaypointFetch` is null until a refresh returns a
+  // set, and a refresh whose town read failed leaves it as it was (the
+  // action answers waypointFetch: null, which is never stored) and shows
+  // "Couldn't update the places" instead; so once a refresh has replaced
+  // the failed page fetch the title is the sentence again, and a later
+  // failure keeps the last set on the sheet rather than saying the towns
+  // never loaded.
   const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
   const sheetTitle = townsFailed
     ? "Couldn't load the towns along the road"

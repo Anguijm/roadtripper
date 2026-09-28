@@ -137,3 +137,99 @@ that was already so with "in, at" and is U1's to count.
   uncommitted as in round 2. For the runner: delete `.next` in the
   worktree before each round's dev server, or the screenshot is the
   previous round's stylesheet.
+
+## Council round 1 on #85 (BLOCK, bugs 4), and what changed
+
+The council (Gemini) returned BLOCK with six items, four of them possible
+runtime crashes on a failed or missing fetch. Those four rest on a
+`"failed"` member of `WaypointFetchResult` that the type does not have:
+`src/lib/routing/scoring.ts` declares `status: "fresh" | "degraded"`, and
+both members carry `cities`, `waypoints` and `neighborhoods`. A page whose
+town read failed passes an empty `"fresh"` set with
+`initialCandidateFetchFailed` (`src/app/plan/page.tsx`), and a refresh
+whose town read failed answers `waypointStatus: "degraded", waypointFetch:
+null`, which `PlanWorkspace` never stores (it keeps the last set and shows
+"Couldn't update the places"). So no component can receive a failed
+status, and `fetchResult.status !== "failed"` would not compile (TS2367,
+no overlap). Item by item:
+
+1. RecommendationList reads `cities` on a failed fetch: answered, not
+   applied. There is no failed status to narrow on; the failed state the
+   list can receive is the empty set, which draws nothing, since the
+   workspace says the failure as the sheet's title. A comment above the
+   empty check says so. New tests in `RecommendationList.ssr.test.tsx`
+   render the empty fresh set and an empty degraded set (both `""`, no
+   throw), a degraded set with a town and no places ("Some of the places
+   did not load. Reload to try again."), and a degraded set with rows
+   (the note above the rows).
+2. `effectiveWaypointFetch` unguarded: answered, not applied. The prop is
+   required, `liveWaypointFetch` is only ever set from a refresh that
+   returned a set, and both members carry the arrays; a comment above
+   the line says so. `PlanWorkspace.ssr.test.tsx`'s zero-state test now
+   renders exactly what the page passes on a failed town read and
+   asserts the failure, not only no throw: "Couldn't load the towns along
+   the road" as the title, the `role="alert"` with "The route is still
+   here. Reload to try the towns again.", and no "fits today" sentence.
+   A second new test renders a degraded initial set and asserts the
+   towns' sentence ("Philadelphia fits today") and the places note.
+3. `townsFailed` short-circuit: answered, not applied. `liveWaypointFetch`
+   can never hold a failed status; a failed refresh leaves it as it was
+   and shows its own notice, so `initialCandidateFetchFailed &&
+   liveWaypointFetch === null` is right: once a refresh has replaced the
+   failed page fetch the title is the sentence again, and a later failure
+   keeps the last set on the sheet rather than saying the towns never
+   loaded. The reasoning is now a comment above the line; the test in
+   item 2 pins the title while no refresh has replaced the set.
+4. Itinerary `legDurations?.[index]` undefined: already true. The line
+   after it is `legSecs !== undefined && !failed && <LegTime ...>`, so a
+   stop with no leg is drawn without a drive time. A comment says why the
+   legs lag the stops (a stop is in the list before its recompute returns
+   and stays when that recompute fails). New `Itinerary.ssr.test.tsx`,
+   four tests: fewer legs than stops (three stops, one leg: one drive
+   line for that leg and one for the final leg, no "NaN", no
+   "undefined"), no legs at all (no drive line), more legs than stops
+   (the extra ignored), and a failed stop ("Didn't update" and no drive
+   line on that stop).
+5. Comment above `NAMED_TOWNS` in `src/lib/plan/words.ts`: applied. Two
+   names because the sentence is the sheet's title on a phone, about 40
+   characters a line at 16 px (36 on a 320 px phone), and it also carries
+   "fit today" and "after Lubbock"; two names with the count and the
+   after clause is 52 characters, two lines; three names with long towns
+   is 79 characters, three lines on the narrower phones, and three names
+   with commas read as a list, not a sentence.
+6. Comment above `MAX_TRIP_STOPS` in `PlanWorkspace.tsx`: applied, and
+   the old comment ("API cost per recompute") was half the truth. Seven
+   is not the Routes API's limit (it takes up to 25 intermediates); it is
+   this project's own cap, declared three times: `MAX_INTERMEDIATES` in
+   `src/lib/routing/directions.ts` (the client throws above it),
+   `MAX_STOPS` in `src/app/plan/actions.ts` (answers `too_many_stops`),
+   and `MAX_TRIP_STOPS` here, so the three must move together. Every
+   stop added or removed is one recompute (a Routes API call, then the
+   towns and places along the new route read again), so the cap bounds
+   what one trip can cost; and seven stops with the start and the end is
+   nine rows on the sheet. The `too_many_stops` label's `${7}` now reads
+   `${MAX_TRIP_STOPS}`.
+
+Mutation, item 4: the guard `legSecs !== undefined && ` removed from
+`src/components/Itinerary.tsx` (line 134). `bunx vitest run
+src/components/__tests__/Itinerary.ssr.test.tsx` fails two tests by name:
+"draws a stop with no leg without a drive time, and never NaN, when the
+legs are fewer than the stops" with `AssertionError: expected 4 to be 2`
+(a drive line on every stop, "NaN h NaN min of driving" on the two with
+no leg, from `formatDurationPlain(undefined)`), and "draws every stop with
+no drive time at all when no legs are known yet" with `expected 3 to be
++0`; the other two pass. Restored from the copy taken first; `cmp`
+reports the file identical.
+
+Gates after the change: `bunx vitest run` 51 files, 504 tests, all green
+(8 new: 4 in `Itinerary.ssr.test.tsx`, 3 in
+`RecommendationList.ssr.test.tsx`, 1 in `PlanWorkspace.ssr.test.tsx`,
+beside the extended zero-state test). `bun run type-check` clean. `bun
+run lint` 0 errors, 9 warnings, the same 9 as before.
+
+Cost and weakest part: unchanged by this round. No call, no store, no
+score, no route is touched; comments, one label literal, and tests. The
+weakest part of the round itself: the failed state is a flag beside an
+empty set, which is what the council mistook for a missing guard. A
+`failed` member of the union would make the model say it, but that
+reaches the page, the action and the scorer, and is not this round's.

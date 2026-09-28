@@ -6,7 +6,19 @@
 
 import type { WaypointType } from "@/lib/urban-explorer/types";
 
-/** The most town names the sentence says before "and N more". */
+/**
+ * The most town names the sentence says before "and N more". Two, because
+ * the sentence is the sheet's title on a phone: a line of the sheet at 16
+ * px in the body face holds about 40 characters (36 on a 320 px phone), and
+ * the sentence also carries "fit today" and, after a stop, "after Lubbock".
+ * Two names with the count and the after clause ("Lubbock, Abilene and 3
+ * more fit today after Amarillo", 52 characters) is two lines. Every name
+ * past two adds a comma and ten to fifteen characters, so three names with
+ * long towns ("Wichita Falls, San Angelo, Big Spring and 2 more fit today
+ * after Fredericksburg", 79 characters) wrap to three lines on the narrower
+ * phones, and three names in a row with commas read as a list, not as a
+ * sentence a person would say (quality bar, rule 1).
+ */
 const NAMED_TOWNS = 2;
 
 /**

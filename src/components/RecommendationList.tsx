@@ -95,6 +95,9 @@ export default function RecommendationList({
 
   const hasRows = groups.some((g) => g.rows.length > 0);
 
+  // Both kinds of result carry cities. A page whose town read failed
+  // passes an empty "fresh" set and tells the workspace, which says the
+  // failure as the sheet's title; an empty set draws nothing here.
   if (fetchResult.cities.length === 0) {
     return null;
   }

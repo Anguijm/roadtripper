@@ -102,6 +102,10 @@ export default function Itinerary({
         {stops.map((stop, index) => {
           const failed = failedStopId === stop.cityId;
           const selected = selectedCityId === stop.cityId;
+          // The legs lag the stops: a stop is in the list before its
+          // recompute returns, and stays when that recompute fails, so the
+          // legs can be fewer than the stops, or absent. A stop with no
+          // leg is drawn without a drive time, never with "NaN".
           const legSecs = legDurations?.[index];
           const stopBody = (
             <>
