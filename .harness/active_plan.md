@@ -4,17 +4,18 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/session-29-learnings`
+Branch: `data/store-snapshot-waterfalls`
 
 ## Goal
 
-Docs only: the second half of session 29 into the learnings file. The
-asset name and the proof that proved nothing, the pid that was not the
-process, the refused request treated as transient, the hook's snapshot,
-the rollout that was not instant, and the deploy as the place the
-requirement is met.
+Data only: the checksum of the republished store snapshot, so the next
+build fetches the store with the 4,506 waterfalls and every encyclopedia
+line in it. The snapshot was published first, then this commit, in that
+order, as the publish script says.
 
 **Cost:** $0.
 
-**Weakest part:** The pid lesson should be a helper script, not a
-paragraph; it is not yet.
+**Weakest part:** The waterfalls are in the store but not scored (the
+account has no credits), so none of them is a survivor yet; the live
+change from this snapshot is the encyclopedia lines on rows that had
+none, which the sidebar shows.
