@@ -35,13 +35,19 @@ db.pragma("busy_timeout = 30000");
 // score bought for a stop whose record did not change, and removes the
 // stops that are no longer in the extract. See src/lib/roadside/store-write.ts.
 const writer = storeWriter(db);
-// The floor for removing stops: half of what is already there. A rebuild of
-// the same country writes about the same count; an empty or truncated
-// extract writes far fewer and must not delete the rest.
+// The floor for removing stops: half of what is already there, and never
+// under ten once anything is there, so a store of a few rows cannot be
+// wiped by a run that wrote one. An empty store has nothing to remove and
+// gets no floor, so the very first build of a small test extract goes
+// through. A rebuild of the same country writes about the same count; an
+// empty or truncated extract writes far fewer and must not delete the rest.
 const existing = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop").get() as { n: number }).n;
-const removalFloor = Math.floor(existing / 2);
+const removalFloor = existing === 0 ? 0 : Math.max(10, Math.floor(existing / 2));
 
-let read = 0, kept = 0, bad = 0;
+// `bad` is a line that is not JSON; `notAStop` is an element the parser
+// refused (no name, no position, none of our kinds), which is expected of
+// the extractor's loose superset and is reported, not counted as broken.
+let read = 0, kept = 0, bad = 0, notAStop = 0;
 let batch: RoadsideStop[] = [];
 const rl = createInterface({ input: createReadStream(from, { encoding: "utf8" }), crlfDelay: Infinity });
 for await (const line of rl) {
@@ -50,7 +56,7 @@ for await (const line of rl) {
   let el: OsmElement;
   try { el = JSON.parse(line) as OsmElement; } catch { bad++; continue; }
   const stop = fromOsmElement(el);
-  if (!stop) continue;
+  if (!stop) { notAStop++; continue; }
   kept++;
   batch.push(stop);
   // One transaction per 10,000 rows: SQLite's cost is per transaction, not
@@ -71,7 +77,7 @@ setMeta.run("source", from);
 setMeta.run("stops", String(kept));
 const byKind = db.prepare("SELECT kind, COUNT(*) AS n FROM roadside_stop GROUP BY kind ORDER BY n DESC").all() as Array<{ kind: string; n: number }>;
 const scoredKept = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE p IS NOT NULL").get() as { n: number }).n;
-console.log(`${dbPath}: ${read.toLocaleString()} elements read, ${bad} unreadable, ${kept.toLocaleString()} stops written, ${removed.toLocaleString()} removed, ${scoredKept.toLocaleString()} scores kept; by kind: ${byKind.map((r) => `${r.kind} ${r.n.toLocaleString()}`).join(", ")}`);
+console.log(`${dbPath}: ${read.toLocaleString()} elements read, ${bad} not JSON, ${notAStop.toLocaleString()} not a stop, ${kept.toLocaleString()} stops written, ${removed.toLocaleString()} removed, ${scoredKept.toLocaleString()} scores kept; by kind: ${byKind.map((r) => `${r.kind} ${r.n.toLocaleString()}`).join(", ")}`);
 const withWd = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE wikidata IS NOT NULL").get() as { n: number }).n;
 const withWp = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE wikipedia IS NOT NULL").get() as { n: number }).n;
 console.log(`  ${withWd.toLocaleString()} with a Wikidata id, ${withWp.toLocaleString()} with a Wikipedia tag`);

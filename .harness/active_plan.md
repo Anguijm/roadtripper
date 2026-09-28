@@ -59,3 +59,8 @@ nodes, which is on the water and close enough.
 - `removeUnseen` takes a floor and refuses, throwing, when a run wrote fewer ids than it; the builder passes half the rows already there, so an empty or truncated extract cannot wipe the store. Tested, and with the check disabled the test fails.
 - the thirty-second lock wait says why thirty and what a timeout means; the upsert says why the compare is exact and what a typo costs, and points at the test
 - Answered, not changed: the store is written only offline by this repository's own Node and better-sqlite3, whose bundled SQLite is 3.53.4 (`ON CONFLICT ... DO UPDATE` needs 3.24). The deployed app opens the file read-only and never runs the upsert.
+
+## Council round 2 on #78 (CONDITIONAL, bugs 8), and what changed
+
+- the removal floor is never under ten once the store holds anything, and zero for an empty store (nothing to remove, and a first small build must go through)
+- the summary line now tells "not JSON" from "not a stop": the second is the extractor's loose superset being cut by the parser, expected and reported, not broken
