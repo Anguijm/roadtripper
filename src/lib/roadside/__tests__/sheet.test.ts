@@ -4,7 +4,7 @@ import type { RoadsideStop } from "../record";
 
 const stop = (i: number): RoadsideStop => ({
   id: `osm:node:${i}`, name: `Stop ${String(i).padStart(3, "0")}`, lat: 35, lng: -101, kind: "attraction", source: "osm",
-  reason: null, wikidata: null, wikipedia: null,
+  reason: null, detail: null, wikidata: null, wikipedia: null,
 });
 /** n stops with p = i/n, so exactly half are at or above 0.5. */
 function scored(n: number) {
