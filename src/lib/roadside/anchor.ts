@@ -22,11 +22,38 @@ export interface RoadsideAnchor {
   near: boolean;
 }
 
-/** A town this far from the road or nearer is on it; a town that fits can sit hours off the road and is not. */
+/**
+ * A town this far from the road or nearer, in km, is on it and can be
+ * named with a stop; a town that fits the trip can sit hours off the road
+ * and is not. 15 takes in a town the road skirts on a bypass or a loop
+ * (Tulia, 4.6 km off the test's road, is on it) and keeps out one the
+ * road never reaches (Clovis, 46 km off, is not), so the card never says
+ * "past" a town the person did not drive through. Moves with it:
+ * `townsAlong` alone; nothing in CSS. Check: the test "places the towns
+ * along the road and names the one a stop is at or past" in
+ * src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx, and on
+ * the page a card that says "past Lubbock" for a stop beyond it.
+ */
 export const ON_ROAD_KM = 15;
-/** A stop this near a town on the road is "at" it. */
+/**
+ * A stop this near a town on the road, in km, is "at" it; farther, it is
+ * "past" the last town before it. 10 is about a town's own spread on the
+ * plains (Amarillo's limits run some 10 km from its centre) and is under
+ * ON_ROAD_KM, so a stop "at" a town is always at a town on the road.
+ * Moves with it: `roadsideAnchor` alone. Check: the same named test (11 km
+ * down the road is "past Amarillo", beside Tulia is "at Tulia"), and on
+ * the page "6 mi in, at Amarillo" for a stop inside the town.
+ */
 export const NEAR_KM = 10;
-/** The route is sampled at this interval before the towns are placed along it. */
+/**
+ * The route is sampled every this many km before the towns are placed
+ * along it, so a town's distance along the road is within half a km of
+ * true, well inside ON_ROAD_KM and NEAR_KM. Finer buys nothing a person
+ * reads (the card rounds to miles) and costs one haversine per town per
+ * sample, a few tens of thousands on an 800 km route, once per route.
+ * Moves with it: `townsAlong` alone. Check: the same named test pins Tulia
+ * at 55.6 km and the end at 111.2 on a 111 km road.
+ */
 export const SAMPLE_KM = 1;
 
 /**

@@ -150,3 +150,51 @@ same test then passed, and the whole suite 480.
 
 Rounds 1 to 6's other proofs stand: their tests are unchanged and green,
 but for the spread's three, deleted, and the two updated above.
+
+## Council round 1 on #83 (CONDITIONAL, maintainability 7, accessibility 8), and what changed
+
+Five required items: four applied, one answered.
+
+1. **Applied.** Each layout constant now carries a comment that says what
+   the number is, why that value, what moves with it and how to check it:
+   `SHEET_SNAPS` and `SWIPE_PX` in `src/components/PlanWorkspace.tsx`,
+   `STRIP_MIN_PX` in `src/components/RouteMap.tsx`, and the anchor
+   thresholds `ON_ROAD_KM`, `NEAR_KM` and `SAMPLE_KM` in
+   `src/lib/roadside/anchor.ts`. Each names the test that pins it ("holds
+   the heading, ten rows and the control in the sheet's scroll box at rest
+   on a 390 by 844 phone"; "closes the card on a sideways swipe, not on a
+   scroll or a tap"; "fits the road into the strip of map above the sheet
+   at rest, on a phone"; "places the towns along the road and names the
+   one a stop is at or past"), the CSS or function that moves with it,
+   and what a 390 by 844 screenshot shows. The comments in RouteMap.tsx
+   avoid the tokens the "never moves one" test forbids in that file.
+2. **Applied.** `roadTowns` in PlanWorkspace.tsx decodes the polyline
+   inside a try/catch: an empty string, a malformed one or the decoder's
+   vertex-limit throw gives an empty route, and an empty route gives no
+   towns (no `townsAlong` call). The card then says the distance alone,
+   since `roadsideAnchor` returns null with no towns. One comment says why.
+3. **Applied.** `RoadsideCard`'s `onTouchEnd` returns when
+   `changedTouches` is empty (a second finger, an interrupted pointer).
+4. **Applied, with the premise corrected.** The file did not use an effect
+   for the `onCandidateClick` ref: all three refs (`onCandidateClickRef`,
+   `onRoadsideClickRef`, `selectedRoadsideRef`) were written in the render
+   body. All three are now written from a `useEffect` keyed on their
+   value, declared before Effects 4 and 4b so they are current when those
+   read them in the same commit (effects run in declaration order). Moving
+   only the one the item named would have left the same pattern two lines
+   above it.
+5. **Answered, not applied.** The premise is wrong: `#8b949e` already
+   meets 4.5:1 everywhere the metadata lines sit. Measured with WCAG 2
+   relative luminance (`scratchpad/contrast.mjs`): on `#0d1117` (the
+   page) 6.15:1; on `#161b22` (the card, a selected row) 5.62:1; on
+   `#1c2128` (elevated) 5.26:1; on `#262c36` (hover) 4.56:1. `#a3adba`
+   would be 8.33, 7.61, 7.12 and 6.18. No token changed. The grey that
+   does fall short is `--text-tertiary` `#7d8590` on the elevated and
+   hover surfaces (4.34:1 and 3.76:1), used in TripCard, DriveBudgetSelector
+   and the trips page, none of them U1's: a note for whoever owns those
+   screens, not a change in this round.
+
+Gate 1 after: 47 files, 480 tests, all green (none added or changed; the
+guards and the ref effects are read by eye, the constants' tests already
+existed); `bun run type-check` clean; `bun run lint` 0 errors, the same 9
+warnings on the same code (line numbers moved with the comments).

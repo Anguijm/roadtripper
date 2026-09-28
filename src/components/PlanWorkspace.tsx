@@ -143,7 +143,24 @@ export const ROADSIDE_SHOWN_FIRST = 10;
  * together.
  */
 export const SHEET_HEIGHT_DVH = 92;
-/** Hidden share of the sheet's height at each snap: peek, rest (the default), full. */
+/**
+ * The hidden share of the sheet's own height at each snap, in percent:
+ * peek, rest (the default), full. Rest is 25 so the sheet's top sits at
+ * 31 dvh (100 - 92 * 0.75): on a 390 by 844 phone that is 537 px of
+ * scroll box, which holds the roadside heading, ten rows and "Show all N"
+ * with 17 px to spare, and a 217 px strip of map above the sheet for the
+ * road. At 30 the box is 498 and the control is cut; at 45 (round 3's
+ * half snap) it is 382 and six rows are. Peek is 80 so the handle and
+ * one line show over a nearly whole map; full is 8 so the sheet's top
+ * stops at 15 dvh, under the page's header. Moves with it: the CSS
+ * default `translateY(var(--sheet-y, 25%))` and the scroll box's
+ * `calc(100% - var(--sheet-y, 25%) - 45px)` in src/app/globals.css,
+ * `sheetScrollBoxPx`, `sheetTopDvh` and through it the map's fit padding
+ * (`fitPaddingPx` in RouteMap.tsx). Check: the test "holds the heading,
+ * ten rows and the control in the sheet's scroll box at rest on a 390 by
+ * 844 phone" pins [80, 25, 8] and the arithmetic, and a screenshot of the
+ * plan page at 390 by 844 shows "Show all N" whole above the fold.
+ */
 export const SHEET_SNAPS = [80, 25, 8] as const;
 /** The drag handle (44 px) and the sheet's top border. */
 export const SHEET_HANDLE_PX = 45;
@@ -173,7 +190,18 @@ function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
   return `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
 }
 
-/** A sideways swipe across the card at least this long closes it. */
+/**
+ * The least sideways travel, in CSS px, that closes the card. 60 is well
+ * over a finger's wobble in a tap (a few px; the sheet's own tap-or-drag
+ * line is 5) and about a sixth of the card's 366 px width on a 390 px
+ * phone, so a short flick closes it and a thumb settling on it does not.
+ * A scroll of the sheet over the card is ruled out by the direction test
+ * in `roadsideSwipeCloses`, not by this length. Nothing in CSS moves with
+ * it. Check: the test "closes the card on a sideways swipe, not on a
+ * scroll or a tap" pins 60 and the line at 59 and 60, and on a 390 px
+ * phone a flick across the open card closes it while a scroll over it
+ * does not.
+ */
 export const SWIPE_PX = 60;
 
 /**
@@ -213,7 +241,9 @@ export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideM
         const start = touchStart.current;
         touchStart.current = null;
         if (!start) return;
+        // A second finger or an interrupted pointer can end with no touch in the list: then nothing.
         const end = e.changedTouches[0];
+        if (!end) return;
         if (roadsideSwipeCloses(end.clientX - start.x, end.clientY - start.y)) onClose?.();
       }}
       onTouchCancel={() => {
@@ -502,13 +532,19 @@ export default function PlanWorkspace({
   // the start, the end and the towns that fit within 15 km of the route,
   // placed along a route sampled every kilometre. Once per route; nothing
   // when there is no roadside stop to say it for.
-  const roadTowns = useMemo(
-    () =>
-      roadsideStops.length === 0
-        ? []
-        : townsAlong(decodePolyline(livePolyline), { name: fromName, ...origin }, { name: toName, ...destination }, liveCandidateMarkers),
-    [roadsideStops.length, livePolyline, fromName, toName, origin, destination, liveCandidateMarkers]
-  );
+  const roadTowns = useMemo(() => {
+    if (roadsideStops.length === 0) return [];
+    // A loading or error state can hand an empty or malformed polyline, and the
+    // decoder throws past its vertex limit: then no road and no towns, not a crashed render.
+    let route: ReturnType<typeof decodePolyline> = [];
+    try {
+      route = livePolyline ? decodePolyline(livePolyline) : [];
+    } catch {
+      route = [];
+    }
+    if (route.length === 0) return [];
+    return townsAlong(route, { name: fromName, ...origin }, { name: toName, ...destination }, liveCandidateMarkers);
+  }, [roadsideStops.length, livePolyline, fromName, toName, origin, destination, liveCandidateMarkers]);
   const handleRoadsideSelect = useCallback((id: string) => {
     setSelectedRoadsideId((curr) => (curr === id ? null : id));
   }, []);

@@ -130,7 +130,19 @@ export const FIT_MARGIN_PX: FitPadding = { top: 60, right: 60, bottom: 120, left
  * proper is the sheet's share of the map, added in fitPaddingPx.
  */
 export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: 40, bottom: 32, left: 40 };
-/** A strip shorter than this (a phone on its side) cannot frame a road; the fit takes the desktop's margins and the person pulls the sheet down. */
+/**
+ * The least height, in px, of the strip of map above the sheet at rest
+ * for the fit to frame the road in it. 140 leaves 68 px of road between
+ * STRIP_MARGIN_PX's top and bottom (40 and 32): enough for a corridor to
+ * read as a line with both pins in the strip. A 390 by 844 phone has a
+ * 217 px strip (844 * 0.31 less the 45 px header), well above; the same
+ * phone on its side has 76 (390 * 0.31 less 45), below, so there the fit
+ * takes the desktop's margins and the person pulls the sheet down. Moves
+ * with it: the branch in `fitPaddingPx` alone; nothing in CSS. Check: the
+ * test "fits the road into the strip of map above the sheet at rest, on
+ * a phone" pins 140 and the 390-tall fallback, and a screenshot at 390 by
+ * 844 with the sheet at rest shows both pins and the road above the sheet.
+ */
 export const STRIP_MIN_PX = 140;
 
 /**
@@ -379,15 +391,23 @@ function PolylineRenderer({
   const previousHighlightRef = useRef<string | null>(null);
   const hasFitOnceRef = useRef(false);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
-  // Always-current ref so survivor markers never hold a stale onCandidateClick closure.
+  // Always-current refs, so the markers (built once per route) never hold a
+  // stale click handler or selection. Each is written from an effect keyed
+  // on its value, not in the render body: a render React discards must not
+  // write a ref, and effects run in declaration order, so these three are
+  // current before Effects 4 and 4b below read them in the same commit.
   const onCandidateClickRef = useRef(onCandidateClick);
-  onCandidateClickRef.current = onCandidateClick;
-  // The same for the diamonds: the markers are built once per route, the
-  // handler and the selection change with the sheet.
+  useEffect(() => {
+    onCandidateClickRef.current = onCandidateClick;
+  }, [onCandidateClick]);
   const onRoadsideClickRef = useRef(onRoadsideClick);
-  onRoadsideClickRef.current = onRoadsideClick;
+  useEffect(() => {
+    onRoadsideClickRef.current = onRoadsideClick;
+  }, [onRoadsideClick]);
   const selectedRoadsideRef = useRef<string | null>(selectedRoadsideId ?? null);
-  selectedRoadsideRef.current = selectedRoadsideId ?? null;
+  useEffect(() => {
+    selectedRoadsideRef.current = selectedRoadsideId ?? null;
+  }, [selectedRoadsideId]);
   const roadsideMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const previousRoadsideRef = useRef<string | null>(null);
   // Effect 4's zoom-rule pass, kept so Effect 4b can re-run it after a
