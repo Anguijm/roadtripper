@@ -205,7 +205,20 @@ export interface DescribeDeps {
 async function getJson(url: string, deps: DescribeDeps): Promise<unknown> {
   // A fresh timeout signal per try (the Overpass client learned this the hard way in #65).
   const once = () => deps.fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  let res = await once();
+  // A dropped connection ("other side closed", a timeout) throws rather than
+  // answering; it gets the same one retry as a 429 or a 5xx. The store's
+  // describe pass died at row 60,000 of 195,000 on exactly that, 2026-09-28.
+  let res: Response;
+  try {
+    res = await once();
+  } catch (err) {
+    await deps.sleep(RETRY_PAUSE_MS);
+    try {
+      res = await once();
+    } catch {
+      throw new Error(`${new URL(url).host} could not be reached twice: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
   if (res.status === 429 || res.status >= 500) {
     await deps.sleep(RETRY_PAUSE_MS);
     res = await once();

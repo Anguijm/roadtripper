@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { wikipediaTitle, parseWikidataEntities, parseExtracts, clip, describeStops, chunk, DescriptionsFileSchema, WIKIDATA_BATCH, EXTRACT_BATCH, PAUSE_MS } from "../describe";
+import { wikipediaTitle, parseWikidataEntities, parseExtracts, clip, describeStops, chunk, DescriptionsFileSchema, WIKIDATA_BATCH, EXTRACT_BATCH, PAUSE_MS, RETRY_PAUSE_MS } from "../describe";
 import type { RoadsideStop } from "../record";
 
 const stop = (i: number, extra: Partial<RoadsideStop> = {}): RoadsideStop => ({
@@ -130,6 +130,22 @@ describe("describing a corridor", () => {
     expect(out.get("osm:node:3")).toEqual({ wikidata: "Q3", title: null, url: null, short: "thing 3", extract: null });
     expect(out.get("osm:node:100")?.extract).toBe("About Tagged Page. More.");
     expect(out.has("osm:node:101")).toBe(false);
+  });
+
+  it("retries once when the connection drops, and gives up with the reason when it drops twice", async () => {
+    const stops = [stop(1, { wikidata: "Q2" })];
+    let calls = 0;
+    const flaky = async (input: string | URL | Request): Promise<Response> => {
+      calls++;
+      if (calls === 1) throw new TypeError("fetch failed");
+      return fakeFetch([])(input);
+    };
+    const sleeps: number[] = [];
+    const out = await describeStops(stops, { fetch: flaky, sleep: async (ms) => { sleeps.push(ms); } });
+    expect(out.get("osm:node:1")?.short).toBe("thing 2");
+    expect(sleeps[0]).toBe(RETRY_PAUSE_MS);
+    const dead = async (): Promise<Response> => { throw new TypeError("fetch failed"); };
+    await expect(describeStops(stops, { fetch: dead, sleep: async () => {} })).rejects.toThrow(/could not be reached twice: fetch failed/);
   });
 
   it("chunks evenly and keeps order", () => {

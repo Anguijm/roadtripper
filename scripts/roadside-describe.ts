@@ -42,7 +42,20 @@ while (done < limit) {
   if (rows.length === 0) break;
   const stops: RoadsideStop[] = rows.map((r) => ({ ...r, source: "osm", reason: null }));
   const t0 = Date.now();
-  const described = await describeStops(stops, { fetch: (...a) => fetch(...a), sleep: (ms) => new Promise((r) => setTimeout(r, ms)) });
+  // A chunk that fails after the client's own retry is tried again after a
+  // longer pause, five times, then the run stops with the rows still
+  // undescribed: a rerun resumes at them.
+  let described: Awaited<ReturnType<typeof describeStops>> | null = null;
+  for (let attempt = 1; attempt <= 5 && !described; attempt++) {
+    try {
+      described = await describeStops(stops, { fetch: (...a) => fetch(...a), sleep: (ms) => new Promise((r) => setTimeout(r, ms)) });
+    } catch (err) {
+      console.warn(`  chunk failed (attempt ${attempt} of 5): ${err instanceof Error ? err.message : String(err)}`);
+      if (attempt === 5) throw err;
+      await new Promise((r) => setTimeout(r, 30_000 * attempt));
+    }
+  }
+  if (!described) throw new Error("unreachable");
   const at = new Date().toISOString();
   writeMany(rows.map((r) => { const d = described.get(r.id); return { id: r.id, short: d?.short ?? null, extract: d?.extract ?? null, url: d?.url ?? null, at }; }));
   done += rows.length;
