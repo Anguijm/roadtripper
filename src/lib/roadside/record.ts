@@ -10,6 +10,7 @@
 
 import { z } from "zod/v4";
 import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
+import { clip } from "./text";
 
 /**
  * 200 is the same bound the saved-trip schema puts on a city or place name
@@ -52,6 +53,21 @@ export const RoadsideStopSchema = z.object({
   source: z.enum(["osm", "wikidata", "google"]),
   /** Why you would stop. Null until step 23; untrusted text, render as text only. */
   reason: z.string().max(MAX_REASON_LENGTH).nullable(),
+  /**
+   * What the source itself says about the place, in one line: OSM's
+   * `description` tag, else its `inscription`, else the subtype its tags
+   * spell ("mural", "war memorial", "hotel"). Crowd text of any quality,
+   * shown as text only and never used as a reason. Null when the tags say
+   * nothing beyond the kind. Added 2026-09-28 because the encyclopedias
+   * cover the wrong half: murals and small museums have no page, and this
+   * is often all there is to read about them. Missing in a file written
+   * before 2026-09-28 reads as null rather than failing: a corridor file
+   * from the old shape is still a valid list of stops, only a poorer one,
+   * and the pull's PROGRESS_VERSION keeps old and new tiles from being
+   * merged. The writer (fromOsmElement) always emits it, and the record
+   * test pins that, so the default hides no writer bug.
+   */
+  detail: z.string().max(MAX_REASON_LENGTH).nullable().default(null),
   /** A Wikidata Q-id when the source carried one; the door to a real reason. */
   wikidata: z.string().regex(/^Q\d+$/).nullable(),
   /** "en:Cadillac Ranch" style, when the source carried one. */
@@ -103,6 +119,56 @@ const NOT_A_STOP_KEYS = ["place", "highway", "railway", "waterway", "landuse", "
 export function wikidataId(raw: string | undefined): string | null {
   const m = (raw ?? "").match(/Q\d+/i);
   return m ? m[0].toUpperCase() : null;
+}
+
+/**
+ * For a Wikidata-only place ("notable"), the tag whose value says what it
+ * is: "hotel", "school", "restaurant". Tried in this order because the
+ * earlier keys are the more specific: a hotel is `building=hotel` and
+ * also `tourism=hotel`, but a school carries `amenity=school` on a
+ * `building=yes`, so `building` goes last where "yes" is skipped. To add
+ * a key, put it before the less specific ones and add a real tag set to
+ * "says what a Wikidata-only place is" in __tests__/roadside.test.ts.
+ */
+const WHAT_IT_IS_KEYS = ["amenity", "shop", "leisure", "craft", "office", "man_made", "natural", "building"] as const;
+/**
+ * Tags that name a subtype of one of our own kinds: "mural" under artwork,
+ * "war memorial" under historic, "history" under museum. Each is the
+ * subtype key OSM documents for that kind, so at most one applies to a
+ * given element and the order only settles a mis-tagged one. A new kind
+ * in `kindFromTags` that has a subtype key should add it here and a tag
+ * set to "takes the mapper's description first…" in the tests.
+ */
+const SUBTYPE_KEYS = ["artwork_type", "memorial", "museum", "attraction", "tower:type", "castle_type", "ruins"] as const;
+
+const words = (v: string) => v.replace(/_/g, " ").replace(/;/g, ", ").trim();
+/** OSM's convention is lower-case "yes"; mappers write "Yes" and "YES" too, and none of them is a subtype. */
+const isYes = (v: string) => v.toLowerCase() === "yes";
+
+/**
+ * What the tags say about the place beyond its kind, or null. The
+ * `description` tag (an English variant accepted) is the mapper's own
+ * sentence and wins; an `inscription` is what the plaque says; failing
+ * both, the subtype the tags spell, and for a Wikidata-only place the
+ * value of the first tag that says what it is. "yes" is no subtype.
+ */
+export function detailFromTags(tags: Record<string, string> | null | undefined = {}): string | null {
+  // A default parameter covers undefined only; an explicit null (an element
+  // JSON-decoded with "tags": null) would otherwise throw on the first read.
+  if (!tags) return null;
+  const description = (tags.description ?? tags["description:en"] ?? "").trim();
+  if (description) return clip(description);
+  const inscription = (tags.inscription ?? tags["inscription:en"] ?? "").trim();
+  if (inscription) return clip(inscription);
+  for (const k of SUBTYPE_KEYS) {
+    const v = (tags[k] ?? "").trim();
+    if (v && !isYes(v)) return clip(words(v));
+  }
+  for (const k of WHAT_IT_IS_KEYS) {
+    const v = (tags[k] ?? "").trim();
+    if (v && !isYes(v)) return clip(words(v));
+  }
+  return null;
 }
 
 /** Which of our kinds an OSM tag set is, or null if it is none of them. */
@@ -158,6 +224,7 @@ export function fromOsmElement(el: OsmElement): RoadsideStop | null {
     kind,
     source: "osm",
     reason: null,
+    detail: detailFromTags(tags),
     wikidata: wikidataId(tags.wikidata),
     wikipedia: tags.wikipedia ? tags.wikipedia.slice(0, MAX_TEXT) : null,
   });

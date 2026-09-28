@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fromOsmElement, kindFromTags, wikidataId, RoadsideStopSchema, type OsmElement } from "../record";
+import { detailFromTags, fromOsmElement, kindFromTags, wikidataId, RoadsideStopSchema, type OsmElement } from "../record";
 import { corridorTiles, paddedBox, withinCorridor } from "../corridor";
 import { fetchBoxFromOverpass, fetchCorridorFromOverpass, overpassQuery, OverpassError, PAUSE_MS, RETRY_PAUSES_MS, USER_AGENT } from "../overpass";
 import { haversineKm, projectOntoPolyline, type LatLng } from "@/lib/routing/polyline";
@@ -16,7 +16,8 @@ describe("the roadside record", () => {
     const s = fromOsmElement(cadillac);
     expect(s).toEqual({
       id: "osm:way:42", name: "Cadillac Ranch", lat: 35.1872, lng: -101.9871, kind: "attraction", source: "osm",
-      reason: null, wikidata: "Q1025849", wikipedia: "en:Cadillac Ranch",
+      reason: null,
+      detail: null, wikidata: "Q1025849", wikipedia: "en:Cadillac Ranch",
     });
     expect(RoadsideStopSchema.safeParse(s).success).toBe(true);
   });
@@ -322,5 +323,56 @@ describe("cancelling a pull", () => {
     expect(err.message).toMatch(/cancelled/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(signalSeen).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe("what the tags say about a place (detail)", () => {
+  const at = (tags: Record<string, string>) => fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { name: "X", ...tags } })?.detail;
+
+  it("takes the mapper's description first, then the inscription, then the subtype, and reads underscores as spaces", () => {
+    // Spirit Rock, node 12119451158, as the corridor pull saw it.
+    expect(at({ tourism: "attraction", description: "A large boulder in the center of a circular garden." })).toBe("A large boulder in the center of a circular garden.");
+    expect(at({ tourism: "attraction", "description:en": "  English wins over nothing  " })).toBe("English wins over nothing");
+    expect(at({ historic: "memorial", inscription: "To those who served" })).toBe("To those who served");
+    expect(at({ historic: "memorial", memorial: "war_memorial" })).toBe("war memorial");
+    expect(at({ tourism: "artwork", artwork_type: "mural" })).toBe("mural");
+    expect(at({ tourism: "museum", museum: "history;railway" })).toBe("history, railway");
+  });
+
+  it("says what a Wikidata-only place is, and nothing when the tags say nothing beyond the kind", () => {
+    expect(at({ wikidata: "Q1", amenity: "school", building: "yes" })).toBe("school");
+    expect(at({ wikidata: "Q1", building: "hotel" })).toBe("hotel");
+    expect(at({ wikidata: "Q1", building: "yes" })).toBeNull();
+    expect(at({ tourism: "attraction" })).toBeNull();
+    expect(at({ tourism: "artwork", artwork_type: "yes" })).toBeNull();
+    expect(at({ tourism: "artwork", artwork_type: "YES" })).toBeNull();
+    expect(at({ wikidata: "Q1", building: "Yes" })).toBeNull();
+  });
+
+  it("keeps the text as the mapper wrote it: HTML stays characters, and nothing is a reason", () => {
+    expect(at({ tourism: "attraction", description: "<b>Big</b> & bold" })).toBe("<b>Big</b> & bold");
+    expect(fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { name: "X", tourism: "attraction", description: "d" } })?.reason).toBeNull();
+  });
+
+  it("reads a file from before the field as null, and a missing tags object as no detail", () => {
+    const old = { id: "osm:node:1", name: "Old", lat: 1, lng: 2, kind: "attraction", source: "osm", reason: null, wikidata: null, wikipedia: null };
+    const parsed = RoadsideStopSchema.safeParse(old);
+    expect(parsed.success && parsed.data.detail).toBeNull();
+    expect(detailFromTags()).toBeNull();
+    expect(detailFromTags(null)).toBeNull();
+  });
+
+  it("keeps an emoji-dense description inside the schema's bound, so the stop is not dropped", () => {
+    const s = fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { name: "X", tourism: "attraction", description: "🎡".repeat(300) } });
+    expect(s).not.toBeNull();
+    expect(s!.detail!.length).toBeLessThanOrEqual(240);
+  });
+
+  it("clips a long description at a word, never mid-word, within the reason bound", () => {
+    const long = "word ".repeat(100).trim();
+    const d = at({ tourism: "attraction", description: long })!;
+    expect(d.length).toBeLessThanOrEqual(240);
+    expect(d.endsWith("…")).toBe(true);
+    expect(d.slice(0, -1).endsWith("word")).toBe(true);
   });
 });

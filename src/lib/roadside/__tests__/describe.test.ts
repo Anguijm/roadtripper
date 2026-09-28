@@ -4,7 +4,7 @@ import type { RoadsideStop } from "../record";
 
 const stop = (i: number, extra: Partial<RoadsideStop> = {}): RoadsideStop => ({
   id: `osm:node:${i}`, name: `Stop ${i}`, lat: 35, lng: -101, kind: "attraction", source: "osm",
-  reason: null, wikidata: null, wikipedia: null, ...extra,
+  reason: null, detail: null, wikidata: null, wikipedia: null, ...extra,
 });
 
 describe("the Wikipedia title on a stop", () => {
@@ -74,6 +74,18 @@ describe("clipping a description", () => {
     expect(c.endsWith("…")).toBe(true);
     expect(c.length).toBeLessThanOrEqual(51);
     expect(c.slice(0, -1).endsWith("word")).toBe(true);
+    // Counted in code points: an emoji at the cut is kept whole or dropped, never split.
+    const emoji = "a ".repeat(20) + "🚀".repeat(30);
+    const e = clip(emoji, 50);
+    expect(e.endsWith("…")).toBe(true);
+    expect(Array.from(e).every((c) => c === "a" || c === " " || c === "🚀" || c === "…")).toBe(true);
+    expect(clip("🚀".repeat(10), 5)).toBe("🚀🚀…");
+    // The budget is UTF-16 units, the count the schema uses: an emoji-dense
+    // text clipped to 240 is at most 240 units and has no lone surrogate.
+    const dense = clip("🚀".repeat(200), 240);
+    expect(dense.length).toBeLessThanOrEqual(240);
+    expect(/[\uD800-\uDBFF]$|^[\uDC00-\uDFFF]/.test(dense.slice(0, -1))).toBe(false);
+    expect(Array.from(dense.slice(0, -1)).every((ch) => ch === "🚀")).toBe(true);
     // A sentence end too early (under a quarter of max) is not used.
     const early = "Hi. " + "y".repeat(300);
     expect(clip(early, 100).endsWith("…")).toBe(true);

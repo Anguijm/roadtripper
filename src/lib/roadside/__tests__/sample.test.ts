@@ -4,7 +4,7 @@ import type { RoadsideStop, RoadsideKind } from "../record";
 
 const stop = (i: number, kind: RoadsideKind): RoadsideStop => ({
   id: `osm:node:${i}`, name: `Stop ${i}`, lat: 35 + i / 1000, lng: -101 - i / 1000, kind, source: "osm",
-  reason: null, wikidata: null, wikipedia: null,
+  reason: null, detail: null, wikidata: null, wikipedia: null,
 });
 
 /** A corridor like the first ten tiles: a flood of one kind and a few of the rest. */
