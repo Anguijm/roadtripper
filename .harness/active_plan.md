@@ -70,3 +70,8 @@ nodes, which is on the water and close enough.
 - the extractor's waterfall line says why it is the one `waterway` that is a stop and that the parser in record.ts makes the real decision
 - a parser throw on one element is counted and named, not fatal to the run
 - Answered, not changed: writing to a temporary database and renaming would break the point of the upsert, which is to keep the live file's paid-for columns and let a rerun resume; every write is a transaction and an aborted run leaves a valid file with the rows written so far
+
+## Council round 4 on #78 (CONDITIONAL, bugs 5), and what changed
+
+- the naming of an element that threw uses optional chaining, since JSON.parse can hand back null or a number; the throw count has its own counter and only the first is named
+- Answered, not changed: the writer, which creates the schema, is made before the row count is taken (`const writer = storeWriter(db)` precedes `const existing`); smoked on a fresh database with a null line and a non-JSON line: one stop written, one not a stop, one not JSON, no crash

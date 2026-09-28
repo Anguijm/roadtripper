@@ -47,7 +47,7 @@ const removalFloor = existing === 0 ? 0 : Math.max(10, Math.floor(existing / 2))
 // `bad` is a line that is not JSON; `notAStop` is an element the parser
 // refused (no name, no position, none of our kinds), which is expected of
 // the extractor's loose superset and is reported, not counted as broken.
-let read = 0, kept = 0, bad = 0, notAStop = 0;
+let read = 0, kept = 0, bad = 0, notAStop = 0, threw = 0;
 let batch: RoadsideStop[] = [];
 const rl = createInterface({ input: createReadStream(from, { encoding: "utf8" }), crlfDelay: Infinity });
 for await (const line of rl) {
@@ -63,7 +63,9 @@ for await (const line of rl) {
   try {
     stop = fromOsmElement(el);
   } catch (err) {
-    if (notAStop === 0 || bad === 0) console.warn(`  element ${el.type}/${el.id} threw in the parser: ${err instanceof Error ? err.message : String(err)}`);
+    // Named once, counted always; `el` may be anything JSON.parse returns
+    // (null, a number), so the naming must not throw either.
+    if (threw++ === 0) console.warn(`  element ${String(el?.type)}/${String(el?.id)} threw in the parser: ${err instanceof Error ? err.message : String(err)}`);
     stop = null;
   }
   if (!stop) { notAStop++; continue; }
@@ -87,7 +89,7 @@ setMeta.run("source", from);
 setMeta.run("stops", String(kept));
 const byKind = db.prepare("SELECT kind, COUNT(*) AS n FROM roadside_stop GROUP BY kind ORDER BY n DESC").all() as Array<{ kind: string; n: number }>;
 const scoredKept = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE p IS NOT NULL").get() as { n: number }).n;
-console.log(`${dbPath}: ${read.toLocaleString()} elements read, ${bad} not JSON, ${notAStop.toLocaleString()} not a stop, ${kept.toLocaleString()} stops written, ${removed.toLocaleString()} removed, ${scoredKept.toLocaleString()} scores kept; by kind: ${byKind.map((r) => `${r.kind} ${r.n.toLocaleString()}`).join(", ")}`);
+console.log(`${dbPath}: ${read.toLocaleString()} elements read, ${bad} not JSON, ${notAStop.toLocaleString()} not a stop (${threw} of them threw in the parser), ${kept.toLocaleString()} stops written, ${removed.toLocaleString()} removed, ${scoredKept.toLocaleString()} scores kept; by kind: ${byKind.map((r) => `${r.kind} ${r.n.toLocaleString()}`).join(", ")}`);
 const withWd = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE wikidata IS NOT NULL").get() as { n: number }).n;
 const withWp = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE wikipedia IS NOT NULL").get() as { n: number }).n;
 console.log(`  ${withWd.toLocaleString()} with a Wikidata id, ${withWp.toLocaleString()} with a Wikipedia tag`);
