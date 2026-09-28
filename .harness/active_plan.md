@@ -53,3 +53,9 @@ nodes, which is on the water and close enough.
 - Rule 1: with `waterway === "waterfall"` removed from the parser, "maps tags to kinds…" fails on Gorman Falls. Restored. The extractor's smoke on a synthetic file keeps a `waterway=waterfall` node and (as the parser will decide) also passes the creek through as a candidate, which `fromOsmElement` then refuses: one parser.
 - Rule 2 and 3: with the score kept unconditionally in the upsert, "clears the score when the name, kind or the map's line changed…" fails. Restored, `cmp` clean.
 - 460 tests, 2 new; lint and types clean. Rule 4 runs after the describe pass; its numbers land in the PR.
+
+## Council round 1 on #78 (CONDITIONAL, bugs 6, maintainability 6), and what changed
+
+- `removeUnseen` takes a floor and refuses, throwing, when a run wrote fewer ids than it; the builder passes half the rows already there, so an empty or truncated extract cannot wipe the store. Tested, and with the check disabled the test fails.
+- the thirty-second lock wait says why thirty and what a timeout means; the upsert says why the compare is exact and what a typo costs, and points at the test
+- Answered, not changed: the store is written only offline by this repository's own Node and better-sqlite3, whose bundled SQLite is 3.53.4 (`ON CONFLICT ... DO UPDATE` needs 3.24). The deployed app opens the file read-only and never runs the upsert.

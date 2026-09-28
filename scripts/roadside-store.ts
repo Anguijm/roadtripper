@@ -24,11 +24,22 @@ if (!from || !existsSync(from)) throw new Error("--from=<ndjson from scripts/osm
 
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
+// Thirty seconds: the describe pass commits a chunk every minute or two and
+// the scorer every few seconds, each holding the write lock for well under a
+// second, so a rebuild running beside them waits a moment, not forever.
+// Past thirty seconds something is wrong (a hung writer) and failing with
+// SQLITE_BUSY is the right answer; a rerun resumes, since every write is an
+// upsert.
 db.pragma("busy_timeout = 30000");
 // Upsert, not replace: a rebuild keeps every description fetched and every
 // score bought for a stop whose record did not change, and removes the
 // stops that are no longer in the extract. See src/lib/roadside/store-write.ts.
 const writer = storeWriter(db);
+// The floor for removing stops: half of what is already there. A rebuild of
+// the same country writes about the same count; an empty or truncated
+// extract writes far fewer and must not delete the rest.
+const existing = (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop").get() as { n: number }).n;
+const removalFloor = Math.floor(existing / 2);
 
 let read = 0, kept = 0, bad = 0;
 let batch: RoadsideStop[] = [];
@@ -48,7 +59,7 @@ for await (const line of rl) {
   if (batch.length >= 10_000) { writer.write(batch); batch = []; process.stdout.write(`\r  ${read.toLocaleString()} read, ${kept.toLocaleString()} stops   `); }
 }
 if (batch.length) writer.write(batch);
-const removed = writer.removeUnseen();
+const removed = writer.removeUnseen(removalFloor);
 process.stdout.write("\n");
 // ANALYZE after the load so the planner knows the (lat, lng) index is
 // selective; without it, a range query on a fresh table may scan.

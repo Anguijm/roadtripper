@@ -16,12 +16,24 @@ describe("rebuilding the store keeps what was paid for", () => {
     db.prepare("UPDATE roadside_stop SET p = 0.8, scored_at = 't', short = 'thing', extract = 'About a.', url = 'https://x', described_at = 't' WHERE id = 'a'").run();
     w = storeWriter(db);
     w.write([stop("a", { wikidata: "Q1" }), stop("b", { lat: 36 })]);
-    expect(w.removeUnseen()).toBe(1);
+    expect(w.seen()).toBe(2);
+    expect(w.removeUnseen(1)).toBe(1);
     expect(row(db, "gone")).toBeUndefined();
     const a = row(db, "a")!;
     expect(a.p).toBe(0.8);
     expect(a.extract).toBe("About a.");
     expect(row(db, "b")!.lat).toBe(36);
+  });
+
+  it("refuses to remove anything when a run wrote too few stops, so an empty extract cannot wipe the store", () => {
+    const db = new Database(":memory:");
+    let w = storeWriter(db);
+    w.write([stop("a"), stop("b"), stop("c"), stop("d")]);
+    w = storeWriter(db);
+    w.write([stop("a")]);
+    expect(() => w.removeUnseen(2)).toThrow(/refusing to remove/);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM roadside_stop").get()).toEqual({ n: 4 });
+    expect(w.removeUnseen(1)).toBe(3);
   });
 
   it("clears the score when the name, kind or the map's line changed, and the lines when the link changed", () => {

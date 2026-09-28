@@ -35,6 +35,14 @@ export const STORE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
+// The "unchanged" test is an exact compare of name, kind and the map's
+// line, because those three are the model's state: any change to them is
+// a different question and the old answer must not stand. The cost of
+// being exact is that a mapper fixing a typo in a name clears a score that
+// was fine, and rebuying it is about $0.0002 (a fiftieth of a cent). The
+// alternative, a fuzzy compare, would keep answers to questions that
+// were never asked. The lines from the encyclopedias key only on the links
+// they came from. All of this is pinned in __tests__/store-write.test.ts.
 const UPSERT = `
   INSERT INTO roadside_stop (id, name, lat, lng, kind, detail, wikidata, wikipedia)
   VALUES (@id, @name, @lat, @lng, @kind, @detail, @wikidata, @wikipedia)
@@ -63,8 +71,15 @@ const UPSERT = `
 export interface StoreWriter {
   /** Upsert a batch in one transaction and remember the ids as seen. */
   write(stops: readonly RoadsideStop[]): void;
-  /** Remove every stop not written during this run and return how many. */
-  removeUnseen(): number;
+  /** How many distinct ids this run has written. */
+  seen(): number;
+  /**
+   * Remove every stop not written during this run and return how many.
+   * Refuses, throwing, when fewer than `minSeen` ids were written: an
+   * empty or truncated extract must not wipe the store, and the caller
+   * says what "too few" is (the builder uses half the rows already there).
+   */
+  removeUnseen(minSeen: number): number;
 }
 
 /**
@@ -82,8 +97,14 @@ export function storeWriter(db: Database.Database): StoreWriter {
       see.run(s.id);
     }
   });
+  const seen = () => (db.prepare("SELECT COUNT(*) AS n FROM seen").get() as { n: number }).n;
   return {
     write: (stops) => writeMany(stops),
-    removeUnseen: () => db.prepare("DELETE FROM roadside_stop WHERE id NOT IN (SELECT id FROM seen)").run().changes,
+    seen,
+    removeUnseen: (minSeen) => {
+      const n = seen();
+      if (n < minSeen) throw new Error(`refusing to remove unseen stops: only ${n.toLocaleString()} written this run, under the floor of ${minSeen.toLocaleString()}; is the extract empty or truncated?`);
+      return db.prepare("DELETE FROM roadside_stop WHERE id NOT IN (SELECT id FROM seen)").run().changes;
+    },
   };
 }
