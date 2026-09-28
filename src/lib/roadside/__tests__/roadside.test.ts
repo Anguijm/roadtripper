@@ -86,6 +86,10 @@ describe("the roadside record", () => {
   it("maps tags to kinds, tourism first, and drops a malformed wikidata id", () => {
     expect(kindFromTags({ tourism: "viewpoint", historic: "monument" })).toBe("viewpoint");
     expect(kindFromTags({ natural: "waterfall" })).toBe("waterfall");
+    // The tag waterfalls actually carry (one `natural=waterfall` in the whole US store; `waterway=waterfall` is the norm).
+    expect(kindFromTags({ waterway: "waterfall", name: "Gorman Falls" })).toBe("waterfall");
+    // A creek with a Wikidata id is still not a stop: the waterfall rule is the only `waterway` that is.
+    expect(kindFromTags({ waterway: "stream", name: "Cow Fork", wikidata: "Q1" })).toBeNull();
     expect(kindFromTags({ man_made: "lighthouse" })).toBe("lighthouse");
     expect(kindFromTags({ shop: "gift" })).toBeNull();
     const s = fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { tourism: "museum", name: "M", wikidata: "not-a-qid" } });

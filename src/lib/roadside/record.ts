@@ -187,7 +187,11 @@ export function kindFromTags(tags: Record<string, string>): RoadsideKind | null 
   if (tags.man_made === "lighthouse") return "lighthouse";
   // Observation towers are stops; radio masts (tower:type=communication) are not.
   if (tags.man_made === "tower" && tags["tower:type"] === "observation") return "tower";
-  if (tags.natural === "waterfall") return "waterfall";
+  // Waterfalls are tagged `waterway=waterfall` in practice; `natural=waterfall`
+  // is the old key and turned up once in the whole United States store.
+  // Checked before the Wikidata-only rule below, which excludes anything with
+  // a `waterway` key (rivers and creeks are not stops); a waterfall is.
+  if (tags.natural === "waterfall" || tags.waterway === "waterfall") return "waterfall";
   if (tags.natural === "arch") return "arch";
   if (tags.natural === "cave_entrance") return "cave";
   if (tags.boundary === "national_park" || tags.boundary === "protected_area" || tags.leisure === "nature_reserve") return "park";

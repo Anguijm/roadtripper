@@ -19,9 +19,10 @@ export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
  * different version": the next run starts that corridor over from tile 1
  * under the new list, and never merges tiles pulled under two lists. That
  * costs a corridor's worth of Overpass requests, which is the price of
- * changing the question. 1 was the first guess; 2 is step 19's list.
+ * changing the question. 1 was the first guess; 2 is step 19's list; 3
+ * adds `waterway=waterfall`, the tag waterfalls actually carry.
  */
-export const QUERY_VERSION = 2;
+export const QUERY_VERSION = 3;
 export const USER_AGENT = "roadtripper (road-trip planner in development; contact: anguijm@gmail.com)";
 /**
  * Pacing, set against the public instance's published policy: it asks for
@@ -73,6 +74,7 @@ export function overpassQuery(box: BoundingBox, timeoutSeconds = 45): string {
     `["man_made"="lighthouse"]`,
     `["man_made"="tower"]["tower:type"="observation"]`,
     `["natural"~"^(waterfall|arch|cave_entrance)$"]`,
+    `["waterway"="waterfall"]`,
     `["boundary"~"^(national_park|protected_area)$"]`,
     `["leisure"="nature_reserve"]`,
     `["wikidata"]`,
