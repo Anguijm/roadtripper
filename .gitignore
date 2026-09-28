@@ -55,3 +55,10 @@ data/*.sqlite.tmp*
 # Raw corridor pulls from scripts/pull-corridor.ts: read locally for step 19,
 # never committed. The hand-labelled set (step 20) is the committed artifact.
 data/corridors/
+
+# OpenStreetMap extracts for the nationwide roadside store (gigabytes; rebuilt from Geofabrik)
+data/osm/
+.venv-osm/
+data/roadside.sqlite
+data/roadside.sqlite-shm
+data/roadside.sqlite-wal

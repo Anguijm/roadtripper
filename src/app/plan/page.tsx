@@ -15,7 +15,7 @@ import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/
 import { parsePersonaId } from "@/lib/personas";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 import { formatDeadline } from "@/lib/plan/deadline";
-import { roadsideForRoute } from "@/lib/roadside/load";
+import { roadsideForRoute } from "@/lib/roadside/store";
 
 interface PlanSearchParams {
   from?: string;

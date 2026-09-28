@@ -51,6 +51,14 @@ describe("roadside stops on the plan page (step 22)", () => {
     expect(html.match(/data-roadside-about/g)?.length ?? 0).toBe(1);
   });
 
+  it("renders a stop's name and line as text, so markup in the store's crowd text stays characters", () => {
+    const hostile: RoadsideMarker = { ...stops[1], id: "osm:node:9", name: "<b>Bold</b> & Co", about: "<img src=x onerror=alert(1)> a line" };
+    const html = renderToString(<PlanWorkspace {...base} roadsideStops={[hostile]} />);
+    expect(html).toContain("&lt;b&gt;Bold&lt;/b&gt; &amp; Co");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt; a line");
+    expect(html).not.toContain("<img src=x");
+  });
+
   it("shows nothing and says nothing when no pulled corridor is near the route", () => {
     const html = renderToString(<PlanWorkspace {...base} roadsideStops={[]} />);
     expect(html).not.toContain("data-roadside");

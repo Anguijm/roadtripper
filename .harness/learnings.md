@@ -638,3 +638,44 @@ a failed push before it starts waiting.
 distinct on the road, and at state-wide zoom they overlap around the two
 cities. Density is the next problem on this surface; the tests pass at
 any density.
+
+## Session 29 (2026-09-28, afternoon Japan time): the nationwide store
+
+**The product is the app, not the session.** John's words: pull the phone
+out, open the website, put a few characteristics of the trip in, and
+without hitting Claude get feedback back. Step 22 as first shipped was a
+demo on one road that I had stitched by hand, and I had framed the next
+step as "give me your route and I will score it", which is the opposite
+of his requirement. When a feature only works because I ran something,
+say so, and build the store. The right shape was already in the repo
+twice: the atlas and the drive graph are built once, offline, and looked
+up at plan time.
+
+**Hold the smallest thing, in the language that holds it cheaply.** The
+first extractor kept 56 million node references in Python sets and lists
+and would have run out of memory in the node pass. The second samples
+each way to a handful of nodes (18 million), hands the id list to
+pyosmium's C++ `IdFilter` so only those nodes reach Python, and keeps the
+positions in two numpy arrays by rank. Fourteen minutes for the whole
+country, memory flat at half the machine.
+
+**Bun's SQLite binding crashes at startup; the atlas scripts already knew.**
+`better-sqlite3` under Bun died with a NAPI fatal error before the first
+line ran; `scripts/export-atlas.mjs` runs under Node for that reason and
+I had not read why. The store tools are bundled with `bun build
+--target=node` and run with Node; the package scripts say so.
+
+**Never `pkill -f` a pattern that is in your own command line.** Twice
+the pattern matched the shell that was running it, and the shell died
+with exit 144 before the rest of the command ran. Kill by a PID written
+to a file, or match on `/proc/<pid>/cmdline` of the processes you mean.
+
+**`natural=waterfall` is not how waterfalls are tagged.** One in the whole
+United States store. The common tag is `waterway=waterfall`; the record's
+tag list needs it, and `waterway` sits in the not-a-stop list for the
+Wikidata-only kind, so the two rules must not collide. A follow-up.
+
+**A snapshot store needs a deploy path that is not git.** 58 MB is fine
+on a volume and wrong in a repository; the plan page reads it from
+`data/roadside.sqlite` beside the atlas, and getting it onto the
+deployed app is its own small step.
