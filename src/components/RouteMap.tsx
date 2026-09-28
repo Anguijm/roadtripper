@@ -23,6 +23,27 @@ export interface TripStopMarker {
   lng: number;
 }
 
+/** A roadside survivor to draw: not a city, so no cityId, and never a trip stop. */
+export interface RoadsideMapMarker {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+/** Amber, the colour the pending pulse already uses, so it reads as "ours" and unlike any persona's route. */
+export const ROADSIDE_COLOR = "#e3b341";
+
+/**
+ * A roadside marker: a diamond, so it cannot be mistaken for a round city
+ * candidate or a numbered square trip stop even in greyscale. Same 44 px
+ * canvas as the candidate icon for the touch target. Pure: an SVG data URI
+ * and two numbers; the google.maps objects are made by the caller.
+ */
+export function roadsideMarkerSvg(color = ROADSIDE_COLOR): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><path d="M22 13 L31 22 L22 31 L13 22 Z" fill="${color}" fill-opacity="0.95" stroke="#0d1117" stroke-width="2"/></svg>`;
+}
+
 export interface SearchArc {
   center: google.maps.LatLngLiteral;
   radiusMeters: number;
@@ -50,6 +71,8 @@ interface RouteMapProps {
   pending?: boolean;
   /** 180° arc visualising the radial search area ahead of the frontier stop */
   searchArc?: SearchArc | null;
+  /** Roadside survivors along the route — amber diamonds, distinct from cities and trip stops */
+  roadsideStops?: RoadsideMapMarker[];
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -157,6 +180,7 @@ function PolylineRenderer({
   tripStops,
   pending,
   searchArc,
+  roadsideStops,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -169,6 +193,7 @@ function PolylineRenderer({
   tripStops?: TripStopMarker[];
   pending?: boolean;
   searchArc?: SearchArc | null;
+  roadsideStops?: RoadsideMapMarker[];
 }) {
   const map = useMap();
   const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
@@ -377,6 +402,26 @@ function PolylineRenderer({
     };
   }, [map, tripStops, routeColor]);
 
+  // ── Effect 4: roadside survivors ───────────────────────────────────────
+  // Diamonds in amber, below trip stops and above candidates in z-order, so a
+  // numbered stop always wins a tap and a roadside stop wins over a city dot.
+  // Rebuilt wholesale when the list changes: it changes only with the route.
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+    if (!roadsideStops || roadsideStops.length === 0) return;
+    const icon: google.maps.Icon = {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(roadsideMarkerSvg())}`,
+      anchor: new google.maps.Point(22, 22),
+      scaledSize: new google.maps.Size(44, 44),
+    };
+    const markers = roadsideStops.map(
+      (s) => new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon })
+    );
+    return () => {
+      markers.forEach((m) => m.setMap(null));
+    };
+  }, [map, roadsideStops]);
+
   // Highlight effect: only touch the markers that actually changed
   // (previous highlight + new highlight). Avoids N-marker churn per hover.
   useEffect(() => {
@@ -505,6 +550,7 @@ export default function RouteMap({
   tripStops,
   pending = false,
   searchArc,
+  roadsideStops,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -562,6 +608,7 @@ export default function RouteMap({
             highlightedCandidateId={highlightedCandidateId}
             onCandidateClick={onCandidateClick}
             tripStops={tripStops}
+            roadsideStops={roadsideStops}
             pending={pending}
             searchArc={searchArc}
           />

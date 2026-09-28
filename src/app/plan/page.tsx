@@ -15,6 +15,7 @@ import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/
 import { parsePersonaId } from "@/lib/personas";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 import { formatDeadline } from "@/lib/plan/deadline";
+import { roadsideForRoute } from "@/lib/roadside/load";
 
 interface PlanSearchParams {
   from?: string;
@@ -254,6 +255,7 @@ export default async function PlanPage({
           origin={origin}
           destination={destination}
           encodedPolyline={route.encodedPolyline}
+          roadsideStops={roadsideForRoute(route.encodedPolyline)}
           bounds={route.bounds}
           candidateMarkers={candidateMarkers}
           waypointFetch={waypointFetch}
