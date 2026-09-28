@@ -124,3 +124,66 @@ export function labelSample(stops: readonly RoadsideStop[], opts: SampleOptions 
   if (picked.length < size) fill(Infinity);
   return picked;
 }
+
+/**
+ * The second sheet (2026-09-28): not a hundred unknowns, but the model's yes
+ * list with twenty of its no calls, for John to tap through with a
+ * description and a map link. He said a name and a kind are not enough to
+ * judge a place by, and that most of the judging is automatable; both are
+ * true, so the model judges first and he checks what it proposes, which is
+ * also how the app will be used.
+ */
+export type SheetGroup = "yes" | "near_no" | "random_no";
+export interface SheetRow {
+  stop: RoadsideStop;
+  p: number;
+  group: SheetGroup;
+}
+export interface SheetOptions {
+  /** p at or above this is a yes. 0.5: yes and no are equally actionable on a sheet. */
+  threshold?: number;
+  /** The yes list is cut here by probability; more than this is not a ten-minute read. */
+  maxYes?: number;
+  /** The no calls just under the line: where the model was unsure. Reported, never scored. */
+  near?: number;
+  /** No calls drawn at random from the rest: the thin net for a buried gem. Scored. */
+  random?: number;
+  seed?: number;
+}
+export const SHEET_THRESHOLD = 0.5;
+export const SHEET_MAX_YES = 150;
+export const SHEET_NEAR = 10;
+export const SHEET_RANDOM = 10;
+
+/**
+ * Build the sheet from scores. Stops without a score are left out. Yes rows
+ * come first by probability, then the ten just under the line, then the ten
+ * at random (seeded), each group by probability. No stop appears twice.
+ */
+export function sheetFromScores(stops: readonly RoadsideStop[], scores: ReadonlyMap<string, number>, opts: SheetOptions = {}): SheetRow[] {
+  const threshold = opts.threshold ?? SHEET_THRESHOLD;
+  const maxYes = opts.maxYes ?? SHEET_MAX_YES;
+  const near = opts.near ?? SHEET_NEAR;
+  const random = opts.random ?? SHEET_RANDOM;
+  const byP = (a: { p: number; stop: RoadsideStop }, b: { p: number; stop: RoadsideStop }) => b.p - a.p || a.stop.name.localeCompare(b.stop.name);
+  const seen = new Set<string>();
+  const scored: Array<{ stop: RoadsideStop; p: number }> = [];
+  for (const stop of stops) {
+    const p = scores.get(stop.id);
+    if (p === undefined || !Number.isFinite(p) || seen.has(stop.id)) continue;
+    seen.add(stop.id);
+    scored.push({ stop, p });
+  }
+  const yes = scored.filter((r) => r.p >= threshold).sort(byP).slice(0, maxYes);
+  const below = scored.filter((r) => r.p < threshold).sort(byP);
+  const nearRows = below.slice(0, near);
+  // The random draw is from what is left below the line, so a stop cannot
+  // be both "just under" and "at random".
+  const pool = shuffled(below.slice(near), rng(opts.seed ?? DEFAULT_SEED));
+  const randomRows = pool.slice(0, random).sort(byP);
+  return [
+    ...yes.map((r) => ({ ...r, group: "yes" as const })),
+    ...nearRows.map((r) => ({ ...r, group: "near_no" as const })),
+    ...randomRows.map((r) => ({ ...r, group: "random_no" as const })),
+  ];
+}
