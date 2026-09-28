@@ -57,3 +57,8 @@ unchanged by this.
 - comments: why the two key lists and their order and how to extend them; what a PROGRESS_VERSION bump does and how to verify it; the clip budget's tie to MAX_REASON_LENGTH
 - taken from the deferred list: a test that HTML in a description stays characters
 - Answered, not changed: no renderer reads `detail` yet. The four `dangerouslySetInnerHTML` uses in the app (src/components/NeighborhoodPanel.tsx ) carry JSON-LD and map styling, none a stop's text; when `detail` is shown it goes in the same JSX text slot as a waypoint's reason (RecommendationList.tsx, `data-reason`), which React escapes
+
+## Council round 2 on #70 (CONDITIONAL, bugs 9), and what changed
+
+- an explicit null `tags` returns null rather than throwing; "Yes" and "YES" are "yes". Both tested.
+- Answered, not changed: tag values from Overpass are strings by its JSON contract, so no `String()` coercion; a ZWJ emoji sequence at the cut is a family of code points and the clip may split it, which is a visual glitch at worst on crowd text and not worth a grapheme segmenter here.

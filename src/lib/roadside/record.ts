@@ -142,6 +142,8 @@ const WHAT_IT_IS_KEYS = ["amenity", "shop", "leisure", "craft", "office", "man_m
 const SUBTYPE_KEYS = ["artwork_type", "memorial", "museum", "attraction", "tower:type", "castle_type", "ruins"] as const;
 
 const words = (v: string) => v.replace(/_/g, " ").replace(/;/g, ", ").trim();
+/** OSM's convention is lower-case "yes"; mappers write "Yes" and "YES" too, and none of them is a subtype. */
+const isYes = (v: string) => v.toLowerCase() === "yes";
 
 /**
  * What the tags say about the place beyond its kind, or null. The
@@ -150,18 +152,21 @@ const words = (v: string) => v.replace(/_/g, " ").replace(/;/g, ", ").trim();
  * both, the subtype the tags spell, and for a Wikidata-only place the
  * value of the first tag that says what it is. "yes" is no subtype.
  */
-export function detailFromTags(tags: Record<string, string> = {}): string | null {
+export function detailFromTags(tags: Record<string, string> | null | undefined = {}): string | null {
+  // A default parameter covers undefined only; an explicit null (an element
+  // JSON-decoded with "tags": null) would otherwise throw on the first read.
+  if (!tags) return null;
   const description = (tags.description ?? tags["description:en"] ?? "").trim();
   if (description) return clip(description);
   const inscription = (tags.inscription ?? tags["inscription:en"] ?? "").trim();
   if (inscription) return clip(inscription);
   for (const k of SUBTYPE_KEYS) {
     const v = (tags[k] ?? "").trim();
-    if (v && v !== "yes") return clip(words(v));
+    if (v && !isYes(v)) return clip(words(v));
   }
   for (const k of WHAT_IT_IS_KEYS) {
     const v = (tags[k] ?? "").trim();
-    if (v && v !== "yes") return clip(words(v));
+    if (v && !isYes(v)) return clip(words(v));
   }
   return null;
 }

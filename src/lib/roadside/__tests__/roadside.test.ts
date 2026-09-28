@@ -345,6 +345,8 @@ describe("what the tags say about a place (detail)", () => {
     expect(at({ wikidata: "Q1", building: "yes" })).toBeNull();
     expect(at({ tourism: "attraction" })).toBeNull();
     expect(at({ tourism: "artwork", artwork_type: "yes" })).toBeNull();
+    expect(at({ tourism: "artwork", artwork_type: "YES" })).toBeNull();
+    expect(at({ wikidata: "Q1", building: "Yes" })).toBeNull();
   });
 
   it("keeps the text as the mapper wrote it: HTML stays characters, and nothing is a reason", () => {
@@ -357,6 +359,7 @@ describe("what the tags say about a place (detail)", () => {
     const parsed = RoadsideStopSchema.safeParse(old);
     expect(parsed.success && parsed.data.detail).toBeNull();
     expect(detailFromTags()).toBeNull();
+    expect(detailFromTags(null)).toBeNull();
   });
 
   it("clips a long description at a word, never mid-word, within the reason bound", () => {
