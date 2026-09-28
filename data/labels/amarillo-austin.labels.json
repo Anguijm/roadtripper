@@ -1,0 +1,253 @@
+{
+  "corridor": "amarillo-austin",
+  "sampledAt": "2026-09-28T00:52:25.443Z",
+  "importedAt": "2026-09-28T01:33:18.813Z",
+  "labels": [
+    {
+      "id": "osm:way:1059981743",
+      "name": "The Big Texan Steak Ranch",
+      "kind": "notable",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:609552420",
+      "name": "Helium Monument",
+      "kind": "historic",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:368165750",
+      "name": "Museum of the Llano Estacado",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13597850817",
+      "name": "Amarillo Mural",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:6429057241",
+      "name": "Blue Cadillac",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:681754325",
+      "name": "Jimmy Dean Museum",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:50535529",
+      "name": "American Quarter Horse Museum",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:6429057242",
+      "name": "White Cadillac",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13020910246",
+      "name": "Amarillo Scaregrounds",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:177852930",
+      "name": "National Ranching Heritage Center",
+      "kind": "theme_park",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13734228159",
+      "name": "Cattleman's Cafe Neon Sign",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:333935519",
+      "name": "Panhandle-Plains Historical Museum",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13732006701",
+      "name": "Tascosa Drive-In",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13392417919",
+      "name": "Texas Panhandle War Memorial Center",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:178103601",
+      "name": "Prairie Dog Town",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:1424542197",
+      "name": "Tascosa Drive-In Original Screen",
+      "kind": "historic",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13925720249",
+      "name": "Texas Panhandle Sports Hall of Fame",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13519907581",
+      "name": "Bronze Steers",
+      "kind": "artwork",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:6330177705",
+      "name": "Fighter Jet Display",
+      "kind": "historic",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:177636261",
+      "name": "Lubbock Lake Landmark Visitors Center",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:472440567",
+      "name": "Lubbock Lake National Historic Landmark",
+      "kind": "park",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:4060284050",
+      "name": "World War II Memorial",
+      "kind": "historic",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:179921622",
+      "name": "Don Harrington Discovery Center",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:6429057240",
+      "name": "Second Amendment Cowboy",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:9286241324",
+      "name": "Tex Randall statue",
+      "kind": "artwork",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:12118841343",
+      "name": "The Original Texans",
+      "kind": "artwork",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:12119451158",
+      "name": "Spirit Rock",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:368165537",
+      "name": "Swisher County Museum",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:688272732",
+      "name": "Amarillo Botanical Gardens",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:1191315040",
+      "name": "Hale County Farm & Ranch Museum",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:13521499595",
+      "name": "Madam Queen",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:11873425337",
+      "name": "Free Wall",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:4062007802",
+      "name": "Horse",
+      "kind": "artwork",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:12453383301",
+      "name": "Slug Bug Ranch",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:660600136",
+      "name": "Amarillo Museum of Art",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:6330177706",
+      "name": "Helicopter Display",
+      "kind": "historic",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:221452861",
+      "name": "Silent Wings Museum",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:4214957445",
+      "name": "Harrington House",
+      "kind": "museum",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:relation:11745088",
+      "name": "Amarillo Zoo",
+      "kind": "zoo",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:node:6429057243",
+      "name": "Light-Red Cadillac",
+      "kind": "attraction",
+      "label": "worth_it"
+    },
+    {
+      "id": "osm:way:406115842",
+      "name": "Museum of Texas Tech University",
+      "kind": "museum",
+      "label": "worth_it"
+    }
+  ]
+}
