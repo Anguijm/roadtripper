@@ -37,7 +37,7 @@ import TripsPage from "@/app/trips/page";
 import PlanLoading from "@/app/plan/loading";
 import PlanError from "@/app/plan/error";
 import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
-import { fitsTodayLine, kindWord, dayLabel, dayHeadingLine, tripShapeLine } from "@/lib/plan/words";
+import { fitsTodayLine, kindWord, dayHeadingLine, tripShapeLine } from "@/lib/plan/words";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 /**
@@ -222,22 +222,26 @@ describe("the words on the screens, against the glossary", () => {
     // A kind of place in sentence case, never an identifier.
     expect(kindWord("hidden_gem")).toBe("Hidden gem");
     expect(text).not.toMatch(/hidden_gem|HIDDEN GEM/);
-    // A day's heading (U3): the label counts the days a stretch takes at
-    // the budget (round 4: "over 2 days" in the numbers stood over a
-    // lone "Day 1"), then the ends, then the drive, and that it is over.
-    expect(dayLabel({ firstDay: 1, daysSpanned: 1 })).toBe("Day 1");
-    expect(dayLabel({ firstDay: 2, daysSpanned: 2 })).toBe("Days 2 and 3");
-    expect(dayLabel({ firstDay: 1, daysSpanned: 3 })).toBe("Days 1 to 3");
-    const stretch = { firstDay: 1, daysSpanned: 1, fromName: "Amarillo", toName: "Lubbock", minutes: 200, overBudget: false };
-    expect(dayHeadingLine(stretch, 240)).toBe("Day 1 · Amarillo to Lubbock · 3 h 20 min");
-    expect(dayHeadingLine({ ...stretch, firstDay: 2, daysSpanned: 2, fromName: "Lubbock", toName: "Austin", minutes: 361, overBudget: true }, 240)).toBe("Days 2 and 3 · Lubbock to Austin · 6 h 1 min, over the 4 h you wanted");
-    expect(dayHeadingLine({ ...stretch, minutes: null }, 240)).toBe("Day 1 · Amarillo to Lubbock");
-    // The trip's shape in one line, for two stretches or more: the count
-    // in words, the nights at the stops; none for one stretch.
-    expect(tripShapeLine([{ daysSpanned: 1, toName: "Lubbock" }, { daysSpanned: 2, toName: "Austin" }])).toBe("Three days, with a night in Lubbock");
-    expect(tripShapeLine([{ daysSpanned: 1, toName: "Lubbock" }, { daysSpanned: 1, toName: "Abilene" }, { daysSpanned: 2, toName: "Austin" }])).toBe("Four days, with nights in Lubbock and Abilene");
-    expect(tripShapeLine([{ daysSpanned: 1, toName: "Lubbock" }, { daysSpanned: 1, toName: "Abilene" }, { daysSpanned: 1, toName: "Brady" }, { daysSpanned: 1, toName: "Austin" }])).toBe("Four days, with nights in Lubbock, Abilene and Brady");
-    expect(tripShapeLine([{ daysSpanned: 2, toName: "Austin" }])).toBeNull();
+    // A day's heading (U3): the day's number, its ends, its drive. A day
+    // cut where the budget runs out is named by where (round 5: "Days 1
+    // and 2 · Amarillo to Austin" never said where day 1 ended), a town
+    // near the cut or the mile, and no heading is "over" anything.
+    const day = { index: 0, fromName: "Amarillo", toName: "Lubbock", minutes: 200 };
+    expect(dayHeadingLine(day)).toBe("Day 1 · Amarillo to Lubbock · 3 h 20 min");
+    expect(dayHeadingLine({ index: 1, fromName: "Lubbock", toName: "near Llano", minutes: 240 })).toBe("Day 2 · Lubbock to near Llano · 4 h");
+    expect(dayHeadingLine({ index: 2, fromName: "near Llano", toName: "Austin", minutes: 30 })).toBe("Day 3 · near Llano to Austin · 30 min");
+    expect(dayHeadingLine({ index: 1, fromName: "Lubbock", toName: "mile 319", minutes: 240 })).toBe("Day 2 · Lubbock to mile 319 · 4 h");
+    expect(dayHeadingLine({ ...day, minutes: null })).toBe("Day 1 · Amarillo to Lubbock");
+    // The trip's shape in one line, for two days or more: the count in
+    // words, where each night is (in a stop's town, near a cut's town, at
+    // a cut's mile); none for one day.
+    const stop = (toName: string) => ({ toName, endKind: "stop" as const });
+    expect(tripShapeLine([stop("Lubbock"), { toName: "near Llano", endKind: "near" }, { toName: "Austin", endKind: "end" }])).toBe("Three days, with nights in Lubbock and near Llano");
+    expect(tripShapeLine([{ toName: "near Snyder", endKind: "near" }, { toName: "Austin", endKind: "end" }])).toBe("Two days, with a night near Snyder");
+    expect(tripShapeLine([{ toName: "mile 176", endKind: "mile" }, { toName: "Austin", endKind: "end" }])).toBe("Two days, with a night at mile 176");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), { toName: "Austin", endKind: "end" }])).toBe("Three days, with nights in Lubbock and Abilene");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), stop("Brady"), { toName: "Austin", endKind: "end" }])).toBe("Four days, with nights in Lubbock, Abilene and Brady");
+    expect(tripShapeLine([{ toName: "Austin", endKind: "end" }])).toBeNull();
     expect(tripShapeLine([])).toBeNull();
   });
 

@@ -387,6 +387,24 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
   return { text: name, color: "#f0f6fc", fontSize: "11px", fontWeight: "500", className: "rt-candidate-label" };
 }
 
+/**
+ * A stop's square with its number drawn in it, on the same 64 px canvas
+ * as the endpoints so the town's name sits 30 px above the square in the
+ * map's one label style (Gauntlet U3, round 5: the end of a framed day
+ * read as a "1" badge with no name). The number is in the icon, since a
+ * marker has one label and the name is it. Must be called inside effects
+ * where google.maps is guaranteed loaded.
+ */
+function tripStopIcon(fill: string, n: number): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect x="22" y="30" width="20" height="20" fill="${fill}" stroke="#f0f6fc" stroke-width="2"/><text x="32" y="44.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#0d1117">${n}</text></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: new google.maps.Point(32, 40),
+    scaledSize: new google.maps.Size(64, 64),
+    labelOrigin: new google.maps.Point(32, 10),
+  };
+}
+
 // Set the first time a route polyline fails to decode, so the console hears
 // about it once per page load, not once per rerun of Effect 1a.
 let warnedBadPolyline = false;
@@ -726,6 +744,9 @@ function PolylineRenderer({
   }, [map, candidates, focusCandidateIds]);
 
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
+  // The square with its number, and the town's name above it as the
+  // endpoints carry theirs (round 5): a stop is where a day ends, and the
+  // framed day's end must read as a town.
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!tripStops || tripStops.length === 0) return;
@@ -736,22 +757,8 @@ function PolylineRenderer({
         map,
         title: `Stop ${index + 1}: ${stop.cityName}`,
         zIndex: 2000,
-        label: {
-          text: String(index + 1),
-          color: "#0d1117",
-          fontSize: "12px",
-          fontWeight: "700",
-        },
-        icon: {
-          path:
-            "M -10 -10 L 10 -10 L 10 10 L -10 10 z" /* square */,
-          fillColor: routeColor,
-          fillOpacity: 1,
-          strokeColor: "#f0f6fc",
-          strokeWeight: 2,
-          scale: 1,
-          anchor: new google.maps.Point(0, 0),
-        },
+        label: endpointLabel(stop.cityName),
+        icon: tripStopIcon(routeColor, index + 1),
       });
     });
 
@@ -982,6 +989,16 @@ export default function RouteMap({
         // default UI off there is nothing at the bottom of the map to sit
         // under the sheet (Gauntlet U1, rule 6).
         disableDefaultUI
+        // Fractional zooms, so a fit lands on the zoom at which the road
+        // fills the strip above the sheet rather than the whole zoom below
+        // it (Gauntlet U3, round 5: a framed day 145 px tall at zoom 7
+        // dropped to 72 at zoom 6 and sat in the middle of the strip with
+        // the next day's road running on under the sheet). Google's
+        // default is whole zooms on a raster map; the zoom rule for the
+        // diamonds compares against whole steps and reads a fraction as
+        // it should. Pinned by the fit test in
+        // src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx.
+        isFractionalZoomEnabled
         zoomControl={true}
         // Google's + and - at the bar's 44 px target (rule 7), not its 40.
         controlSize={MAP_CONTROL_SIZE_PX}

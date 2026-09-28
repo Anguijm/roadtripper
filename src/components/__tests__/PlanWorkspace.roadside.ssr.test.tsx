@@ -133,7 +133,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
   });
 
   it("shows the ten strongest first, then a control that says how many there are in all", () => {
-    const html = render({ roadsideStops: fourteen });
+    // A drive within the budget, so the road is one day and one list
+    // (since U3 a day over the budget is cut, and the list with it).
+    const html = render({ roadsideStops: fourteen, initialDurationSeconds: 4 * 3600 });
     expect(html).toContain("14 places worth pulling over for");
     const ids = rowIds(html);
     expect(ids).toHaveLength(ROADSIDE_SHOWN_FIRST);
@@ -283,6 +285,22 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(pad).toEqual({ ...STRIP_MARGIN_PX, bottom: Math.round(phone.mapHeightPx - strip) + STRIP_MARGIN_PX.bottom });
     expect(innerW).toBe(310);
     expect(innerH).toBe(141);
+    // The map takes fractional zooms (Gauntlet U3, round 5), so the fit
+    // lands where the road fills the inner area rather than on the whole
+    // zoom below it: here between 5 and 6, with the road's height the
+    // area's 141 px, not zoom 5's 134; and a framed day 145 px tall at
+    // zoom 7 keeps 141 rather than dropping to 72 at zoom 6 and sitting
+    // small in the strip with the next day's road running on under the
+    // sheet. The option is on the map's source; the zoom is the
+    // projection's own arithmetic (a zoom step doubles the size).
+    const map = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
+    expect(map).toMatch(/^\s*isFractionalZoomEnabled\s*$/m);
+    const fractional = Math.min(5 + Math.log2(innerW / size(5).w), 5 + Math.log2(innerH / size(5).h));
+    expect(fractional).toBeGreaterThan(5);
+    expect(fractional).toBeLessThan(6);
+    const at = size(fractional);
+    expect(Math.max(at.w / innerW, at.h / innerH)).toBeCloseTo(1, 6);
+    expect(Math.round(at.h)).toBe(innerH);
     expect(PLAN_HEADER_PX).toBe(49);
     expect(STRIP_MARGIN_PX).toEqual({ top: 40, right: 40, bottom: 32, left: 40 });
     // A strip too short to frame a road falls back; so does a desktop, or

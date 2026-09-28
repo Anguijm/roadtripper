@@ -67,49 +67,45 @@ export function kindWord(type: WaypointType): string {
 // ── The days (Gauntlet U3) ──────────────────────────────────────────────
 
 /**
- * A stretch's label by the days it takes: "Day 1"; longer than the budget,
- * "Days 1 and 2", and past two "Days 1 to 3". The numbers are the days'
- * own, so a two-day stretch after day 1 is "Days 2 and 3" (round 4: "8 h
- * of driving left over 2 days" stood over "Day 1 · Amarillo to Austin").
+ * A day's heading, a sentence with its figures: "Day 1 · Amarillo to
+ * Lubbock · 3 h 20 min"; a day cut where the budget runs out, "Day 1 ·
+ * Amarillo to near Snyder · 4 h", then "Day 2 · near Snyder to Austin ·
+ * 3 h 50 min"; the drive left off while the stretch's route is not known.
+ * Round 4's "Days 1 and 2 · Amarillo to Austin · 7 h 50 min, over the 4 h
+ * you wanted" told the count and not where day 1 ended; the cut in
+ * days.ts now says where, so no heading is ever over the budget. The
+ * figures are set in the mono face by the caller (Figures).
  */
-export function dayLabel(day: Pick<TripDay, "firstDay" | "daysSpanned">): string {
-  const last = day.firstDay + day.daysSpanned - 1;
-  if (day.daysSpanned <= 1) return `Day ${day.firstDay}`;
-  if (day.daysSpanned === 2) return `Days ${day.firstDay} and ${last}`;
-  return `Days ${day.firstDay} to ${last}`;
+export function dayHeadingLine(day: Pick<TripDay, "index" | "fromName" | "toName" | "minutes">): string {
+  let line = `Day ${day.index + 1} · ${day.fromName} to ${day.toName}`;
+  if (day.minutes !== null) line += ` · ${formatDurationPlain(Math.round(day.minutes * 60))}`;
+  return line;
 }
 
-/**
- * A day's heading, a sentence with its figures: "Day 1 · Amarillo to
- * Lubbock · 3 h 20 min"; over the budget, "Days 2 and 3 · Lubbock to
- * Austin · 6 h 1 min, over the 4 h you wanted"; the drive left off while
- * the stretch's route is not known. The figures are set in the mono face
- * by the caller (Figures).
- */
-export function dayHeadingLine(day: Pick<TripDay, "firstDay" | "daysSpanned" | "fromName" | "toName" | "minutes" | "overBudget">, budgetMinutesPerDay: number): string {
-  let line = `${dayLabel(day)} · ${day.fromName} to ${day.toName}`;
-  if (day.minutes !== null) {
-    line += ` · ${formatDurationPlain(Math.round(day.minutes * 60))}`;
-    if (day.overBudget) line += `, over the ${formatDurationPlain(budgetMinutesPerDay * 60)} you wanted`;
-  }
-  return line;
+/** Where a night is spent, after "a night" or "nights": "in Lubbock" at a stop, "near Snyder" or "at mile 176" at a cut. */
+function nightAt(day: Pick<TripDay, "toName" | "endKind">): string {
+  if (day.endKind === "near") return day.toName;
+  if (day.endKind === "mile") return `at ${day.toName}`;
+  return `in ${day.toName}`;
 }
 
 /**
  * The trip's shape in one line under the sheet's numbers, for a trip of
- * two or more stretches: "Two days, with a night in Lubbock", "Four days,
- * with nights in Lubbock and Abilene". The count is every stretch's days
- * added up, in words (digits past twenty); the nights are the stops, in
- * trip order. Not a second telling of any day (round 4: the strip of day
- * rows repeated each heading): where a day ends and what fits in it is
- * the day's own heading and section. Null for one stretch, whose heading
- * is a few lines down.
+ * two or more days: "Two days, with a night near Snyder", "Three days,
+ * with nights in Lubbock and Abilene", "Three days, with nights in Lubbock
+ * and near Llano". The count is the days, in words (digits past twenty);
+ * the nights are where each day but the last ends, in order, a stop's
+ * town or a cut's place; nights all in towns share one "in". Not a second
+ * telling of any day (round 4: the strip of day rows repeated each
+ * heading): where a day ends and what fits in it is the day's own heading
+ * and section. Null for one day, whose heading is a few lines down.
  */
-export function tripShapeLine(days: ReadonlyArray<Pick<TripDay, "daysSpanned" | "toName">>): string | null {
+export function tripShapeLine(days: ReadonlyArray<Pick<TripDay, "toName" | "endKind">>): string | null {
   if (days.length < 2) return null;
-  const total = days.reduce((n, d) => n + d.daysSpanned, 0);
-  const nights = days.slice(0, -1).map((d) => d.toName);
+  const ends = days.slice(0, -1);
+  const allInTowns = ends.every((d) => d.endKind === "stop" || d.endKind === "end");
+  const nights = allInTowns ? ends.map((d) => d.toName) : ends.map(nightAt);
   const list = nights.length === 1 ? nights[0] : `${nights.slice(0, -1).join(", ")} and ${nights[nights.length - 1]}`;
-  const count = countWord(total);
-  return `${count[0].toUpperCase()}${count.slice(1)} days, with ${nights.length === 1 ? "a night" : "nights"} in ${list}`;
+  const count = countWord(days.length);
+  return `${count[0].toUpperCase()}${count.slice(1)} days, with ${nights.length === 1 ? "a night" : "nights"} ${allInTowns ? "in " : ""}${list}`;
 }

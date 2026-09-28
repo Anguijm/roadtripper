@@ -29,7 +29,7 @@ import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { fitsTodayLine, dayHeadingLine, tripShapeLine } from "@/lib/plan/words";
-import { buildRoad, alongRoadKm, tripDays as cutIntoDays, dayBounds, boundsOf } from "@/lib/plan/days";
+import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import {
   recomputeAndRefreshAction,
@@ -665,8 +665,11 @@ export default function PlanWorkspace({
   // every town and stop is placed along it once per set. No routing call:
   // the legs are the recompute's, the road is the page's.
   const road = useMemo(() => buildRoad(safeDecode(encodedPolyline)), [encodedPolyline]);
+  // Each town with how far off the road it sits, so a town on the road
+  // can name where a cut day ends ("near Snyder") and one hours off it
+  // cannot.
   const dayTowns = useMemo(
-    () => liveCandidateMarkers.map((c) => ({ id: c.id, name: c.name, alongKm: alongRoadKm(road, c) })),
+    () => liveCandidateMarkers.map((c) => ({ id: c.id, name: c.name, ...nearestOnRoad(road, c) })),
     [liveCandidateMarkers, road]
   );
   const dayStops = useMemo(
@@ -698,18 +701,32 @@ export default function PlanWorkspace({
     [fromName, toName, dayStops, legMinutes, road, dayTowns, roadsideStops, budgetHours]
   );
   // Each day's heading, a sentence with its figures: "Day 1 · Amarillo to
-  // Lubbock · 3 h 20 min", and a stretch over the budget labelled by the
-  // days it takes, "Days 2 and 3 · Lubbock to Austin · 6 h 1 min, over
-  // the 4 h you wanted" (round 4). The trip's shape in one line under the
-  // numbers, "Three days, with a night in Lubbock", for two stretches or
-  // more; it repeats no heading (round 4: the strip of day rows did).
-  const dayHeadings = useMemo(() => days.map((day) => dayHeadingLine(day, budgetHours * 60)), [days, budgetHours]);
+  // Lubbock · 3 h 20 min", and a day cut where the budget runs out named
+  // by where, "Day 1 · Amarillo to near Snyder · 4 h" then "Day 2 · near
+  // Snyder to Austin · 3 h 50 min" (round 5: round 4's "Days 1 and 2 ·
+  // Amarillo to Austin" never said where day 1 ended). The trip's shape
+  // in one line under the numbers, "Three days, with nights in Lubbock
+  // and near Llano", for two days or more; it repeats no heading (round
+  // 4: the strip of day rows did).
+  const dayHeadings = useMemo(() => days.map((day) => dayHeadingLine(day)), [days]);
   const tripShape = useMemo(() => tripShapeLine(days), [days]);
   // Each day's places strongest first, not road order: the diamonds on the
-  // map already say where, and a person scanning ten rows wants the best ten.
+  // map already say where, and a person scanning ten rows wants the best
+  // ten. A name listed twice in the day is listed once (round 4: the Buddy
+  // Holly Center three times in Day 1, twice from the store under two
+  // spellings and once under Lubbock): the stronger row stays, and a place
+  // already under one of the day's towns is left to that town. The
+  // diamonds and the card are the day's whole list still.
   const roadsideByDay = useMemo(
-    () => days.map((d) => [...d.roadside].sort((a, b) => b.p - a.p || a.alongKm - b.alongKm || a.name.localeCompare(b.name, "en"))),
-    [days]
+    () =>
+      days.map((d) => {
+        const townIds = new Set(d.towns.map((t) => t.id));
+        if (d.endStopId) townIds.add(d.endStopId);
+        const underTowns = sheetFetch.waypoints.filter((w) => townIds.has(w.cityId)).map((w) => w.name);
+        const strongestFirst = [...d.roadside].sort((a, b) => b.p - a.p || a.alongKm - b.alongKm || a.name.localeCompare(b.name, "en"));
+        return uniqueByName(strongestFirst, underTowns);
+      }),
+    [days, sheetFetch.waypoints]
   );
   // A day's towns that fit, by their position along the road, the stops
   // among them left out: a stop is drawn as its day's end, never twice.
@@ -747,11 +764,21 @@ export default function PlanWorkspace({
         if (tripBounds) setMapFit({ key: `trip-${++fitSeqRef.current}`, bounds: tripBounds });
         return;
       }
-      const from = index === 0 ? origin : tripStops[index - 1];
-      const to = index < tripStops.length ? tripStops[index] : destination;
-      const startKm = index === 0 ? 0 : alongRoadKm(liveRoad, from);
-      const endKm = index < tripStops.length ? alongRoadKm(liveRoad, to) : liveRoad.lengthKm;
-      const b = dayBounds(liveRoad, { startKm, endKm }, [from, to]);
+      // The day's stretch of the drawn road: its stretch between
+      // overnights, cut at the day's shares of it by time (a day cut where
+      // the budget runs out ends part way along the stretch).
+      const leg = day.legIndex;
+      const from = leg === 0 ? origin : tripStops[leg - 1];
+      const to = leg < tripStops.length ? tripStops[leg] : destination;
+      const legStartKm = leg === 0 ? 0 : alongRoadKm(liveRoad, from);
+      const legEndKm = leg < tripStops.length ? alongRoadKm(liveRoad, to) : liveRoad.lengthKm;
+      const startKm = legStartKm + (legEndKm - legStartKm) * day.legFractionStart;
+      const endKm = legStartKm + (legEndKm - legStartKm) * day.legFractionEnd;
+      const ends = [
+        day.legFractionStart === 0 ? from : pointAlong(liveRoad, startKm),
+        day.legFractionEnd === 1 ? to : pointAlong(liveRoad, endKm),
+      ].filter((p): p is google.maps.LatLngLiteral => p !== null);
+      const b = dayBounds(liveRoad, { startKm, endKm }, ends);
       setOpenDay(index);
       if (b) setMapFit({ key: `day-${index}-${++fitSeqRef.current}`, bounds: b });
       // A fully open sheet covers the map; it drops to rest so the strip
@@ -769,12 +796,13 @@ export default function PlanWorkspace({
   // together, and nothing moves (round 3; rule 6). Null with no day open,
   // and the map draws every town as it is.
   const focusCandidateIds = useMemo<ReadonlySet<string> | null>(() => {
-    if (openDay === null || !cityIdsByDay[openDay]) return null;
+    if (openDay === null || !cityIdsByDay[openDay] || !days[openDay]) return null;
+    const leg = days[openDay].legIndex;
     return new Set([
       ...cityIdsByDay[openDay],
-      ...tripStops.slice(Math.max(0, openDay - 1), openDay + 1).map((s) => s.cityId),
+      ...tripStops.slice(Math.max(0, leg - 1), leg + 1).map((s) => s.cityId),
     ]);
-  }, [openDay, cityIdsByDay, tripStops]);
+  }, [openDay, cityIdsByDay, days, tripStops]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -1124,9 +1152,9 @@ export default function PlanWorkspace({
   // after Lubbock" stood over a list that put Fort Worth in day 2). It
   // sits on the handle row, above everything and at every snap (round 2:
   // the critic saw the sheet open on the roadside heading and no
-  // sentence). The day is the last stretch's first day (round 4: a
-  // stretch over the budget takes more than one), the number its section
-  // is headed with. When the towns
+  // sentence). The day is the first day after the last stop (round 5: a
+  // stretch over the budget is cut into days), the number its section is
+  // headed with. When the towns
   // could not be read the title says that instead, since "nothing fits"
   // would be false. `liveWaypointFetch` is null until a refresh returns a
   // set, and a refresh whose town read failed leaves it as it was (the
@@ -1141,7 +1169,7 @@ export default function PlanWorkspace({
     : fitsTodayLine(
         effectiveWaypointFetch.cities.map((c) => c.name),
         toName,
-        days[days.length - 1]?.firstDay ?? 1
+        (days.find((d) => d.legIndex === tripStops.length)?.index ?? 0) + 1
       );
 
   return (
@@ -1388,9 +1416,9 @@ export default function PlanWorkspace({
 
           {/* The trip told as days (Gauntlet U3; quality bar, rule 5): a
               heading per day, a sentence with its figures in the mono face
-              ("Day 1 · Amarillo to Lubbock · 3 h 20 min", and a stretch over
-              the budget by the days it takes, "Days 2 and 3 · Lubbock to
-              Austin · 6 h 1 min, over the 4 h you wanted"), then the towns that fit in that
+              ("Day 1 · Amarillo to Lubbock · 3 h 20 min", and a day cut
+              where the budget runs out named by where, "Day 2 · Lubbock to
+              near Llano · 4 h"), then the towns that fit in that
               stretch with their "Stop here" controls, then the stop the
               day ends at with its places and "✓ Added" (round 2: a stop's
               town leaves the towns that fit, and its day still ends there),
@@ -1414,10 +1442,12 @@ export default function PlanWorkspace({
               const dayRoadside = roadsideByDay[day.index];
               const showAll = showAllDays.includes(day.index);
               const shown = showAll ? dayRoadside : dayRoadside.slice(0, ROADSIDE_SHOWN_FIRST);
-              const cardHere = selectedRoadside !== null && dayRoadside.some((s) => s.id === selectedRoadside.id);
-              // The stop the day ends at, when it ends at one; the last day
-              // ends at the destination, which is not a town on the sheet.
-              const endStop = day.index < tripStops.length ? tripStops[day.index] : null;
+              // The card opens in the day whose road the place is on, listed or not.
+              const cardHere = selectedRoadside !== null && day.roadside.some((s) => s.id === selectedRoadside.id);
+              // The stop the day ends at, when it ends at one; a cut day
+              // ends where the budget runs out, and the last day at the
+              // destination, neither a town on the sheet.
+              const endStop = day.endStopId ? tripStops.find((s) => s.cityId === day.endStopId) ?? null : null;
               const townIds = cityIdsByDay[day.index];
               const heading = dayHeadings[day.index];
               const townProps = {
@@ -1482,8 +1512,17 @@ export default function PlanWorkspace({
                       Open, strongest first, ten at a time; the card for the
                       tapped one sits at the top of its day's list, and the
                       sheet scrolls to it. */}
-                  {dayRoadside.length > 0 && (
-                    <section data-roadside aria-labelledby={`roadside-heading-${n}`} className="font-sans px-1 pt-0 pb-2">
+                  {/* The section stands when the day has rows, or when the
+                      tapped diamond is on this day's road though its row
+                      was left to its town (round 5): the card answers the
+                      tap either way. */}
+                  {(dayRoadside.length > 0 || cardHere) && (
+                    <section
+                      data-roadside
+                      aria-labelledby={dayRoadside.length > 0 ? `roadside-heading-${n}` : undefined}
+                      aria-label={dayRoadside.length > 0 ? undefined : "A place worth pulling over for"}
+                      className="font-sans px-1 pt-0 pb-2"
+                    >
                       {cardHere && (
                         <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
                           <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
@@ -1494,6 +1533,8 @@ export default function PlanWorkspace({
                           or between it and the rows, the rows two lines of
                           22 px with no vertical padding (44, the target),
                           4 px, then the control (44). */}
+                      {dayRoadside.length > 0 && (
+                      <>
                       <h2 id={`roadside-heading-${n}`} className="text-base leading-6 text-[#e3b341] px-2">
                         {dayRoadside.length === 1
                           ? "1 place worth pulling over for"
@@ -1524,6 +1565,8 @@ export default function PlanWorkspace({
                           </li>
                         ))}
                       </ul>
+                      </>
+                      )}
                       {dayRoadside.length > ROADSIDE_SHOWN_FIRST && (
                         <button
                           type="button"
