@@ -21,17 +21,16 @@ import RecommendationList, {
   RecommendationNotices,
   type AddCityPayload,
 } from "@/components/RecommendationList";
-import Itinerary from "@/components/Itinerary";
 import NeighborhoodPanel from "@/components/NeighborhoodPanel";
+import Figures from "@/components/Figures";
 import { panelCityFor, nextPanelCityId } from "@/lib/plan/panel-city";
-import { itinerarySummary } from "@/lib/plan/itinerary-summary";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
-import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
+import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { fitsTodayLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, tripDays as cutIntoDays, dayBounds, boundsOf } from "@/lib/plan/days";
-import { longDate, daysFromNowPhrase, daysUntil } from "@/lib/plan/deadline";
+import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import {
   recomputeAndRefreshAction,
   fetchNeighborhoodsAction,
@@ -75,18 +74,49 @@ interface PlanWorkspaceProps {
    */
   initialSelectedRoadsideId?: string;
   /**
-   * Today as YYYY-MM-DD, the server's day, for the arrival sentence
-   * ("Arrive in Austin by October 14, six days from now"; Gauntlet U3).
-   * Without it the sheet says no deadline.
+   * Today as YYYY-MM-DD for the arrival sentence ("Arrive in Austin by
+   * October 14, six days from now"; Gauntlet U3): the server's local day
+   * for the first paint, and once mounted the sheet reads the browser's
+   * own clock, so the count is the person's day (round 2: the UTC day was
+   * a day behind Japan's evening). Without it the server says no deadline.
    */
   today?: string;
   /**
    * A trip already on the sheet at the first render: its stops, the legs
-   * the route gave for them, and the last leg's minutes. Only the SSR
-   * tests pass it, to render the days a recompute would build; the page
-   * never sets it, and a browser given it would recompute on mount.
+   * the route gave for them, and the last leg's minutes; `addedFrom`, the
+   * set the stops were added from when it is not the page's own set (the
+   * towns that fit move on past a stop, and the stop's town is kept from
+   * the set it left); `failedStopId`, a stop whose recompute failed. Only
+   * the SSR tests pass it, to render the days a recompute would build; the
+   * page never sets it, and a browser given it would recompute on mount.
    */
-  initialTrip?: { stops: TripStopMarker[]; legs: TripLeg[]; directMinutesToDestination: number };
+  initialTrip?: {
+    stops: TripStopMarker[];
+    legs: TripLeg[];
+    directMinutesToDestination: number;
+    addedFrom?: WaypointFetchResult;
+    failedStopId?: string;
+  };
+  /**
+   * The town whose "What's in" answer is open on the first render, under
+   * its row. Only the SSR tests pass it, as `initialSelectedRoadsideId`.
+   */
+  initialPanelCityId?: string;
+}
+
+/** A stop's town and its places, kept from the set it was added from (Gauntlet U3, round 2). */
+interface StopTown {
+  city: CityContext;
+  waypoints: LiteWaypoint[];
+}
+
+/** The town and places for a stop, out of a set; a name alone when the set does not hold it. */
+function stopTownFrom(set: WaypointFetchResult, stop: { cityId: string; cityName: string; lat: number; lng: number }): StopTown {
+  const city = set.cities.find((c) => c.id === stop.cityId);
+  return {
+    city: city ?? { id: stop.cityId, name: stop.cityName, vibeClass: null, detourMinutes: 0, lat: stop.lat, lng: stop.lng },
+    waypoints: set.waypoints.filter((w) => w.cityId === stop.cityId),
+  };
 }
 
 /**
@@ -216,19 +246,6 @@ function safeDecode(encoded: string): ReturnType<typeof decodePolyline> {
   }
 }
 
-/** "six days from now" in the body face; "25 days from now" with its digits in the mono face (quality bar, rule 2). */
-function ArrivalCount({ days }: { days: number }) {
-  const phrase = daysFromNowPhrase(days);
-  const m = /^(\d+)(.*)$/.exec(phrase);
-  if (!m) return <>{phrase}</>;
-  return (
-    <>
-      <span className="num">{m[1]}</span>
-      {m[2]}
-    </>
-  );
-}
-
 function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
   return `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
 }
@@ -266,8 +283,8 @@ export function roadsideSwipeCloses(dx: number, dy: number): boolean {
  * the page already has), and one link-button that opens the place in
  * Google Maps. No separate close button (the spec): the card closes on a
  * second tap of its diamond or its row, on a tap of its own heading (a
- * 44 px button carrying the name, marked open the way the itinerary's
- * toggle is), or on a sideways swipe across it. `about` and `name` are
+ * 44 px button carrying the name, marked open with aria-expanded), or on
+ * a sideways swipe across it. `about` and `name` are
  * untrusted text and are rendered as text.
  */
 export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
@@ -366,6 +383,7 @@ export default function PlanWorkspace({
   initialSelectedRoadsideId,
   today,
   initialTrip,
+  initialPanelCityId,
 }: PlanWorkspaceProps) {
 
   // Stable UUID per component mount, passed to saveTrip on every attempt so a
@@ -401,7 +419,16 @@ export default function PlanWorkspace({
   // `liveRoute === null` / `liveWaypointFetch === null` means "use the
   // initial server-rendered values" (Council ISC-S6-ARCH-3, S7-ARCH-2).
   const [tripStops, setTripStops] = useState<TripStopMarker[]>(() => initialTrip?.stops ?? []);
-  const [routeSealed, setRouteSealed] = useState(false);
+  // A stop's town and its places, from the moment it is added (Gauntlet
+  // U3, round 2). The refresh after a stop counts the towns that fit from
+  // that stop, so the stop's own town leaves the set; its day still ends
+  // there, so the sheet keeps what it had. Dropped when the stop is.
+  const [stopTowns, setStopTowns] = useState<Record<string, StopTown>>(() => {
+    const out: Record<string, StopTown> = {};
+    const from = initialTrip?.addedFrom ?? waypointFetch;
+    for (const s of initialTrip?.stops ?? []) out[s.cityId] = stopTownFrom(from, s);
+    return out;
+  });
   // TripState tracks accumulated leg times + budget status. Built from
   // route legs returned by recomputeAndRefreshAction; empty until first stop.
   const [tripState, setTripState] = useState<TripState>(() =>
@@ -419,17 +446,22 @@ export default function PlanWorkspace({
   // that proves to the user the recommendations actually updated
   // (Council S7-PROD-2).
   const [refreshTick, setRefreshTick] = useState(0);
-  // Only the most-recent failed stop is ever surfaced in the Itinerary,
-  // so a single nullable id replaces the prior `Set<string>`.
-  const [failedStopId, setFailedStopId] = useState<string | null>(null);
+  // Only the most-recent failed stop is ever surfaced (under its day's
+  // heading), so a single nullable id replaces the prior `Set<string>`.
+  const [failedStopId, setFailedStopId] = useState<string | null>(initialTrip?.failedStopId ?? null);
   const [isPending, startTransition] = useTransition();
 
-  // Which stop's neighborhoods to show in the panel. Defaults to the most
-  // recently added stop; updated on click or add/remove.
-  const [panelCityId, setPanelCityId] = useState<string | null>(null);
-  // The itinerary opens on request; collapsed it is one line above the
-  // candidates, so the first card's reason stays near the top (step 14).
-  const [itineraryOpen, setItineraryOpen] = useState(false);
+  // Which town's "What's in" answer is open, under that town's row in its
+  // day. Opened by its button or a tap on a stop's square on the map,
+  // never by itself (round 2: a stop's add used to open it above the
+  // days); closed by a second tap or when the town leaves both lists.
+  const [panelCityId, setPanelCityId] = useState<string | null>(initialPanelCityId ?? null);
+  // The arrival count's "today": the server's day for the first paint,
+  // the browser's own clock once mounted (the person's day, not UTC's).
+  const [sheetToday, setSheetToday] = useState<string | undefined>(today);
+  useEffect(() => {
+    setSheetToday(localTodayIso());
+  }, []);
   // On-demand neighborhood cache for stops the user clicked that weren't
   // pre-fetched by recomputeAndRefreshAction.
   const [localNeighborhoods, setLocalNeighborhoods] = useState<
@@ -530,6 +562,21 @@ export default function PlanWorkspace({
   // and `liveWaypointFetch` is only ever set from a refresh that returned
   // a set. Both members of WaypointFetchResult carry cities and waypoints.
   const effectiveWaypointFetch = liveWaypointFetch ?? waypointFetch;
+
+  // The set the days draw their towns from: the effective set, and every
+  // stop's town the set no longer holds, with the places it had when it
+  // was added. The title, the notices and the map keep the effective set:
+  // a stop is on the trip, not a town that fits.
+  const sheetFetch = useMemo<WaypointFetchResult>(() => {
+    const have = new Set(effectiveWaypointFetch.cities.map((c) => c.id));
+    const kept = Object.values(stopTowns).filter((t) => !have.has(t.city.id));
+    if (kept.length === 0) return effectiveWaypointFetch;
+    return {
+      ...effectiveWaypointFetch,
+      cities: [...effectiveWaypointFetch.cities, ...kept.map((t) => t.city)],
+      waypoints: [...effectiveWaypointFetch.waypoints, ...kept.flatMap((t) => t.waypoints)],
+    };
+  }, [effectiveWaypointFetch, stopTowns]);
 
   // Live candidate markers derived from the effective waypoint set so the
   // map updates after each refresh (Council ISC-S7-ARCH-1 lat/lng now on
@@ -656,16 +703,27 @@ export default function PlanWorkspace({
     () => days.map((d) => [...d.roadside].sort((a, b) => b.p - a.p || a.alongKm - b.alongKm || a.name.localeCompare(b.name, "en"))),
     [days]
   );
-  const cityIdsByDay = useMemo(() => days.map((d) => new Set(d.towns.map((t) => t.id))), [days]);
+  // A day's towns that fit, by their position along the road, the stops
+  // among them left out: a stop is drawn as its day's end, never twice.
+  const cityIdsByDay = useMemo(
+    () => days.map((d) => new Set(d.towns.filter((t) => !addedCityIds.has(t.id)).map((t) => t.id))),
+    [days, addedCityIds]
+  );
   // The day on the map, and the camera request that put it there. A new
   // key on every tap is a new fit; the stops changing closes the open day
   // and asks for nothing, so a recompute never moves the camera.
   const [openDay, setOpenDay] = useState<number | null>(null);
   const [mapFit, setMapFit] = useState<MapFit | null>(null);
   const fitSeqRef = useRef(0);
+  const daySectionRefs = useRef<(HTMLElement | null)[]>([]);
   useEffect(() => {
     setOpenDay(null);
   }, [tripStops]);
+  // The road as drawn, for a day's frame: the route through the stops,
+  // cut at them. The direct road above places the towns and the roadside
+  // stops (the road they were measured on); this one is what the person
+  // sees, and a day's stretch is a stretch of it.
+  const liveRoad = useMemo(() => buildRoad(liveRoutePoints), [liveRoutePoints]);
   // The whole trip as drawn: the route through the stops, and the ends and
   // stops themselves in case the line is missing.
   const tripBounds = useMemo(
@@ -683,14 +741,20 @@ export default function PlanWorkspace({
       }
       const from = index === 0 ? origin : tripStops[index - 1];
       const to = index < tripStops.length ? tripStops[index] : destination;
-      const b = dayBounds(road, day, [from, to]);
+      const startKm = index === 0 ? 0 : alongRoadKm(liveRoad, from);
+      const endKm = index < tripStops.length ? alongRoadKm(liveRoad, to) : liveRoad.lengthKm;
+      const b = dayBounds(liveRoad, { startKm, endKm }, [from, to]);
       setOpenDay(index);
       if (b) setMapFit({ key: `day-${index}-${++fitSeqRef.current}`, bounds: b });
       // A fully open sheet covers the map; it drops to rest so the strip
       // shows the day. A peeked sheet stays: the map is already there.
       setSheetSnap((s) => (s === 2 ? 1 : s));
+      // The sheet shows the day too: its heading to the top of the box,
+      // so the strip and the box together say where the day goes and
+      // what fits in it (round 2: the second day sat below the fold).
+      daySectionRefs.current[index]?.scrollIntoView({ block: "start" });
     },
-    [days, openDay, tripBounds, road, origin, destination, tripStops]
+    [days, openDay, tripBounds, liveRoad, origin, destination, tripStops]
   );
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
@@ -699,22 +763,18 @@ export default function PlanWorkspace({
     [effectiveWaypointFetch.neighborhoods, localNeighborhoods]
   );
 
-  // The city whose neighborhoods are shown in the panel: a stop, or a
-  // candidate being read about before it is added (step 13).
+  // The town whose "What's in" answer is open: a stop, or a town that
+  // fits being read about before it is added (step 13). From the live
+  // towns, so a town a refresh brought in answers too.
   const panelCity = useMemo(
-    () => panelCityFor(panelCityId, tripStops, candidateMarkers),
-    [panelCityId, tripStops, candidateMarkers]
+    () => panelCityFor(panelCityId, tripStops, liveCandidateMarkers),
+    [panelCityId, tripStops, liveCandidateMarkers]
   );
   const panelCityName = panelCity?.cityName ?? null;
 
   const panelCityWaypoints = useMemo(
-    () =>
-      panelCityId
-        ? effectiveWaypointFetch.waypoints.filter(
-            (w) => w.cityId === panelCityId
-          )
-        : [],
-    [effectiveWaypointFetch.waypoints, panelCityId]
+    () => (panelCityId ? sheetFetch.waypoints.filter((w) => w.cityId === panelCityId) : []),
+    [sheetFetch.waypoints, panelCityId]
   );
 
   // ── Persona / hover handlers ───────────────────────────────────────────
@@ -729,40 +789,45 @@ export default function PlanWorkspace({
 
   // ── Trip add/remove ────────────────────────────────────────────────────
   const handleAddCity = useCallback((city: AddCityPayload) => {
+    const stop = { cityId: city.cityId, cityName: city.cityName, lat: city.lat, lng: city.lng };
     setTripStops((curr) => {
       if (curr.length >= MAX_TRIP_STOPS) return curr;
       if (curr.some((s) => s.cityId === city.cityId)) return curr;
-      return [
-        ...curr,
-        {
-          cityId: city.cityId,
-          cityName: city.cityName,
-          lat: city.lat,
-          lng: city.lng,
-        },
-      ];
+      return [...curr, stop];
     });
-    // Auto-select the newly added stop for the neighborhood panel.
-    setPanelCityId(city.cityId);
-  }, []);
+    // Keep the town and its places from the set it is leaving: the next
+    // refresh counts from this stop and lists it no more, and its day
+    // still ends here. Nothing opens by itself; "What's in" is a tap.
+    setStopTowns((prev) => (prev[city.cityId] ? prev : { ...prev, [city.cityId]: stopTownFrom(effectiveWaypointFetch, stop) }));
+  }, [effectiveWaypointFetch]);
 
   const handleRemoveCity = useCallback((cityId: string) => {
     setTripStops((curr) => curr.filter((s) => s.cityId !== cityId));
-    setFailedStopId((curr) => (curr === cityId ? null : curr));
-  }, []);
-
-  const handleStopClick = useCallback((cityId: string) => {
-    // A click is also a retry: a city whose on-demand read failed (a rate
-    // limit from clicking through the list quickly, a blip) is forgotten so
-    // the effect fetches it again instead of showing the old failure.
-    setLocalNeighborhoods((prev) => {
-      if (prev[cityId]?.kind !== "failed") return prev;
+    setStopTowns((prev) => {
+      if (!prev[cityId]) return prev;
       const rest = { ...prev };
       delete rest[cityId];
       return rest;
     });
-    setPanelCityId(cityId);
+    setFailedStopId((curr) => (curr === cityId ? null : curr));
   }, []);
+
+  const handleStopClick = useCallback((cityId: string) => {
+    // A tap on a town whose read failed (a rate limit from tapping through
+    // the list quickly, a blip) is a retry: the failure is forgotten so
+    // the effect fetches again, and the answer stays open. Otherwise the
+    // tap opens the answer under the town, or closes an open one.
+    if (localNeighborhoods[cityId]?.kind === "failed") {
+      setLocalNeighborhoods((prev) => {
+        const rest = { ...prev };
+        delete rest[cityId];
+        return rest;
+      });
+      setPanelCityId(cityId);
+      return;
+    }
+    setPanelCityId((curr) => (curr === cityId ? null : cityId));
+  }, [localNeighborhoods]);
 
   // Tap a candidate marker → add to trip.
   // Tap an already-added stop marker → open its neighborhood panel.
@@ -886,12 +951,11 @@ export default function PlanWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripStops]);
 
-  // If the paneled city is removed, reset to the new last stop (or null).
+  // A town that leaves both lists has no row to answer under: the panel
+  // closes (see nextPanelCityId). It stays on a stop or a town that fits.
   useEffect(() => {
-    // Stays on a stop or a candidate; moves to the last stop only when the
-    // city has left both lists (see nextPanelCityId).
-    setPanelCityId((curr) => nextPanelCityId(curr, tripStops, candidateMarkers));
-  }, [tripStops, candidateMarkers]);
+    setPanelCityId((curr) => nextPanelCityId(curr, tripStops, liveCandidateMarkers));
+  }, [tripStops, liveCandidateMarkers]);
 
   // Whether the panel's city already has data. A boolean on purpose: the
   // merged neighborhoods object is rebuilt whenever any city's result lands,
@@ -949,11 +1013,6 @@ export default function PlanWorkspace({
     setSaveState((s) => (s === "saved" ? "idle" : s));
   }, [tripStops, activePersonaId]);
 
-  // Unseal when stops change — user is back to planning mode.
-  useEffect(() => {
-    setRouteSealed(false);
-  }, [tripStops]);
-
   const handleSave = useCallback(() => {
     const input: SaveTripInput = {
       fromName,
@@ -1010,7 +1069,32 @@ export default function PlanWorkspace({
       : `${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left ${daySpan}`;
 
   const tripCount = tripStops.length;
-  const showItinerary = tripCount > 0;
+  const atCap = tripCount >= MAX_TRIP_STOPS;
+
+  // The answer to "What's in Lubbock": the town's parts and places, or
+  // that they are loading, drawn under the town's row in its day.
+  const panelNode =
+    panelCityId && panelCity ? (
+      <div className="px-2 pb-2">
+        {effectiveNeighborhoods[panelCityId] == null ? (
+          <div className="border border-[#30363d] bg-[#0d1117] px-3 py-3">
+            <p className="text-base text-[#8b949e] motion-safe:animate-pulse break-words">
+              Loading what&apos;s in {panelCity.cityName}…
+            </p>
+          </div>
+        ) : (
+          <NeighborhoodPanel
+            cityId={panelCityId}
+            cityName={panelCity.cityName}
+            loadState={effectiveNeighborhoods[panelCityId]}
+            waypoints={panelCityWaypoints}
+            failures={effectiveWaypointFetch.status === "degraded" ? effectiveWaypointFetch.failures : []}
+            personaId={activePersonaId}
+          />
+        )}
+      </div>
+    ) : null;
+  const panelDetail = panelNode && panelCityId ? { cityId: panelCityId, node: panelNode } : null;
 
   // The sheet's title: a sentence built from the data, "Lubbock and
   // Abilene fit today" or "Nothing fits today; drive on to Austin", and
@@ -1110,9 +1194,12 @@ export default function PlanWorkspace({
             {/* Two sentences, not three labelled stats: the glossary's
                 replacement for "budget left (as a stat)" is "4 h of driving
                 left today" (quality bar, rule 1). */}
+            {/* Every figure in the mono face and every word in the body
+                face (rule 2; round 2 of U3: "7 h 45 min" set whole in mono
+                came out wide-spaced inside the sentence). */}
             <div className="text-base leading-snug space-y-1">
               <p className="text-[#f0f6fc]">
-                <span className="num">{totalDistanceText}</span> · <span className="num">{onTheRoadText}</span> on the road
+                <Figures text={`${totalDistanceText} · ${onTheRoadText} on the road`} />
                 {isPending && (
                   <span className="text-[#d29922]" aria-hidden> …</span>
                 )}
@@ -1126,16 +1213,17 @@ export default function PlanWorkspace({
                     : "text-[#f0f6fc]"
                 }
               >
-                {drivingLeftText}
+                <Figures text={drivingLeftText} />
               </p>
               {/* Arrival mode's deadline as a sentence (Gauntlet U3), here
                   and not on the masthead: at 49 characters it wraps the
                   masthead to three lines on a 390 px phone, which takes
                   the strip of map above the sheet that the fit at rest
-                  frames the road in (PLAN_HEADER_PX in RouteMap.tsx). */}
-              {dateMode === "arrival" && endDate && today && (
+                  frames the road in (PLAN_HEADER_PX in RouteMap.tsx). The
+                  count is from the person's own day (sheetToday). */}
+              {dateMode === "arrival" && endDate && sheetToday && (
                 <p data-arrival className="text-[#f0f6fc]">
-                  Arrive in {toName} by <span className="num">{longDate(endDate, today)}</span>, <ArrivalCount days={daysUntil(endDate, today)} />
+                  <Figures text={arrivalSentence({ toName, endDate, today: sheetToday })} />
                 </p>
               )}
             </div>
@@ -1149,77 +1237,6 @@ export default function PlanWorkspace({
               </p>
             )}
           </div>
-
-          {/* Itinerary — ABOVE recommendations once trip is non-empty (Council
-              ISC-S6-PROD-2), but as one line with a toggle, so the first
-              candidate's reason is not pushed below the fold (step 14). */}
-          {showItinerary && (
-            <button
-              type="button"
-              onClick={() => setItineraryOpen((o) => !o)}
-              aria-expanded={itineraryOpen}
-              aria-controls="itinerary-details"
-              className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 py-2 text-left text-base text-[#b0b9c2] border border-[#30363d] bg-[#161b22] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-            >
-              {/* Town names are in this line, so it wraps; never an ellipsis. */}
-              <span className="min-w-0 break-words">
-                {/* Legs are in seconds already; the direct leg is held in
-                    minutes and converted, the same way the Itinerary's
-                    finalLegSeconds prop below is built. */}
-                {itinerarySummary(tripStops, tripState.legs.map((l) => l.durationSeconds), Math.round(tripState.directMinutesToDestination * 60))}
-              </span>
-              <span aria-hidden className="text-[#8b949e]">{itineraryOpen ? "▲" : "▼"}</span>
-            </button>
-          )}
-          {/* Always in the DOM so aria-controls resolves; `hidden` when
-              collapsed. The Itinerary stays mounted, which also keeps its
-              per-stop failed state across a collapse. */}
-          {showItinerary && (
-            <div id="itinerary-details" hidden={!itineraryOpen}>
-            <Itinerary
-              fromName={fromName}
-              toName={toName}
-              stops={tripStops}
-              legDurations={tripState.legs.map((l) => l.durationSeconds)}
-              finalLegSeconds={Math.round(tripState.directMinutesToDestination * 60)}
-              failedStopId={failedStopId}
-              selectedCityId={panelCityId}
-              destinationSelected={routeSealed}
-              pending={isPending}
-              onRemoveStop={handleRemoveCity}
-              onStopClick={handleStopClick}
-              onDestinationClick={() => setRouteSealed((s) => !s)}
-              accent={accent}
-            />
-            </div>
-          )}
-
-          {/* Neighborhood panel — follows panelCityId: a click on an Itinerary
-               stop, or "See what's here" on a candidate not yet added.
-               Loading: data absent (fetch in flight or not yet started).
-               Loaded / empty / failed: delegated to NeighborhoodPanel. */}
-          {panelCityId && panelCity && (
-            effectiveNeighborhoods[panelCityId] == null ? (
-              <div className="border border-[#30363d] bg-[#0d1117] mt-2 px-3 py-3">
-                <p className="text-base text-[#8b949e] motion-safe:animate-pulse break-words">
-                  Loading what&apos;s in {panelCity.cityName}…
-                </p>
-              </div>
-            ) : (
-              <NeighborhoodPanel
-                cityId={panelCityId}
-                cityName={panelCity.cityName}
-                loadState={effectiveNeighborhoods[panelCityId]}
-                waypoints={panelCityWaypoints}
-                failures={
-                  effectiveWaypointFetch.status === "degraded"
-                    ? effectiveWaypointFetch.failures
-                    : []
-                }
-                personaId={activePersonaId}
-              />
-            )
-          )}
 
           {/* Recompute error banner with Retry */}
           {recomputeError && (
@@ -1262,9 +1279,13 @@ export default function PlanWorkspace({
                   ? "text-[#f85149]"
                   : "text-[#d29922]"
               }`}>
-                {tripState.status.kind === "over_budget"
-                  ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}.`
-                  : `Tight: ${formatDurationPlain(tripState.status.directMinutesToDestination * 60)} straight on to ${toName}, with ${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left.`}
+                <Figures
+                  text={
+                    tripState.status.kind === "over_budget"
+                      ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}.`
+                      : `Tight: ${formatDurationPlain(tripState.status.directMinutesToDestination * 60)} straight on to ${toName}, with ${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left.`
+                  }
+                />
               </p>
             </div>
           )}
@@ -1299,48 +1320,46 @@ export default function PlanWorkspace({
                 deadlinePressure.daysLate >= 1 ? "text-[#f85149]" : "text-[#d29922]"
               }`}>
                 {/* daysRemaining ≤ 0: deadline already passed, pivot to direct-drive message. */}
-                {deadlinePressure.daysRemaining <= 0
-                  ? `No days left, and ${formatDurationPlain(tripState.directMinutesToDestination * 60)} of driving still to reach ${toName}.`
-                  : `Won't make ${toName} on time: that takes ${formatDurationPlain(deadlinePressure.requiredMinutesPerDay * 60)} a day for ${Math.ceil(deadlinePressure.daysRemaining)} day${Math.ceil(deadlinePressure.daysRemaining) === 1 ? "" : "s"}, ${formatDurationPlain((deadlinePressure.requiredMinutesPerDay - deadlinePressure.budgetMinutesPerDay) * 60)} a day more than planned.`}
+                <Figures
+                  text={
+                    deadlinePressure.daysRemaining <= 0
+                      ? `No days left, and ${formatDurationPlain(tripState.directMinutesToDestination * 60)} of driving still to reach ${toName}.`
+                      : `Won't make ${toName} on time: that takes ${formatDurationPlain(deadlinePressure.requiredMinutesPerDay * 60)} a day for ${Math.ceil(deadlinePressure.daysRemaining)} day${Math.ceil(deadlinePressure.daysRemaining) === 1 ? "" : "s"}, ${formatDurationPlain((deadlinePressure.requiredMinutesPerDay - deadlinePressure.budgetMinutesPerDay) * 60)} a day more than planned.`
+                  }
+                />
               </p>
             </div>
           )}
 
-          {routeSealed ? (
-            <p className="text-base text-[#8b949e] px-1 py-2 text-center break-words">
-              Route locked. Tap {toName} to keep planning.
-            </p>
-          ) : (
-            <>
-              {/* An error is not an empty answer: the title already says
-                  the towns could not be read; this says what is still
-                  true and what to do. The sentence over the towns is the
-                  sheet's title on the handle row, above. */}
-              {townsFailed && (
-                <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
-                  <p className="text-base text-[#f85149] leading-snug">
-                    The route is still here. Reload to try the towns again.
-                  </p>
-                </div>
-              )}
-
-              {/* The notes over the towns, once above the days rather than
-                  once per day: why every "Stop here" is off, that some
-                  places did not load, or that nothing is written up yet. */}
-              <RecommendationNotices fetchResult={effectiveWaypointFetch} activePersonaId={activePersonaId} atCap={tripCount >= MAX_TRIP_STOPS} />
-            </>
+          {/* An error is not an empty answer: the title already says the
+              towns could not be read; this says what is still true and
+              what to do. The sentence over the towns is the sheet's title
+              on the handle row, above. */}
+          {townsFailed && (
+            <div className="px-3 py-2 border border-[#f85149] bg-[#161b22]" role="alert">
+              <p className="text-base text-[#f85149] leading-snug">
+                The route is still here. Reload to try the towns again.
+              </p>
+            </div>
           )}
 
+          {/* The notes over the towns, once above the days rather than
+              once per day: why every "Stop here" is off, that some places
+              did not load, or that nothing is written up yet. */}
+          <RecommendationNotices fetchResult={effectiveWaypointFetch} activePersonaId={activePersonaId} atCap={atCap} />
+
           {/* The trip told as days (Gauntlet U3; quality bar, rule 5): a
-              heading per day, a sentence with the numbers in the mono face
+              heading per day, a sentence with its figures in the mono face
               ("Day 1 · Amarillo to Lubbock · 3 h 20 min", and "over the 4 h
-              you wanted" when it is), then that day's towns with their
-              "Stop here" controls, then that day's places worth pulling
-              over for, strongest first, ten at a time, in the rows and the
-              card U1 built. The heading is a 44 px button and its second
-              line says what a tap does: fit the map to that day's road, or
-              back to the whole trip. A locked route still has its days and
-              its places; only the towns' controls are gone.
+              you wanted" when it is), then the towns that fit in that
+              stretch with their "Stop here" controls, then the stop the
+              day ends at with its places and "✓ Added" (round 2: a stop's
+              town leaves the towns that fit, and its day still ends there),
+              then that day's places worth pulling over for, strongest
+              first, ten at a time, in the rows and the card U1 built. The
+              heading is a 44 px button and its second line says what a tap
+              does: fit the map to that day's road, or back to the whole
+              trip. The days are the trip: there is no itinerary above them.
               Council ISC-S7-PROD-2: the brief highlight on each successful
               refresh proves the towns actually updated. */}
           <div
@@ -1357,8 +1376,39 @@ export default function PlanWorkspace({
               const showAll = showAllDays.includes(day.index);
               const shown = showAll ? dayRoadside : dayRoadside.slice(0, ROADSIDE_SHOWN_FIRST);
               const cardHere = selectedRoadside !== null && dayRoadside.some((s) => s.id === selectedRoadside.id);
+              // The stop the day ends at, when it ends at one; the last day
+              // ends at the destination, which is not a town on the sheet.
+              const endStop = day.index < tripStops.length ? tripStops[day.index] : null;
+              const townIds = cityIdsByDay[day.index];
+              const heading =
+                `Day ${n} · ${day.fromName} to ${day.toName}` +
+                (day.minutes !== null ? ` · ${formatDurationPlain(Math.round(day.minutes * 60))}` : "") +
+                (day.minutes !== null && day.overBudget ? `, over the ${formatDurationPlain(budgetHours * 3600)} you wanted` : "");
+              const townProps = {
+                activePersonaId,
+                highlightedCityId,
+                onCityHover: setHighlightedCityId,
+                cityCoords,
+                addedCityIds,
+                onAddCity: handleAddCity,
+                onRemoveCity: handleRemoveCity,
+                pending: isPending,
+                atCap,
+                onCityPreview: handleStopClick,
+                previewedCityId: panelCityId,
+                notices: false,
+                detail: panelDetail,
+              };
               return (
-                <section key={day.index} data-day={n} aria-labelledby={`day-${n}-heading`} className="font-sans border-t border-[#30363d] pt-1 pb-2">
+                <section
+                  key={day.index}
+                  ref={(el) => {
+                    daySectionRefs.current[day.index] = el;
+                  }}
+                  data-day={n}
+                  aria-labelledby={`day-${n}-heading`}
+                  className="font-sans border-t border-[#30363d] pt-1 pb-2 scroll-mt-2"
+                >
                   <h2 id={`day-${n}-heading`} className="text-base leading-6">
                     <button
                       type="button"
@@ -1367,41 +1417,27 @@ export default function PlanWorkspace({
                       className="w-full min-h-[44px] text-left px-2 py-1 hover:bg-[#161b22] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
                     >
                       <span data-day-line className="block text-[#f0f6fc] break-words">
-                        Day <span className="num">{n}</span> · {day.fromName} to {day.toName}
-                        {day.minutes !== null && (
-                          <>
-                            {" · "}
-                            <span className="num">{formatDurationPlain(Math.round(day.minutes * 60))}</span>
-                            {day.overBudget && (
-                              <>
-                                , over the <span className="num">{formatDurationPlain(budgetHours * 3600)}</span> you wanted
-                              </>
-                            )}
-                          </>
-                        )}
+                        <Figures text={heading} />
                       </span>
                       <span className="block text-[#8b949e]">{open ? "See the whole trip" : "See it on the map"}</span>
                     </button>
                   </h2>
-                  {!routeSealed && (
-                    <RecommendationList
-                      fetchResult={effectiveWaypointFetch}
-                      activePersonaId={activePersonaId}
-                      highlightedCityId={highlightedCityId}
-                      onCityHover={setHighlightedCityId}
-                      cityCoords={cityCoords}
-                      addedCityIds={addedCityIds}
-                      onAddCity={handleAddCity}
-                      onRemoveCity={handleRemoveCity}
-                      pending={isPending}
-                      atCap={tripCount >= MAX_TRIP_STOPS}
-                      onCityPreview={handleStopClick}
-                      previewedCityId={panelCityId}
-                      cityIds={cityIdsByDay[day.index]}
-                      notices={false}
-                    />
+                  {/* A stop whose recompute failed: said on its day, in a
+                      sentence; the banner above has "Try again". */}
+                  {endStop && failedStopId === endStop.cityId && (
+                    <p role="status" className="text-base text-[#f85149] px-2 pb-1">
+                      The route didn&apos;t update for {endStop.cityName}; the drive shown is the old one.
+                    </p>
                   )}
-                  {day.towns.length === 0 && dayRoadside.length === 0 && (
+                  {/* The towns that fit in this stretch, then the day's end:
+                      the stop's town with its places and "✓ Added", from the
+                      set it was added from, since the towns that fit have
+                      moved on past it. */}
+                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} />
+                  {endStop && (
+                    <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />
+                  )}
+                  {townIds.size === 0 && !endStop && dayRoadside.length === 0 && (
                     <p className="text-base text-[#8b949e] px-2 py-2">Nothing listed along this stretch.</p>
                   )}
                   {/* Roadside stops (step 22, first-class in Gauntlet U1): what
@@ -1473,8 +1509,7 @@ export default function PlanWorkspace({
           {/* Save trip, at the end of the list rather than in the sticky
               header, so the header is short and the reason leads. No
               auth gate: trips live in this browser. */}
-          {!routeSealed && (
-            <div className="px-1 py-3">
+          <div className="px-1 py-3">
               <button
                 type="button"
                 onClick={handleSave}
@@ -1494,8 +1529,7 @@ export default function PlanWorkspace({
               >
                 {saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed; try again" : "Save trip"}
               </button>
-            </div>
-          )}
+          </div>
         </div>
         </div>
       </aside>

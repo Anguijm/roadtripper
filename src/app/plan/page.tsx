@@ -14,7 +14,8 @@ import {
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
-import { formatDeadline, todayIso } from "@/lib/plan/deadline";
+import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
+import Figures from "@/components/Figures";
 import { roadsideForRoute } from "@/lib/roadside/store";
 
 interface PlanSearchParams {
@@ -250,9 +251,10 @@ export default async function PlanPage({
         </Link>
         <div className="min-w-0 text-base text-[#8b949e] text-right">
           <div className="break-words">{fromName} to {toName}</div>
-          {/* A range's dates; an arrival date is the sheet's sentence. */}
+          {/* A range's dates, the figures in the mono face and the months
+              in the body face; an arrival date is the sheet's sentence. */}
           {!isArrivalMode && startDate && endDate ? (
-            <div><span className="num">{formatDeadline(startDate)}</span> to <span className="num">{formatDeadline(endDate)}</span></div>
+            <div><Figures text={`${formatDeadline(startDate)} to ${formatDeadline(endDate)}`} /></div>
           ) : null}
         </div>
       </header>
@@ -275,7 +277,7 @@ export default async function PlanPage({
           startDate={startDate}
           endDate={endDate}
           dateMode={isArrivalMode ? "arrival" : undefined}
-          today={todayIso()}
+          today={localTodayIso()}
           initialCandidateFetchFailed={candidateFetchFailed}
         />
       ) : (

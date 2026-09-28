@@ -33,6 +33,20 @@ export function todayIso(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+/**
+ * Today as YYYY-MM-DD in the running clock's own zone: the day the person
+ * would name. The plan sheet's arrival count is from here (Gauntlet U3,
+ * round 2): the UTC day said "sixteen days from now" on an evening in
+ * Japan where it was already the 29th and fifteen. The page passes the
+ * server's local day for the first paint and the sheet re-reads the
+ * browser's once mounted; the date itself is always shown, so the count
+ * is a convenience and the date is the truth.
+ */
+export function localTodayIso(now: Date = new Date()): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+}
+
 /** Milliseconds in a day. Both dates are pinned to UTC midnight, so the
  *  difference is an exact multiple of this except for leap seconds, which
  *  JavaScript's Date does not have; the round() is belt and braces. Local

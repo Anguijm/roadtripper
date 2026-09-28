@@ -96,10 +96,11 @@ describe("the plan sheet told as days", () => {
   it("renders two day headings in order for a one-stop trip, with the right towns and places under each", () => {
     const html = renderToString(<PlanWorkspace {...base} initialTrip={twoLegs} />);
     const text = visible(html);
-    // The headings, as sentences with the numbers in the mono face; the
+    // The headings, as sentences with the figures alone in the mono face
+    // (round 2: "h" and "min" set in mono came out wide-spaced); the
     // second day is over the 4 h budget and says so.
-    expect(clean(html)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">3 h 20 min</span>');
-    expect(clean(html)).toContain('Day <span class="num">2</span> · Lubbock to Austin · <span class="num">4 h 30 min</span>, over the <span class="num">4 h</span> you wanted');
+    expect(clean(html)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">3</span> h <span class="num">20</span> min');
+    expect(clean(html)).toContain('Day <span class="num">2</span> · Lubbock to Austin · <span class="num">4</span> h <span class="num">30</span> min, over the <span class="num">4</span> h you wanted');
     expect(text).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
     expect(text).toContain("Day 2 · Lubbock to Austin · 4 h 30 min, over the 4 h you wanted");
     expect(text.indexOf("Day 1 ·")).toBeLessThan(text.indexOf("Day 2 ·"));
@@ -128,9 +129,85 @@ describe("the plan sheet told as days", () => {
     expect(days[1].text).not.toContain("Cadillac Ranch");
     // Under each day the towns come first, then the places.
     for (const d of days) expect(d.text.indexOf("What's in")).toBeLessThan(d.text.indexOf("worth pulling over for"));
-    // Lubbock is on the trip, so its control says so; the others say "Stop here".
+    // Lubbock is on the trip, so its control says so; the others say "Stop
+    // here". Lubbock is the day's end, drawn after the town that fits
+    // before it, and once only.
     expect(days[0].text).toContain("✓ Added");
     expect(days[1].text).toContain("+ Stop here");
+    expect(days[0].text.indexOf("What's in Plainview")).toBeLessThan(days[0].text.indexOf("What's in Lubbock"));
+    expect(clean(html).match(/data-town="lubbock"/g)).toHaveLength(1);
+  });
+
+  it("keeps a stop's town and its places under the day it ends after the towns that fit have moved on, and stacks nothing above the days", () => {
+    // Round 1's failure: the refresh after Lubbock was added counts the
+    // towns that fit from Lubbock, so the set was Fort Worth alone, Day 1
+    // read "Nothing listed along this stretch", and Lubbock with its
+    // places sat in a collapsed "1 stop · Lubbock" row above the days.
+    const fortWorth = city("fort-worth", "Fort Worth", 32.75, -97.33);
+    const movedOn = {
+      status: "fresh" as const,
+      cities: [fortWorth],
+      waypoints: [{ id: "wp-9", cityId: "fort-worth", name: "Stockyards", type: "culture" as const, trendingScore: 50, neighborhoodId: null, description: "The old cattle district, kept as it was." }],
+      neighborhoods: {},
+    };
+    const html = clean(renderToString(
+      <PlanWorkspace
+        {...base}
+        roadsideStops={[]}
+        candidateMarkers={[{ id: fortWorth.id, name: fortWorth.name, lat: fortWorth.lat, lng: fortWorth.lng, detourMinutes: 240 }]}
+        waypointFetch={movedOn}
+        initialTrip={{ ...twoLegs, addedFrom: base.waypointFetch }}
+      />
+    ));
+    const text = visible(html);
+    const days = daySections(html);
+    expect(days.map((d) => d.n)).toEqual(["1", "2"]);
+    // Day 1 ends at Lubbock: its row, its state, its places.
+    expect(days[0].text).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
+    expect(days[0].text).toContain("What's in Lubbock");
+    expect(days[0].text).toContain("✓ Added");
+    expect(days[0].text).toContain("Buddy Holly Center");
+    expect(days[0].text).not.toContain("Nothing listed");
+    expect(days[0].text).not.toContain("Plainview");
+    // Day 2 holds the town that fits from Lubbock, with its control.
+    expect(days[1].text).toContain("What's in Fort Worth");
+    expect(days[1].text).toContain("+ Stop here");
+    expect(days[1].text).toContain("Stockyards");
+    expect(days[1].text).not.toContain("What's in Lubbock");
+    expect(days[1].text).not.toContain("Buddy Holly Center");
+    // The title still counts from the stop, above the days; and between
+    // the sheet's numbers and Day 1 there is no itinerary row, no lock
+    // and no panel nobody asked for.
+    expect(text).toContain("Fort Worth fits today after Lubbock");
+    expect(text).not.toMatch(/\d+ stops? ·|Your trip|Route locked|Loading what's in/);
+    expect(text.indexOf("on the road")).toBeLessThan(text.indexOf("Day 1 ·"));
+    expect(html).not.toContain("itinerary");
+    // A stop's town the page's own set no longer holds (a reload with the
+    // stops in the URL, say) still has its row, with its name alone.
+    const nameOnly = daySections(clean(renderToString(
+      <PlanWorkspace {...base} roadsideStops={[]} candidateMarkers={[]} waypointFetch={movedOn} initialTrip={twoLegs} />
+    )));
+    expect(nameOnly[0].text).toContain("What's in Lubbock");
+    expect(nameOnly[0].text).toContain("✓ Added");
+    expect(nameOnly[0].text).toContain("Nothing written up for Lubbock yet.");
+    expect(nameOnly[0].text).not.toContain("away");
+  });
+
+  it("says on the day when its stop's route did not update, and draws the answer to What's in under that town's row", () => {
+    const html = clean(renderToString(
+      <PlanWorkspace {...base} initialTrip={{ ...twoLegs, legs: [], failedStopId: "lubbock" }} initialPanelCityId="lubbock" />
+    ));
+    const days = daySections(html);
+    expect(days[0].text).toContain("The route didn't update for Lubbock; the drive shown is the old one.");
+    expect(days[1].text).not.toContain("didn't update");
+    // The answer sits inside Day 1, after Lubbock's rows, and nowhere else.
+    expect(html.match(/Loading what's in Lubbock/g)).toHaveLength(1);
+    const lubbock = html.indexOf('data-town="lubbock"');
+    const answer = html.indexOf("Loading what's in Lubbock");
+    expect(answer).toBeGreaterThan(lubbock);
+    expect(answer).toBeGreaterThan(html.indexOf("Buddy Holly Center"));
+    expect(answer).toBeLessThan(html.indexOf('<section data-day="2"'));
+    expect(html).toMatch(/aria-pressed="true"[^>]*>What's in Lubbock<\/button>/);
   });
 
   it("makes the heading a 44 px button that says what a tap does, and asks the map for nothing until one", () => {
@@ -186,11 +263,12 @@ describe("the plan sheet told as days", () => {
 
   it("says the arrival deadline as a sentence on the sheet, the date in the mono face, and nothing without a date", () => {
     const html = clean(renderToString(<PlanWorkspace {...base} dateMode="arrival" startDate="2026-10-13" endDate="2026-10-14" today="2026-10-08" />));
-    expect(html).toContain('Arrive in Austin by <span class="num">October 14</span>, six days from now');
+    // The day's figure alone in the mono face; the month is a word.
+    expect(html).toContain('Arrive in Austin by October <span class="num">14</span>, six days from now');
     expect(visible(html)).toContain("Arrive in Austin by October 14, six days from now");
     // Past twenty the count is digits, in the mono face.
     const far = clean(renderToString(<PlanWorkspace {...base} dateMode="arrival" startDate="2026-11-01" endDate="2026-11-02" today="2026-10-08" />));
-    expect(far).toContain('Arrive in Austin by <span class="num">November 2</span>, <span class="num">25</span> days from now');
+    expect(far).toContain('Arrive in Austin by November <span class="num">2</span>, <span class="num">25</span> days from now');
     // A range, or no dates: no arrival sentence.
     expect(visible(renderToString(<PlanWorkspace {...base} startDate="2026-10-10" endDate="2026-10-14" today="2026-10-08" />))).not.toContain("Arrive in");
     expect(visible(renderToString(<PlanWorkspace {...base} />))).not.toContain("Arrive in");

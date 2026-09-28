@@ -3,6 +3,7 @@ import {
   parseDateMode,
   parseIsoDate,
   todayIso,
+  localTodayIso,
   daysUntil,
   formatDeadline,
   daysLeftPhrase,
@@ -30,6 +31,23 @@ describe("deadline", () => {
   it("takes today in UTC from a given clock", () => {
     expect(todayIso(new Date("2026-09-27T23:59:00Z"))).toBe("2026-09-27");
     expect(todayIso(new Date("2026-09-28T00:00:00Z"))).toBe("2026-09-28");
+  });
+
+  it("takes the local day from a given clock, the day the person would name, padded to two digits", () => {
+    // Gauntlet U3, round 2: the arrival count comes from here. The dates
+    // are built from local parts, so this holds in every zone: half past
+    // eleven at night on the 29th is the 29th where the clock is, whatever
+    // UTC says; and the same instant's UTC day is the 29th or the 30th by
+    // the zone, which is the difference the operator saw in Japan.
+    const lateEvening = new Date(2026, 8, 29, 23, 30);
+    expect(localTodayIso(lateEvening)).toBe("2026-09-29");
+    expect(localTodayIso(new Date(2026, 0, 1, 0, 0, 1))).toBe("2026-01-01");
+    expect(localTodayIso(new Date(2026, 11, 31, 12))).toBe("2026-12-31");
+    // The UTC day of that evening is off by one east of Greenwich.
+    const utcDay = todayIso(lateEvening);
+    expect(["2026-09-29", "2026-09-30"]).toContain(utcDay);
+    if (lateEvening.getTimezoneOffset() < -30) expect(utcDay).toBe("2026-09-29");
+    if (lateEvening.getTimezoneOffset() <= -60) expect(daysUntil("2026-10-14", localTodayIso(lateEvening))).toBe(15);
   });
 
   it("counts whole calendar days, negative once passed, across a month end", () => {

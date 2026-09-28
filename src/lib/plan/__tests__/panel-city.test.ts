@@ -41,9 +41,12 @@ describe("nextPanelCityId, where the panel goes when the lists change", () => {
     expect(nextPanelCityId("lubbock-tx", [], candidates)).toBe("lubbock-tx");
   });
 
-  it("moves to the last stop when the city has left both lists, or closes when there is none", () => {
+  it("closes when the city has left both lists, whether or not the trip has stops", () => {
+    // Gauntlet U3, round 2: the panel is the answer to "What's in X",
+    // drawn under X's row; it used to move to the last stop, which opened
+    // an answer nobody had asked for above the days.
     const two = [{ cityId: "amarillo" }, { cityId: "lubbock-tx" }];
-    expect(nextPanelCityId("denver", two, candidates)).toBe("lubbock-tx");
+    expect(nextPanelCityId("denver", two, candidates)).toBeNull();
     expect(nextPanelCityId("denver", [], [])).toBeNull();
     expect(nextPanelCityId(null, two, candidates)).toBeNull();
   });
