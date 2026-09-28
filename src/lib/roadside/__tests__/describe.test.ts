@@ -53,6 +53,13 @@ describe("parsing Wikipedia extracts", () => {
     expect(m.get("Big Texan Steak Ranch")?.description).toBeNull();
     expect(m.has("Nowhere Place")).toBe(false);
   });
+
+  it("returns nothing, not a crash, for a malformed body", () => {
+    expect(parseExtracts(null).size).toBe(0);
+    expect(parseExtracts({ query: { pages: "nope", normalized: 3 } }).size).toBe(0);
+    expect(parseExtracts({ query: { pages: [{ title: 5 }, { extract: "no title" }] } }).size).toBe(0);
+    expect(parseWikidataEntities({ entities: "nope" }).size).toBe(0);
+  });
 });
 
 describe("clipping a description", () => {

@@ -13,18 +13,42 @@
 
 import type { RoadsideStop } from "./record";
 import { USER_AGENT } from "./overpass";
+import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
 
 export const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 export const WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php";
 /** wbgetentities takes up to 50 ids a request; prop=extracts up to 20 titles. */
 export const WIKIDATA_BATCH = 50;
 export const EXTRACT_BATCH = 20;
-/** Between requests. Wikimedia asks for serial requests and a contact; 250 ms is four a second, serial. */
+/**
+ * Between requests. Wikimedia's API etiquette asks for one request at a time
+ * from a client and a User-Agent with a contact, and it blocks agents that
+ * hammer or that hide who they are; it publishes no fixed rate, so 250 ms
+ * (four a second, serial) is well inside anything it has ever objected to
+ * and still finishes a corridor in under two minutes. To tune: lower it
+ * only with a reason, and never below the time one request takes, since
+ * requests are serial anyway; raise it if a run ever sees 429.
+ */
 export const PAUSE_MS = 250;
-/** After a 429 or a 5xx, one retry after this long. */
+/**
+ * After a 429 or a 5xx, one retry after five seconds. Five is long enough
+ * for a rate limit's window to pass and short enough that the person at
+ * the terminal is still watching. Exactly one retry, not a loop: a second
+ * failure means the service is down or we are blocked, and either way the
+ * right move is to stop and read the status, not to keep asking. The run
+ * is 31 requests and a minute; rerunning it is the recovery.
+ */
 export const RETRY_PAUSE_MS = 5_000;
-/** Same bound as a rendered reason (MAX_REASON_LENGTH), so a description never runs longer on screen than a waypoint's. */
-export const MAX_DESCRIPTION = 240;
+/**
+ * The same bound as a waypoint's reason, MAX_REASON_LENGTH in
+ * src/lib/routing/scoring.ts (240), imported rather than copied so the two
+ * cannot drift. Both render in the same clamped description slot on the
+ * plan and today screens; a longer description there would be cut by CSS
+ * mid-word where a reason would not.
+ */
+export const MAX_DESCRIPTION = MAX_REASON_LENGTH;
+/** A stalled connection is abandoned after this long; the retry above then gets its turn. */
+export const REQUEST_TIMEOUT_MS = 30_000;
 
 export interface StopDescription {
   wikidata: string | null;
@@ -154,6 +178,12 @@ export function clip(text: string, max = MAX_DESCRIPTION): string {
   if (t.length <= max) return t;
   const head = t.slice(0, max);
   const sentenceEnd = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  // A sentence end is the best place to cut, but only if what it leaves
+  // says something: an opening like "KIXZ is a radio station." followed by
+  // a long second sentence would otherwise clip to just the first few
+  // words. A quarter of the budget (60 characters at 240) is about one
+  // full clause, so below that the cut falls back to the word boundary and
+  // keeps more of the text with an ellipsis.
   if (sentenceEnd >= max / 4) return head.slice(0, sentenceEnd + 1);
   const space = head.lastIndexOf(" ");
   return (space > 0 ? head.slice(0, space) : head.slice(0, max - 1)).replace(/[\s,;:.]+$/, "") + "…";
@@ -165,7 +195,8 @@ export interface DescribeDeps {
 }
 
 async function getJson(url: string, deps: DescribeDeps): Promise<unknown> {
-  const once = () => deps.fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" } });
+  // A fresh timeout signal per try (the Overpass client learned this the hard way in #65).
+  const once = () => deps.fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json" }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   let res = await once();
   if (res.status === 429 || res.status >= 500) {
     await deps.sleep(RETRY_PAUSE_MS);

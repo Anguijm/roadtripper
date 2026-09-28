@@ -51,3 +51,9 @@ name-only, which is uneven exactly where the pre-filter is weakest.
 - Rule 1 and 2: the batching test counts two Wikidata requests for 55 ids and two Wikipedia requests for 28 titles, three pauses of 250 ms, and checks a stop filled from both sources, one from Wikidata alone, one from the tag alone, and one left out.
 - The run: 31 requests in 81 seconds. 1,074 stops; 627 reach an encyclopedia; 602 have a short description, 369 an opening; 447 have neither. Big Texan reads "restaurant and motel in Amarillo, Texas" and "a roadside attraction known for competitive eating".
 - 430 tests, 7 new; lint and types clean.
+
+## Council round 1 on #68 (BLOCK, maintainability 4), and what changed
+
+- four comments: the pacing against Wikimedia's etiquette and how to tune it; the single five-second retry and why not a loop; the description bound now imported from `MAX_REASON_LENGTH` rather than copied, with what diverging would do on screen; the quarter-of-budget rule in `clip`
+- Answered, not changed: `.gitignore` line 57 is `data/corridors/`, the whole directory, so the sidecar is covered like the corridor
+- Taken from the deferred list: a 30 s timeout signal per request, fresh per try; a test that malformed bodies parse to nothing rather than throwing
