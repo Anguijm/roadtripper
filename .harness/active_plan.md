@@ -42,3 +42,8 @@ survivors; this is the cheap rule that makes today's map readable.
 
 - Rule 1: with the state step changed from 0.7 to 0.6, "shows only the strongest stops at a state-wide zoom and every survivor at a town" fails. Restored, `cmp` clean.
 - Lint, types and the suite green.
+
+## Council round 1 on #77 (CONDITIONAL, maintainability 5), and what changed
+
+- the steps say where their numbers came from (two routes, by eye), that the first trip is the measurement, and which test moves with them
+- `line` says it is the store's MAP_THRESHOLD, that a lower value changes nothing and a higher one hides what the sidebar lists, and that it is a parameter only for the test

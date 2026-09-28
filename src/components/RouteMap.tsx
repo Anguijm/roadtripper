@@ -43,10 +43,23 @@ export interface RoadsideMapMarker {
  * region. The bottom value is the store's own line (MAP_THRESHOLD, 0.45),
  * so nothing is hidden at town zoom that the sidebar lists.
  */
+// Hand-tuned on two routes (Amarillo to Austin, 214 survivors; Denver to
+// Santa Fe, 278) so that a phone at state zoom shows a few dozen diamonds
+// and not a pile on every city. Not measured against what a person can
+// read; the first real trip is the measurement. Moving a step or a value
+// means moving "shows only the strongest stops at a state-wide zoom…" in
+// src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx with it.
 export const ROADSIDE_ZOOM_STEPS: ReadonlyArray<readonly [zoomBelow: number, minP: number]> = [
   [8, 0.7],
   [10, 0.55],
 ];
+/**
+ * `line` is the store's own line, MAP_THRESHOLD in src/lib/roadside/survivors.ts
+ * (0.45): the server keeps only stops at or above it, so a value below it here
+ * changes nothing (there is nothing below it to show) and a value above it
+ * hides survivors the sidebar still lists. It is a parameter only so the test
+ * can prove the floor; the map never passes one.
+ */
 export function roadsideMinProbabilityAt(zoom: number, line = 0.45): number {
   for (const [below, minP] of ROADSIDE_ZOOM_STEPS) if (zoom < below) return Math.max(minP, line);
   return line;
