@@ -65,7 +65,15 @@ mkdirSync("data/corridors", { recursive: true });
 // src/lib/roadside/record.ts changes shape, so saved tiles in the old
 // shape are not merged with new ones.
 // 2 since 2026-09-28: the record gained `detail`, so tiles saved under 1
-// lack a field every later reader expects.
+// lack a field every later reader expects. What a bump does: the key
+// below no longer matches the saved file, the next run prints "progress
+// file is for a different route, buffer or version; starting over" and
+// refetches every tile (free, about 32 requests here); tiles from the two
+// versions are never merged. To verify: the log line above, then the
+// `key` at the top of data/corridors/<name>.tiles.json, which starts
+// "v2|". A reader of the corridor file still accepts the old shape (the
+// schema defaults `detail` to null), so an un-repulled corridor reads as
+// a poorer list, not a broken one.
 const PROGRESS_VERSION = 2;
 const progressPath = `data/corridors/${name}.tiles.json`;
 type Progress = { key: string; tiles: Record<string, RoadsideStop[]> };

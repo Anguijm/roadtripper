@@ -60,9 +60,14 @@ export const RoadsideStopSchema = z.object({
    * shown as text only and never used as a reason. Null when the tags say
    * nothing beyond the kind. Added 2026-09-28 because the encyclopedias
    * cover the wrong half: murals and small museums have no page, and this
-   * is often all there is to read about them.
+   * is often all there is to read about them. Missing in a file written
+   * before 2026-09-28 reads as null rather than failing: a corridor file
+   * from the old shape is still a valid list of stops, only a poorer one,
+   * and the pull's PROGRESS_VERSION keeps old and new tiles from being
+   * merged. The writer (fromOsmElement) always emits it, and the record
+   * test pins that, so the default hides no writer bug.
    */
-  detail: z.string().max(MAX_REASON_LENGTH).nullable(),
+  detail: z.string().max(MAX_REASON_LENGTH).nullable().default(null),
   /** A Wikidata Q-id when the source carried one; the door to a real reason. */
   wikidata: z.string().regex(/^Q\d+$/).nullable(),
   /** "en:Cadillac Ranch" style, when the source carried one. */
@@ -116,9 +121,24 @@ export function wikidataId(raw: string | undefined): string | null {
   return m ? m[0].toUpperCase() : null;
 }
 
-/** Tags whose value, on a Wikidata-only place, says what it is: "hotel", "school", "restaurant". In the order tried. */
+/**
+ * For a Wikidata-only place ("notable"), the tag whose value says what it
+ * is: "hotel", "school", "restaurant". Tried in this order because the
+ * earlier keys are the more specific: a hotel is `building=hotel` and
+ * also `tourism=hotel`, but a school carries `amenity=school` on a
+ * `building=yes`, so `building` goes last where "yes" is skipped. To add
+ * a key, put it before the less specific ones and add a real tag set to
+ * "says what a Wikidata-only place is" in __tests__/roadside.test.ts.
+ */
 const WHAT_IT_IS_KEYS = ["amenity", "shop", "leisure", "craft", "office", "man_made", "natural", "building"] as const;
-/** Tags that name a subtype of one of our kinds: "mural" under artwork, "war memorial" under historic. */
+/**
+ * Tags that name a subtype of one of our own kinds: "mural" under artwork,
+ * "war memorial" under historic, "history" under museum. Each is the
+ * subtype key OSM documents for that kind, so at most one applies to a
+ * given element and the order only settles a mis-tagged one. A new kind
+ * in `kindFromTags` that has a subtype key should add it here and a tag
+ * set to "takes the mapper's description first…" in the tests.
+ */
 const SUBTYPE_KEYS = ["artwork_type", "memorial", "museum", "attraction", "tower:type", "castle_type", "ruins"] as const;
 
 const words = (v: string) => v.replace(/_/g, " ").replace(/;/g, ", ").trim();
@@ -130,7 +150,7 @@ const words = (v: string) => v.replace(/_/g, " ").replace(/;/g, ", ").trim();
  * both, the subtype the tags spell, and for a Wikidata-only place the
  * value of the first tag that says what it is. "yes" is no subtype.
  */
-export function detailFromTags(tags: Record<string, string>): string | null {
+export function detailFromTags(tags: Record<string, string> = {}): string | null {
   const description = (tags.description ?? tags["description:en"] ?? "").trim();
   if (description) return clip(description);
   const inscription = (tags.inscription ?? tags["inscription:en"] ?? "").trim();

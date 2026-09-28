@@ -74,6 +74,12 @@ describe("clipping a description", () => {
     expect(c.endsWith("…")).toBe(true);
     expect(c.length).toBeLessThanOrEqual(51);
     expect(c.slice(0, -1).endsWith("word")).toBe(true);
+    // Counted in code points: an emoji at the cut is kept whole or dropped, never split.
+    const emoji = "a ".repeat(20) + "🚀".repeat(30);
+    const e = clip(emoji, 50);
+    expect(e.endsWith("…")).toBe(true);
+    expect(Array.from(e).every((c) => c === "a" || c === " " || c === "🚀" || c === "…")).toBe(true);
+    expect(clip("🚀".repeat(10), 5)).toBe("🚀🚀🚀🚀…");
     // A sentence end too early (under a quarter of max) is not used.
     const early = "Hi. " + "y".repeat(300);
     expect(clip(early, 100).endsWith("…")).toBe(true);

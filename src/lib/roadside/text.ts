@@ -9,11 +9,21 @@ import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
  * At most `max` characters, whitespace collapsed. A long text is cut at the
  * last sentence end that leaves at least a quarter of `max`, else at a word
  * boundary with an ellipsis, so a description never ends mid-word.
+ *
+ * The default budget is MAX_REASON_LENGTH from src/lib/routing/scoring.ts:
+ * the bound every rendered description already has (a waypoint's reason,
+ * a stop's detail, an encyclopedia line), so nothing clipped here can run
+ * longer on screen than the slot the plan and today screens give it. Change
+ * that constant and every clip follows; do not copy the number.
+ *
+ * Counted in code points, not UTF-16 units, so a cut never lands inside an
+ * emoji or any other character outside the basic plane.
  */
 export function clip(text: string, max = MAX_REASON_LENGTH): string {
   const t = text.replace(/\s+/g, " ").trim();
-  if (t.length <= max) return t;
-  const head = t.slice(0, max);
+  const chars = Array.from(t);
+  if (chars.length <= max) return t;
+  const head = chars.slice(0, max).join("");
   const sentenceEnd = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
   // A sentence end is the best place to cut, but only if what it leaves
   // says something: an opening like "KIXZ is a radio station." followed by
@@ -23,5 +33,5 @@ export function clip(text: string, max = MAX_REASON_LENGTH): string {
   // keeps more of the text with an ellipsis.
   if (sentenceEnd >= max / 4) return head.slice(0, sentenceEnd + 1);
   const space = head.lastIndexOf(" ");
-  return (space > 0 ? head.slice(0, space) : head.slice(0, max - 1)).replace(/[\s,;:.]+$/, "") + "…";
+  return (space > 0 ? head.slice(0, space) : chars.slice(0, max - 1).join("")).replace(/[\s,;:.]+$/, "") + "…";
 }

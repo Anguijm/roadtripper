@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fromOsmElement, kindFromTags, wikidataId, RoadsideStopSchema, type OsmElement } from "../record";
+import { detailFromTags, fromOsmElement, kindFromTags, wikidataId, RoadsideStopSchema, type OsmElement } from "../record";
 import { corridorTiles, paddedBox, withinCorridor } from "../corridor";
 import { fetchBoxFromOverpass, fetchCorridorFromOverpass, overpassQuery, OverpassError, PAUSE_MS, RETRY_PAUSES_MS, USER_AGENT } from "../overpass";
 import { haversineKm, projectOntoPolyline, type LatLng } from "@/lib/routing/polyline";
@@ -345,6 +345,18 @@ describe("what the tags say about a place (detail)", () => {
     expect(at({ wikidata: "Q1", building: "yes" })).toBeNull();
     expect(at({ tourism: "attraction" })).toBeNull();
     expect(at({ tourism: "artwork", artwork_type: "yes" })).toBeNull();
+  });
+
+  it("keeps the text as the mapper wrote it: HTML stays characters, and nothing is a reason", () => {
+    expect(at({ tourism: "attraction", description: "<b>Big</b> & bold" })).toBe("<b>Big</b> & bold");
+    expect(fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { name: "X", tourism: "attraction", description: "d" } })?.reason).toBeNull();
+  });
+
+  it("reads a file from before the field as null, and a missing tags object as no detail", () => {
+    const old = { id: "osm:node:1", name: "Old", lat: 1, lng: 2, kind: "attraction", source: "osm", reason: null, wikidata: null, wikipedia: null };
+    const parsed = RoadsideStopSchema.safeParse(old);
+    expect(parsed.success && parsed.data.detail).toBeNull();
+    expect(detailFromTags()).toBeNull();
   });
 
   it("clips a long description at a word, never mid-word, within the reason bound", () => {

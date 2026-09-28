@@ -49,3 +49,11 @@ unchanged by this.
 
 - Rule 1: with the `description` branch removed from `detailFromTags`, "takes the mapper's description first…" and the clip test fail (the subtype "sculpture" wins instead). Restored, `cmp` clean.
 - 434 tests, 3 new; lint and types clean. Every hand-built fixture gained `detail: null`.
+
+## Council round 1 on #70 (CONDITIONAL, maintainability 5, bugs 6), and what changed
+
+- `detail` defaults to null on read, so a corridor file from before the field is a poorer list, not a broken one; the writer always emits it and a test pins both (old shape reads as null; `detailFromTags()` with no tags is null)
+- `clip` counts code points, so a cut never splits an emoji; tested at the boundary
+- comments: why the two key lists and their order and how to extend them; what a PROGRESS_VERSION bump does and how to verify it; the clip budget's tie to MAX_REASON_LENGTH
+- taken from the deferred list: a test that HTML in a description stays characters
+- Answered, not changed: no renderer reads `detail` yet. The four `dangerouslySetInnerHTML` uses in the app (src/components/NeighborhoodPanel.tsx ) carry JSON-LD and map styling, none a stop's text; when `detail` is shown it goes in the same JSX text slot as a waypoint's reason (RecommendationList.tsx, `data-reason`), which React escapes
