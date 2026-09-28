@@ -4,46 +4,51 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/roadside-zoom-rule`
+Branch: `feat/store-deploy`
 
 ## Goal
 
-The density gap named on #73 and #75: at a state-wide zoom the amber
-diamonds pile up on every city (278 on Denver to Santa Fe, most of them
-inside Denver and Colorado Springs). A zoom rule: at a state-wide view
-only the strongest stops show; zoomed to a region, the middle; zoomed
-to a town, every survivor. Toggled, not rebuilt, on each zoom change.
+The store reaches the deployed app. The site is Firebase App Hosting,
+built from `main` on every push, and the 58 MB store is not in git. So
+the build fetches it: a published snapshot on a GitHub release, checked
+against a checksum that is in git, traced into the image like the atlas.
+"Open the website" then means the website, not John's laptop.
 
 ## Ship rule, written before the work
 
-1. One pure function, `roadsideMinProbabilityAt(zoom)`, decides the
-   minimum probability a diamond needs at a zoom: 0.7 below zoom 8 (a
-   state), 0.55 below zoom 10 (a region), the store's own line (0.45) from
-   zoom 10 up (a town, where Google's map shows individual streets and a
-   person is choosing a stop rather than a region). The line is never
-   undercut, so nothing hides at town zoom that the sidebar lists.
-2. The map applies it once when the markers are made and again on every
-   `zoom_changed`, by setting each marker's visibility; markers are made
-   once per route, and zooming costs a flag per marker.
-3. The sidebar list is unchanged: it is collapsed and lists every
-   survivor in road order whatever the zoom.
-4. Tested: the function at the two steps and both ends, and that a line
-   above a step wins. The map effect is client-only, as before.
+1. `scripts/publish-roadside-store.mjs` takes a consistent snapshot of the
+   live store (`VACUUM INTO`, so the published file is compact and not
+   mid-write), writes its SHA-256 to `data/roadside.sqlite.sha256` (which
+   is committed), and uploads it as the asset `roadside.sqlite` of the
+   release tagged `roadside-store`, replacing the previous one. The
+   repository is public, so the asset needs no token to download.
+2. `scripts/fetch-roadside-store.mjs` runs before `next build`. If the
+   file is already there and matches the checksum, it does nothing. Else
+   it downloads the asset, verifies the checksum, and keeps the file only
+   if it matches. A download that fails or a checksum that does not match
+   leaves no file, prints why, and exits 0: the site must still deploy
+   without roadside stops, and the store's own warning says the file is
+   missing.
+3. `outputFileTracingIncludes` carries `data/roadside.sqlite` into the
+   standalone output beside the atlas, and the store looks there already.
+4. Tested: the fetch on an empty directory downloads and verifies (the real
+   asset, once); a wrong checksum is refused and the file removed; an
+   existing matching file is left alone. The publish script is run once
+   for real and its checksum committed.
 
-**Cost:** $0.
+**Cost:** $0. GitHub release assets are free; the image grows by 58 MB.
 
-**Weakest part:** Three numbers chosen by eye from one route's density,
-not from a measurement of what a person can read on a phone; the first
-real trip will say whether 0.7 at state zoom is too few. Clustering
-would scale better than thresholds when a corridor has a thousand
-survivors; this is the cheap rule that makes today's map readable.
+**Weakest part:** The checksum in git and the asset on the release must
+move together, in that order (publish, then commit), or a deploy in
+between fetches a file it then refuses. The publish script prints the
+commit step so it is not forgotten. The store published tonight is the
+partial one (every tagged kind scored, the Wikidata-only tranche not),
+because the account's credits ran out; republishing after the rest is
+scored is one command and one commit.
 
 ## Gate 1 proofs
 
-- Rule 1: with the state step changed from 0.7 to 0.6, "shows only the strongest stops at a state-wide zoom and every survivor at a town" fails. Restored, `cmp` clean.
-- Lint, types and the suite green.
-
-## Council round 1 on #77 (CONDITIONAL, maintainability 5), and what changed
-
-- the steps say where their numbers came from (two routes, by eye), that the first trip is the measurement, and which test moves with them
-- `line` says it is the store's MAP_THRESHOLD, that a lower value changes nothing and a higher one hides what the sidebar lists, and that it is a parameter only for the test
+- Rule 1: the publish ran once for real: a 77 MB snapshot of 323,888 stops, 156,899 scored, on the release `roadside-store`; its checksum is in `data/roadside.sqlite.sha256`.
+- Rule 2, on a temporary directory against the real asset: an empty directory downloads 77 MB and verifies; a matching file is left alone; a wrong checksum file refuses the download and leaves no file; a file that does not match the checksum is replaced by the published one.
+- Rule 3: the tracing include beside the atlas; not exercised by a full `next build` here, the mechanism is the atlas's and the deploy will show it.
+- Lint, types and the suite unchanged.
