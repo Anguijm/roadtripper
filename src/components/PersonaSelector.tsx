@@ -20,8 +20,13 @@ export default function PersonaSelector({
   return (
     <div
       role="radiogroup"
-      aria-label="Choose persona"
-      className="flex gap-2 overflow-x-auto"
+      // The glossary's words for "persona" (quality bar, rule 1).
+      aria-label="I'm in the mood for"
+      // Wraps to a second row on a phone: five chips at 16 px do not fit
+      // 390 px, and a strip that scrolled sideways clipped the last one to
+      // "GEARH" (round-1 critic, rule 7: no horizontal scroll, nothing
+      // truncated). Shorter chip words are U2's.
+      className="flex flex-wrap gap-2 font-sans"
     >
       {PERSONA_ORDER.map((id) => {
         const persona = PERSONAS[id];
@@ -36,7 +41,8 @@ export default function PersonaSelector({
               if (id !== activePersonaId) onChange(id);
             }}
             className={[
-              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-widest border transition-colors whitespace-nowrap",
+              // Sentence case at 16 px with a 44 px target (rules 1 and 7).
+              "flex items-center gap-1.5 px-3 min-h-[44px] text-base border transition-colors whitespace-nowrap",
               isActive
                 ? "font-semibold text-[#0d1117] border-transparent"
                 : "font-normal text-[#b0b9c2] bg-transparent border-[#30363d] hover:border-[#6e7681]",

@@ -66,7 +66,7 @@ describe("RouteMap server rendering", () => {
           encodedPolyline=""
           candidates={[]}
           tripStops={[]}
-          searchArc={null}
+          roadsideStops={[]}
         />
       )
     ).not.toThrow();

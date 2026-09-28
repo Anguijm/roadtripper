@@ -9,10 +9,11 @@ import React, {
   useTransition,
 } from "react";
 import type { RoadsideMarker } from "@/lib/roadside/along";
+import { roadsideAnchor, townsAlong, type RoadsideAnchor } from "@/lib/roadside/anchor";
+import { decodePolyline } from "@/lib/routing/polyline";
 import RouteMap, {
   type CandidateMarker,
   type TripStopMarker,
-  type SearchArc,
 } from "@/components/RouteMap";
 import PersonaSelector from "@/components/PersonaSelector";
 import RecommendationList, {
@@ -25,13 +26,12 @@ import { itinerarySummary } from "@/lib/plan/itinerary-summary";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
-import { formatDistance, formatDuration } from "@/lib/routing/format";
+import { formatDistance, formatDuration, formatDurationPlain } from "@/lib/routing/format";
 import {
   recomputeAndRefreshAction,
   fetchNeighborhoodsAction,
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
-import { HOP_REACH_MAX_MINUTES, METERS_PER_DRIVE_MINUTE } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
@@ -54,6 +54,12 @@ interface PlanWorkspaceProps {
   initialDurationSeconds: number;
   fromName: string;
   toName: string;
+  /**
+   * Not read since Gauntlet U1 round 2: the frontier line lost its counts
+   * ("max 270 min" is in the glossary's never column). U2 decides whether
+   * "up to four and a half hours off the road" comes back, and drops the
+   * prop from here and the plan page if not.
+   */
   maxDetourMinutes: number;
   startDate?: string;
   endDate?: string;
@@ -61,6 +67,12 @@ interface PlanWorkspaceProps {
   initialCandidateFetchFailed?: boolean;
   /** Roadside survivors along the planned route, in road order. Empty when no pulled corridor is near it. */
   roadsideStops?: RoadsideMarker[];
+  /**
+   * The roadside stop whose card is open on the first render. Only the SSR
+   * tests pass it: the card is normally opened by a tap, and a server
+   * render cannot tap. The page never sets it.
+   */
+  initialSelectedRoadsideId?: string;
 }
 
 /**
@@ -72,12 +84,200 @@ interface PlanWorkspaceProps {
  */
 const NO_ROADSIDE: RoadsideMarker[] = [];
 
-/** The kinds as the sidebar says them; anything unknown is "place". */
+/** The kinds as the sheet says them, one or two plain words; anything unknown is "place". */
 const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
   attraction: "attraction", museum: "museum", viewpoint: "viewpoint", artwork: "artwork", theme_park: "theme park", zoo: "zoo",
-  historic: "historic", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
-  notable: "place", other: "place",
+  historic: "historic place", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
+  notable: "well-known place", other: "place",
 };
+
+/**
+ * The card's line when the store has none: `about` is already the
+ * encyclopedia's opening, else Wikidata's short description, else what the
+ * mapper typed (survivors.ts), so a null is a place the map has only a kind
+ * for. The line says so in the map's terms, "On the map as a historic
+ * place; nothing written about it yet.", rather than a placeholder ("No
+ * write-up for this one.", the round-5 critic) or the bare kind as a
+ * sentence, which only repeated the line beneath (round 1). The store's
+ * line itself is a hard stop and is not touched.
+ */
+export function roadsideMapLine(kind: RoadsideMarker["kind"]): string {
+  const word = ROADSIDE_KIND_WORDS[kind] ?? "place";
+  return `On the map as ${/^[aeiou]/.test(word) ? "an" : "a"} ${word}; nothing written about it yet.`;
+}
+
+/**
+ * How far along the road a stop sits, as the sheet says it: "132 mi in",
+ * and with the town when the caller has one, "6 mi in, at Amarillo" or
+ * "132 mi in, past Lubbock". Miles, because the sheet's own summary says
+ * "497 mi" (round-2 critic: one sheet, one unit), through the same
+ * `formatDistance` so the two can never round differently.
+ */
+export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null): string {
+  const mi = Math.round((alongKm * 1000) / 1609.34);
+  // Lower case: the text always follows the kind ("well-known place · less
+  // than a mile in"), and a capital there read as a second sentence
+  // (round-3 critic, rule 1).
+  const dist = mi < 1 ? "less than a mile in" : `${formatDistance(alongKm * 1000)} in`;
+  return anchor ? `${dist}, ${anchor.near ? "at" : "past"} ${anchor.name}` : dist;
+}
+
+/**
+ * How many roadside stops the list shows before "Show all": the strongest
+ * ten. A corridor holds a few hundred survivors and the diamonds on the
+ * map already say where; ten is a screen's worth on a phone.
+ */
+export const ROADSIDE_SHOWN_FIRST = 10;
+
+/**
+ * The phone's bottom sheet (`.plan-sheet` in src/app/globals.css): 92 dvh
+ * tall, fixed at the bottom, translated down by the snap's share of its own
+ * height. The scroll box inside it is the visible part only
+ * (`.plan-sheet-scroll`, the same file), so no content ever sits below the
+ * screen's edge out of reach; as `flex-1` the box was the whole sheet and
+ * the bottom 350 px could not be scrolled to at rest (Gauntlet U1, round
+ * 4). The rest snap is set so the roadside section fits the box on a 390
+ * by 844 phone: `sheetScrollBoxPx(844, 1)` is at least ROADSIDE_LIST_PX
+ * plus SHEET_BOX_PADDING_PX, the box's own padding above the section, which
+ * is first in the box (round 6). Held by a test; change the CSS and these
+ * together.
+ */
+export const SHEET_HEIGHT_DVH = 92;
+/**
+ * The hidden share of the sheet's own height at each snap, in percent:
+ * peek, rest (the default), full. Rest is 25 so the sheet's top sits at
+ * 31 dvh (100 - 92 * 0.75): on a 390 by 844 phone that is 537 px of
+ * scroll box, which holds the roadside heading, ten rows and "Show all N"
+ * with 17 px to spare, and a 217 px strip of map above the sheet for the
+ * road. At 30 the box is 498 and the control is cut; at 45 (round 3's
+ * half snap) it is 382 and six rows are. Peek is 80 so the handle and
+ * one line show over a nearly whole map; full is 8 so the sheet's top
+ * stops at 15 dvh, under the page's header. Moves with it: the CSS
+ * default `translateY(var(--sheet-y, 25%))` and the scroll box's
+ * `calc(100% - var(--sheet-y, 25%) - 45px)` in src/app/globals.css,
+ * `sheetScrollBoxPx`, `sheetTopDvh` and through it the map's fit padding
+ * (`fitPaddingPx` in RouteMap.tsx). Check: the test "holds the heading,
+ * ten rows and the control in the sheet's scroll box at rest on a 390 by
+ * 844 phone" pins [80, 25, 8] and the arithmetic, and a screenshot of the
+ * plan page at 390 by 844 shows "Show all N" whole above the fold.
+ */
+export const SHEET_SNAPS = [80, 25, 8] as const;
+/** The drag handle (44 px) and the sheet's top border. */
+export const SHEET_HANDLE_PX = 45;
+/** The scroll box's padding (`p-2`), above the first section. */
+export const SHEET_BOX_PADDING_PX = 8;
+/** Pixels of scroll box on screen at a snap, on a phone `viewportPx` tall. */
+export function sheetScrollBoxPx(viewportPx: number, snap: 0 | 1 | 2): number {
+  return Math.floor((viewportPx * SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 10_000) - SHEET_HANDLE_PX;
+}
+/** Where the sheet's top edge sits at a snap, in dvh from the top of the screen; the map's one fit frames the road in the strip above it. */
+export function sheetTopDvh(snap: 0 | 1 | 2): number {
+  return 100 - (SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 100;
+}
+/**
+ * The roadside section from its top through the "Show all" control: the
+ * heading's 24 with nothing above it (the box's own 8 px padding is the
+ * room under the handle) and nothing between it and the first row, ten
+ * rows of 44 (two lines of 22, no padding), a 4 px gap and the 44 px
+ * control. 512, so with the box's padding 520 of the 537 px on screen at
+ * rest: 17 px to spare, where round 6's 8 above the heading and 4 under
+ * it left 5 (round 7). The classes on the section add up to this; change
+ * both together.
+ */
+export const ROADSIDE_LIST_PX = 24 + ROADSIDE_SHOWN_FIRST * 44 + 4 + 44;
+
+function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
+  return `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
+}
+
+/**
+ * The least sideways travel, in CSS px, that closes the card. 60 is well
+ * over a finger's wobble in a tap (a few px; the sheet's own tap-or-drag
+ * line is 5) and about a sixth of the card's 366 px width on a 390 px
+ * phone, so a short flick closes it and a thumb settling on it does not.
+ * A scroll of the sheet over the card is ruled out by the direction test
+ * in `roadsideSwipeCloses`, not by this length. Nothing in CSS moves with
+ * it. Check: the test "closes the card on a sideways swipe, not on a
+ * scroll or a tap" pins 60 and the line at 59 and 60, and on a 390 px
+ * phone a flick across the open card closes it while a scroll over it
+ * does not.
+ */
+export const SWIPE_PX = 60;
+
+/**
+ * Whether a touch that moved `dx` to the right and `dy` down across the
+ * card is the swipe that closes it: sideways, at least SWIPE_PX, and more
+ * sideways than up or down, so a finger scrolling the sheet over the card
+ * never closes it and a tap (no movement) stays a tap. Pure, so a test can
+ * prove the line without a touch screen.
+ */
+export function roadsideSwipeCloses(dx: number, dy: number): boolean {
+  return Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(dy);
+}
+
+/**
+ * The card for one roadside stop (Gauntlet U1). Pure: the five parts from
+ * what the store gives, nothing fetched. The name, the line about it (the
+ * store's, or that there is none), the kind in plain words with how far
+ * along the road and which town it is at or past (`anchor`, from the towns
+ * the page already has), and one link-button that opens the place in
+ * Google Maps. No separate close button (the spec): the card closes on a
+ * second tap of its diamond or its row, on a tap of its own heading (a
+ * 44 px button carrying the name, marked open the way the itinerary's
+ * toggle is), or on a sideways swipe across it. `about` and `name` are
+ * untrusted text and are rendered as text.
+ */
+export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <section
+      data-roadside-card={stop.id}
+      aria-label={stop.name}
+      className="font-sans border border-[#e3b341] bg-[#161b22] px-3 pt-0 pb-3 space-y-2"
+      onTouchStart={(e) => {
+        touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }}
+      onTouchEnd={(e) => {
+        const start = touchStart.current;
+        touchStart.current = null;
+        if (!start) return;
+        // A second finger or an interrupted pointer can end with no touch in the list: then nothing.
+        const end = e.changedTouches[0];
+        if (!end) return;
+        if (roadsideSwipeCloses(end.clientX - start.x, end.clientY - start.y)) onClose?.();
+      }}
+      onTouchCancel={() => {
+        touchStart.current = null;
+      }}
+    >
+      <h3 className="text-lg leading-snug text-[#f0f6fc]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-expanded={true}
+          className="w-full min-h-[44px] flex items-center justify-between gap-2 text-left focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        >
+          <span className="min-w-0 break-words">{stop.name}</span>
+          <span aria-hidden className="shrink-0 text-base text-[#8b949e]">▲</span>
+        </button>
+      </h3>
+      <p data-roadside-line className="text-base leading-snug text-[#c9d1d9] break-words">
+        {stop.about ?? roadsideMapLine(stop.kind)}
+      </p>
+      <p data-roadside-where className="text-base text-[#8b949e]">
+        {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm, anchor)}
+      </p>
+      <a
+        href={roadsideMapsUrl(stop)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center w-full min-h-[44px] text-base border border-[#e3b341] text-[#e3b341] hover:bg-[#e3b341] hover:text-[#0d1117] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+      >
+        Open in Maps
+      </a>
+    </section>
+  );
+}
 
 // 7 stops balances itinerary richness against UI clarity and API cost per recompute.
 const MAX_TRIP_STOPS = 7;
@@ -92,21 +292,6 @@ const ERROR_LABELS: Record<RecomputeErrorCode, string> = {
   internal_error: "Something went wrong recomputing the route.",
 };
 
-function computeBearing(
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number }
-): number {
-  const lat1 = (from.lat * Math.PI) / 180;
-  const lat2 = (to.lat * Math.PI) / 180;
-  // Normalise to [-180, 180] so routes crossing the antimeridian point the right way.
-  const dLngDeg = ((to.lng - from.lng + 540) % 360) - 180;
-  const dLng = (dLngDeg * Math.PI) / 180;
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
 export default function PlanWorkspace({
   origin,
   destination,
@@ -120,12 +305,12 @@ export default function PlanWorkspace({
   initialDurationSeconds,
   fromName,
   toName,
-  maxDetourMinutes,
   startDate,
   endDate,
   dateMode,
   initialCandidateFetchFailed = false,
   roadsideStops = NO_ROADSIDE,
+  initialSelectedRoadsideId,
 }: PlanWorkspaceProps) {
 
   // Stable UUID per component mount, passed to saveTrip on every attempt so a
@@ -201,16 +386,15 @@ export default function PlanWorkspace({
   // Council ISC-S6-ARCH-5 — incrementing request id, latest wins.
   const requestIdRef = useRef(0);
 
-  // Mobile bottom sheet snap state.
-  // 0 = peek (20vh), 1 = half (55vh, default), 2 = full (92vh).
-  const SNAP_Y = [80, 45, 8] as const; // translateY % for each snap
+  // Mobile bottom sheet snap state: 0 = peek, 1 = rest (the default), 2 =
+  // full; the hidden share at each is SHEET_SNAPS above.
   const SNAP_LABELS = ["peeked", "half-open", "fully open"] as const;
   const [sheetSnap, setSheetSnap] = useState<0 | 1 | 2>(1);
   const [sheetAnnouncement, setSheetAnnouncement] = useState("");
   const sheetRef = useRef<HTMLElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   // Base translateY% captured at drag start — avoids stale closure on sheetSnap.
-  const dragBasePctRef = useRef<number>(SNAP_Y[1]);
+  const dragBasePctRef = useRef<number>(SHEET_SNAPS[1]);
 
   // Announce snap changes to screen readers after each state update.
   useEffect(() => {
@@ -227,7 +411,7 @@ export default function PlanWorkspace({
     // depend on the sheetSnap closure value during move.
     const raw = sheetRef.current?.style.getPropertyValue("--sheet-y") ?? "";
     const parsed = parseFloat(raw);
-    dragBasePctRef.current = isNaN(parsed) ? SNAP_Y[1] : parsed;
+    dragBasePctRef.current = isNaN(parsed) ? SHEET_SNAPS[1] : parsed;
     sheetRef.current?.style.setProperty("--sheet-duration", "0ms");
   }, []);
 
@@ -267,7 +451,7 @@ export default function PlanWorkspace({
     if (!sheetRef.current) return;
     touchStartYRef.current = null;
     sheetRef.current.style.setProperty("--sheet-duration", "300ms");
-    sheetRef.current.style.setProperty("--sheet-y", `${SNAP_Y[sheetSnap]}%`);
+    sheetRef.current.style.setProperty("--sheet-y", `${SHEET_SNAPS[sheetSnap]}%`);
   }, [sheetSnap]);
 
   const accent = PERSONAS[activePersonaId].accentColor;
@@ -279,7 +463,7 @@ export default function PlanWorkspace({
   const liveDistance = liveRoute?.totalDistanceMeters ?? initialDistanceMeters;
   const liveDuration = liveRoute?.totalDurationSeconds ?? initialDurationSeconds;
   const totalDistanceText = formatDistance(liveDistance);
-  const totalDurationText = formatDuration(liveDuration);
+  const onTheRoadText = formatDurationPlain(liveDuration);
 
   // The recommendation set the user actually sees — refreshed when present,
   // initial server prop otherwise (Council ISC-S7-ARCH-2).
@@ -327,20 +511,54 @@ export default function PlanWorkspace({
     );
   }, [tripState, tripDays, budgetHours, effectiveStartDate, endDate]);
 
-  // Arc shows the search semicircle ahead of the frontier stop (last added, or origin).
-  // Suppressed when the route is sealed — user is done exploring candidates.
-  const searchArc = useMemo<SearchArc | null>(() => {
-    if (routeSealed) return null;
-    const arcCenter =
-      tripStops.length > 0
-        ? { lat: tripStops[tripStops.length - 1].lat, lng: tripStops[tripStops.length - 1].lng }
-        : { lat: origin.lat, lng: origin.lng };
-    return {
-      center: arcCenter,
-      radiusMeters: Math.max(0, Math.min(maxDetourMinutes, HOP_REACH_MAX_MINUTES)) * METERS_PER_DRIVE_MINUTE,
-      headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
-    };
-  }, [routeSealed, tripStops, origin, destination, maxDetourMinutes]);
+  // ── Roadside stops (Gauntlet U1) ───────────────────────────────────────
+  // The card: one stop, opened by a tap on its diamond or its row, closed
+  // by a second tap on the same one, a tap on the card's own heading or a
+  // sideways swipe across the card; no separate close button (the spec).
+  const [selectedRoadsideId, setSelectedRoadsideId] = useState<string | null>(initialSelectedRoadsideId ?? null);
+  const [showAllRoadside, setShowAllRoadside] = useState(false);
+  // The list shows the strongest first, not road order: the diamonds on the
+  // map already say where, and a person scanning ten rows wants the best ten.
+  const roadsideByStrength = useMemo(
+    () => [...roadsideStops].sort((a, b) => b.p - a.p || a.alongKm - b.alongKm || a.name.localeCompare(b.name, "en")),
+    [roadsideStops]
+  );
+  const roadsideShown = showAllRoadside ? roadsideByStrength : roadsideByStrength.slice(0, ROADSIDE_SHOWN_FIRST);
+  const selectedRoadside = useMemo(
+    () => (selectedRoadsideId ? roadsideStops.find((s) => s.id === selectedRoadsideId) ?? null : null),
+    [roadsideStops, selectedRoadsideId]
+  );
+  // The towns on the road, for the card's "at Amarillo" and "past Lubbock":
+  // the start, the end and the towns that fit within 15 km of the route,
+  // placed along a route sampled every kilometre. Once per route; nothing
+  // when there is no roadside stop to say it for.
+  const roadTowns = useMemo(() => {
+    if (roadsideStops.length === 0) return [];
+    // A loading or error state can hand an empty or malformed polyline, and the
+    // decoder throws past its vertex limit: then no road and no towns, not a crashed render.
+    let route: ReturnType<typeof decodePolyline> = [];
+    try {
+      route = livePolyline ? decodePolyline(livePolyline) : [];
+    } catch {
+      route = [];
+    }
+    if (route.length === 0) return [];
+    return townsAlong(route, { name: fromName, ...origin }, { name: toName, ...destination }, liveCandidateMarkers);
+  }, [roadsideStops.length, livePolyline, fromName, toName, origin, destination, liveCandidateMarkers]);
+  const handleRoadsideSelect = useCallback((id: string) => {
+    setSelectedRoadsideId((curr) => (curr === id ? null : id));
+  }, []);
+  const clearRoadside = useCallback(() => setSelectedRoadsideId(null), []);
+  const roadsideCardRef = useRef<HTMLDivElement>(null);
+  // A tap on the map has to be answered where the person can see it: the
+  // card sits at the top of the roadside section, under the header, so the
+  // sheet scrolls to it, and a peeked sheet rises to rest so the card is on
+  // screen at all. Nothing moves when the card closes.
+  useEffect(() => {
+    if (!selectedRoadsideId) return;
+    setSheetSnap((s) => (s === 0 ? 1 : s));
+    roadsideCardRef.current?.scrollIntoView({ block: "start" });
+  }, [selectedRoadsideId]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -647,6 +865,17 @@ export default function PlanWorkspace({
     setTripStops((curr) => curr.slice());
   }, []);
 
+  // The header's second line: the glossary's sentence for what was a
+  // "Budget left" stat. The budget is the whole trip's, so "today" is only
+  // right on a one-day trip; a longer trip says the span.
+  const daySpan = tripDays === 1 ? "today" : `over ${tripDays} days`;
+  const drivingLeftText =
+    tripState.status.kind === "empty"
+      ? `${formatDurationPlain(totalBudgetMins * 60)} of driving left ${daySpan}`
+      : tripState.status.kind === "over_budget"
+      ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}`
+      : `${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left ${daySpan}`;
+
   const tripCount = tripStops.length;
   const showItinerary = tripCount > 0;
 
@@ -662,7 +891,7 @@ export default function PlanWorkspace({
       {/* Side panel / mobile bottom sheet */}
       <aside
         ref={sheetRef}
-        style={{ "--sheet-y": `${SNAP_Y[sheetSnap]}%` } as React.CSSProperties}
+        style={{ "--sheet-y": `${SHEET_SNAPS[sheetSnap]}%` } as React.CSSProperties}
         className="plan-sheet md:static md:w-[360px] md:z-auto border-t md:border-t-0 md:border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0"
       >
         {/* Drag handle — mobile only */}
@@ -680,73 +909,129 @@ export default function PlanWorkspace({
           <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
         </div>
 
-        {/* The fold budget (step 14). On a 667 px phone at the sheet's middle
-            snap, 55% is visible: 367 px. Above the first candidate's reason:
-            the drag handle 44, this header (persona bar about 44, status row
-            about 40), the itinerary line about 36 when there are stops, and
-            the card header 44. That is about 208 px, leaving about 160 px for
-            the lead. Anything added to this sticky header comes out of that
-            160; put new things in the scroll area below instead. The 44 px
-            figures are the touch-target minimum every button here keeps. */}
-        <div className="p-3 border-b border-[#30363d] space-y-3">
-          <PersonaSelector
-            activePersonaId={activePersonaId}
-            onChange={handlePersonaChange}
-          />
-          <div className="grid grid-cols-3 gap-3 text-xs">
-            <div>
-              <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Distance
-              </p>
-              <p className="text-[#f0f6fc] mt-0.5 flex items-center gap-1">
-                {totalDistanceText}
+        <div className="plan-sheet-scroll flex-1 overflow-y-auto p-2 space-y-2">
+          {/* On a phone the box is the visible part of the sheet only
+              (`.plan-sheet-scroll`): its height follows the snap, so the
+              last row and the Save button can be scrolled to at every snap
+              (Gauntlet U1, round 4: as `flex-1` alone it was the whole
+              92 dvh sheet, and at rest the bottom 350 px of it were below
+              the screen's edge and out of reach). The header (the mood
+              chips, the numbers) scrolls with the content rather than
+              staying pinned under the handle (round 2), and since round 6
+              the roadside section comes before it. At rest nothing moves.
+              Every button here keeps the 44 px target. */}
+          {/* Roadside stops (step 22, first-class in Gauntlet U1): what the
+              model says is worth pulling over for along this road, from a
+              corridor pulled and scored ahead of time. First in the sheet,
+              under the handle (round 6): at rest the heading, ten rows and
+              "Show all" are on screen with no scroll, which they were not
+              under the 170 px header (the round-5 capture showed seven
+              rows); the mood chips and the numbers follow, above the towns
+              they drive. A town's sticky header, which stays inside its own
+              section, can never sit over these rows. Open, strongest
+              first, ten at a time; the card for the tapped one sits at the
+              top of the section, so at the top of the sheet. Outside the
+              sealed branch: a locked route still has a road, and a tap on
+              a diamond must always answer. */}
+          {roadsideStops.length > 0 && (
+            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 pt-0 pb-2">
+              {selectedRoadside && (
+                <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
+                  <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
+                </div>
+              )}
+              {/* The heading, the rows and the control add up to
+                  ROADSIDE_LIST_PX from the section's top, which the sheet's
+                  scroll box holds at rest on a 390 by 844 phone with the
+                  control whole on screen: nothing above the heading (24)
+                  or between it and the rows, the rows two lines of 22 px
+                  with no vertical padding (44, the target), 4 px, then
+                  the control (44). */}
+              <h2 id="roadside-heading" className="text-base leading-6 text-[#e3b341] px-2">
+                {roadsideStops.length === 1
+                  ? "1 place worth pulling over for"
+                  : `${roadsideStops.length} places worth pulling over for`}
+              </h2>
+              <ul>
+                {roadsideShown.map((s) => (
+                  <li key={s.id} data-roadside-stop={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleRoadsideSelect(s.id)}
+                      aria-expanded={selectedRoadsideId === s.id}
+                      className={[
+                        "w-full min-h-[44px] text-left px-2 py-0 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                        selectedRoadsideId === s.id
+                          ? "border-[#e3b341] bg-[#161b22]"
+                          : "border-transparent hover:bg-[#161b22]",
+                      ].join(" ")}
+                    >
+                      <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
+                      {/* The card's own sentence, town included: three
+                          stops at the end read "at Austin", not three
+                          copies of the route's length (round-3 critic). */}
+                      <span className="block text-base leading-snug text-[#8b949e]">
+                        {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {roadsideByStrength.length > ROADSIDE_SHOWN_FIRST && (
+                <button
+                  type="button"
+                  data-roadside-show-all
+                  onClick={() => setShowAllRoadside((o) => !o)}
+                  aria-expanded={showAllRoadside}
+                  className="mt-1 w-full min-h-[44px] text-base border border-[#30363d] text-[#f0f6fc] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                >
+                  {showAllRoadside ? "Show the ten strongest" : `Show all ${roadsideByStrength.length}`}
+                </button>
+              )}
+            </section>
+          )}
+
+          <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
+            <PersonaSelector
+              activePersonaId={activePersonaId}
+              onChange={handlePersonaChange}
+            />
+            {/* Two sentences, not three labelled stats: the glossary's
+                replacement for "budget left (as a stat)" is "4 h of driving
+                left today" (quality bar, rule 1). */}
+            <div className="text-base leading-snug space-y-1">
+              <p className="text-[#f0f6fc]">
+                {totalDistanceText} · {onTheRoadText} on the road
                 {isPending && (
-                  <span className="text-[#d29922] text-[10px]">…</span>
+                  <span className="text-[#d29922]" aria-hidden> …</span>
                 )}
               </p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Drive
-              </p>
-              <p className="text-[#f0f6fc] mt-0.5">{totalDurationText}</p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Budget left
-              </p>
-              <p className={[
-                "mt-0.5",
-                tripState.status.kind === "over_budget"
-                  ? "text-[#f85149]"
-                  : tripState.status.kind === "warning"
-                  ? "text-[#d29922]"
-                  : "text-[#f0f6fc]",
-              ].join(" ")}>
-                {tripState.status.kind === "empty"
-                  ? formatDuration(totalBudgetMins * 60)
-                  : tripState.status.kind === "over_budget"
-                  ? `−${formatDuration(tripState.status.overageMinutes * 60)}`
-                  : formatDuration(tripState.status.remainingBudgetMinutes * 60)}
+              <p
+                className={
+                  tripState.status.kind === "over_budget"
+                    ? "text-[#f85149]"
+                    : tripState.status.kind === "warning"
+                    ? "text-[#d29922]"
+                    : "text-[#f0f6fc]"
+                }
+              >
+                {drivingLeftText}
               </p>
             </div>
+            {/* Only while updating; idle it costs no height. */}
+            {isPending && (
+              // #e3b341 rather than the #d29922 used for budget warnings: at
+              // 10 px this text needs the brighter amber to clear WCAG AA
+              // contrast on the #0d1117 background.
+              <p
+                className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
+                aria-live="polite"
+              >
+                Updating route + recs…
+              </p>
+            )}
           </div>
-          {/* Only while updating; idle it costs no height, so the first
-              card's reason sits higher (step 14). */}
-          {isPending && (
-            // #e3b341 rather than the #d29922 used for budget warnings: at
-            // 10 px this text needs the brighter amber to clear WCAG AA
-            // contrast on the #0d1117 background.
-            <p
-              className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
-              aria-live="polite"
-            >
-              Updating route + recs…
-            </p>
-          )}
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
           {/* Itinerary — ABOVE recommendations once trip is non-empty (Council
               ISC-S6-PROD-2), but as one line with a toggle, so the first
               candidate's reason is not pushed below the fold (step 14). */}
@@ -929,11 +1214,15 @@ export default function PlanWorkspace({
               {/* Frontier label — tells the user which stop the next candidates
                   are radiating from so the changing list makes sense. */}
               {effectiveWaypointFetch.cities.length > 0 && (
-                <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#8b949e] px-1 pt-1">
+                <p aria-live="polite" className="font-sans text-base text-[#8b949e] px-1 pt-1">
                   {tripStops.length > 0
                     ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
                     : `First stop from ${fromName}`}
-                  {` · ${effectiveWaypointFetch.cities.length} candidates · max ${maxDetourMinutes} min`}
+                  {/* The glossary's words for the count; the detour cap is
+                      not said (its replacement is "nothing"). */}
+                  {effectiveWaypointFetch.cities.length === 1
+                    ? " · 1 town that fits today"
+                    : ` · ${effectiveWaypointFetch.cities.length} towns that fit today`}
                 </p>
               )}
 
@@ -962,71 +1251,47 @@ export default function PlanWorkspace({
                 />
               </div>
 
-              {/* Roadside stops (step 22): what the model says is worth pulling
-                  over for along this road, from a corridor pulled and scored
-                  ahead of time. Collapsed by default: 200 rows would bury the
-                  city list, and the diamonds on the map already say where. */}
-              {roadsideStops.length > 0 && (
-                <details data-roadside className="px-1 py-2 border-t border-[#30363d]">
-                  <summary className="min-h-[44px] flex items-center cursor-pointer text-xs font-mono uppercase tracking-widest text-[#e3b341] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
-                    Roadside stops along the way · {roadsideStops.length}
-                  </summary>
-                  <ul className="mt-2 space-y-2">
-                    {roadsideStops.map((s) => (
-                      <li key={s.id} data-roadside-stop={s.id} className="text-sm leading-snug">
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`${s.name}, opens in Google Maps in a new tab`}
-                          className="text-[#f0f6fc] hover:text-[#e3b341] underline-offset-2 hover:underline"
-                        >
-                          {s.name}
-                        </a>
-                        <span className="text-[#8b949e]"> · {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {Math.round(s.alongKm)} km</span>
-                        {s.about && (
-                          <p data-roadside-about className="text-xs text-[#8b949e] line-clamp-2">{s.about}</p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-
-              {/* Save trip, at the end of the list rather than in the sticky
-                  header, so the header is short and the reason leads. No
-                  auth gate: trips live in this browser. */}
-              <div className="px-1 py-3">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  // Disabled while a recompute is in flight so a save cannot
-                  // capture a half-updated trip. Not disabled after a save:
-                  // the trip can change again, and saving again is how it is
-                  // kept; the label already says "Saved" until it does.
-                  disabled={isPending}
-                  className={[
-                    "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                    saveState === "saved"
-                      ? "border-[#238636] text-[#3fb950]"
-                      : saveState === "error"
-                      ? "border-[#f85149] text-[#ff7b72]"
-                      : "border-[#30363d] text-[#8b949e] hover:border-[#555] hover:text-[#f0f6fc]",
-                  ].join(" ")}
-                >
-                  {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
-                </button>
-              </div>
             </>
+          )}
+
+          {/* Save trip, at the end of the list rather than in the sticky
+              header, so the header is short and the reason leads. No
+              auth gate: trips live in this browser. */}
+          {!routeSealed && (
+            <div className="px-1 py-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                // Disabled while a recompute is in flight so a save cannot
+                // capture a half-updated trip. Not disabled after a save:
+                // the trip can change again, and saving again is how it is
+                // kept; the label already says "Saved" until it does.
+                disabled={isPending}
+                className={[
+                  "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                  saveState === "saved"
+                    ? "border-[#238636] text-[#3fb950]"
+                    : saveState === "error"
+                    ? "border-[#f85149] text-[#ff7b72]"
+                    : "border-[#30363d] text-[#8b949e] hover:border-[#555] hover:text-[#f0f6fc]",
+                ].join(" ")}
+              >
+                {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+              </button>
+            </div>
           )}
         </div>
       </aside>
 
-      {/* Map */}
-      <main className="flex-1 relative">
+      {/* Map. `z-0` makes the pane its own stacking context, so nothing
+          Google draws inside it (its controls carry very high z-indexes)
+          can paint over the sheet, which sits at z-10 on a phone. */}
+      <main className="flex-1 relative z-0">
         <RouteMap
           origin={origin}
           destination={destination}
+          originName={fromName}
+          destinationName={toName}
           encodedPolyline={livePolyline}
           bounds={bounds}
           candidates={liveCandidateMarkers}
@@ -1035,8 +1300,10 @@ export default function PlanWorkspace({
           onCandidateClick={handleMapClick}
           tripStops={tripStops}
           roadsideStops={roadsideStops}
+          onRoadsideClick={handleRoadsideSelect}
+          selectedRoadsideId={selectedRoadsideId}
+          phoneSheetTopDvh={sheetTopDvh(1)}
           pending={isPending}
-          searchArc={searchArc}
         />
       </main>
     </div>

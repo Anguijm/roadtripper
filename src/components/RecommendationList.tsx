@@ -36,7 +36,8 @@ interface RecommendationListProps {
 }
 
 const TIER_LABELS: Record<RankedWaypoint["tier"], string> = {
-  primary: "★ Primary",
+  // The glossary's word for the "primary" badge (quality bar, rule 1).
+  primary: "★ The pick",
   secondary: "Secondary",
   other: "Other",
 };
@@ -183,7 +184,7 @@ export default function RecommendationList({
                       : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
                   ].join(" ")}
                 >
-                  See what&apos;s here
+                  What&apos;s in {cityName}
                 </button>
               )}
               <button
@@ -195,7 +196,7 @@ export default function RecommendationList({
                     ? "Remove from trip"
                     : atCap
                     ? "Trip is at the maximum number of stops"
-                    : "Add city to trip"
+                    : "Stop here"
                 }
                 className={[
                   // Same 44 px hit area as the preview button beside it, so
@@ -212,7 +213,7 @@ export default function RecommendationList({
                   isAdded ? { backgroundColor: accent, color: "#0d1117" } : undefined
                 }
               >
-                {isAdded ? "✓ Added" : "+ Add city to trip"}
+                {isAdded ? "✓ Added" : "+ Stop here"}
               </button>
             </h3>
             {/* The reason leads (step 14): the persona's top-ranked spot that

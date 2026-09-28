@@ -32,6 +32,10 @@ body {
 }
 
 @layer utilities {
+  /* The phone's bottom sheet. Its height, the snaps (--sheet-y, the hidden
+     share of that height) and the handle are mirrored by SHEET_HEIGHT_DVH,
+     SHEET_SNAPS and SHEET_HANDLE_PX in src/components/PlanWorkspace.tsx;
+     change them together. */
   .plan-sheet {
     @media (max-width: 767px) {
       position: fixed;
@@ -40,11 +44,23 @@ body {
       right: 0;
       z-index: 10;
       height: 92dvh;
-      transform: translateY(var(--sheet-y, 45%));
+      transform: translateY(var(--sheet-y, 25%));
       transition: transform var(--sheet-duration, 300ms) ease-out;
     }
     @media (max-width: 767px) and (prefers-reduced-motion: reduce) {
       transition: none;
+    }
+  }
+  /* The sheet's scroll box is the part of the sheet on screen: the sheet's
+     height less the hidden share less the handle and the border. As flex-1
+     alone it was the whole sheet, and at rest its bottom 350 px were below
+     the screen's edge where no scroll could reach them (Gauntlet U1, round
+     4). Percentages here resolve against the sheet's height, the same
+     length the transform's percentage uses. */
+  .plan-sheet-scroll {
+    @media (max-width: 767px) {
+      flex: none;
+      height: calc(100% - var(--sheet-y, 25%) - 45px);
     }
   }
 }

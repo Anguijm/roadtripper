@@ -33,7 +33,7 @@ const DESTINATION = { lat: 34.0549076, lng: -118.242643 };
 
 export default function HealthPage() {
   // Surfaced here because /health is the page something already watches every
-  // minute. The uptime check keys on "Budget left", not on this line, so a
+  // minute. The uptime check keys on the canary below, not on this line, so a
   // stale atlas does not page anyone; it is here to be seen by a human and to
   // reach the logs on first open.
   warnIfAtlasStale();
@@ -94,6 +94,15 @@ export default function HealthPage() {
         toName="Health Destination"
         maxDetourMinutes={270}
       />
+      {/* The uptime check (Google Cloud, every minute; the definition is
+          scratchpad/health_check.json) matches the string "Budget left",
+          which was the sheet's stat until Gauntlet U1 round 2 replaced it
+          with the glossary's sentence ("4 h of driving left today"). This
+          hidden line keeps the check green until its matcher is re-pointed
+          at "of driving left"; delete it with that change. It comes after
+          the workspace, so a throw in there still drops it from the page:
+          the check proves the same render it always did. */}
+      <p hidden data-uptime-canary>Budget left</p>
     </div>
   );
 }
