@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { renderToString } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import React from "react";
 
 vi.mock("@/app/plan/actions", () => ({
@@ -7,8 +8,28 @@ vi.mock("@/app/plan/actions", () => ({
   fetchNeighborhoodsAction: vi.fn(),
 }));
 
-import PlanWorkspace, { RoadsideCard, ROADSIDE_NO_WRITEUP, roadsideAlongText, ROADSIDE_SHOWN_FIRST } from "@/components/PlanWorkspace";
-import RouteMap, { roadsideMarkerSvg, ROADSIDE_COLOR, roadsideMinProbabilityAt, ROADSIDE_ZOOM_STEPS, DARK_MAP_STYLES } from "@/components/RouteMap";
+import PlanWorkspace, {
+  RoadsideCard,
+  ROADSIDE_NO_WRITEUP,
+  roadsideAlongText,
+  ROADSIDE_SHOWN_FIRST,
+  ROADSIDE_LIST_PX,
+  SHEET_SNAPS,
+  SHEET_HEIGHT_DVH,
+  SHEET_HANDLE_PX,
+  sheetScrollBoxPx,
+  sheetTopDvh,
+} from "@/components/PlanWorkspace";
+import RouteMap, {
+  roadsideMarkerSvg,
+  ROADSIDE_COLOR,
+  roadsideMinProbabilityAt,
+  ROADSIDE_ZOOM_STEPS,
+  DARK_MAP_STYLES,
+  roadStartPanPx,
+  ROAD_START_TOP_PX,
+  ROAD_START_BOTTOM_PX,
+} from "@/components/RouteMap";
 import { roadsideSpread, mercatorPx, ringRadius, RING_CHORD_PX, RING_MAX, STACK_PX } from "@/lib/roadside/spread";
 import { townsAlong, roadsideAnchor } from "@/lib/roadside/anchor";
 import { formatDurationPlain } from "@/lib/routing/format";
@@ -75,16 +96,18 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY = "test-key-not-a-real-key";
   });
 
-  it("lists the survivors open under the towns, headed in plain words, with the kind and how far in", () => {
+  it("lists the survivors open, headed in plain words, with the kind, how far in and the town", () => {
     const html = render({ roadsideStops: stops });
     expect(html).toContain("data-roadside");
     expect(html).not.toContain("<details");
     expect(html).toContain("2 places worth pulling over for");
     expect(html).toContain('data-roadside-stop="osm:way:1"');
     expect(html).toContain("The Big Texan Steak Ranch");
-    // The sheet's unit (the summary says "497 mi"), no town on the row.
-    expect(html).toContain("well-known place · 6 mi in");
-    expect(html).toContain("historic place · 6 mi in");
+    // The sheet's unit (the summary says "497 mi") and the town, the card's
+    // own sentence: both stops are within 10 km of the start (round-3
+    // critic: three rows at the end read "494 mi in" and nothing else).
+    expect(html).toContain("well-known place · 6 mi in, at Amarillo");
+    expect(html).toContain("historic place · 6 mi in, at Amarillo");
     expect(html).not.toContain("km in");
     // Two stops, both shown: no "Show all" control below the ten.
     expect(html).not.toContain("data-roadside-show-all");
@@ -104,6 +127,77 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(ids[9]).toBe("osm:node:104");
     expect(html).toContain("Show all 14");
     expect(html).toContain("data-roadside-show-all");
+  });
+
+  it("sits directly under the header and above the towns, so the sheet opens on it and no town header can sit over it", () => {
+    // Round 3 had it after two town sections, about 1750 px below the
+    // fold, and the scrolled capture began with a town's sticky header
+    // over a half-clipped row. A sticky header stays inside its own
+    // section, so with the towns below the list it cannot reach the rows.
+    const html = render({ roadsideStops: fourteen, ...withTown });
+    const section = html.indexOf('<section data-roadside="true"');
+    expect(section).toBeGreaterThan(0);
+    expect(section).toBeGreaterThan(html.indexOf("of driving left today"));
+    expect(section).toBeLessThan(html.indexOf("First stop from Amarillo"));
+    expect(section).toBeLessThan(html.indexOf("sticky top-0"));
+    // The tenth row and the control come before the first town too.
+    expect(html.indexOf("data-roadside-show-all")).toBeLessThan(html.indexOf("What&#x27;s in Lubbock"));
+    // The Save button stays last.
+    expect(html.indexOf("Save trip")).toBeGreaterThan(html.indexOf("What&#x27;s in Lubbock"));
+  });
+
+  it("holds the heading, ten rows and the control in the sheet's scroll box at rest on a 390 by 844 phone", () => {
+    // Round 3's list capture had six rows cut off and no control: the
+    // scroll box was the whole 92 dvh sheet (731 px) with 382 px of it on
+    // screen at the half snap, so the section could neither reach the top
+    // nor show ten rows. The box is now the visible part, and the rest
+    // snap leaves room for the list.
+    expect(sheetScrollBoxPx(844, 1)).toBeGreaterThanOrEqual(ROADSIDE_LIST_PX);
+    // At the old half snap, 45 percent hidden, it could not have fit.
+    expect(Math.floor((844 * 92 * 55) / 10_000) - 45).toBeLessThan(ROADSIDE_LIST_PX);
+    // The numbers the arithmetic rests on, pinned so the CSS below and
+    // this file cannot drift apart silently.
+    expect(SHEET_SNAPS).toEqual([80, 25, 8]);
+    expect(SHEET_HEIGHT_DVH).toBe(92);
+    expect(SHEET_HANDLE_PX).toBe(45);
+    expect(ROADSIDE_LIST_PX).toBe(524);
+    // The sheet opens at the rest snap, and the scroll box carries the class
+    // whose CSS makes it the visible part.
+    const html = render({ roadsideStops: fourteen });
+    expect(html).toContain("--sheet-y:25%");
+    expect(html).toMatch(/class="plan-sheet-scroll [^"]*overflow-y-auto/);
+    const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.plan-sheet-scroll\s*\{[^}]*height:\s*calc\(100% - var\(--sheet-y, 25%\) - 45px\)/);
+    expect(css).toMatch(/\.plan-sheet\s*\{[^}]*height:\s*92dvh/);
+    // The rows are two lines of 22 px with no vertical padding, so ten are 440.
+    expect(html).toMatch(/data-roadside-stop="osm:node:113"><button[^>]*class="w-full min-h-\[44px\] text-left px-2 py-0 /);
+    // The map is told where the sheet's edge is, so the strip above it can
+    // show the start of the road: 100 - 92 * 0.75.
+    expect(sheetTopDvh(1)).toBe(31);
+  });
+
+  it("pans the start of the road into the strip of map above the sheet at rest, on a phone", () => {
+    // The fit centres the corridor on an 800 px map that the sheet at rest
+    // covers from 218 px down, so Amarillo sat under the sheet's edge and
+    // the strip showed Kansas. At zoom 6 Amarillo is about 132 px above the
+    // route's middle; the pan puts it ROAD_START_TOP_PX under the map's top.
+    const center = { lat: (base.origin.lat + base.destination.lat) / 2, lng: -99.8 };
+    const strip = 218;
+    const south = roadStartPanPx({ origin: base.origin, destination: base.destination, center, zoom: 6, mapHeightPx: 800, stripHeightPx: strip });
+    const originY = 400 + mercatorPx(base.origin.lat, base.origin.lng, 6).y - mercatorPx(center.lat, center.lng, 6).y;
+    expect(originY).toBeGreaterThan(strip);
+    expect(originY - south).toBeCloseTo(ROAD_START_TOP_PX, 0);
+    // Heading north (Austin to Amarillo) the start goes just above the
+    // sheet's edge instead, so the road runs up into the strip.
+    const north = roadStartPanPx({ origin: base.destination, destination: base.origin, center, zoom: 6, mapHeightPx: 800, stripHeightPx: strip });
+    const austinY = 400 + mercatorPx(base.destination.lat, base.destination.lng, 6).y - mercatorPx(center.lat, center.lng, 6).y;
+    expect(austinY - north).toBeCloseTo(strip - ROAD_START_BOTTOM_PX, 0);
+    // Already in place: nothing to pan.
+    const inPlace = roadStartPanPx({ origin: base.origin, destination: base.destination, center: base.origin, zoom: 6, mapHeightPx: 2 * ROAD_START_TOP_PX, stripHeightPx: strip });
+    expect(inPlace).toBe(0);
+    // The room the margins leave: the town's name 30 px above the dot and a ring of three 25 px out.
+    expect(ROAD_START_TOP_PX).toBe(70);
+    expect(ROAD_START_BOTTOM_PX).toBe(60);
   });
 
   it("renders the card from state above the list with its five parts", () => {
@@ -141,9 +235,10 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(roadsideAlongText(9, { name: "Amarillo", near: true })).toBe("6 mi in, at Amarillo");
     expect(roadsideAlongText(211.6, { name: "Lubbock", near: false })).toBe("131 mi in, past Lubbock");
     // Under a mile the same shape, not a different sentence (round-2 critic:
-    // "Right at the start" beside "6 km in" read as two styles).
-    expect(roadsideAlongText(0.3)).toBe("Less than a mile in");
-    expect(roadsideAlongText(0.3, { name: "Amarillo", near: true })).toBe("Less than a mile in, at Amarillo");
+    // "Right at the start" beside "6 km in" read as two styles), and in
+    // lower case, since it always follows the kind mid-line (round 3).
+    expect(roadsideAlongText(0.3)).toBe("less than a mile in");
+    expect(roadsideAlongText(0.3, { name: "Amarillo", near: true })).toBe("less than a mile in, at Amarillo");
   });
 
   it("places the towns along the road and names the one a stop is at or past", () => {

@@ -8,136 +8,138 @@ Branch: `feat/u1-roadside-first-class`
 
 ## Goal
 
-Gauntlet component U1, round 3: the critic's one failure (rule 4, the three
-Amarillo diamonds on one point at the state-wide zoom, so a tap opens
-whichever is on top and two of the three cannot be reached from the map)
-fixed first, then the lower items the same critic saw: the basemap's town
-labels doubled and cut by the app's, the card's distance with no town and in
-a unit the rest of the sheet does not use, and ten rows unverified.
+Gauntlet component U1, round 4: the critic's one failure (rule 4: no capture
+shows the roadside list as the acceptance asks; the list capture had six rows
+cut off and no "show all" control, and at rest the section sat about 1750 px
+below the fold under two town sections) fixed first, then the lower items the
+same critic saw: the sticky town header over a half-clipped row at the top of
+the list capture; three of the first five rows reading "494 mi in" with no
+town; "Less than a mile in" with a capital mid-line; "LANDMARK" and "405m" on
+the town row (routed, see below).
 
-## What the data says
+## What the captures say (measured before the rule)
 
-Measured before the rule (`scratchpad/stacks.mjs` in the session's scratch
-space, over the store along an Amarillo to Austin corridor, 214 survivors).
+Round 3's three captures in the session's scratch space (`u1/r3-*.png`) and
+the runner's scripts beside them (`shot.mjs` at rest, `shot-scrolled.mjs`
+scrolling `[data-roadside]` to the top, `shot-tap.mjs` tapping a diamond),
+all at 390 by 844.
 
-At the state-wide zoom (7 and under, p at or above 0.7) ten diamonds show in
-three groups: six on Austin's point, three on Amarillo's, one alone. Closer
-than 18 px, two diamonds sit on one point (the diamond is 18 px wide on a
-44 px canvas). Zoomed to a region (8 and 9) the largest stack is 28; at a
-town (10) downtown Austin puts 53 on one point, and even at 13 the Capitol
-grounds put 8 on one. So a spread has to be shaped for three and six at the
-default zoom and bounded for fifty at a town zoom.
+1. The sheet is 92 dvh tall (776 px), fixed at the bottom and translated
+   down by the snap. Its scroll box is `flex-1`: the whole 731 px under the
+   handle at every snap. At the half snap (45 percent) only the top 382 px
+   of that box is on screen, so the bottom 350 px of the sheet's content
+   can never be scrolled into view. That is why the runner's scrolled
+   capture had the tail of Oklahoma City's section at the top (the box hit
+   its end with the section still 90 px down) and six rows: a rule 7 bug on
+   its own, and the reason no capture could show ten rows.
+2. Ten rows at the 44 px target, the heading (24) and the control (44) with
+   two 4 px gaps and 8 px above take 524 px. The half snap's 382 cannot
+   hold that in any layout with 44 px targets and 16 px type, so the rest
+   snap has to be taller, and the map has to keep the start of the road in
+   the strip above it.
 
 ## Ship rule (written before the code)
 
-1. **Every diamond on the map answers a tap with its own card, at every
-   zoom.** Pure, in `src/lib/roadside/spread.ts`: the diamonds that the
-   zoom rule shows are placed in Web Mercator pixels at the map's zoom (the
-   map's own projection, computed without the map so a test can prove it).
-   A diamond within 18 px of a stack's strongest member joins that stack
-   (strongest first, no chaining, so a corridor of stops 30 km apart never
-   becomes one blob). A stack of two to eight becomes a ring around the
-   strongest member's point with 44 px between neighbours, the width of the
-   touch canvas, so no canvas overlaps another's and each diamond's whole
-   target is its own: radius 22 px for two, 25 for three, 44 for six, 57 for
-   eight. A stack of more than eight shows its eight strongest in the ring
-   and the rest wait for a closer zoom, the same rule the corridor already
-   follows state-wide; the tapped one always takes the first slot, so the
-   card's diamond is on the map at every zoom. Two sit left and right; three
-   and more start at the bottom so the gap is at the top, where the town's
-   name goes (rule 2). The spread is applied by re-anchoring each marker's
-   icon, no new markers, on every zoom change and on every selection, and
-   only the markers whose placement changed are touched. A diamond that
-   stacks with nothing does not move.
-2. **The map's town labels are the app's, once.** The basemap's town labels
-   (`administrative.locality`) are off, so "Lubbock" is no longer drawn
-   twice and "Amarillo" is no longer cut by the diamonds; the towns that fit
-   keep the app's labels, and the start and the end get the app's labels
-   too (the names PlanWorkspace already has), 30 px above their dot, drawn
-   above the diamonds and not clickable, so a name is never behind a diamond
-   and never steals a diamond's tap.
-3. **The card says where, in the sheet's own unit.** "6 mi in, at
-   Amarillo" when the stop is within 10 km of a town on the road, "132 mi
-   in, past Lubbock" otherwise (the last town on the road before it; the
-   start counts, so there is always one), "Less than a mile in" under a
-   mile. Miles because the sheet's own summary says "497 mi"; one sheet, one
-   unit. The towns on the road are the start, the end and the towns that fit
-   within 15 km of the route, placed by the nearest point of the route
-   sampled every kilometre (pure, `src/lib/roadside/anchor.ts`; a few
-   thousand haversines once per route, on the client, nothing fetched). The
-   rows say the kind and the distance ("well-known place · 6 mi in") and
-   stay two lines, so ten of them fit (rule 4); the card adds the town.
-4. **Ten rows and the control in one capture.** On a 390 by 844 phone the
-   sheet at the full snap shows 84 dvh, about 665 px under the handle and
-   650 inside the padding. Rows are two lines of 22 px with 4 px above and
-   below (52 px, above the 44 px target) and no gap between rows; the
-   heading is 28 px, the control 44, the section's gaps 16: 608 px from the
-   heading's top, 40 px to spare. At the half snap (45 percent) the sheet
-   holds about 350 px of list, six rows, and no layout at 16 px with 44 px
-   targets changes that; the capture with ten rows is the sheet fully open
-   with the roadside heading scrolled to the top.
-5. Everything from rounds 1 and 2 stands: the card's five parts, the second
-   tap or close control clearing it, each row opening it, the list open with
-   the ten strongest first and "Show all N", the arc gone, the zoom rule,
-   names wrapping, the sentences in the header, the glossary, the dev
-   server's button off, nothing new fetched or scored.
+1. **The sheet's scroll box is the visible part.** On a phone the box is
+   `calc(100% - var(--sheet-y) - 45px)` tall (the sheet's height minus the
+   hidden part minus the handle and the border), so the last row and the
+   Save button are reachable at every snap and a section scrolled to the
+   top sits at the top. Desktop keeps `flex-1`.
+2. **At rest the sheet holds the list.** The rest snap is 25 percent hidden
+   (194 px of 776): the sheet's top at 262 px, 582 px on screen, 537 px of
+   scroll box. The roadside section is 524 px from its top through the
+   control (8 above, heading 24, gap 4, ten rows of 44, gap 4, control 44),
+   so the scrolled capture shows the heading, ten rows and "Show all N"
+   with 13 px to spare; at rest under the header the cut lands between the
+   seventh and eighth rows, not through one. Peek (80) and full (8) stay.
+   The constants are exported and a test holds the arithmetic.
+3. **The roadside section sits directly under the header** (and the
+   itinerary line when the trip has stops), above the neighbourhood panel,
+   the alerts and the town list, so a person opening the sheet sees the
+   gold heading and seven rows without scrolling, and a town section's
+   sticky header can never overlay it (a sticky header stays inside its own
+   section, which is now below). The panel and the alerts keep their place
+   just above the towns, where the taps that raise them are.
+4. **Rows are 44 px and say where.** Two lines of 22 px, no vertical
+   padding: the name, wrapping; then the kind, the distance and the town,
+   "well-known place · 6 mi in, at Amarillo", the card's own sentence from
+   the same towns on the road, so three stops at the end read "at Austin"
+   and not three copies of the route's length. "less than a mile in" in
+   lower case, since it is always mid-line after the kind.
+5. **The map strip shows the start of the road.** On a phone, once the
+   first fit has settled, the map pans so the origin's dot sits 70 px under
+   the map's top edge when the road heads south from it (the town's name
+   at 40, a ring of three from 45; the strip then holds the first 150 px of
+   the route at the fitted zoom, Amarillo to past Lubbock with the diamonds
+   there), or 60 px above the sheet's edge when the road heads north. Pure
+   Mercator arithmetic on the fitted zoom and centre (`mercatorPx` from
+   `spread.ts`), in `roadStartPanPx`, tested without a map. Desktop is
+   never panned; the fit is unchanged.
+6. Everything from rounds 1 to 3 stands: the card's five parts and its
+   close, each row opening it, the ten strongest first and "Show all N",
+   the arc gone, the zoom rule, the ring spread, the app's town labels,
+   the glossary, names wrapping, nothing new fetched or scored.
 
 **Cost:** $0. No new fetch, no new call, no change to the store or the
-scores. The spread and the town anchor are arithmetic on what the page
-already has; the map draws the same markers with a different anchor.
+scores. The rows' town is one haversine per town per row from what the
+page already has; the pan is arithmetic on the fitted viewport.
 
-**Weakest part:** The ten-row capture still depends on the runner opening
-the sheet fully and scrolling the roadside heading to the top; at the half
-snap six rows is the phone's limit. Second: at a town zoom a stack of more
-than eight (downtown Austin at zoom 10) shows its eight strongest and hides
-the rest until a closer zoom, which is the corridor's own rule but is still a
-diamond not on the map at that zoom. Third: the town's name 30 px above its
-dot clears a ring of two, three or six but can touch the top corner of a
-ring member for four, five, seven or eight; it is drawn above, so it reads,
-and the diamond's body stays clear. Fourth: the basemap's town labels are off
-everywhere, so a town the app does not label (off the corridor) has no name
-on the map at any zoom.
+**Weakest part:** The map strip at rest is 218 px, about a quarter of the
+screen, and shows the first stretch of the road only; the whole route needs
+the sheet pulled down to its peek. Second: 13 px of spare in the scrolled
+capture, so one row whose name or second line wraps to a third line (66 px)
+puts the control's lower third under the sheet's edge. Third: the town
+rows below keep "LANDMARK", "405m" and the town-name ellipsis (U2's, now
+below the fold at rest). Fourth: the pan waits for the map's first `idle`;
+if the fit changes nothing (a route already framed), no idle fires and the
+strip shows whatever the fit framed.
 
 ## Routed by name
 
 - Re-point the /health uptime check's content matcher from "Budget left"
   to "of driving left" and delete the canary in `src/app/health/page.tsx`:
   the operator (a Google Cloud change, not a code change).
-- Every other visible string on the plan screen, the town name ellipsis,
-  the pending line's words, and the chips' short words: U2.
+- Every other visible string on the plan screen: the town header's mono
+  capitals ("LANDMARK", "OKLAHOMA CITY"), its "+405m", the town name's
+  ellipsis, the pending line's words, and the chips' short words: U2 (the
+  chips' words also U5).
 - The candidate towns' own labels on the map (11 px, centred on the dot):
   U3, with the map's day view.
 - "Add as a stop" from the card: U6, per the spec's constraints.
 
 ## Gate 1 proofs
 
-Baseline at the start of the round (round 2's commit): 47 files, 471 tests,
-all green; type-check clean; lint 0 errors, 11 warnings.
-After: 47 files, 476 tests, all green; `bun run type-check` clean;
-`bun run lint` 0 errors, 11 warnings, the same rules on the same lines as
-before (the one in RouteMap is an older effect's unused directive, which
-moved down the file and is otherwise untouched).
+Baseline at the start of the round (round 3's commit): 47 files, 476 tests,
+all green; type-check clean; lint 0 errors, 12 warnings.
+After: 47 files, 479 tests, all green; `bun run type-check` clean;
+`bun run lint` 0 errors, 9 warnings. Three warnings gone, none new: the
+snap table moved from the component body to module scope (`SHEET_SNAPS`),
+so the three exhaustive-deps warnings about the touch handlers reading a
+local constant no longer apply; the six that remain are on the same lines
+as before, none in this round's files but the older unused directive in
+RouteMap, untouched.
 
-**Mutation, the ring.** In `src/lib/roadside/spread.ts` the stacking test
-`Math.hypot(st.x - p.x, st.y - p.y) < STACK_PX` was inverted to `>`, so a
-diamond joins a stack only when it is far from it and the three on
-Amarillo's point never stack. Then:
+**Mutation, the rest snap.** In `src/components/PlanWorkspace.tsx` the
+snap table `SHEET_SNAPS = [80, 25, 8]` was set back to round 3's
+`[80, 45, 8]`, the half snap under which the list could not fit. Then:
 
 ```
 bunx vitest run src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx \
-  -t "spreads diamonds that sit on one point"
-× spreads diamonds that sit on one point into a ring, so every one answers its own tap
-AssertionError: expected +0 to be close to 25.403411844343534, received
-  difference is 25.403411844343534, but expected 0.5
-Tests  1 failed | 17 skipped (18)
+  -t "holds the heading, ten rows and the control"
+× holds the heading, ten rows and the control in the sheet's scroll box at
+  rest on a 390 by 844 phone
+AssertionError: expected 382 to be greater than or equal to 524
+Tests  1 failed | 20 skipped (21)
 ```
 
-Restored from the backup copy; `cmp` reported the files identical; the same
-test then passed (1 passed, 17 skipped). A first mutation, `ringRadius`
-returning 0, failed the same test too (the members landed 0.54 px from the
-anchor instead of on the ring), but the test imports `ringRadius` itself,
-so the inverted stacking test is the proof recorded.
+382 is the scroll box at the old snap on an 844 px phone, 524 the section
+through its control. Restored from the backup copy; `cmp` reported the
+files identical; the same test then passed (1 passed, 20 skipped), and the
+whole suite 479. A first run of the same mutation failed on the table's
+own pin (`expected [80, 45, 8] to deeply equal [80, 25, 8]`), which proves
+less, so the budget assertion was moved above the pins and the mutation
+run again; the output above is the second run.
 
-Rounds 1 and 2's proofs (strongest first; the arc prop gone; the glossary's
-sentence; the dev server's button) stand: their tests are unchanged and
-green.
+Rounds 1 to 3's proofs (strongest first; the arc prop gone; the glossary's
+sentence; the dev server's button; the ring) stand: their tests are
+unchanged and green.

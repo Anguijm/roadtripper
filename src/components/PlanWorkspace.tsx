@@ -107,7 +107,10 @@ export const ROADSIDE_NO_WRITEUP = "No write-up for this one.";
  */
 export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null): string {
   const mi = Math.round((alongKm * 1000) / 1609.34);
-  const dist = mi < 1 ? "Less than a mile in" : `${formatDistance(alongKm * 1000)} in`;
+  // Lower case: the text always follows the kind ("well-known place · less
+  // than a mile in"), and a capital there read as a second sentence
+  // (round-3 critic, rule 1).
+  const dist = mi < 1 ? "less than a mile in" : `${formatDistance(alongKm * 1000)} in`;
   return anchor ? `${dist}, ${anchor.near ? "at" : "past"} ${anchor.name}` : dist;
 }
 
@@ -117,6 +120,38 @@ export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null
  * map already say where; ten is a screen's worth on a phone.
  */
 export const ROADSIDE_SHOWN_FIRST = 10;
+
+/**
+ * The phone's bottom sheet (`.plan-sheet` in src/app/globals.css): 92 dvh
+ * tall, fixed at the bottom, translated down by the snap's share of its own
+ * height. The scroll box inside it is the visible part only
+ * (`.plan-sheet-scroll`, the same file), so no content ever sits below the
+ * screen's edge out of reach; as `flex-1` the box was the whole sheet and
+ * the bottom 350 px could not be scrolled to at rest (Gauntlet U1, round
+ * 4). The rest snap is set so the roadside section fits the box on a 390
+ * by 844 phone: `sheetScrollBoxPx(844, 1)` is at least ROADSIDE_LIST_PX,
+ * held by a test. Change the CSS and these together.
+ */
+export const SHEET_HEIGHT_DVH = 92;
+/** Hidden share of the sheet's height at each snap: peek, rest (the default), full. */
+export const SHEET_SNAPS = [80, 25, 8] as const;
+/** The drag handle (44 px) and the sheet's top border. */
+export const SHEET_HANDLE_PX = 45;
+/** Pixels of scroll box on screen at a snap, on a phone `viewportPx` tall. */
+export function sheetScrollBoxPx(viewportPx: number, snap: 0 | 1 | 2): number {
+  return Math.floor((viewportPx * SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 10_000) - SHEET_HANDLE_PX;
+}
+/** Where the sheet's top edge sits at a snap, in dvh from the top of the screen; the map keeps the start of the road above it. */
+export function sheetTopDvh(snap: 0 | 1 | 2): number {
+  return 100 - (SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 100;
+}
+/**
+ * The roadside section from its top through the "Show all" control: 8 px
+ * above, the heading's 24, a 4 px gap, ten rows of 44 (two lines of 22, no
+ * padding), a 4 px gap and the 44 px control. The classes on the section
+ * add up to this; change both together.
+ */
+export const ROADSIDE_LIST_PX = 8 + 24 + 4 + ROADSIDE_SHOWN_FIRST * 44 + 4 + 44;
 
 function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
   return `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
@@ -274,16 +309,15 @@ export default function PlanWorkspace({
   // Council ISC-S6-ARCH-5 — incrementing request id, latest wins.
   const requestIdRef = useRef(0);
 
-  // Mobile bottom sheet snap state.
-  // 0 = peek (20vh), 1 = half (55vh, default), 2 = full (92vh).
-  const SNAP_Y = [80, 45, 8] as const; // translateY % for each snap
+  // Mobile bottom sheet snap state: 0 = peek, 1 = rest (the default), 2 =
+  // full; the hidden share at each is SHEET_SNAPS above.
   const SNAP_LABELS = ["peeked", "half-open", "fully open"] as const;
   const [sheetSnap, setSheetSnap] = useState<0 | 1 | 2>(1);
   const [sheetAnnouncement, setSheetAnnouncement] = useState("");
   const sheetRef = useRef<HTMLElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   // Base translateY% captured at drag start — avoids stale closure on sheetSnap.
-  const dragBasePctRef = useRef<number>(SNAP_Y[1]);
+  const dragBasePctRef = useRef<number>(SHEET_SNAPS[1]);
 
   // Announce snap changes to screen readers after each state update.
   useEffect(() => {
@@ -300,7 +334,7 @@ export default function PlanWorkspace({
     // depend on the sheetSnap closure value during move.
     const raw = sheetRef.current?.style.getPropertyValue("--sheet-y") ?? "";
     const parsed = parseFloat(raw);
-    dragBasePctRef.current = isNaN(parsed) ? SNAP_Y[1] : parsed;
+    dragBasePctRef.current = isNaN(parsed) ? SHEET_SNAPS[1] : parsed;
     sheetRef.current?.style.setProperty("--sheet-duration", "0ms");
   }, []);
 
@@ -340,7 +374,7 @@ export default function PlanWorkspace({
     if (!sheetRef.current) return;
     touchStartYRef.current = null;
     sheetRef.current.style.setProperty("--sheet-duration", "300ms");
-    sheetRef.current.style.setProperty("--sheet-y", `${SNAP_Y[sheetSnap]}%`);
+    sheetRef.current.style.setProperty("--sheet-y", `${SHEET_SNAPS[sheetSnap]}%`);
   }, [sheetSnap]);
 
   const accent = PERSONAS[activePersonaId].accentColor;
@@ -433,8 +467,8 @@ export default function PlanWorkspace({
   const clearRoadside = useCallback(() => setSelectedRoadsideId(null), []);
   const roadsideCardRef = useRef<HTMLDivElement>(null);
   // A tap on the map has to be answered where the person can see it: the
-  // card sits above the roadside list, below the town list, so the sheet
-  // scrolls to it, and a peeked sheet rises to half so the card is on
+  // card sits at the top of the roadside section, under the header, so the
+  // sheet scrolls to it, and a peeked sheet rises to rest so the card is on
   // screen at all. Nothing moves when the card closes.
   useEffect(() => {
     if (!selectedRoadsideId) return;
@@ -773,7 +807,7 @@ export default function PlanWorkspace({
       {/* Side panel / mobile bottom sheet */}
       <aside
         ref={sheetRef}
-        style={{ "--sheet-y": `${SNAP_Y[sheetSnap]}%` } as React.CSSProperties}
+        style={{ "--sheet-y": `${SHEET_SNAPS[sheetSnap]}%` } as React.CSSProperties}
         className="plan-sheet md:static md:w-[360px] md:z-auto border-t md:border-t-0 md:border-r border-[#30363d] bg-[#0d1117] flex flex-col min-h-0"
       >
         {/* Drag handle — mobile only */}
@@ -791,18 +825,16 @@ export default function PlanWorkspace({
           <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {/* The header (the mood chips, the numbers) scrolls with the
-              content rather than staying pinned under the handle (Gauntlet
-              U1, round 2). At rest nothing moves. Scrolled, the whole sheet
-              is the list: on a 390 by 844 phone at the full snap a section
-              scrolled to the top gets about 670 px, which holds the roadside
-              heading, ten rows of 44 px or more and the "Show all" control;
-              pinned, the header took about 180 of those and eight rows fit.
-              The step-14 fold budget (the first town's reason above the fold
-              at the middle snap) shrinks by about 70 px at rest, because the
-              chips now wrap to two rows of 44 px; U2's shorter chip words
-              give that back. Every button here keeps the 44 px target. */}
+        <div className="plan-sheet-scroll flex-1 overflow-y-auto p-2 space-y-2">
+          {/* On a phone the box is the visible part of the sheet only
+              (`.plan-sheet-scroll`): its height follows the snap, so the
+              last row and the Save button can be scrolled to at every snap
+              (Gauntlet U1, round 4: as `flex-1` alone it was the whole
+              92 dvh sheet, and at rest the bottom 350 px of it were below
+              the screen's edge and out of reach). The header (the mood
+              chips, the numbers) scrolls with the content rather than
+              staying pinned under the handle (round 2). At rest nothing
+              moves. Every button here keeps the 44 px target. */}
           <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
             <PersonaSelector
               activePersonaId={activePersonaId}
@@ -885,6 +917,72 @@ export default function PlanWorkspace({
               accent={accent}
             />
             </div>
+          )}
+
+          {/* Roadside stops (step 22, first-class in Gauntlet U1): what the
+              model says is worth pulling over for along this road, from a
+              corridor pulled and scored ahead of time. Directly under the
+              header, above the towns (round 4): a person opening the sheet
+              sees the gold heading and the first rows without scrolling,
+              and a town's sticky header, which stays inside its own
+              section, can never sit over these rows. Open, strongest
+              first, ten at a time; the card for the tapped one sits at the
+              top of the section. Outside the sealed branch: a locked route
+              still has a road, and a tap on a diamond must always answer. */}
+          {roadsideStops.length > 0 && (
+            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 pt-2 pb-2">
+              {selectedRoadside && (
+                <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
+                  <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
+                </div>
+              )}
+              {/* The heading, the rows and the control add up to
+                  ROADSIDE_LIST_PX from the section's top, which the sheet's
+                  scroll box holds at rest on a 390 by 844 phone: the rows
+                  are two lines of 22 px with no vertical padding (44, the
+                  target), the gaps 4, the heading 24, the control 44. */}
+              <h2 id="roadside-heading" className="text-base leading-6 text-[#e3b341] px-2">
+                {roadsideStops.length === 1
+                  ? "1 place worth pulling over for"
+                  : `${roadsideStops.length} places worth pulling over for`}
+              </h2>
+              <ul className="mt-1">
+                {roadsideShown.map((s) => (
+                  <li key={s.id} data-roadside-stop={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleRoadsideSelect(s.id)}
+                      aria-expanded={selectedRoadsideId === s.id}
+                      className={[
+                        "w-full min-h-[44px] text-left px-2 py-0 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                        selectedRoadsideId === s.id
+                          ? "border-[#e3b341] bg-[#161b22]"
+                          : "border-transparent hover:bg-[#161b22]",
+                      ].join(" ")}
+                    >
+                      <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
+                      {/* The card's own sentence, town included: three
+                          stops at the end read "at Austin", not three
+                          copies of the route's length (round-3 critic). */}
+                      <span className="block text-base leading-snug text-[#8b949e]">
+                        {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {roadsideByStrength.length > ROADSIDE_SHOWN_FIRST && (
+                <button
+                  type="button"
+                  data-roadside-show-all
+                  onClick={() => setShowAllRoadside((o) => !o)}
+                  aria-expanded={showAllRoadside}
+                  className="mt-1 w-full min-h-[44px] text-base border border-[#30363d] text-[#f0f6fc] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                >
+                  {showAllRoadside ? "Show the ten strongest" : `Show all ${roadsideByStrength.length}`}
+                </button>
+              )}
+            </section>
           )}
 
           {/* Neighborhood panel — follows panelCityId: a click on an Itinerary
@@ -1066,66 +1164,6 @@ export default function PlanWorkspace({
             </>
           )}
 
-          {/* Roadside stops (step 22, first-class in Gauntlet U1): what the
-              model says is worth pulling over for along this road, from a
-              corridor pulled and scored ahead of time. Open, strongest
-              first, ten at a time; the card for the tapped one sits at the
-              top of the section. Outside the sealed branch: a locked route
-              still has a road, and a tap on a diamond must always answer. */}
-          {roadsideStops.length > 0 && (
-            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 py-2 border-t border-[#30363d] space-y-2">
-              {selectedRoadside && (
-                <div ref={roadsideCardRef} className="scroll-mt-2">
-                  <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
-                </div>
-              )}
-              <h2 id="roadside-heading" className="text-base text-[#e3b341] px-2 pt-1">
-                {roadsideStops.length === 1
-                  ? "1 place worth pulling over for"
-                  : `${roadsideStops.length} places worth pulling over for`}
-              </h2>
-              {/* Two lines of 22 px with 4 px above and below (52 px, over
-                  the 44 px target) and no gap between rows, so ten rows,
-                  the heading and the control fit the sheet fully open on a
-                  390 by 844 phone (about 650 px inside the padding; these
-                  take 608). The row says the kind and the distance; the
-                  card adds the town, so the row stays two lines. */}
-              <ul>
-                {roadsideShown.map((s) => (
-                  <li key={s.id} data-roadside-stop={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleRoadsideSelect(s.id)}
-                      aria-expanded={selectedRoadsideId === s.id}
-                      className={[
-                        "w-full min-h-[44px] text-left px-2 py-1 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                        selectedRoadsideId === s.id
-                          ? "border-[#e3b341] bg-[#161b22]"
-                          : "border-transparent hover:bg-[#161b22]",
-                      ].join(" ")}
-                    >
-                      <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
-                      <span className="block text-base leading-snug text-[#8b949e]">
-                        {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {roadsideByStrength.length > ROADSIDE_SHOWN_FIRST && (
-                <button
-                  type="button"
-                  data-roadside-show-all
-                  onClick={() => setShowAllRoadside((o) => !o)}
-                  aria-expanded={showAllRoadside}
-                  className="w-full min-h-[44px] text-base border border-[#30363d] text-[#f0f6fc] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-                >
-                  {showAllRoadside ? "Show the ten strongest" : `Show all ${roadsideByStrength.length}`}
-                </button>
-              )}
-            </section>
-          )}
-
           {/* Save trip, at the end of the list rather than in the sticky
               header, so the header is short and the reason leads. No
               auth gate: trips live in this browser. */}
@@ -1174,6 +1212,7 @@ export default function PlanWorkspace({
           roadsideStops={roadsideStops}
           onRoadsideClick={handleRoadsideSelect}
           selectedRoadsideId={selectedRoadsideId}
+          phoneSheetTopDvh={sheetTopDvh(1)}
           pending={isPending}
         />
       </main>

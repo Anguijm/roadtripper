@@ -7,7 +7,7 @@ import {
   Map as GMap,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { roadsideSpread } from "@/lib/roadside/spread";
+import { roadsideSpread, mercatorPx } from "@/lib/roadside/spread";
 
 export interface CandidateMarker {
   id: string;
@@ -89,6 +89,39 @@ export function roadsideMarkerSvg(color = ROADSIDE_COLOR, active = false): strin
   return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><path d="${path}" fill="${color}" fill-opacity="0.95" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
 }
 
+/** Below this width the sheet is a bottom sheet over the map (the `md` breakpoint; `.plan-sheet` in globals.css). */
+export const PHONE_MAX_WIDTH_PX = 767;
+/** The origin's dot this far under the map's top edge when the road heads south: room for the town's name (30 above) and a ring of three (25 out). */
+export const ROAD_START_TOP_PX = 70;
+/** And this far above the sheet's edge when the road heads north. */
+export const ROAD_START_BOTTOM_PX = 60;
+
+/**
+ * How far to pan the map (down is positive, as `map.panBy` counts) so the
+ * start of the road sits in the strip of map above the phone's sheet at
+ * rest (Gauntlet U1, round 4). The fit centres the whole corridor on a map
+ * that is mostly under the sheet; with the sheet tall enough to hold the
+ * roadside list, the strip above it showed the state north of the start
+ * and not one diamond. With the road heading south the origin goes
+ * ROAD_START_TOP_PX under the map's top and the strip holds the first
+ * stretch of the route; heading north, ROAD_START_BOTTOM_PX above the
+ * sheet's edge. Pure: the fitted zoom and centre in, pixels out, by the
+ * map's own projection (mercatorPx), so a test proves it without a map.
+ */
+export function roadStartPanPx(args: {
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
+  center: { lat: number; lng: number };
+  zoom: number;
+  mapHeightPx: number;
+  stripHeightPx: number;
+}): number {
+  const { origin, destination, center, zoom, mapHeightPx, stripHeightPx } = args;
+  const originY = mapHeightPx / 2 + (mercatorPx(origin.lat, origin.lng, zoom).y - mercatorPx(center.lat, center.lng, zoom).y);
+  const targetY = destination.lat <= origin.lat ? ROAD_START_TOP_PX : stripHeightPx - ROAD_START_BOTTOM_PX;
+  return Math.round(originY - targetY);
+}
+
 /**
  * Must be called inside effects where google.maps is guaranteed loaded.
  * `dx` and `dy` are the diamond's place in a ring when it stacks with
@@ -132,6 +165,13 @@ interface RouteMapProps {
   onRoadsideClick?: (id: string) => void;
   /** The roadside stop whose card is open; its diamond is drawn larger and kept visible at every zoom. */
   selectedRoadsideId?: string | null;
+  /**
+   * On a phone, where the sheet's top edge sits at rest, in dvh from the
+   * top of the screen. Given, the first fit is followed by a pan that puts
+   * the start of the road in the strip of map above the sheet
+   * (roadStartPanPx). Not given, or wider than a phone: no pan.
+   */
+  phoneSheetTopDvh?: number;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -205,7 +245,10 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
  *
  * Effect split (do not collapse — each boundary was added to fix a specific bug):
  *   1a. Polyline geometry — `[map, encodedPolyline, routeColor]`
- *       Tears down and rebuilds JUST the line when the route changes.
+ *       Tears down and rebuilds JUST the line when the route changes. On
+ *       the first render it fits the camera and, on a phone, pans the
+ *       start of the road into the strip above the sheet once the fit has
+ *       settled (`idle`).
  *   1b. Polyline opacity — `[pending]`
  *       Mutates the existing Polyline in place; no rebuild on pending toggle.
  *   2a. Endpoint markers — `[map, origin, destination, originName, destinationName]`
@@ -258,6 +301,7 @@ function PolylineRenderer({
   roadsideStops,
   onRoadsideClick,
   selectedRoadsideId,
+  phoneSheetTopDvh,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -274,6 +318,7 @@ function PolylineRenderer({
   roadsideStops?: RoadsideMapMarker[];
   onRoadsideClick?: (id: string) => void;
   selectedRoadsideId?: string | null;
+  phoneSheetTopDvh?: number;
 }) {
   const map = useMap();
   const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
@@ -314,6 +359,7 @@ function PolylineRenderer({
 
     // Fit-bounds-once: only the FIRST render triggers a camera fit.
     // Council ISC-S6-ARCH-2 — recomputes redraw in place.
+    let settle: google.maps.MapsEventListener | null = null;
     if (!hasFitOnceRef.current) {
       if (bounds) {
         map.fitBounds(
@@ -329,13 +375,33 @@ function PolylineRenderer({
         map.fitBounds(b, { top: 60, right: 60, bottom: 120, left: 60 });
       }
       hasFitOnceRef.current = true;
+      // A phone: the sheet at rest covers the map from `phoneSheetTopDvh`
+      // down. Once the fit has settled (before `idle` the zoom and centre
+      // can still be the defaults) pan the start of the road into the
+      // strip above the sheet. Once, with the fit; a later drag or zoom is
+      // the person's.
+      if (phoneSheetTopDvh !== undefined && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH_PX}px)`).matches) {
+        settle = google.maps.event.addListenerOnce(map, "idle", () => {
+          settle = null;
+          const zoom = map.getZoom();
+          const center = map.getCenter();
+          if (zoom === undefined || !center) return;
+          const box = map.getDiv().getBoundingClientRect();
+          const stripHeightPx = (window.innerHeight * phoneSheetTopDvh) / 100 - box.top;
+          const dy = roadStartPanPx({ origin, destination, center: { lat: center.lat(), lng: center.lng() }, zoom, mapHeightPx: box.height, stripHeightPx });
+          if (dy !== 0) map.panBy(0, dy);
+        });
+      }
     }
 
     return () => {
+      settle?.remove();
       line.setMap(null);
       polylineRef.current = null;
     };
-    // `pending` and `bounds` intentionally omitted from deps.
+    // `pending` and `bounds` intentionally omitted from deps; so are
+    // `origin`, `destination` and `phoneSheetTopDvh`, read only on the
+    // first fit, which runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, encodedPolyline, routeColor]);
 
@@ -658,6 +724,7 @@ export default function RouteMap({
   roadsideStops,
   onRoadsideClick,
   selectedRoadsideId = null,
+  phoneSheetTopDvh,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -731,6 +798,7 @@ export default function RouteMap({
             roadsideStops={roadsideStops}
             onRoadsideClick={onRoadsideClick}
             selectedRoadsideId={selectedRoadsideId}
+            phoneSheetTopDvh={phoneSheetTopDvh}
             pending={pending}
           />
         ) : (
