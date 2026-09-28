@@ -39,7 +39,11 @@ the gate for a screen.
 5. **The trip is told as days.** A daily budget means the screen says where each day
    ends and what fits in it, and the map can show one day at a time.
 6. **The map shows the trip, not the machinery.** No search arc, no internal
-   counts; the compass and controls never sit on top of the sheet.
+   counts; the compass and controls never sit on top of the sheet. A diamond is
+   drawn at its place's position and is never moved; overlapping diamonds are
+   allowed, and the zoom rule and a pinch are the answer to a pile. (Added after
+   U1's rounds three to six, where a note about two stacked diamonds became a
+   spreading engine that put Amarillo's places in New Mexico.)
 7. **A phone first.** 390 px wide, one hand, thumb reach for the primary action,
    44 px targets, no horizontal scroll. Checked with a screenshot, every time.
 8. **Six rounds, then the operator.** A component gets up to six builder/critic rounds
