@@ -257,9 +257,10 @@ export default async function TodayPage({
                 {/* A name wraps; it is never cut with an ellipsis (rule 2). */}
                 <h2 className="text-lg text-[#f0f6fc] min-w-0 break-words">{g.cityName}</h2>
                 {/* A drive time, said as a phrase; the number is the one
-                    thing in the mono face. */}
-                <span className="text-base num text-[#8b949e] whitespace-nowrap">
-                  {`${formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)} away`}
+                    thing in the mono face, "away" is in the body face
+                    (quality bar, rule 2; Gauntlet U2, round 3). */}
+                <span className="text-base text-[#8b949e] whitespace-nowrap">
+                  <span className="num">{formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)}</span> away
                 </span>
               </div>
               {/* The way out of this screen into the trip planner: start and

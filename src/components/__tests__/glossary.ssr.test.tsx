@@ -9,7 +9,9 @@ import React from "react";
  * plan sheet (PlanWorkspace, with a town, two places and two roadside
  * stops, the fixtures of PlanWorkspace.roadside.ssr.test.tsx), the today
  * form (TodayStart), the trips page with nothing saved, and the itinerary
- * with two stops, which the sheet only draws once a stop is added. The
+ * with two stops, which the sheet only draws once a stop is added, and the
+ * plan screen's loading and error states (round 3: the two states of the
+ * screen no round had read, letter-spaced capitals at 12 px). The
  * markup is walked three ways: the text with every tag gone, for the
  * glossary's never phrases; every text node on its own, for a minutes count
  * standing as a label; and the tags with their ancestors, for a name cut
@@ -32,6 +34,8 @@ import RecommendationList from "@/components/RecommendationList";
 import Itinerary from "@/components/Itinerary";
 import TodayStart from "@/components/TodayStart";
 import TripsPage from "@/app/trips/page";
+import PlanLoading from "@/app/plan/loading";
+import PlanError from "@/app/plan/error";
 import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
 import { fitsTodayLine, kindWord } from "@/lib/plan/words";
 import type { RoadsideMarker } from "@/lib/roadside/along";
@@ -159,7 +163,9 @@ const screens = () => {
   const itinerary = renderToString(
     <Itinerary fromName="Amarillo" toName="Austin" stops={tripStops} legDurations={[7_500, 6_000]} finalLegSeconds={12_000} onRemoveStop={() => {}} onStopClick={() => {}} accent="#bc8cff" />
   );
-  return { home, sheet, today, trips, itinerary };
+  const loading = renderToString(<PlanLoading />);
+  const planError = renderToString(<PlanError error={Object.assign(new Error("boom"), { digest: "a1b2c3" })} />);
+  return { home, sheet, today, trips, itinerary, loading, planError };
 };
 
 describe("the words on the screens, against the glossary", () => {
@@ -167,7 +173,7 @@ describe("the words on the screens, against the glossary", () => {
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY = "test-key-not-a-real-key";
   });
 
-  it("carries no phrase from the glossary's never column on the home form, the plan sheet, the today form, the trips page or the itinerary", () => {
+  it("carries no phrase from the glossary's never column on the home form, the plan sheet, the today form, the trips page, the itinerary, or the plan screen loading or failed", () => {
     for (const [name, html] of Object.entries(screens())) {
       const text = visible(html);
       for (const never of NEVER) {
@@ -251,9 +257,17 @@ describe("the words on the screens, against the glossary", () => {
       expect(html, `${name}: text under 16 px`).not.toMatch(/class="[^"]*\btext-(?:xs|sm|\[1[0-5]px\])\b/);
     }
     // The numbers carry the mono face: the sheet's distance and drive.
-    const { sheet, itinerary } = screens();
+    const { sheet, itinerary, loading, planError } = screens();
     expect(clean(sheet)).toMatch(/class="num">497 mi</);
     expect(clean(sheet)).toMatch(/class="num">8 h 3 min</);
+    // The plan screen's loading and error states: a sentence each, the
+    // error's code the one thing in the mono face, and one action.
+    expect(visible(loading)).toContain("Planning the route");
+    expect(loading).not.toContain("…");
+    expect(visible(planError)).toContain("Couldn't load the plan page");
+    expect(clean(planError)).toContain('Error code <span class="num">a1b2c3</span>');
+    expect(planError).toMatch(/<a [^>]*href="\/"[^>]*>Back to the start<\/a>/);
+    expect(visible(planError)).not.toMatch(/error ref|something went wrong/i);
     // The itinerary's legs are phrases with the number in the mono face,
     // and its stop number is a 16 px digit in a 24 px badge.
     expect(clean(itinerary)).toContain('<span class="num">2 h 5 min</span> of driving');

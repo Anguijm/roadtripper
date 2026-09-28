@@ -1,6 +1,6 @@
 /**
  * Which town a roadside stop is at or past (Gauntlet U1, round 3), for the
- * card's "6 mi in, at Amarillo" and "132 mi in, past Lubbock". Pure: the
+ * card's "6 miles along, in Amarillo" and "132 miles along, past Lubbock". Pure: the
  * towns the plan page already has (the start, the end, the towns that fit)
  * and the route it already has, nothing fetched.
  */
@@ -18,7 +18,7 @@ export interface RoadTown extends NamedPoint {
 
 export interface RoadsideAnchor {
   name: string;
-  /** True when the stop is within NEAR_KM of the town, "at"; false when the town is the last one before it, "past". */
+  /** True when the stop is within NEAR_KM of the town, "in"; false when the town is the last one before it, "past". */
   near: boolean;
 }
 
@@ -36,13 +36,13 @@ export interface RoadsideAnchor {
  */
 export const ON_ROAD_KM = 15;
 /**
- * A stop this near a town on the road, in km, is "at" it; farther, it is
+ * A stop this near a town on the road, in km, is "in" it; farther, it is
  * "past" the last town before it. 10 is about a town's own spread on the
  * plains (Amarillo's limits run some 10 km from its centre) and is under
- * ON_ROAD_KM, so a stop "at" a town is always at a town on the road.
+ * ON_ROAD_KM, so a stop "in" a town is always at a town on the road.
  * Moves with it: `roadsideAnchor` alone. Check: the same named test (11 km
- * down the road is "past Amarillo", beside Tulia is "at Tulia"), and on
- * the page "6 mi in, at Amarillo" for a stop inside the town.
+ * down the road is "past Amarillo", beside Tulia is "in Tulia"), and on
+ * the page "6 miles along, in Amarillo" for a stop inside the town.
  */
 export const NEAR_KM = 10;
 /**
@@ -88,7 +88,7 @@ export function townsAlong(route: readonly LatLng[], start: NamedPoint, end: Nam
 
 /**
  * The town to say with a stop: the nearest one when it is within `nearKm`
- * ("at Amarillo"), else the last one on the road before the stop ("past
+ * ("in Amarillo"), else the last one on the road before the stop ("past
  * Lubbock"). With the start always at 0 there is always an answer; null
  * only when no towns are given.
  */

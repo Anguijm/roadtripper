@@ -39,6 +39,9 @@ describe("the today screen, server-rendered", () => {
     expect(html).toMatch(/\d+ cities within 5 hours/);
     expect(html).toContain("Albuquerque");
     expect(html).toContain("3 h 45 min");           // one-way, from the graph, not doubled
+    // The time in the mono face, "away" in the body face (quality bar, rule 2).
+    expect(html).toContain('<span class="num">3 h 45 min</span> away');
+    expect(html).not.toMatch(/class="[^"]*\bnum\b[^"]*"[^>]*>[^<]*away</);
     expect(html).not.toContain("7 h 30 min");        // the doubled number must not appear
     expect(html).not.toContain("Denver");
     expect(html).toContain("Drive times are one way.");

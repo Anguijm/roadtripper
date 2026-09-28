@@ -104,19 +104,22 @@ export function roadsideMapLine(kind: RoadsideMarker["kind"]): string {
 }
 
 /**
- * How far along the road a stop sits, as the sheet says it: "132 mi in",
- * and with the town when the caller has one, "6 mi in, at Amarillo" or
- * "132 mi in, past Lubbock". Miles, because the sheet's own summary says
- * "497 mi" (round-2 critic: one sheet, one unit), through the same
- * `formatDistance` so the two can never round differently.
+ * How far along the road a stop sits, as a person in the car says it:
+ * "131 miles along the road", and with the town when the caller has one,
+ * "6 miles along, in Amarillo" or "131 miles along, past Lubbock" (U2's
+ * round-2 critic: "494 mi in, at Austin" read as engineer shorthand).
+ * Miles, because the sheet's own summary says "497 mi" (U1's round-2
+ * critic: one sheet, one unit), rounded as `formatDistance` rounds
+ * (`Math.round` of the miles) so the two can never disagree.
  */
 export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null): string {
   const mi = Math.round((alongKm * 1000) / 1609.34);
   // Lower case: the text always follows the kind ("well-known place · less
-  // than a mile in"), and a capital there read as a second sentence
-  // (round-3 critic, rule 1).
-  const dist = mi < 1 ? "less than a mile in" : `${formatDistance(alongKm * 1000)} in`;
-  return anchor ? `${dist}, ${anchor.near ? "at" : "past"} ${anchor.name}` : dist;
+  // than a mile along"), and a capital there read as a second sentence
+  // (U1's round-3 critic, rule 1).
+  const dist = mi < 1 ? "less than a mile along" : mi === 1 ? "1 mile along" : `${mi} miles along`;
+  if (!anchor) return `${dist} the road`;
+  return `${dist}, ${anchor.near ? "in" : "past"} ${anchor.name}`;
 }
 
 /**

@@ -8,110 +8,132 @@ Branch: `feat/u2-plain-words-and-type`
 
 ## Goal
 
-Gauntlet component U2, round 2: plain words and readable type on the four
-screens (home, plan, today, trips). Round 1 put the glossary's words and
-the Geist body face on every screen. The round-1 critic's one failure
-(rule 2): the home screen's "Pick the dates" button is set in the mono
-face although it is words. Fixed first, then the rest of what the spec
-needs that the critic also saw: the plan sheet's header sentence is not
-the first thing a person sees; nine description lines end in a painted
-ellipsis; the hour buttons and mood chips measure a pixel under 44; the
-trips screen has nothing to press but the back link.
+Gauntlet component U2, round 3: plain words and readable type on the four
+screens (home, plan, today, trips). The round-2 critic's one failure
+(rule 7): the hour buttons and the mood chips measured 26 px on the home
+and today screenshots, under the 44 px target. The source had
+`min-h-[48px]` on every one of them since round 2. What the critic
+measured was round 1's stylesheet: the runner's dev server, started 39 s
+after round 2's commit, restored `.next/dev/cache/webpack` (written at
+05:44 for round 1's screenshot) and the CSS it served (06:07:56) has no
+`.min-h-\[48px\]`, no `.plan-sheet-visible`, the old `.plan-sheet-scroll`
+calc, and still the `line-clamp` rules round 2 removed. That one stale
+sheet is also the critic's cut "Show all 211" button: without
+`.plan-sheet-visible` the scroll box has no height and runs off the
+screen. Compiled fresh from this tree, the stylesheet holds every rule.
 
 ## Ship rule (written before the code)
 
-1. **The mono face is on numbers only, never on words.** The home form's
-   date button reads "Pick the dates" or "Pick the arrival date" in the
-   body sans; once a date is chosen only the date itself sits in a `.num`
-   span ("Arrive by <num>Oct 14</num>", "<num>Oct 10</num> to <num>Oct
-   14</num>"). A saved trip's card the same: "Arrive by" and "to" are
-   sans, the dates mono. Held by `glossary.ssr.test.tsx`: the idle button
-   carries no `num` class, and a form opened with dates renders the date
-   in a `.num` span with the words outside it.
-2. **The sheet's title is the sentence, and it is the first thing seen.**
-   The plan sheet's handle row carries "Lubbock and Abilene fit today" (or
-   "Nothing fits today; drive on to Austin", or after a stop "Abilene fits
-   today after Lubbock") above everything, at every snap, and on a wide
-   screen as the side panel's title. The roadside section stays the first
-   child of the scroll box (U1's pin), and the box's height is now the
-   visible part of the sheet less the handle, whatever the handle's height
-   (`.plan-sheet-visible`, a flex column), so a title that wraps to two
-   lines shortens the box instead of pushing its bottom off the screen.
-   The rest-snap arithmetic (537 px of box, 520 used) holds for the
-   one-line title, which is every title on the fresh sheet. Held by the
-   glossary test (the title precedes the roadside heading) and U1's
-   roadside test, whose two pins on the order and the CSS move with the
-   structure and pin the new one.
-3. **Text wraps; nothing is cut.** No `line-clamp` remains on the four
-   screens: a description (at most 234 characters in the atlas, five lines
-   on a phone) wraps like a name does. Held by the glossary test, which
-   fails on any `line-clamp` or `truncate` class in the renders.
-4. **No text under 16 px anywhere a screen renders.** The itinerary's
-   10 px bullets become CSS dots and its 10 px stop number a 16 px digit
-   in a 24 px badge; the itinerary joins the glossary test's renders (two
-   stops) so its classes are read too. `tracking-tight` leaves the
-   headings.
-5. **Targets are 48 px.** The hour buttons and the mood chips carry
-   `min-h-[48px]`, a few pixels over rule 7's 44, so a measurement of the
-   painted box cannot land under it. Held by the glossary test.
-6. **Every screen has its one action, and a disabled button says why.**
-   The trips screen's empty state (and its blocked-storage state) ends in
-   a "Plan a trip" button. On the plan sheet, when the trip is full, one
-   line above the towns says "The trip has all the stops it can hold; take
-   one out to add another" instead of seven silently disabled buttons.
-   The trips page joins the glossary test's renders.
-7. **Nothing the app pays for changes.** No call, no store, no score, no
+1. **The chips are 48 px on the screen, not only in the source.** Two
+   things, since a class in the markup is nothing without its rule. The
+   stale `.next` is deleted from the worktree, so the next dev server
+   compiles the stylesheet from this tree instead of restoring round 1's.
+   And a test, `src/app/__tests__/stylesheet.test.ts`, compiles
+   `globals.css` through Tailwind the way the build does (PostCSS, the
+   sources found from the project root) and fails if the sheet lacks the
+   chips' `.min-h-\[48px\]`, the 44 px `.min-h-\[44px\]`, the body face
+   at 1rem, the `.num` face, or the sheet's `.plan-sheet-visible` column,
+   or still carries a `line-clamp` rule. The chip classes themselves stay
+   held by `glossary.ssr.test.tsx`. For the runner, in this file and the
+   commit: delete `.next` before each round's server, or the screenshot
+   is the previous round's stylesheet.
+2. **The along-the-road line is a person's phrase.** "494 miles along, in
+   Austin", "131 miles along, past Lubbock", "less than a mile along, in
+   Amarillo", and "131 miles along the road" with no town (the critic:
+   "494 mi in, at Austin" read as engineer shorthand). Miles, rounded the
+   same way as the sheet's "497 mi" (`Math.round` of the miles, as
+   `formatDistance`), one unit on one sheet. Held by U1's roadside test
+   (six shapes, the singular "1 mile" among them) and its render pins on
+   the row and the card.
+3. **The mono face is on numbers only, on the today screen's results
+   too.** "3 h 45 min away": the time in `.num`, "away" in the body face;
+   it was the whole phrase in mono. Held by the today SSR test.
+4. **The plan screen's loading and error states are sentence case at 16 px
+   in the body face.** `src/app/plan/loading.tsx` and `error.tsx` were
+   the two states of the screen no round had read: letter-spaced capitals
+   at 12 px in the mono face, "Planning route…" with an ellipsis. Now
+   "Planning the route" while it loads, and on a failure "Couldn't load
+   the plan page" as a sentence, an error code in the mono face (it is a
+   code) and one action, "Back to the start". No `uppercase`,
+   `tracking-`, `font-mono`, `text-xs` or `text-sm` on either. Held by the
+   glossary test, which now renders both.
+5. **Nothing the app pays for changes.** No call, no store, no score, no
    route is touched.
 
-**Cost:** $0. Words, classes, one CSS rule, and tests. No new call, no
-store write, no deploy.
+Routed by name, not dropped: the roadside list collapsed to ten of N
+behind "Show all N" (rule 4 wants it open) and that button's thumb reach
+belong to U1's roadside section in `PlanWorkspace.tsx`
+(`ROADSIDE_SHOWN_FIRST`, `ROADSIDE_LIST_PX`), not to U2's rules. The days
+view is U3.
 
-**Weakest part:** The sheet's title lives on the handle row, and its
-height is bounded by words, not by a rule: one line for every sentence the
-fresh sheet can say, two lines after a stop when nothing fits and the
-towns' names are long ("Nothing fits today after Lubbock; drive on to
-Austin" is 52 characters, about 420 px at 16 px). Two lines cost the box
-24 px at rest, which the roadside section's 17 px of slack does not
-cover: "Show all N" would then sit 7 px under the fold until a drag. The
-runner's screenshot is the fresh sheet, where the title is one line; the
-two-line case is real but rare and is recorded here rather than solved
-with a shorter sentence.
+**Cost:** $0. Words, classes, one test that compiles CSS, and a deleted
+build cache. No new call, no store write, no deploy, no dependency added.
+
+**Weakest part:** The stale stylesheet is the runner's cache, not this
+tree's, and nothing in this tree can stop it coming back: the test proves
+the sheet compiles from these sources, the purge makes the next server
+compile it, but a later round whose server starts over an old `.next`
+serves an old sheet again, and the note is a note. Second, the roadside
+row's along line can wrap for a long town name ("well-known place · less
+than a mile along, in Wichita Falls" is about 400 px at 16 px on a 348 px
+row), making that row 66 px where U1's rest-snap arithmetic counts 44;
+that was already so with "in, at" and is U1's to count.
 
 ## Gate 1 proofs
 
 - `bun run type-check`: clean. `bun run lint`: 0 errors, 9 warnings, all
-  of them there before this branch. `bunx vitest run`: 49 files, 495
-  tests, all green (`glossary.ssr.test.tsx` is 10 of them, up from 7: the
-  sheet's title first, the date button's face, the trips screen's action;
-  it now also renders the trips page and the itinerary with two stops).
-- Mutation 1, rule 1 of round 1 (a never word back): the row's add button
-  in `src/components/RecommendationList.tsx` set to `"Add city to trip"`
-  in place of `"+ Stop here"`. `bunx vitest run
-  src/components/__tests__/glossary.ssr.test.tsx` fails two tests by
-  name: "carries no phrase from the glossary's never column on the home
-  form, the plan sheet, the today form, the trips page or the itinerary"
-  with `sheet: /add city to trip/i: expected '...' not to match`, and
-  "keeps the verb on a disabled button and says why beside it" (the full
-  trip's button no longer reads "+ Stop here"); the other eight pass.
-  Restored from the copy taken first; `cmp` reports the file identical.
-- Mutation 2, rule 1 of this round (the mono face back on words): the
-  date button in `src/components/RouteInput.tsx` given `num` in its class
-  again. The same run fails one test by name, "sets the date button's
-  words in the body face and only a chosen date in the mono face", with
-  `expected '<form ...' not to match /<button[^>]*class="[^"]*\bnum\b...`;
-  the other nine pass. Restored; `cmp` identical.
-- Decisions taken here, for the critic and the council: the sheet's
-  sentence moved from the scroll box to the handle row, so U1's roadside
-  test changed two pins to the new structure (the sentence precedes the
-  section instead of following it; the CSS pin reads `.plan-sheet-visible`
-  and the box's `flex: 1 1 0%; min-height: 0` instead of the fixed
-  `calc(... - 45px)`); the section is still the scroll box's first child
-  and the rest-snap arithmetic is untouched. The towns-failed alert box
-  now says "The route is still here. Reload to try the towns again." with
-  the failure itself in the title. The "See what is in X" aria-label on
-  the town's button is gone: its name is its visible words, "What's in
-  X". The today screen's "One-way drive times." is "Drive times are one
-  way." The half-picked range on the home form reads "Starts Oct 10; pick
-  the end date" in place of "Oct 10 to ?". `next-env.d.ts` in this
-  worktree was regenerated by a dev server (`.next/dev/types`) and is
-  left uncommitted.
+  of them there before this branch. `bunx vitest run`: 50 files, 496
+  tests, all green (`glossary.ssr.test.tsx` is 10 of them and now renders
+  the plan screen's loading and error states too; the new
+  `src/app/__tests__/stylesheet.test.ts` is 1, compiling the sheet in
+  about 100 ms; U1's roadside test carries the six shapes of the along
+  line; the today SSR test pins the face on "3 h 45 min away").
+- Why the critic measured 26 px, from the worktree itself, before any
+  change: `.next/dev/static/css/app/layout.css` (written 06:07:56, the
+  commit was 06:07:17) had `.min-h-\[44px\]` and no `.min-h-\[48px\]`,
+  no `.plan-sheet-visible`, `.plan-sheet-scroll` with round 1's
+  `calc(100% - var(--sheet-y, 25%) - 45px)`, and four `line-clamp`
+  rules; `.next/dev/cache/webpack/client-development/0.pack.gz` dates
+  from 05:44, round 1's screenshot. The same `globals.css` compiled
+  fresh through `@tailwindcss/postcss` from this tree (85 ms) has
+  `.min-h-\[48px\] { min-height: 48px; }`, `.plan-sheet-visible`,
+  `.leading-5` and no `line-clamp`. `.next` is deleted; nothing in it was
+  tracked.
+- Mutation 1, rule 4 and the glossary (a never word back): the loading
+  state's line in `src/app/plan/loading.tsx` set to "Finding candidates".
+  `bunx vitest run src/components/__tests__/glossary.ssr.test.tsx` fails
+  two tests by name: "carries no phrase from the glossary's never column
+  on the home form, the plan sheet, the today form, the trips page, the
+  itinerary, or the plan screen loading or failed" with `loading:
+  /candidates?/i: expected ' ← Roadtripper Finding candidates ' not to
+  match`, and "sets no heading, label or button in letter-spaced
+  capitals, nothing under 16 px, and keeps the mono face for numbers"
+  (`to contain 'Planning the route'`); the other eight pass. Restored
+  from the copy taken first; `cmp` reports the file identical.
+- Mutation 2, rule 1 (the chips' class gone): `min-h-[48px]` removed from
+  the hour buttons in `src/components/DriveBudgetSelector.tsx`. The same
+  run fails one test by name, "fits the mood chips: five short words with
+  their glyphs, wrapping and never scrolling sideways, 48 px tall like
+  the hour buttons", with `expected '<button type="button"
+  aria-pressed="f…' to match /class="[^"]*\bmin-h-\[48px\]/`; the other
+  nine pass. Restored; `cmp` identical.
+- Mutation 3, rule 1 (the rule gone from the sheet): `font-size: 1rem;`
+  deleted from `body` in `src/app/globals.css`. `bunx vitest run
+  src/app/__tests__/stylesheet.test.ts` fails its one test by name,
+  "holds the rules the screens' classes name: 48 px chips, 44 px targets,
+  the 16 px body face, the number face, the sheet's column", with
+  `expected '/*! tailwindcss v4.2.2 …' to match /body \{[^}]*font-family:
+  var\(--font-…/`. Restored; `cmp` identical. The full suite on the
+  restored tree: 50 files, 496 tests green.
+- Decisions taken here, for the critic and the council: the stylesheet
+  test checks presence of rules only, not the absence of `truncate` or
+  `line-clamp`, because Tailwind's scan reads every file in the tree,
+  the tests included, and a word in a test emits the rule; a cut is a
+  class on a name and the glossary test reads the names. `postcss` is
+  imported by the test as a hoisted dependency of `@tailwindcss/postcss`
+  and `next` (8.5.8 in node_modules), not added to package.json. The
+  anchor's "at" became "in" in `src/lib/roadside/anchor.ts` comments and
+  the `near` field's doc only; no logic changed. `next-env.d.ts` stays
+  uncommitted as in round 2. For the runner: delete `.next` in the
+  worktree before each round's dev server, or the screenshot is the
+  previous round's stylesheet.
