@@ -8,106 +8,102 @@ Branch: `feat/u1-roadside-first-class`
 
 ## Goal
 
-Gauntlet component U1, round 6 of six: the critic's one failure (rule 4: a
-diamond on the map does not reliably answer a tap with its own card; two of
-the ten were drawn half under the sheet's edge, and The Big Texan's diamond,
-put at the bottom of Amarillo's ring, sat on the Museum of the Llano
-Estacado's point, so its tap opened the wrong card) fixed first, then the
-lower items the same critic saw: the diamonds 18 px wide and the card's
-close glyph the same; the rest screenshot showing seven rows and no "Show
-all" without a scroll; the card's line reading "No write-up for this one."
+Gauntlet component U1, round 7: the operator's decision after six rounds.
+Keep what rounds one and two built (the card on tap, the list open with
+the ten strongest and "Show all N", the arc gone, the sheet's numbers as
+sentences) and remove the diamond spreading entirely: every diamond is
+drawn at its place's true latitude and longitude, always, and never moves
+when one is tapped. Overlap at a state-wide zoom is expected and is what
+the zoom rule and a pinch are for; no clustering, no offsets. In the same
+round: "Show all N" whole on the first screen at 390 by 844 with no
+scroll of the sheet, and the card's close is a second tap of the diamond,
+a tap on the card's own heading or a swipe, with no separate "Close"
+button (the spec).
 
 ## What the store and the arithmetic say (measured before the rule)
 
-1. The ten at the state-wide rule (p at or above 0.7 within 10 km of the
-   road), from `data/roadside.sqlite`: The Big Texan (0.83), Helium
-   Monument (0.72) and Amarillo Mural (0.71) at Amarillo; Museum of the
-   Llano Estacado (0.72) at Plainview, whose point is 28 px below Amarillo's
-   at zoom 5; World's Largest Spur (0.76) at Lampasas, 24 px from Austin's
-   point; five in Austin. The ring put Amarillo's strongest 25 px below
-   its point, 3 px from Plainview's diamond, and Austin's ring of five
-   reached 37 px below a dot 38 px above the sheet's edge: the two rule-4
-   failures are the same defect, a ring that is checked against its own
-   members only and against nothing else on the map.
-2. The sheet at rest is 581 px on a 390 by 844 phone: the handle 45 and a
-   537 px scroll box. The roadside section is 524 px from its top through
-   "Show all"; the header above it (mood chips on two rows, two sentences)
-   is about 170. Round 5's test held the section against the box alone
-   and never added the header, which is why the capture showed seven rows.
-   Section first, the box's 8 px padding and the section's 524 are 532 of
-   the 537.
-3. Nine of the fourteen strong stops near this road have no line in the
-   store at all: `about` is already the encyclopedia's opening, else
-   Wikidata's short description, else what the mapper typed, and for those
-   nine the map has only a kind. The store's line is a hard stop
-   (quality bar), so the card's line for them has to be made from the kind.
-4. The new placement, run on the ten at zoom 5 in round 5's frame (the map
-   390 by 799, the strip 218, the fit's padding as it is): every diamond
-   shown, the least distance between any two 44.0, none under the sheet's
-   edge and none off the top. The Big Texan on its own point, the museum
-   44 to its right, the monument 44 to its left, the mural 38 below;
-   Museum of the Weird on its own point 38 px above the sheet's edge, the
-   other four of Austin beside and above it, the spur to the left. At zoom
-   4 the same holds.
+1. What rounds 3 to 6 built to keep diamonds a touch canvas apart (rings,
+   then slots checked against every diamond, then a box at the sheet's
+   edge) moved a diamond up to 88 px from its place: at zoom 5 over three
+   degrees, so the map said "around Amarillo", not where. The round-6
+   critic's failure (a tap on one diamond opening another's card) came
+   from that machinery, not from the places. With every diamond on its
+   own point, a tap lands on the topmost of an overlapping pair; a pinch
+   separates them, and at a town zoom (10 and up) every survivor is
+   hundreds of pixels from the next.
+2. The sheet at rest is 582 px on a 390 by 844 phone: the handle 45 and a
+   537 px scroll box with 8 px of padding above its first section. Round
+   6's section was 524 from its top through "Show all" (8 above the
+   heading, the heading 24, 4, ten rows of 44, 4, the control 44): 532 of
+   the 537, and the control's bottom edge 5 px from the fold, which any
+   rounding of a dvh could take. Without the 8 above the heading (the
+   box's own padding is the room under the handle) and the 4 under it,
+   the section is 512 and the box holds 520 of 537: 17 px to spare.
+3. The fit into the strip (round 5) is not spread machinery: it frames
+   the road in the map above the sheet at rest, and without it the
+   round-4 capture had the whole road under the sheet and Kansas in the
+   strip. It stays, a plain `fitBounds` of the route's bounds with the
+   sheet's share of the map in the padding, applied once. The box that
+   round 6 cut at the sheet's edge for moved diamonds is gone with them.
 
 ## Ship rule (written before the code)
 
-1. **Every diamond on the map is checked against every other.**
-   `roadsideSpread` (src/lib/roadside/spread.ts) no longer rings a stack; it
-   places the stops one at a time, the tapped one first and then the
-   strongest first, each on its own point when no placed diamond is within
-   SPREAD_PX (44, the touch canvas) of it, else on the first free slot of a
-   fixed list around its point: at 44 px, sideways before up before down
-   (right, left, the two upper diagonals, ...), then at 88 px the same way.
-   A free slot is at least 44 from every diamond placed so far, whatever
-   stack it came from. A stop with no free slot waits for a closer zoom;
-   the tapped one is placed first, so it is always on its own point. Pure
-   and tested: three on one point are the centre, right and left; the
-   critic's pair (Amarillo's three and Plainview's one at zoom 5) end at
-   least 44 apart; twenty-two on one point show seventeen.
-2. **A displaced diamond stays in the strip of map above the sheet.** The
-   spread takes an optional box in the map's own pixels; a slot outside it
-   is not free. RouteMap builds the box from `map.getBounds()` at the
-   current zoom (`diamondBox`, pure) inset by half the diamond, with its
-   bottom at the sheet's top edge at rest on a phone (the strip
-   `fitPaddingPx` already uses) and the map's own bottom edge elsewhere. A
-   stop on its own point is drawn where it is, under the sheet or not: only
-   a moved diamond is held to the strip. The pass runs on mount and on the
-   map's `idle`, so it holds after a pan or a zoom, not only at the fit.
-   The fit's padding is unchanged, so this road stays at zoom 5.
-3. **The diamond shows its target.** The visible diamond is 32 of the 44 px
-   canvas (it was 18), the tapped one 38 with the light stroke; the
-   tap canvas is still 44 and diamonds are never closer than 44.
-4. **The roadside section is first in the sheet.** Above the mood chips and
-   the numbers, directly under the handle, so at rest the heading, ten rows
-   and "Show all N" are on screen with no scroll: the box's padding and
-   ROADSIDE_LIST_PX are at most `sheetScrollBoxPx(844, 1)`, held by a test.
-   The card, when open, is at the top of the sheet.
-5. **The card's close is the word.** A bordered 44 px "Close" button
-   beside the name, with the accessible name "Close <name>"; no glyph.
-6. **A stop with no line says what the map has.** "On the map as a historic
-   place; nothing written about it yet." from `roadsideMapLine(kind)`,
-   replacing the placeholder; a stop with a line shows the line as before.
-7. Everything from rounds 1 to 5 stands: the fit into the strip; the map's
-   44 px buttons; the rows' town; the card's five parts and each row opening
-   it; the arc gone; the zoom rule; the app's town labels; the glossary;
-   names wrapping; nothing new fetched or scored.
+1. **Every diamond is drawn on its place's own point and never moves.**
+   `roadsideMarkerIcon(active)` anchors the 44 px canvas at its centre on
+   the marker's position, with nothing to offset it by; `src/lib/roadside/
+   spread.ts` is deleted with its tests, RouteMap imports nothing of it,
+   and no diamond is re-anchored, clustered or hidden for another's sake.
+   Effect 4 builds the markers wholesale and applies the zoom rule on
+   mount and on `zoom_changed` (round 2's shape); Effect 4b draws the
+   tapped one larger on the same point and puts the previous one back.
+   Held by a test that pins the anchor, the absence of the file and of
+   any import of it, and the `zoom_changed` listener.
+2. **The map's one fit stays.** `fitBounds` of the route's bounds, padded
+   on a phone by the sheet's share of the map (`fitPaddingPx`), so the
+   road is framed in the strip above the sheet at rest; the desktop's
+   margins elsewhere. `diamondBox` and the strip read on `idle` for moved
+   diamonds are gone.
+3. **"Show all N" is whole on the first screen.** The roadside section is
+   first in the sheet's scroll box, with nothing above its heading and
+   nothing between the heading and the first row: `ROADSIDE_LIST_PX` is
+   512, and with the box's 8 px padding at most `sheetScrollBoxPx(844, 1)`
+   less 16, held by a test that also pins the classes. The ten rows stay
+   at 44 px, two lines of 22 with no padding.
+4. **The card has no separate close.** Its heading is a 44 px button
+   carrying the name, marked open (`aria-expanded`) with the same "▲" the
+   itinerary's toggle uses, and a tap on it closes the card; a second tap
+   of the same diamond or row closes it (the toggle in
+   `handleRoadsideSelect`); a sideways swipe across the card closes it,
+   `roadsideSwipeCloses(dx, dy)`: at least 60 px and more sideways than up
+   or down, so a scroll of the sheet over the card and a tap do not. No
+   "Close" button, no glyph in a box. Held by the card's five-parts test
+   and a test of the swipe's line.
+5. **The 44 px tap canvas on each diamond stays**, the visible diamond 32
+   of it (38 tapped), amber, a diamond and not a circle or a square.
+6. Everything else from rounds 1 to 6 that is not the spreading stands:
+   the card's five parts and each row opening it; the list open, strongest
+   first, ten then "Show all N"; the arc gone; the zoom rule; the app's
+   town names on the map and the basemap's off; the rows' town ("at
+   Amarillo", "past Lubbock"); the map line for a stop with no write-up;
+   the map's 44 px buttons; the sheet's scroll box; the glossary; names
+   wrapping; nothing new fetched or scored.
 
 **Cost:** $0. No new fetch, no new call, no change to the store or the
-scores. The spread is arithmetic on the map's current bounds, once per
-settle of the camera.
+scores; less arithmetic on the client than round 6, none of it per
+camera settle.
 
-**Weakest part:** A diamond that has been moved sideways at a state-wide
-zoom is drawn up to 88 px from where the place is: at zoom 5 that is over
-three degrees, so the map says "around Amarillo", not where. Second: the
-placement runs against the map's bounds on `idle`, so after a pan a moved
-diamond can change slot; a diamond on its own point never moves. Third: at
-a town zoom with dozens on one point (downtown Austin, 53 at zoom 10) up to
-seventeen show in two rings and the rest wait, where the old ring showed
-eight; the first real trip says whether seventeen is too many. Fourth: the
-sheet now opens on the roadside list, and the trip's numbers and the mood
-chips sit under ten rows; that is the spec's "first-class", and the
-operator sees it in the screenshots after this round.
+**Weakest part:** At a state-wide zoom the diamonds of one town sit on
+each other (Amarillo's three at zoom 5, Austin's five), and a tap there
+opens the topmost one's card; the person pinches to reach the others,
+which the operator accepted and the screenshot will show plainly. Second:
+the card's heading as its close has no word saying so; the "▲" is the
+itinerary's convention in the same sheet, and the second tap on the
+diamond or the row is the spec's own close. Third: a name that wraps to
+two lines adds 22 px to its row, and two such names among the ten push
+"Show all N" below the first screen's 17 px of slack; the ten strongest
+on the Amarillo to Austin road fit on one line each at 390 px. Fourth:
+the swipe is a touch handler an SSR test cannot exercise; its decision
+is pure and tested, the wiring is read by eye.
 
 ## Routed by name
 
@@ -124,42 +120,33 @@ operator sees it in the screenshots after this round.
 
 ## Gate 1 proofs
 
-Baseline at the start of the round (round 5's commit): 47 files, 480 tests,
+Baseline at the start of the round (round 6's commit): 47 files, 481 tests,
 all green; type-check clean; lint 0 errors, 9 warnings.
-After: 47 files, 481 tests, all green (the ring's two tests replaced by
-three: the placement against every diamond, the box at the strip's bottom,
-a point's capacity; the section's order, the close word, the map's line
-and the strip function folded into the tests that already held those
-parts); `bun run type-check` clean; `bun run lint` 0 errors, the same 9
-warnings on the same lines, none in this round's changes (RouteMap's older
-unused directive is untouched).
+After: 47 files, 480 tests, all green (the spread's three tests deleted;
+two added: every diamond on its own point, and the swipe's line; the
+scroll-box test and the card's five-parts test updated to the new
+arithmetic and the heading as the close); `bun run type-check` clean;
+`bun run lint` 0 errors, the same 9 warnings on the same lines, none in
+this round's changes.
 
-**Mutation, the box.** In `src/lib/roadside/spread.ts` the `inside` check
-was made to count every slot as inside the box (`true || (...)`). Then:
+**Mutation, the diamond on its point.** In `src/components/RouteMap.tsx`
+the icon's anchor in `roadsideMarkerIcon` was made
+`new google.maps.Point(22 - 44, 22)`: the diamond drawn 44 px right of
+its place, round 6's first slot. Then:
 
 ```
 bunx vitest run src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx \
-  -t "keeps a moved diamond inside the strip"
-× keeps a moved diamond inside the strip above the sheet and leaves a
-  diamond on its own point where it is
-AssertionError: expected 3396.063556818454 to be less than or equal to 3394.789577481475
-Tests  1 failed | 22 skipped (23)
+  -t "never moves one"
+× draws every diamond on its place's own latitude and longitude, and
+  never moves one
+AssertionError: expected '"use client";\n\nimport { useEffect, …' to match
+  /function roadsideMarkerIcon\(active = false\): google\.maps\.Icon \{\s*return
+  \{\s*url: [^\n]*\n\s*anchor: new google\.maps\.Point\(22, 22\),/
+Tests  1 failed | 21 skipped (22)
 ```
 
-The numbers are a moved diamond's y in the map's pixels at zoom 5 against
-the box's bottom: 1.3 px past the sheet's edge inset, the round-5
-capture's defect in miniature. Restored from the backup copy; `cmp`
-reported the files identical; the same test then passed (1 passed, 22
-skipped), and the whole suite 481.
+Restored from the backup copy; `cmp` reported the files identical; the
+same test then passed, and the whole suite 480.
 
-**Mutation, the check against every diamond.** The same file's `free` was
-made to check a slot against the last diamond placed only
-(`placed.slice(-1).every(...)`), the round-3 ring's defect in one line.
-Then "places each diamond on its own point or the first free slot beside
-it, checked against every diamond on the map" failed with
-`AssertionError: expected 3.6032012871485075 to be greater than or equal to 44`:
-two of Amarillo's four 3.6 px apart, the critic's tap on the wrong card.
-Restored, `cmp` identical, the test green again.
-
-Rounds 1 to 5's proofs stand: their tests are unchanged and green, but for
-the ring's two, replaced above.
+Rounds 1 to 6's other proofs stand: their tests are unchanged and green,
+but for the spread's three, deleted, and the two updated above.

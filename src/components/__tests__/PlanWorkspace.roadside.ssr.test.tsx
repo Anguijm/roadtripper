@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import React from "react";
 
 vi.mock("@/app/plan/actions", () => ({
@@ -12,6 +12,8 @@ import PlanWorkspace, {
   RoadsideCard,
   roadsideMapLine,
   roadsideAlongText,
+  roadsideSwipeCloses,
+  SWIPE_PX,
   ROADSIDE_SHOWN_FIRST,
   ROADSIDE_LIST_PX,
   SHEET_SNAPS,
@@ -35,7 +37,6 @@ import RouteMap, {
   STRIP_MIN_PX,
   MAP_CONTROL_SIZE_PX,
 } from "@/components/RouteMap";
-import { roadsideSpread, mercatorPx, diamondBox, SPREAD_PX, SPREAD_SLOTS, type PxBox } from "@/lib/roadside/spread";
 import { townsAlong, roadsideAnchor } from "@/lib/roadside/anchor";
 import { formatDurationPlain } from "@/lib/routing/format";
 import nextConfig from "../../../next.config";
@@ -95,6 +96,13 @@ const render = (props: Partial<React.ComponentProps<typeof PlanWorkspace>>) =>
 const visible = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 const rowIds = (html: string) => [...html.matchAll(/data-roadside-stop="([^"]+)"/g)].map((m) => m[1]);
+
+/** Web Mercator pixels at a zoom with 256 px tiles, what Google's map draws; only differences between points are used. */
+const mercatorPx = (lat: number, lng: number, zoom: number) => {
+  const size = 256 * Math.pow(2, zoom);
+  const phi = (lat * Math.PI) / 180;
+  return { x: ((lng + 180) / 360) * size, y: ((1 - Math.log(Math.tan(phi) + 1 / Math.cos(phi)) / Math.PI) / 2) * size };
+};
 
 describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
   beforeAll(() => {
@@ -164,8 +172,11 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // nor show ten rows. The box is now the visible part, and the rest
     // snap leaves room for the list: the box's own padding above the
     // section (which is first in it, round 6) and the section through
-    // "Show all" fit the box, 532 of its 537 px.
-    expect(SHEET_BOX_PADDING_PX + ROADSIDE_LIST_PX).toBeLessThanOrEqual(sheetScrollBoxPx(844, 1));
+    // "Show all" fit the box, 520 of its 537 px, with at least 16 to
+    // spare so the control is whole on the first screen. Round 6 had 532:
+    // 8 px above the heading and 4 under it, and the control's bottom edge
+    // 5 px from the fold (round 7 took the twelve).
+    expect(SHEET_BOX_PADDING_PX + ROADSIDE_LIST_PX).toBeLessThanOrEqual(sheetScrollBoxPx(844, 1) - 16);
     expect(SHEET_BOX_PADDING_PX).toBe(8);
     // At the old half snap, 45 percent hidden, it could not have fit.
     expect(Math.floor((844 * 92 * 55) / 10_000) - 45).toBeLessThan(ROADSIDE_LIST_PX);
@@ -174,7 +185,7 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(SHEET_SNAPS).toEqual([80, 25, 8]);
     expect(SHEET_HEIGHT_DVH).toBe(92);
     expect(SHEET_HANDLE_PX).toBe(45);
-    expect(ROADSIDE_LIST_PX).toBe(524);
+    expect(ROADSIDE_LIST_PX).toBe(512);
     // The sheet opens at the rest snap, and the scroll box carries the class
     // whose CSS makes it the visible part.
     const html = render({ roadsideStops: fourteen });
@@ -185,6 +196,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
     expect(css).toMatch(/\.plan-sheet-scroll\s*\{[^}]*height:\s*calc\(100% - var\(--sheet-y, 25%\) - 45px\)/);
     expect(css).toMatch(/\.plan-sheet\s*\{[^}]*height:\s*92dvh/);
+    // Nothing above the heading, nothing between it and the first row.
+    expect(html).toMatch(/<section data-roadside="true" [^>]*class="font-sans px-1 pt-0 pb-2"/);
+    expect(html).toMatch(/<\/h2><ul><li data-roadside-stop="osm:node:113">/);
     // The rows are two lines of 22 px with no vertical padding, so ten are 440.
     expect(html).toMatch(/data-roadside-stop="osm:node:113"><button[^>]*class="w-full min-h-\[44px\] text-left px-2 py-0 /);
     // The map is told where the sheet's edge is, so its fit can frame the
@@ -202,7 +216,7 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const pad = fitPaddingPx(phone);
     const strip = (844 * sheetTopDvh(1)) / 100 - 45;
     expect(strip).toBeCloseTo(216.6, 0);
-    // The strip is one function, read by the fit and by the spread's box.
+    // The strip is one function, read by the fit.
     expect(stripHeightPx(phone)).toBeCloseTo(strip, 5);
     expect(stripHeightPx({ ...phone, phone: false })).toBeUndefined();
     expect(stripHeightPx({ ...phone, sheetTopDvh: undefined })).toBeUndefined();
@@ -223,16 +237,16 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(Math.round(size(6).h)).toBe(267);
     // Centred in that area, every point of the road from the start's dot
     // to the end's sits above the sheet's edge, with the start's name
-    // (30 px above its dot) inside the map and room under the end for a
-    // ring's second row.
+    // (30 px above its dot) inside the map and room under the end for its
+    // diamond's canvas.
     const top = pad.top + (innerH - size(5).h) / 2;
     const bottom = top + size(5).h;
     expect(top).toBeGreaterThanOrEqual(36);
     expect(bottom + 22).toBeLessThan(strip);
     // The numbers the frame rests on, pinned after the frame so a wrong
     // padding fails on the frame first: the sheet's share of the map plus
-    // the margins; the start's name and a ring above and beside, a ring's
-    // lower members below.
+    // the margins; the start's name above, a name's width and a diamond's
+    // canvas beside, the end's diamond below.
     expect(pad).toEqual({ ...STRIP_MARGIN_PX, bottom: Math.round(799 - strip) + STRIP_MARGIN_PX.bottom });
     expect(innerW).toBe(310);
     expect(innerH).toBe(145);
@@ -259,8 +273,13 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
   it("renders the card from state above the list with its five parts", () => {
     const html = render({ roadsideStops: stops, initialSelectedRoadsideId: "osm:way:1" });
     expect(html).toContain('data-roadside-card="osm:way:1"');
-    // 1. The name, as a heading.
-    expect(html).toMatch(/<h3[^>]*>The Big Texan Steak Ranch<\/h3>/);
+    // 1. The name, as a heading. The heading is the card's own close: a
+    //    44 px button carrying the name, marked open, and no separate
+    //    "Close" button or glyph (the spec: a second tap or a swipe; the
+    //    round-5 card had a glyph, the round-6 card a "Close" button).
+    expect(html).toMatch(/<h3[^>]*><button type="button" aria-expanded="true" class="w-full min-h-\[44px\] [^"]*"><span[^>]*>The Big Texan Steak Ranch<\/span>/);
+    expect(html).not.toMatch(/>Close</);
+    expect(html).not.toContain('aria-label="Close');
     // 2. The line about it, from the store.
     expect(html).toMatch(/data-roadside-line[^>]*>A large steakhouse and motel\. A roadside attraction known for competitive eating\.</);
     // 3 and 4. The kind in plain words and how far along the road, with the
@@ -268,9 +287,6 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toMatch(/data-roadside-where[^>]*>well-known place · 6 mi in, at Amarillo</);
     // 5. One link-button that opens the place in Maps.
     expect(html).toMatch(/<a href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=35\.19381,-101\.75510"[^>]*>Open in Maps<\/a>/);
-    // And a way to close it: the word in a bordered 44 px box, not a
-    // glyph, which read as 18 px in the round-5 capture (rule 7).
-    expect(html).toMatch(/<button[^>]*aria-label="Close The Big Texan Steak Ranch"[^>]*class="[^"]*\bh-11 px-3 flex items-center border\b[^"]*"[^>]*>Close<\/button>/);
     expect(html).not.toContain("×");
     // Above the list: the card comes before the heading and the first row,
     // and, the section being first in the sheet, before the numbers.
@@ -428,150 +444,36 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(active).not.toContain("<circle");
   });
 
-  it("places each diamond on its own point or the first free slot beside it, checked against every diamond on the map", () => {
-    // The round-5 critic's pair, from the store: Amarillo's three and
-    // Plainview's museum, whose point is 28 px below Amarillo's at zoom 5.
-    // Round 3's ring put The Big Texan 25 px below its point, 3 px from the
-    // museum, and a tap on it opened the museum's card. Every diamond is
-    // now placed against every one placed before it.
-    const four = [
-      { id: "osm:way:1059981743", name: "The Big Texan Steak Ranch", lat: 35.193825536666665, lng: -101.75513534333332, p: 0.83 },
-      { id: "osm:node:609552420", name: "Helium Monument", lat: 35.1995522, lng: -101.913324, p: 0.72 },
-      { id: "osm:node:13597850817", name: "Amarillo Mural", lat: 35.2006308, lng: -101.8376103, p: 0.71 },
-      { id: "osm:node:368165750", name: "Museum of the Llano Estacado", lat: 34.1884584, lng: -101.72636, p: 0.72 },
-    ];
-    const zoom = 5;
-    const at = (s: { lat: number; lng: number }) => mercatorPx(s.lat, s.lng, zoom);
-    const big = at(four[0]);
-    const llano = at(four[3]);
-    expect(llano.y - big.y).toBeCloseTo(28, 0);
-    const where = (placed: Map<string, { dx: number; dy: number; shown: boolean }>) =>
-      four.filter((s) => placed.get(s.id)!.shown).map((s) => ({ id: s.id, x: at(s).x + placed.get(s.id)!.dx, y: at(s).y + placed.get(s.id)!.dy }));
-    const apart = (pts: { x: number; y: number }[]) => {
-      let least = Infinity;
-      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) least = Math.min(least, Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y));
-      return least;
-    };
-    const placed = roadsideSpread(four, zoom);
-    expect([...placed.values()].every((p) => p.shown)).toBe(true);
-    expect(apart(where(placed))).toBeGreaterThanOrEqual(SPREAD_PX);
-    // The strongest keeps its own point; the museum, stronger than the
-    // monument by id at the same p, takes the first slot, to the right;
-    // the monument the next, to the left; and none of the three is on
-    // another's point any more.
-    expect(placed.get("osm:way:1059981743")).toEqual({ dx: 0, dy: 0, shown: true });
-    expect(placed.get("osm:node:368165750")).toEqual({ dx: 44, dy: 0, shown: true });
-    expect(placed.get("osm:node:609552420")).toEqual({ dx: -44, dy: 0, shown: true });
-    // The tapped one is placed first, so it is on its own point whatever
-    // its strength, and the strongest moves instead.
-    const tapped = roadsideSpread(four, zoom, "osm:node:13597850817");
-    expect(tapped.get("osm:node:13597850817")).toEqual({ dx: 0, dy: 0, shown: true });
-    expect(tapped.get("osm:way:1059981743")!.dx ** 2 + tapped.get("osm:way:1059981743")!.dy ** 2).toBeGreaterThanOrEqual(SPREAD_PX ** 2 - 1);
-    expect(apart(where(tapped))).toBeGreaterThanOrEqual(SPREAD_PX);
-    // Zoomed to the town they are hundreds of pixels apart: nothing moves.
-    for (const [, p] of roadsideSpread(four, 13)) expect(p).toEqual({ dx: 0, dy: 0, shown: true });
-    // The slots: 44 px out then 88, sideways first, then up, then down.
-    expect(SPREAD_PX).toBe(44);
-    expect(SPREAD_SLOTS).toHaveLength(36);
-    expect(SPREAD_SLOTS.slice(0, 2)).toEqual([{ dx: 44, dy: 0 }, { dx: -44, dy: 0 }]);
-    for (const [i, d] of SPREAD_SLOTS.entries()) expect(Math.hypot(d.dx, d.dy)).toBeCloseTo(i < 12 ? 44 : 88, 0);
-    expect(SPREAD_SLOTS.slice(2, 7).every((d) => d.dy < 0)).toBe(true);
-    expect(SPREAD_SLOTS.slice(7, 12).every((d) => d.dy > 0)).toBe(true);
-  });
-
-  it("keeps a moved diamond inside the strip above the sheet and leaves a diamond on its own point where it is", () => {
-    // Austin's five at the state-wide rule and Lampasas's spur, 24 px from
-    // Austin's point at zoom 5, at the bottom of the strip: the round-5
-    // capture had two of them half under the sheet's edge, put there by
-    // the ring. The box is the map's bounds cut at the sheet's edge, and
-    // no moved diamond leaves it.
-    const austin = [
-      { id: "weird", lat: 30.2670541, lng: -97.7387385, p: 0.79 },
-      { id: "spur", lat: 31.0512747, lng: -98.1821685, p: 0.76 },
-      { id: "alamo", lat: 30.2738275, lng: -97.7404918, p: 0.74 },
-      { id: "rooster", lat: 30.2596728, lng: -97.6711017, p: 0.73 },
-      { id: "capitol", lat: 30.27473294, lng: -97.740329056666667, p: 0.72 },
-      { id: "junk", lat: 30.2186884, lng: -97.7717656, p: 0.71 },
-      { id: "lbj", lat: 30.28583478, lng: -97.729264379999989, p: 0.7 },
-    ];
-    const zoom = 5;
-    const at = (s: { lat: number; lng: number }) => mercatorPx(s.lat, s.lng, zoom);
-    const end = at(austin[0]);
-    // A 390 by 799 map whose strip is 218 px, the end's point 38 px above
-    // the sheet's edge (the round-5 frame), as the map's own bounds give
-    // it: the box is inset by half the diamond.
-    const half = DIAMOND_PX / 2;
-    const top = end.y + 38 - 218;
-    const left = end.x - 242;
-    const box: PxBox = { left: left + half, top: top + half, right: left + 390 - half, bottom: top + 218 - half };
-    const placed = roadsideSpread(austin, zoom, null, box);
-    expect([...placed.values()].every((p) => p.shown)).toBe(true);
-    expect(placed.get("weird")).toEqual({ dx: 0, dy: 0, shown: true });
-    for (const s of austin) {
-      const p = placed.get(s.id)!;
-      if (p.dx === 0 && p.dy === 0) continue;
-      const y = at(s).y + p.dy;
-      const x = at(s).x + p.dx;
-      expect(y).toBeLessThanOrEqual(box.bottom);
-      expect(y).toBeGreaterThanOrEqual(box.top);
-      expect(x).toBeGreaterThanOrEqual(box.left);
-      expect(x).toBeLessThanOrEqual(box.right);
-    }
-    // Without the box the same stops take a slot below the edge: the box
-    // is what keeps them out from under the sheet.
-    const loose = roadsideSpread(austin, zoom);
-    expect(austin.some((s) => at(s).y + loose.get(s.id)!.dy > box.bottom)).toBe(true);
-    // A stop whose own point is under the sheet is drawn where it is, not
-    // pulled up: the box holds moved diamonds only.
-    const under = [{ id: "far", lat: 30.2670541 - 3, lng: -97.7387385, p: 0.9 }];
-    expect(at(under[0]).y).toBeGreaterThan(box.bottom);
-    expect(roadsideSpread(under, zoom, null, box).get("far")).toEqual({ dx: 0, dy: 0, shown: true });
-    // The box from the map's bounds: a 390 by 799 map at zoom 5 with a
-    // 218 px strip is 358 by 186 inside the inset; with no strip, the
-    // whole map less the inset.
-    const nw = { lat: 36, lng: -104 };
-    const size = 256 * 2 ** zoom;
-    const east = nw.lng + (390 / size) * 360;
-    const south = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (mercatorPx(nw.lat, nw.lng, zoom).y + 799)) / size))) * 180) / Math.PI;
-    const b = diamondBox({ north: nw.lat, west: nw.lng, south, east }, zoom, half, 218);
-    expect(b.right - b.left).toBeCloseTo(390 - DIAMOND_PX, 3);
-    expect(b.bottom - b.top).toBeCloseTo(218 - DIAMOND_PX, 3);
-    const whole = diamondBox({ north: nw.lat, west: nw.lng, south, east }, zoom, half);
-    expect(whole.bottom - whole.top).toBeCloseTo(799 - DIAMOND_PX, 3);
-    // And the map runs the pass whenever its camera settles, so the box
-    // holds after a pan or a zoom, not only at the fit.
+  it("draws every diamond on its place's own latitude and longitude, and never moves one", () => {
+    // Rounds 3 to 6 spread diamonds whose points were within a touch
+    // canvas of each other into rings and then slots, and a moved diamond
+    // said a place was up to 88 px from where it is, over three degrees at
+    // zoom 5. The operator's call after six rounds: a diamond is drawn
+    // where the place is, always, and never moves when one is tapped;
+    // overlap at a state-wide zoom is what the zoom rule and a pinch are
+    // for. So the icon's anchor is the canvas's centre on the marker's
+    // position, with nothing to offset it by; the file that moved them is
+    // gone and the map does not import it; and the zoom rule is the one
+    // thing that changes with the camera.
     const src = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
-    expect(src).toContain('map.addListener("idle", apply)');
-    expect(src).not.toContain("zoom_changed");
+    expect(src).toMatch(/function roadsideMarkerIcon\(active = false\): google\.maps\.Icon \{\s*return \{\s*url: [^\n]*\n\s*anchor: new google\.maps\.Point\(22, 22\),/);
+    expect(src).not.toMatch(/roadside\/spread|roadsideSpread|diamondBox|\bdx\b|\bdy\b/);
+    expect(existsSync(new URL("../../lib/roadside/spread.ts", import.meta.url))).toBe(false);
+    expect(src).toContain('map.addListener("zoom_changed", apply)');
+    expect(src).not.toContain('addListener("idle"');
   });
 
-  it("lets a point hold only so many and the rest wait for a closer zoom, the tapped one always in", () => {
-    // Twenty-two on one point: downtown at a town zoom. The slots 44 px
-    // out hold six around the centre, the slots 88 px out ten more; the
-    // rest wait.
-    const many = Array.from({ length: 22 }, (_, i) => ({ id: `s${i}`, name: `Stop ${i}`, lat: 30.2672 + i * 0.0001, lng: -97.7431, p: 0.9 - i * 0.02 }));
-    const placed = roadsideSpread(many, 10);
-    const shown = [...placed.entries()].filter(([, p]) => p.shown).map(([id]) => id);
-    expect(shown).toHaveLength(17);
-    // The strongest show; the weakest wait.
-    for (let i = 0; i < 17; i++) expect(placed.get(`s${i}`)!.shown).toBe(true);
-    for (let i = 17; i < 22; i++) expect(placed.get(`s${i}`)).toEqual({ dx: 0, dy: 0, shown: false });
-    // Every shown pair is a touch canvas apart.
-    const pts = shown.map((id) => {
-      const s = many.find((m) => m.id === id)!;
-      const at = mercatorPx(s.lat, s.lng, 10);
-      return { x: at.x + placed.get(id)!.dx, y: at.y + placed.get(id)!.dy };
-    });
-    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) expect(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y)).toBeGreaterThanOrEqual(SPREAD_PX - 1e-6);
-    // The tapped one, the weakest, is placed first on its own point (2 px
-    // from the strongest's, so the packing around it shifts by a slot or
-    // two), and the others that no longer fit wait instead.
-    const kept = roadsideSpread(many, 10, "s21");
-    expect(kept.get("s21")).toEqual({ dx: 0, dy: 0, shown: true });
-    const keptShown = [...kept.values()].filter((p) => p.shown).length;
-    expect(keptShown).toBeGreaterThanOrEqual(15);
-    expect(keptShown).toBeLessThanOrEqual(17);
-    expect(kept.get("s0")!.shown).toBe(true);
+  it("closes the card on a sideways swipe, not on a scroll or a tap", () => {
+    expect(SWIPE_PX).toBe(60);
+    expect(roadsideSwipeCloses(80, 10)).toBe(true);
+    expect(roadsideSwipeCloses(-80, -10)).toBe(true);
+    expect(roadsideSwipeCloses(60, 0)).toBe(true);
+    // A finger scrolling the sheet over the card moves mostly up or down.
+    expect(roadsideSwipeCloses(70, 90)).toBe(false);
+    expect(roadsideSwipeCloses(0, 120)).toBe(false);
+    // A tap, or a short sideways nudge, is not a swipe.
+    expect(roadsideSwipeCloses(0, 0)).toBe(false);
+    expect(roadsideSwipeCloses(59, 0)).toBe(false);
   });
 
   it("draws the towns' names once: the basemap's are off and the start and end carry the app's", () => {

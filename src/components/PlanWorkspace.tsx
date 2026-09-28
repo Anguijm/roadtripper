@@ -158,15 +158,33 @@ export function sheetTopDvh(snap: 0 | 1 | 2): number {
   return 100 - (SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 100;
 }
 /**
- * The roadside section from its top through the "Show all" control: 8 px
- * above, the heading's 24, a 4 px gap, ten rows of 44 (two lines of 22, no
- * padding), a 4 px gap and the 44 px control. The classes on the section
- * add up to this; change both together.
+ * The roadside section from its top through the "Show all" control: the
+ * heading's 24 with nothing above it (the box's own 8 px padding is the
+ * room under the handle) and nothing between it and the first row, ten
+ * rows of 44 (two lines of 22, no padding), a 4 px gap and the 44 px
+ * control. 512, so with the box's padding 520 of the 537 px on screen at
+ * rest: 17 px to spare, where round 6's 8 above the heading and 4 under
+ * it left 5 (round 7). The classes on the section add up to this; change
+ * both together.
  */
-export const ROADSIDE_LIST_PX = 8 + 24 + 4 + ROADSIDE_SHOWN_FIRST * 44 + 4 + 44;
+export const ROADSIDE_LIST_PX = 24 + ROADSIDE_SHOWN_FIRST * 44 + 4 + 44;
 
 function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
   return `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
+}
+
+/** A sideways swipe across the card at least this long closes it. */
+export const SWIPE_PX = 60;
+
+/**
+ * Whether a touch that moved `dx` to the right and `dy` down across the
+ * card is the swipe that closes it: sideways, at least SWIPE_PX, and more
+ * sideways than up or down, so a finger scrolling the sheet over the card
+ * never closes it and a tap (no movement) stays a tap. Pure, so a test can
+ * prove the line without a touch screen.
+ */
+export function roadsideSwipeCloses(dx: number, dy: number): boolean {
+  return Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(dy);
 }
 
 /**
@@ -175,28 +193,44 @@ function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
  * store's, or that there is none), the kind in plain words with how far
  * along the road and which town it is at or past (`anchor`, from the towns
  * the page already has), and one link-button that opens the place in
- * Google Maps. The close control is the word "Close" in a bordered 44 px
- * box: a glyph in a faint box read as 18 px in the round-5 capture (rule
- * 7). `about` and `name` are untrusted text and are rendered as text.
+ * Google Maps. No separate close button (the spec): the card closes on a
+ * second tap of its diamond or its row, on a tap of its own heading (a
+ * 44 px button carrying the name, marked open the way the itinerary's
+ * toggle is), or on a sideways swipe across it. `about` and `name` are
+ * untrusted text and are rendered as text.
  */
 export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   return (
     <section
       data-roadside-card={stop.id}
       aria-label={stop.name}
-      className="font-sans border border-[#e3b341] bg-[#161b22] px-3 py-3 space-y-2"
+      className="font-sans border border-[#e3b341] bg-[#161b22] px-3 pt-0 pb-3 space-y-2"
+      onTouchStart={(e) => {
+        touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }}
+      onTouchEnd={(e) => {
+        const start = touchStart.current;
+        touchStart.current = null;
+        if (!start) return;
+        const end = e.changedTouches[0];
+        if (roadsideSwipeCloses(end.clientX - start.x, end.clientY - start.y)) onClose?.();
+      }}
+      onTouchCancel={() => {
+        touchStart.current = null;
+      }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-lg leading-snug text-[#f0f6fc] break-words min-w-0">{stop.name}</h3>
+      <h3 className="text-lg leading-snug text-[#f0f6fc]">
         <button
           type="button"
           onClick={onClose}
-          aria-label={`Close ${stop.name}`}
-          className="shrink-0 h-11 px-3 flex items-center border border-[#6e7681] text-base text-[#f0f6fc] hover:border-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          aria-expanded={true}
+          className="w-full min-h-[44px] flex items-center justify-between gap-2 text-left focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
-          Close
+          <span className="min-w-0 break-words">{stop.name}</span>
+          <span aria-hidden className="shrink-0 text-base text-[#8b949e]">▲</span>
         </button>
-      </div>
+      </h3>
       <p data-roadside-line className="text-base leading-snug text-[#c9d1d9] break-words">
         {stop.about ?? roadsideMapLine(stop.kind)}
       </p>
@@ -449,7 +483,8 @@ export default function PlanWorkspace({
 
   // ── Roadside stops (Gauntlet U1) ───────────────────────────────────────
   // The card: one stop, opened by a tap on its diamond or its row, closed
-  // by a second tap on the same one or the card's close control.
+  // by a second tap on the same one, a tap on the card's own heading or a
+  // sideways swipe across the card; no separate close button (the spec).
   const [selectedRoadsideId, setSelectedRoadsideId] = useState<string | null>(initialSelectedRoadsideId ?? null);
   const [showAllRoadside, setShowAllRoadside] = useState(false);
   // The list shows the strongest first, not road order: the diamonds on the
@@ -863,7 +898,7 @@ export default function PlanWorkspace({
               sealed branch: a locked route still has a road, and a tap on
               a diamond must always answer. */}
           {roadsideStops.length > 0 && (
-            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 pt-2 pb-2">
+            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 pt-0 pb-2">
               {selectedRoadside && (
                 <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
                   <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
@@ -871,15 +906,17 @@ export default function PlanWorkspace({
               )}
               {/* The heading, the rows and the control add up to
                   ROADSIDE_LIST_PX from the section's top, which the sheet's
-                  scroll box holds at rest on a 390 by 844 phone: the rows
-                  are two lines of 22 px with no vertical padding (44, the
-                  target), the gaps 4, the heading 24, the control 44. */}
+                  scroll box holds at rest on a 390 by 844 phone with the
+                  control whole on screen: nothing above the heading (24)
+                  or between it and the rows, the rows two lines of 22 px
+                  with no vertical padding (44, the target), 4 px, then
+                  the control (44). */}
               <h2 id="roadside-heading" className="text-base leading-6 text-[#e3b341] px-2">
                 {roadsideStops.length === 1
                   ? "1 place worth pulling over for"
                   : `${roadsideStops.length} places worth pulling over for`}
               </h2>
-              <ul className="mt-1">
+              <ul>
                 {roadsideShown.map((s) => (
                   <li key={s.id} data-roadside-stop={s.id}>
                     <button
