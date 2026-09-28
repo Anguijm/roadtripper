@@ -7,8 +7,10 @@ vi.mock("@/app/plan/actions", () => ({
   fetchNeighborhoodsAction: vi.fn(),
 }));
 
-import PlanWorkspace, { RoadsideCard, roadsideKindLine, roadsideAlongText, ROADSIDE_SHOWN_FIRST } from "@/components/PlanWorkspace";
+import PlanWorkspace, { RoadsideCard, ROADSIDE_NO_WRITEUP, roadsideAlongText, ROADSIDE_SHOWN_FIRST } from "@/components/PlanWorkspace";
 import RouteMap, { roadsideMarkerSvg, ROADSIDE_COLOR, roadsideMinProbabilityAt, ROADSIDE_ZOOM_STEPS } from "@/components/RouteMap";
+import { formatDurationPlain } from "@/lib/routing/format";
+import nextConfig from "../../../next.config";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 const base = {
@@ -43,9 +45,26 @@ const fourteen: RoadsideMarker[] = Array.from({ length: 14 }, (_, i) => ({
   alongKm: (i + 1) * 30,
 }));
 
+/** One town with two spots the culture persona ranks first: the lead shows its reason, the second row its badge, and the town its two buttons. */
+const withTown = {
+  candidateMarkers: [{ id: "lubbock", name: "Lubbock", lat: 33.5779, lng: -101.8552, detourMinutes: 12 }],
+  waypointFetch: {
+    status: "fresh" as const,
+    cities: [{ id: "lubbock", name: "Lubbock", vibeClass: null, detourMinutes: 12, lat: 33.5779, lng: -101.8552 }],
+    waypoints: [
+      { id: "wp-1", cityId: "lubbock", name: "Buddy Holly Center", type: "culture" as const, trendingScore: 50, neighborhoodId: null, description: "A museum for the singer, in the town he grew up in." },
+      { id: "wp-2", cityId: "lubbock", name: "National Ranching Heritage Center", type: "landmark" as const, trendingScore: 40, neighborhoodId: null, description: "Fifty ranch buildings moved here from across the plains." },
+    ],
+    neighborhoods: {},
+  },
+};
+
 /** React puts a comment node between adjacent text and an expression; strip those so the assertions read like the page does. */
 const render = (props: Partial<React.ComponentProps<typeof PlanWorkspace>>) =>
   renderToString(<PlanWorkspace {...base} {...props} />).replace(/<!-- -->/g, "");
+
+/** What a person reads: the markup's text with every tag gone and the whitespace folded. */
+const visible = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 const rowIds = (html: string) => [...html.matchAll(/data-roadside-stop="([^"]+)"/g)].map((m) => m[1]);
 
@@ -103,14 +122,13 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toMatch(/data-roadside-stop="osm:way:1"><button[^>]*aria-expanded="true"/);
   });
 
-  it("says the kind as a sentence when the store has no line about a stop", () => {
+  it("says there is no write-up when the store has no line, instead of the kind twice", () => {
     const html = renderToString(<RoadsideCard stop={stops[1]} />).replace(/<!-- -->/g, "");
-    expect(html).toMatch(/data-roadside-line[^>]*>A historic place\.</);
+    expect(ROADSIDE_NO_WRITEUP).toBe("No write-up for this one.");
+    expect(html).toMatch(/data-roadside-line[^>]*>No write-up for this one\.</);
     expect(html).toMatch(/data-roadside-where[^>]*>historic place · 9 km in</);
-    expect(roadsideKindLine("attraction")).toBe("An attraction.");
-    expect(roadsideKindLine("arch")).toBe("An arch.");
-    expect(roadsideKindLine("theme_park")).toBe("A theme park.");
-    expect(roadsideKindLine("other")).toBe("A place.");
+    // Round 1 said "A historic place." here, which only repeated the line beneath.
+    expect(html).not.toContain("A historic place.");
     expect(roadsideAlongText(211.6)).toBe("212 km in");
     expect(roadsideAlongText(0.3)).toBe("Right at the start");
   });
@@ -137,6 +155,47 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const html = render({ roadsideStops: [] });
     expect(html).not.toContain("data-roadside");
     expect(html).not.toContain("worth pulling over for");
+  });
+
+  it("says the sheet's numbers as sentences, with no stat called budget", () => {
+    const text = visible(render({ roadsideStops: stops }));
+    expect(text).toContain("497 mi · 8 h 3 min on the road");
+    // The glossary's own replacement for "budget left (as a stat)".
+    expect(text).toContain("4 h of driving left today");
+    expect(text).not.toMatch(/budget left/i);
+    // A three-day trip's budget is the trip's, so the sentence says the span.
+    const days = visible(render({ roadsideStops: stops, startDate: "2026-10-01", endDate: "2026-10-03" }));
+    expect(days).toContain("12 h of driving left over 3 days");
+    expect(formatDurationPlain(4 * 3600)).toBe("4 h");
+    expect(formatDurationPlain(29_000)).toBe("8 h 3 min");
+    expect(formatDurationPlain(45 * 60)).toBe("45 min");
+  });
+
+  it("carries no word from the glossary's never column on the sheet at rest", () => {
+    const html = render({ roadsideStops: fourteen, ...withTown });
+    const text = visible(html);
+    // The never column of gauntlet/quality-bar.md, as words a person would
+    // read on the sheet with a town listed and the roadside list open.
+    const never = /budget left|candidate|max \d+ min|persona|see what.s here|add city to trip|\bprimary\b|waypoint|neighbou?rhood|recompute|refresh|pending|roadside stops along the way/i;
+    expect(text).not.toMatch(never);
+    // The replacements are there instead.
+    expect(text).toContain("First stop from Amarillo · 1 town that fits today");
+    expect(text).toContain("What&#x27;s in Lubbock");
+    expect(text).toContain("+ Stop here");
+    expect(text).toContain("★ The pick");
+    // The mood chips: named in the glossary's words, wrapping rather than
+    // scrolling sideways (round-1 critic: the strip clipped the last chip).
+    expect(html).toContain('aria-label="I&#x27;m in the mood for"');
+    expect(html).toMatch(/role="radiogroup"[^>]*class="[^"]*flex-wrap/);
+    expect(html).not.toContain("overflow-x-auto");
+  });
+
+  it("keeps the dev server's own button off the screen the runner shoots", () => {
+    // The black "N" circle the round-1 critic took for a compass over the
+    // sheet was Next's dev-tools indicator, fixed at the viewport's bottom
+    // left above everything on a dev server. It is configuration, not
+    // markup, so the config is what the test pins.
+    expect(nextConfig.devIndicators).toBe(false);
   });
 
   it("shows only the strongest stops at a state-wide zoom and every survivor at a town", () => {

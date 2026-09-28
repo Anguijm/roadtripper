@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The dev server's own tools button (a black circle with an "N", fixed at
+  // the bottom-left of the viewport above everything on the page) is off.
+  // The Gauntlet runner shoots the plan page on a dev server, and on a phone
+  // that button sat over the sheet's roadside list and read as a compass
+  // (round-1 critic, rule 6: the map's controls never sit on the sheet).
+  // Production never has it; nothing else about dev changes.
+  devIndicators: false,
   // better-sqlite3 is a native addon. Next must not try to bundle it, and the
   // atlas file it opens has to survive output tracing into the deployed image.
   serverExternalPackages: ["better-sqlite3"],

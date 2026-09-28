@@ -79,7 +79,7 @@ describe("the candidate list shows the reason under every stop", () => {
     const closed = render(null);
     expect(closed).toContain('aria-label="See what is in Amarillo"');
     expect(closed).toMatch(/aria-pressed="false"[^>]*aria-label="See what is in Amarillo"/);
-    expect(closed).toContain("+ Add city to trip");   // still not added
+    expect(closed).toContain("+ Stop here");   // still not added
     const open = render("amarillo");
     expect(open).toMatch(/aria-pressed="true"[^>]*aria-label="See what is in Amarillo"/);
     // the header is tall enough to hold the 44 px hit areas without them reaching the rows

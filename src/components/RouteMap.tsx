@@ -643,6 +643,14 @@ export default function RouteMap({
         // requiring ctrl or two fingers. The map fills the pane and is the main
         // interaction surface here, so it should not fight the user for scroll.
         gestureHandling="greedy"
+        // Every default control off, then the zoom control alone back on.
+        // `disableDefaultUI` is one of the options the library forwards on
+        // every update; `cameraControl` (Google's round compass button, on
+        // by default since API 3.58) is not, so a `cameraControl={false}`
+        // prop reaches the constructor and nothing after it. With the
+        // default UI off there is nothing at the bottom of the map to sit
+        // under the sheet (Gauntlet U1, rule 6).
+        disableDefaultUI
         zoomControl={true}
         // MUST be the library's ControlPosition, never google.maps.ControlPosition.
         // These props are evaluated during render, and "use client" does not stop
@@ -657,15 +665,8 @@ export default function RouteMap({
         // the lower half of the map at its middle snap, and a control at
         // the centre sat half under it. The top of the map is the map's own
         // area at every snap but the full one, where the sheet covers
-        // nearly everything anyway. The rotate (compass) and camera
-        // controls are off for the same reason: Google places them at the
-        // bottom, under the sheet (Gauntlet U1, rule 6).
+        // nearly everything anyway.
         zoomControlOptions={{ position: ControlPosition.RIGHT_TOP }}
-        rotateControl={false}
-        cameraControl={false}
-        fullscreenControl={false}
-        mapTypeControl={false}
-        streetViewControl={false}
         styles={DARK_MAP_STYLES}
         className="h-full w-full"
       >

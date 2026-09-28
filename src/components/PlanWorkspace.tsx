@@ -24,7 +24,7 @@ import { itinerarySummary } from "@/lib/plan/itinerary-summary";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
-import { formatDistance, formatDuration } from "@/lib/routing/format";
+import { formatDistance, formatDuration, formatDurationPlain } from "@/lib/routing/format";
 import {
   recomputeAndRefreshAction,
   fetchNeighborhoodsAction,
@@ -52,6 +52,12 @@ interface PlanWorkspaceProps {
   initialDurationSeconds: number;
   fromName: string;
   toName: string;
+  /**
+   * Not read since Gauntlet U1 round 2: the frontier line lost its counts
+   * ("max 270 min" is in the glossary's never column). U2 decides whether
+   * "up to four and a half hours off the road" comes back, and drops the
+   * prop from here and the plan page if not.
+   */
   maxDetourMinutes: number;
   startDate?: string;
   endDate?: string;
@@ -83,12 +89,12 @@ const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
   notable: "well-known place", other: "place",
 };
 
-/** The kind as a sentence, for a card whose store line is empty: "A historic place." */
-export function roadsideKindLine(kind: RoadsideMarker["kind"]): string {
-  const words = ROADSIDE_KIND_WORDS[kind] ?? "place";
-  const article = /^[aeiou]/.test(words) ? "An" : "A";
-  return `${article} ${words}.`;
-}
+/**
+ * The card's line when the store has no write-up. It says so, rather than
+ * turning the kind into a sentence ("A historic place."), which only
+ * repeated the kind line beneath it (round-1 critic, rule 4).
+ */
+export const ROADSIDE_NO_WRITEUP = "No write-up for this one.";
 
 /** How far along the road a stop sits, as the card says it: "212 km in". */
 export function roadsideAlongText(alongKm: number): string {
@@ -134,7 +140,7 @@ export function RoadsideCard({ stop, onClose }: { stop: RoadsideMarker; onClose?
         </button>
       </div>
       <p data-roadside-line className="text-base leading-snug text-[#c9d1d9] break-words">
-        {stop.about ?? roadsideKindLine(stop.kind)}
+        {stop.about ?? ROADSIDE_NO_WRITEUP}
       </p>
       <p data-roadside-where className="text-base text-[#8b949e]">
         {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm)}
@@ -177,7 +183,6 @@ export default function PlanWorkspace({
   initialDurationSeconds,
   fromName,
   toName,
-  maxDetourMinutes,
   startDate,
   endDate,
   dateMode,
@@ -337,7 +342,7 @@ export default function PlanWorkspace({
   const liveDistance = liveRoute?.totalDistanceMeters ?? initialDistanceMeters;
   const liveDuration = liveRoute?.totalDurationSeconds ?? initialDurationSeconds;
   const totalDistanceText = formatDistance(liveDistance);
-  const totalDurationText = formatDuration(liveDuration);
+  const onTheRoadText = formatDurationPlain(liveDuration);
 
   // The recommendation set the user actually sees — refreshed when present,
   // initial server prop otherwise (Council ISC-S7-ARCH-2).
@@ -721,6 +726,17 @@ export default function PlanWorkspace({
     setTripStops((curr) => curr.slice());
   }, []);
 
+  // The header's second line: the glossary's sentence for what was a
+  // "Budget left" stat. The budget is the whole trip's, so "today" is only
+  // right on a one-day trip; a longer trip says the span.
+  const daySpan = tripDays === 1 ? "today" : `over ${tripDays} days`;
+  const drivingLeftText =
+    tripState.status.kind === "empty"
+      ? `${formatDurationPlain(totalBudgetMins * 60)} of driving left ${daySpan}`
+      : tripState.status.kind === "over_budget"
+      ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}`
+      : `${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left ${daySpan}`;
+
   const tripCount = tripStops.length;
   const showItinerary = tripCount > 0;
 
@@ -754,73 +770,59 @@ export default function PlanWorkspace({
           <div className="w-8 h-1 rounded-full bg-[#6e7681]" aria-hidden />
         </div>
 
-        {/* The fold budget (step 14). On a 667 px phone at the sheet's middle
-            snap, 55% is visible: 367 px. Above the first candidate's reason:
-            the drag handle 44, this header (persona bar about 44, status row
-            about 40), the itinerary line about 36 when there are stops, and
-            the card header 44. That is about 208 px, leaving about 160 px for
-            the lead. Anything added to this sticky header comes out of that
-            160; put new things in the scroll area below instead. The 44 px
-            figures are the touch-target minimum every button here keeps. */}
-        <div className="p-3 border-b border-[#30363d] space-y-3">
-          <PersonaSelector
-            activePersonaId={activePersonaId}
-            onChange={handlePersonaChange}
-          />
-          <div className="grid grid-cols-3 gap-3 text-xs">
-            <div>
-              <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Distance
-              </p>
-              <p className="text-[#f0f6fc] mt-0.5 flex items-center gap-1">
-                {totalDistanceText}
+        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          {/* The header (the mood chips, the numbers) scrolls with the
+              content rather than staying pinned under the handle (Gauntlet
+              U1, round 2). At rest nothing moves. Scrolled, the whole sheet
+              is the list: on a 390 by 844 phone at the full snap a section
+              scrolled to the top gets about 670 px, which holds the roadside
+              heading, ten rows of 44 px or more and the "Show all" control;
+              pinned, the header took about 180 of those and eight rows fit.
+              The step-14 fold budget (the first town's reason above the fold
+              at the middle snap) shrinks by about 70 px at rest, because the
+              chips now wrap to two rows of 44 px; U2's shorter chip words
+              give that back. Every button here keeps the 44 px target. */}
+          <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
+            <PersonaSelector
+              activePersonaId={activePersonaId}
+              onChange={handlePersonaChange}
+            />
+            {/* Two sentences, not three labelled stats: the glossary's
+                replacement for "budget left (as a stat)" is "4 h of driving
+                left today" (quality bar, rule 1). */}
+            <div className="text-base leading-snug space-y-1">
+              <p className="text-[#f0f6fc]">
+                {totalDistanceText} · {onTheRoadText} on the road
                 {isPending && (
-                  <span className="text-[#d29922] text-[10px]">…</span>
+                  <span className="text-[#d29922]" aria-hidden> …</span>
                 )}
               </p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Drive
-              </p>
-              <p className="text-[#f0f6fc] mt-0.5">{totalDurationText}</p>
-            </div>
-            <div>
-              <p className="font-mono uppercase tracking-widest text-[#7d8590]">
-                Budget left
-              </p>
-              <p className={[
-                "mt-0.5",
-                tripState.status.kind === "over_budget"
-                  ? "text-[#f85149]"
-                  : tripState.status.kind === "warning"
-                  ? "text-[#d29922]"
-                  : "text-[#f0f6fc]",
-              ].join(" ")}>
-                {tripState.status.kind === "empty"
-                  ? formatDuration(totalBudgetMins * 60)
-                  : tripState.status.kind === "over_budget"
-                  ? `−${formatDuration(tripState.status.overageMinutes * 60)}`
-                  : formatDuration(tripState.status.remainingBudgetMinutes * 60)}
+              <p
+                className={
+                  tripState.status.kind === "over_budget"
+                    ? "text-[#f85149]"
+                    : tripState.status.kind === "warning"
+                    ? "text-[#d29922]"
+                    : "text-[#f0f6fc]"
+                }
+              >
+                {drivingLeftText}
               </p>
             </div>
+            {/* Only while updating; idle it costs no height. */}
+            {isPending && (
+              // #e3b341 rather than the #d29922 used for budget warnings: at
+              // 10 px this text needs the brighter amber to clear WCAG AA
+              // contrast on the #0d1117 background.
+              <p
+                className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
+                aria-live="polite"
+              >
+                Updating route + recs…
+              </p>
+            )}
           </div>
-          {/* Only while updating; idle it costs no height, so the first
-              card's reason sits higher (step 14). */}
-          {isPending && (
-            // #e3b341 rather than the #d29922 used for budget warnings: at
-            // 10 px this text needs the brighter amber to clear WCAG AA
-            // contrast on the #0d1117 background.
-            <p
-              className="text-[10px] font-mono uppercase tracking-widest text-[#e3b341] animate-pulse"
-              aria-live="polite"
-            >
-              Updating route + recs…
-            </p>
-          )}
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
           {/* Itinerary — ABOVE recommendations once trip is non-empty (Council
               ISC-S6-PROD-2), but as one line with a toggle, so the first
               candidate's reason is not pushed below the fold (step 14). */}
@@ -1003,11 +1005,15 @@ export default function PlanWorkspace({
               {/* Frontier label — tells the user which stop the next candidates
                   are radiating from so the changing list makes sense. */}
               {effectiveWaypointFetch.cities.length > 0 && (
-                <p aria-live="polite" className="text-[10px] font-mono uppercase tracking-widest text-[#8b949e] px-1 pt-1">
+                <p aria-live="polite" className="font-sans text-base text-[#8b949e] px-1 pt-1">
                   {tripStops.length > 0
                     ? `Next stop from ${tripStops[tripStops.length - 1].cityName}`
                     : `First stop from ${fromName}`}
-                  {` · ${effectiveWaypointFetch.cities.length} candidates · max ${maxDetourMinutes} min`}
+                  {/* The glossary's words for the count; the detour cap is
+                      not said (its replacement is "nothing"). */}
+                  {effectiveWaypointFetch.cities.length === 1
+                    ? " · 1 town that fits today"
+                    : ` · ${effectiveWaypointFetch.cities.length} towns that fit today`}
                 </p>
               )}
 
