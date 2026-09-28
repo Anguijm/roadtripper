@@ -4,20 +4,17 @@
 
 # Active plan — roadtripper
 
-Branch: `data/store-snapshot-scored`
+Branch: `docs/gauntlet-ui-package`
 
 ## Goal
 
-Data and one paragraph of learnings: the checksum of the fully scored
-store snapshot (every one of the 328,393 stops scored; 27,976 survivors
-at the line) so the next build fetches it, and the pid lesson written
-the way it finally held.
+The Gauntlet Loop package for the interface, written before any builder
+runs: the quality bar with the operator's words at the top and his rulings,
+five component specs, the round-one ship rules, and the council's product
+persona taught the glossary so the code review looks for the words too.
 
-**Cost:** $0 here; $8.07 on the jev-lab ledger for the whole store, under
-the ten dollar cap.
+**Cost:** $0.
 
-**Weakest part:** The Wikidata-only "notable" kind yields 342 survivors of
-178,633: a hundred and seventy-eight thousand rows and $2.40 of scoring to
-find three hundred places, most of which a Wikipedia-page filter would
-have found. The next store build should score only notable rows with a
-page and skip the rest by rule.
+**Weakest part:** The glossary is my draft of his words, not his; the bar
+says so and the first screenshots will show whether the replacements read
+right to him.
