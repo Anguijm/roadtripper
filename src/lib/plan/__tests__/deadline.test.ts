@@ -7,6 +7,10 @@ import {
   formatDeadline,
   daysLeftPhrase,
   deadlineLine,
+  longDate,
+  countWord,
+  daysFromNowPhrase,
+  arrivalSentence,
 } from "../deadline";
 
 describe("deadline", () => {
@@ -55,5 +59,27 @@ describe("deadline", () => {
     expect(deadlineLine({ toName: "Austin", endDate: "2026-10-14", today: "2026-10-14" })).toBe(
       "Arrive in Austin by Oct 14, today"
     );
+  });
+
+  it("says the plan sheet's arrival sentence for a fixed now: the date without this year's year, the count in words up to twenty", () => {
+    // Gauntlet U3: the deadline line on the plan page becomes a sentence.
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-14", today: "2026-10-08" })).toBe(
+      "Arrive in Austin by October 14, six days from now"
+    );
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-14", today: "2026-10-14" })).toBe("Arrive in Austin by October 14, today");
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-14", today: "2026-10-13" })).toBe("Arrive in Austin by October 14, tomorrow");
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-28", today: "2026-10-08" })).toBe("Arrive in Austin by October 28, twenty days from now");
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-29", today: "2026-10-08" })).toBe("Arrive in Austin by October 29, 21 days from now");
+    // Once passed, the same shapes as daysLeftPhrase.
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-14", today: "2026-10-15" })).toBe("Arrive in Austin by October 14, yesterday");
+    expect(arrivalSentence({ toName: "Austin", endDate: "2026-10-14", today: "2026-10-17" })).toBe("Arrive in Austin by October 14, three days ago");
+    // The year only when it is not this year.
+    expect(longDate("2026-10-14", "2026-10-08")).toBe("October 14");
+    expect(longDate("2027-01-05", "2026-12-30")).toBe("January 5, 2027");
+    expect(arrivalSentence({ toName: "Austin", endDate: "2027-01-05", today: "2026-12-30" })).toBe("Arrive in Austin by January 5, 2027, six days from now");
+    expect(countWord(0)).toBe("zero");
+    expect(countWord(20)).toBe("twenty");
+    expect(countWord(21)).toBe("21");
+    expect(daysFromNowPhrase(-25)).toBe("25 days ago");
   });
 });

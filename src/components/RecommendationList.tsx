@@ -35,6 +35,59 @@ interface RecommendationListProps {
   onCityPreview?: (cityId: string) => void;
   /** The city whose write-up is open, so its button reads as pressed. */
   previewedCityId?: string | null;
+  /**
+   * Only these towns (Gauntlet U3: the sheet draws one list per day). With
+   * a set, a list whose towns have nothing to show draws nothing at all,
+   * since another day's list may; without one, every town.
+   */
+  cityIds?: ReadonlySet<string>;
+  /**
+   * The notes above the rows (why "Stop here" is off, that some places did
+   * not load, that nothing is written up yet). Off when the workspace says
+   * them once above the days rather than once per day.
+   */
+  notices?: boolean;
+}
+
+/**
+ * The notes a list of towns carries, in one place so the sheet can say them
+ * once above its days (quality bar, rule 3: why every "Stop here" is off is
+ * said once, beside them, not once per day and not in a tooltip). Nothing
+ * when there are no towns at all: the sheet's title already says so.
+ */
+export function RecommendationNotices({ fetchResult, activePersonaId, atCap = false }: Pick<RecommendationListProps, "fetchResult" | "activePersonaId" | "atCap">) {
+  const groups = useMemo(() => buildRankedGroups(fetchResult, activePersonaId), [fetchResult, activePersonaId]);
+  if (fetchResult.cities.length === 0) return null;
+  if (!groups.some((g) => g.rows.length > 0)) {
+    return (
+      <div className="p-4 border border-[#30363d] bg-[#161b22]">
+        <p className="text-base text-[#f0f6fc] mb-2">
+          Nothing written up for these towns yet
+        </p>
+        <p className="text-base text-[#b0b9c2]">
+          {fetchResult.status === "degraded"
+            ? "Some of the places did not load. Reload to try again."
+            : "The towns that fit today have no places written up yet."}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <>
+      {atCap && (
+        <p className="text-base text-[#b0b9c2] px-2 pb-2" role="status">
+          The trip has all the stops it can hold; take one out to add another.
+        </p>
+      )}
+      {fetchResult.status === "degraded" && (
+        <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
+          <p className="text-base text-[#d29922]">
+            Some of the places did not load.
+          </p>
+        </div>
+      )}
+    </>
+  );
 }
 
 /**
@@ -84,14 +137,16 @@ export default function RecommendationList({
   atCap = false,
   onCityPreview,
   previewedCityId = null,
+  cityIds,
+  notices = true,
 }: RecommendationListProps) {
   const persona = PERSONAS[activePersonaId];
   const accent = persona.accentColor;
 
-  const groups = useMemo(
-    () => buildRankedGroups(fetchResult, activePersonaId),
-    [fetchResult, activePersonaId]
-  );
+  const groups = useMemo(() => {
+    const all = buildRankedGroups(fetchResult, activePersonaId);
+    return cityIds ? all.filter((g) => cityIds.has(g.cityId)) : all;
+  }, [fetchResult, activePersonaId, cityIds]);
 
   const hasRows = groups.some((g) => g.rows.length > 0);
 
@@ -102,37 +157,17 @@ export default function RecommendationList({
     return null;
   }
 
+  // Nothing to show: the note, unless the caller says the notes itself
+  // (a day's slice of the towns says nothing; the sheet does, once).
   if (!hasRows) {
-    return (
-      <div className="p-4 border border-[#30363d] bg-[#161b22]">
-        <p className="text-base text-[#f0f6fc] mb-2">
-          Nothing written up for these towns yet
-        </p>
-        <p className="text-base text-[#b0b9c2]">
-          {fetchResult.status === "degraded"
-            ? "Some of the places did not load. Reload to try again."
-            : "The towns that fit today have no places written up yet."}
-        </p>
-      </div>
-    );
+    return notices ? <RecommendationNotices fetchResult={fetchResult} activePersonaId={activePersonaId} atCap={atCap} /> : null;
   }
 
   return (
     <div className="flex flex-col">
       {/* Why every "Stop here" is off, said once beside them rather than
           in a tooltip (quality bar, rule 3). */}
-      {atCap && (
-        <p className="text-base text-[#b0b9c2] px-2 pb-2" role="status">
-          The trip has all the stops it can hold; take one out to add another.
-        </p>
-      )}
-      {fetchResult.status === "degraded" && (
-        <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
-          <p className="text-base text-[#d29922]">
-            Some of the places did not load.
-          </p>
-        </div>
-      )}
+      {notices && <RecommendationNotices fetchResult={fetchResult} activePersonaId={activePersonaId} atCap={atCap} />}
 
       {groups.map((group) => {
         const { cityId, cityName, rows, detourMinutes } = group;

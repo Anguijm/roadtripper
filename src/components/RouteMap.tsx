@@ -150,6 +150,31 @@ export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: 40, bottom: 32, lef
  * 844 with the sheet at rest shows both pins and the road above the sheet.
  */
 export const STRIP_MIN_PX = 140;
+/**
+ * The plan page's masthead on a phone, in px, which is where the map's top
+ * edge sits: the 44 px "Roadtripper" link, no vertical padding, and the
+ * 1 px border; 49 when the right-hand column has two lines ("Amarillo to
+ * Austin" and a range's dates, or a long pair of names wrapping). Why it
+ * is pinned (Gauntlet U3): U1 round 5 framed the road for a 45 px masthead
+ * (a 217 px strip above the sheet at rest on a 390 by 844 phone, 145 px
+ * inside the strip's margins, and the Amarillo to Austin road is 134 px
+ * tall at zoom 5). U2 rebuilt the masthead with `py-3` around the 44 px
+ * link: 69 px, 73 with the deadline line, so the strip fell to 189 and the
+ * inner area to 117; fitBounds takes whole zooms on a raster map, so the
+ * fit dropped to zoom 4 and the strip showed a third of the country. Moves
+ * with it: the header's classes in src/app/plan/page.tsx (the page SSR
+ * test pins them to this number) and the fit test "fits the road into the
+ * strip of map above the sheet at rest, on a phone", which takes the strip
+ * from it. Check: a screenshot at 390 by 844 with the sheet at rest shows
+ * the road from end to end above the sheet, and Texas, not the country.
+ */
+export const PLAN_HEADER_PX = 49;
+
+/** A camera request from the sheet: a day's stretch, or the whole trip again. A new key is a new fit. */
+export interface MapFit {
+  key: string;
+  bounds: { northeast: google.maps.LatLngLiteral; southwest: google.maps.LatLngLiteral };
+}
 
 /**
  * The strip: how much of the map is on screen from its top edge, on a
@@ -249,6 +274,13 @@ interface RouteMapProps {
    * (fitPaddingPx). Not given, or wider than a phone: the desktop's margins.
    */
   phoneSheetTopDvh?: number;
+  /**
+   * A day's stretch of road to frame, or the whole trip again (Gauntlet
+   * U3): the sheet asks by handing a new key; the same key twice is one
+   * fit. Null asks nothing, so a recompute that closes the open day never
+   * moves the camera.
+   */
+  fitTo?: MapFit | null;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -330,6 +362,9 @@ let warnedBadPolyline = false;
  *       the first render it fits the camera, padded on a phone by the
  *       sheet's share of the map so the road is framed in the strip above
  *       the sheet (fitPaddingPx).
+ *   1c. A day's frame — `[map, fitTo]`
+ *       Fits the camera to the stretch the sheet asked for, or back to the
+ *       whole trip, once per request key, padded like the first fit.
  *   1b. Polyline opacity — `[pending]`
  *       Mutates the existing Polyline in place; no rebuild on pending toggle.
  *   2a. Endpoint markers — `[map, origin, destination, originName, destinationName]`
@@ -384,6 +419,7 @@ function PolylineRenderer({
   onRoadsideClick,
   selectedRoadsideId,
   phoneSheetTopDvh,
+  fitTo,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -401,6 +437,7 @@ function PolylineRenderer({
   onRoadsideClick?: (id: string) => void;
   selectedRoadsideId?: string | null;
   phoneSheetTopDvh?: number;
+  fitTo?: MapFit | null;
 }) {
   const map = useMap();
   // Null until the geometry library lands (it lazy-loads after the map);
@@ -497,6 +534,23 @@ function PolylineRenderer({
     // `phoneSheetTopDvh`, read only on the first fit, which runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, geometry, encodedPolyline, routeColor]);
+
+  // ── Effect 1c: a day's stretch, or the whole trip again (Gauntlet U3) ──
+  // One fit per request key: the sheet hands a new key on every tap, so a
+  // tap on day 1, then day 2, then day 1 again is three fits, and a render
+  // with the same request is none. Padded the same way as the first fit,
+  // from the map's box read now and the sheet's edge at the snap it is
+  // dropping to. Nothing here runs on mount (no request yet) or on a
+  // recompute (the sheet asks nothing then), so the camera stays the
+  // person's (Council ARCH-2).
+  const lastFitKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!map || !window.google?.maps || !fitTo || fitTo.key === lastFitKeyRef.current) return;
+    lastFitKeyRef.current = fitTo.key;
+    const b = new google.maps.LatLngBounds(fitTo.bounds.southwest, fitTo.bounds.northeast);
+    const box = map.getDiv().getBoundingClientRect();
+    map.fitBounds(b, fitPaddingPx({ mapTopPx: box.top, mapHeightPx: box.height, viewportHeightPx: window.innerHeight, sheetTopDvh: phoneSheetTopDvh, phone: isPhone() }));
+  }, [map, fitTo, phoneSheetTopDvh]);
 
   // ── Effect 1b: polyline opacity (pending state) ────────────────────────
   // Mutates the existing Polyline in place — no rebuild.
@@ -829,6 +883,7 @@ export default function RouteMap({
   onRoadsideClick,
   selectedRoadsideId = null,
   phoneSheetTopDvh,
+  fitTo = null,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -905,6 +960,7 @@ export default function RouteMap({
             onRoadsideClick={onRoadsideClick}
             selectedRoadsideId={selectedRoadsideId}
             phoneSheetTopDvh={phoneSheetTopDvh}
+            fitTo={fitTo}
             pending={pending}
           />
         ) : (
