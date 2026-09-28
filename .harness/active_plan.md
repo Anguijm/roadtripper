@@ -77,3 +77,9 @@ onto its volume, which this PR does not do.
 - the store is found like the atlas is: `ROADSIDE_STORE_PATH`, then beside the atlas, then under the standalone output; `docs/roadside-store.md` holds the build steps and the two deploy paths (a volume, or a build-time download traced in like the atlas), and says plainly that this repository does not decide where the app runs
 - ANALYZE after the load
 - Answered, not changed: the one-corridor JSON is not kept as a fallback. A silent fallback to Amarillo to Austin would make a broken deployment look like it works on one road and not the rest, which is the quiet degradation the house refuses; a missing store already gives no stops and one warning, and the deploy doc is the fix. The antimeridian does not cross the United States store's roads.
+
+## Council round 2 on #75 (CONDITIONAL, bugs 6), and what changed
+
+- a missing store logs one warning per process, naming the three places it looked and the doc
+- the name and the line are JSX text children (`{s.name}` in the link, `{s.about}` in the paragraph, `title` on the marker); a new test renders a stop whose name and line carry HTML and asserts it comes out as characters
+- taken from the deferred list: VACUUM after the rebuild; `data/**` and the extractor's venv are out of lint's way (the 316 warnings were the Node bundles)

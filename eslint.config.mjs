@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Data, extracts and the Node bundles of the store tools are not source.
+    "data/**",
+    ".venv-osm/**",
   ]),
 ]);
 

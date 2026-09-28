@@ -55,6 +55,8 @@ db.exec(`
 // A rebuild starts the table over but keeps nothing stale: the describe and
 // score passes are cheap to rerun against the cache and the ledger.
 db.exec("DELETE FROM roadside_stop");
+// A rebuild deletes every row before inserting; VACUUM at the end gives the
+// freed pages back so the file is the size of its data, not of its history.
 const insert = db.prepare(`INSERT OR REPLACE INTO roadside_stop (id, name, lat, lng, kind, detail, wikidata, wikipedia) VALUES (@id, @name, @lat, @lng, @kind, @detail, @wikidata, @wikipedia)`);
 const insertMany = db.transaction((rows: Array<Record<string, unknown>>) => { for (const r of rows) insert.run(r); });
 
@@ -80,6 +82,7 @@ process.stdout.write("\n");
 // ANALYZE after the load so the planner knows the (lat, lng) index is
 // selective; without it, a range query on a fresh table may scan.
 db.exec("ANALYZE");
+db.exec("VACUUM");
 const setMeta = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
 setMeta.run("builtAt", new Date().toISOString());
 setMeta.run("source", from);

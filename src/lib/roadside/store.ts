@@ -88,11 +88,22 @@ export function survivorsAlongRoute(db: Database.Database, route: LatLng[], thre
   return roadsideAlong([...byId.values()], route, bufferKm);
 }
 
+let warnedMissing = false;
+
 /** The survivors along a planned route, or none if the store is missing or the route cannot be read. */
 export function roadsideForRoute(encodedPolyline: string): RoadsideMarker[] {
   try {
     const db = roadsideStore();
-    if (!db) return [];
+    if (!db) {
+      // Once per process, not once per plan: a deployment without the file
+      // should say so in the log, and a busy server should not say it a
+      // thousand times.
+      if (!warnedMissing) {
+        warnedMissing = true;
+        console.warn(`[roadside] no store found (ROADSIDE_STORE_PATH, data/roadside.sqlite, or the standalone output); the plan page shows no roadside stops. See docs/roadside-store.md.`);
+      }
+      return [];
+    }
     return survivorsAlongRoute(db, decodePolyline(encodedPolyline));
   } catch (err) {
     console.warn(`[roadside] no stops for this route: ${err instanceof Error ? err.message : String(err)}`);
