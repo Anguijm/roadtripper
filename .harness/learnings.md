@@ -715,3 +715,11 @@ revision's own log.
 get feedback with no model" was true on a laptop for a day and on the site
 only once the store was fetched at build. The build log is the proof:
 "fetched 77 MB, checksum verified, database intact".
+
+**The pid lesson, third time, in the form that held.** Two scorers ran
+side by side again for three minutes because a waiter watched the pid of
+the process that started the Python and not the Python. Find a process
+by reading `/proc/<pid>/cmdline` of the processes named `python` (or
+`node`), never by a pid file written around `nohup` or `$!` after a
+`cd &&`. And a start from a foreground tool call does survive the call;
+the waiter was wrong, not the process.

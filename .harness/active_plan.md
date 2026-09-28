@@ -4,18 +4,20 @@
 
 # Active plan — roadtripper
 
-Branch: `data/store-snapshot-waterfalls`
+Branch: `data/store-snapshot-scored`
 
 ## Goal
 
-Data only: the checksum of the republished store snapshot, so the next
-build fetches the store with the 4,506 waterfalls and every encyclopedia
-line in it. The snapshot was published first, then this commit, in that
-order, as the publish script says.
+Data and one paragraph of learnings: the checksum of the fully scored
+store snapshot (every one of the 328,393 stops scored; 27,976 survivors
+at the line) so the next build fetches it, and the pid lesson written
+the way it finally held.
 
-**Cost:** $0.
+**Cost:** $0 here; $8.07 on the jev-lab ledger for the whole store, under
+the ten dollar cap.
 
-**Weakest part:** The waterfalls are in the store but not scored (the
-account has no credits), so none of them is a survivor yet; the live
-change from this snapshot is the encyclopedia lines on rows that had
-none, which the sidebar shows.
+**Weakest part:** The Wikidata-only "notable" kind yields 342 survivors of
+178,633: a hundred and seventy-eight thousand rows and $2.40 of scoring to
+find three hundred places, most of which a Wikipedia-page filter would
+have found. The next store build should score only notable rows with a
+page and skip the rest by rule.
