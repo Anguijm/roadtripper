@@ -23,6 +23,8 @@ const CHUNK = 2_000;
 
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
+// The scorer (jev-lab) writes other columns of the same table while this runs.
+db.pragma("busy_timeout = 30000");
 type Row = { id: string; name: string; lat: number; lng: number; kind: RoadsideStop["kind"]; detail: string | null; wikidata: string | null; wikipedia: string | null };
 const next = db.prepare(`
   SELECT id, name, lat, lng, kind, detail, wikidata, wikipedia FROM roadside_stop
