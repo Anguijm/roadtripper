@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { roadsideStore, survivorsAlongRoute } from "../store";
+import { roadsideStore, survivorsAlongRoute, closeRoadsideStores } from "../store";
 
 /** A road due south from 35,-101 for about 111 km, a point every 0.01 degrees. */
 const route = Array.from({ length: 101 }, (_, i) => ({ lat: 35 - i / 100, lng: -101 }));
@@ -20,7 +20,7 @@ ins.run("osm:node:4", "On a tile boundary", 34.775, -101, "artwork", "mural", nu
 ins.run("osm:node:5", "Unscored", 34.4, -101, "attraction", null, null, null, null, null);
 ins.run("osm:node:6", "Bad kind", 34.45, -101, "spaceport", null, null, null, null, 0.9);
 db.close();
-afterAll(() => rmSync(dir, { recursive: true, force: true }));
+afterAll(() => { closeRoadsideStores(); rmSync(dir, { recursive: true, force: true }); });
 
 describe("the roadside store", () => {
   it("keeps scored stops above the line inside the corridor, once each, in road order, with the line to read", () => {
@@ -40,8 +40,13 @@ describe("the roadside store", () => {
     expect(survivorsAlongRoute(store, route, 0.3).map((s) => s.id)).toContain("osm:node:2");
   });
 
+  it("opens a path once and hands the same connection back", () => {
+    expect(roadsideStore(path)).toBe(roadsideStore(path));
+  });
+
   it("gives nothing for a missing store or a route with one point", () => {
     expect(roadsideStore(join(dir, "nope.sqlite"))).toBeNull();
+    expect(roadsideStore(null)).toBeNull();
     expect(survivorsAlongRoute(roadsideStore(path)!, [route[0]])).toEqual([]);
   });
 });

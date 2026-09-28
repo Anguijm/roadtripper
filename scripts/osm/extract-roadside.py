@@ -26,15 +26,37 @@ import json
 import sys
 import time
 
+import numpy as np
 import osmium
 
 TOURISM = {"attraction", "museum", "viewpoint", "artwork", "theme_park", "zoo"}
 MAN_MADE = {"lighthouse", "tower"}
 NATURAL = {"waterfall", "arch", "cave_entrance"}
 BOUNDARY = {"national_park", "protected_area"}
-# A relation or way with more nodes than this is a big park or a long river;
-# every k-th node is enough for a centre and keeps the node table small.
-NODE_SAMPLE_OVER = 2000
+# A centre needs only a few of a way's nodes. A candidate way (a museum
+# building, a park boundary) keeps up to 30, evenly spaced; a way that is only
+# a member of a candidate relation keeps up to 8. On the United States file
+# that is about 10 million node positions instead of 56 million, which is the
+# difference between fitting in memory and not: the first run held every
+# reference in Python sets and was at 7 GB of 15 with the node pass barely
+# begun. The cost of sampling is in the centre, which is the mean of the
+# sampled positions: for a compact thing (a building, a small park) it is
+# within metres of the true centroid; for a long thin thing (a river relation,
+# a trail) it can sit off the line, and for a park shaped like a crescent it
+# can sit outside the park. A pin on a map tolerates all of that; a geofence
+# would not. Raise the two numbers if a centre ever matters more than memory.
+CANDIDATE_WAY_NODES = 30
+MEMBER_WAY_NODES = 8
+
+
+def sample(refs, keep):
+    """Up to `keep` of the refs, evenly spaced from the first, so a long way's
+    centre is not the mean of one end. The last node of a closed way repeats
+    the first, which biases nothing worth a special case."""
+    if len(refs) <= keep:
+        return refs
+    step = len(refs) / keep
+    return [refs[int(i * step)] for i in range(keep)]
 
 
 def candidate(tags) -> bool:
@@ -89,36 +111,56 @@ class Pass2(osmium.SimpleHandler):
         super().__init__()
         self.member_ways = member_ways
         self.ways = {}  # id -> {"tags": ... or None, "nodes": [...]}
-        self.need = set()
 
     def way(self, w):
         is_candidate = candidate(w.tags)
         if not is_candidate and w.id not in self.member_ways:
             return
-        refs = [n.ref for n in w.nodes]
-        if len(refs) > NODE_SAMPLE_OVER:
-            step = len(refs) // NODE_SAMPLE_OVER + 1
-            refs = refs[::step]
+        refs = sample([n.ref for n in w.nodes], CANDIDATE_WAY_NODES if is_candidate else MEMBER_WAY_NODES)
         self.ways[w.id] = {"tags": tagdict(w.tags) if is_candidate else None, "nodes": refs}
-        self.need.update(refs)
 
 
-class Pass3(osmium.SimpleHandler):
-    """Emit candidate nodes; remember the positions the ways asked for."""
+class CandidateNodes(osmium.SimpleHandler):
+    """Emit candidate nodes. Reached only by named nodes, thanks to the C++ key filter in front."""
 
-    def __init__(self, need, out):
+    def __init__(self, out):
         super().__init__()
-        self.need = need
-        self.pos = {}
         self.out = out
         self.emitted = 0
 
     def node(self, n):
-        if n.id in self.need and n.location.valid():
-            self.pos[n.id] = (n.location.lat, n.location.lon)
         if candidate(n.tags) and n.location.valid():
             self.out.write(json.dumps({"type": "node", "id": n.id, "lat": n.location.lat, "lon": n.location.lon, "tags": tagdict(n.tags)}, ensure_ascii=False) + "\n")
             self.emitted += 1
+
+
+class Positions(osmium.SimpleHandler):
+    """Record the positions of the nodes the ways asked for. Reached only by
+    those nodes, thanks to the C++ id filter in front; stored by rank in the
+    sorted id array, so the memory is two float arrays, not a dict."""
+
+    def __init__(self, ids: np.ndarray):
+        super().__init__()
+        self.ids = ids
+        self.lat = np.full(len(ids), np.nan)
+        self.lon = np.full(len(ids), np.nan)
+        self.seen = 0
+
+    def node(self, n):
+        if not n.location.valid():
+            return
+        i = int(np.searchsorted(self.ids, n.id))
+        if i < len(self.ids) and self.ids[i] == n.id:
+            self.lat[i] = n.location.lat
+            self.lon[i] = n.location.lon
+            self.seen += 1
+
+    def lookup(self, refs):
+        idx = np.searchsorted(self.ids, refs)
+        idx = idx[(idx < len(self.ids)) & (self.ids[np.minimum(idx, len(self.ids) - 1)] == refs)]
+        lat, lon = self.lat[idx], self.lon[idx]
+        ok = ~np.isnan(lat)
+        return list(zip(lat[ok].tolist(), lon[ok].tolist()))
 
 
 def centre(points):
@@ -134,32 +176,37 @@ def main(src: str, dst: str) -> int:
     print(f"pass 1: {len(p1.relations):,} candidate relations, {len(p1.member_ways):,} member ways, {time.time() - t0:.0f}s", flush=True)
     p2 = Pass2(p1.member_ways)
     p2.apply_file(src)
-    print(f"pass 2: {sum(1 for w in p2.ways.values() if w['tags']):,} candidate ways, {len(p2.ways):,} ways kept, {len(p2.need):,} nodes needed, {time.time() - t0:.0f}s", flush=True)
-    need = set(p2.need) | p1.member_nodes
+    del p1.member_ways
+    need = np.unique(np.fromiter((r for w in p2.ways.values() for r in w["nodes"]), dtype=np.int64))
+    need = np.union1d(need, np.fromiter(p1.member_nodes, dtype=np.int64)) if p1.member_nodes else need
+    print(f"pass 2: {sum(1 for w in p2.ways.values() if w['tags']):,} candidate ways, {len(p2.ways):,} ways kept, {len(need):,} nodes needed, {time.time() - t0:.0f}s", flush=True)
     with open(dst, "w", encoding="utf-8") as out:
-        p3 = Pass3(need, out)
-        p3.apply_file(src)
-        print(f"pass 3: {p3.emitted:,} candidate nodes emitted, {len(p3.pos):,} positions held, {time.time() - t0:.0f}s", flush=True)
+        cands = CandidateNodes(out)
+        osmium.apply(src, osmium.filter.KeyFilter("name").enable_for(osmium.osm.NODE), cands)
+        print(f"pass 3a: {cands.emitted:,} candidate nodes emitted, {time.time() - t0:.0f}s", flush=True)
+        pos = Positions(need)
+        osmium.apply(src, osmium.filter.IdFilter(need.tolist()).enable_for(osmium.osm.NODE), pos)
+        print(f"pass 3b: {pos.seen:,} of {len(need):,} positions found, {time.time() - t0:.0f}s", flush=True)
         ways_out = 0
         for wid, w in p2.ways.items():
             if not w["tags"]:
                 continue
-            c = centre([p3.pos[r] for r in w["nodes"] if r in p3.pos])
+            c = centre(pos.lookup(np.asarray(w["nodes"], dtype=np.int64)))
             if c:
                 out.write(json.dumps({"type": "way", "id": wid, "center": c, "tags": w["tags"]}, ensure_ascii=False) + "\n")
                 ways_out += 1
         rels_out = 0
         for rid, r in p1.relations.items():
-            pts = [p3.pos[n] for n in r["nodes"] if n in p3.pos]
+            refs = list(r["nodes"])
             for wid in r["ways"]:
                 w = p2.ways.get(wid)
                 if w:
-                    pts.extend(p3.pos[n] for n in w["nodes"] if n in p3.pos)
-            c = centre(pts)
+                    refs.extend(w["nodes"])
+            c = centre(pos.lookup(np.asarray(refs, dtype=np.int64))) if refs else None
             if c:
                 out.write(json.dumps({"type": "relation", "id": rid, "center": c, "tags": r["tags"]}, ensure_ascii=False) + "\n")
                 rels_out += 1
-    print(f"wrote {dst}: {p3.emitted:,} nodes, {ways_out:,} ways, {rels_out:,} relations in {time.time() - t0:.0f}s", flush=True)
+    print(f"wrote {dst}: {cands.emitted:,} nodes, {ways_out:,} ways, {rels_out:,} relations in {time.time() - t0:.0f}s", flush=True)
     return 0
 
 

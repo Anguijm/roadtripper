@@ -211,12 +211,13 @@ async function getJson(url: string, deps: DescribeDeps): Promise<unknown> {
   let res: Response;
   try {
     res = await once();
-  } catch (err) {
+  } catch (first) {
     await deps.sleep(RETRY_PAUSE_MS);
     try {
       res = await once();
-    } catch {
-      throw new Error(`${new URL(url).host} could not be reached twice: ${err instanceof Error ? err.message : String(err)}`);
+    } catch (second) {
+      const say = (e: unknown) => (e instanceof Error ? e.message : String(e));
+      throw new Error(`${new URL(url).host} could not be reached twice: first ${say(first)}; then ${say(second)}`);
     }
   }
   if (res.status === 429 || res.status >= 500) {

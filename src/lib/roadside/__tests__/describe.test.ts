@@ -145,7 +145,7 @@ describe("describing a corridor", () => {
     expect(out.get("osm:node:1")?.short).toBe("thing 2");
     expect(sleeps[0]).toBe(RETRY_PAUSE_MS);
     const dead = async (): Promise<Response> => { throw new TypeError("fetch failed"); };
-    await expect(describeStops(stops, { fetch: dead, sleep: async () => {} })).rejects.toThrow(/could not be reached twice: fetch failed/);
+    await expect(describeStops(stops, { fetch: dead, sleep: async () => {} })).rejects.toThrow(/could not be reached twice: first fetch failed; then fetch failed/);
   });
 
   it("chunks evenly and keeps order", () => {

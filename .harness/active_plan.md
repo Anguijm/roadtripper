@@ -68,3 +68,12 @@ onto its volume, which this PR does not do.
 - Rule 5: the store test on a temporary database; with the line removed from the query, two tests fail; with the tile dedupe removed, one fails; restored, `cmp` clean. The corridor check after tranche 1: 7.3% of the corridor's scored stops crossed the 0.45 line against J9, all within a few hundredths of it and all with the map's line newly in the state; the spec stops the run above 10%.
 - The describe pass died once at row 60,000 on a dropped connection; the client now retries a dropped connection once (test: "retries once when the connection drops…", which fails with the retry removed) and the pass retries a chunk five times.
 - 457 tests; lint and types clean.
+
+## Council round 1 on #75 (BLOCK, maintainability 4), and what changed
+
+- comments: the sampling constants and what the mean of sampled positions costs (a river's centre off the line, a crescent park's outside it; fine for a pin, not a geofence); the chunk size against the two APIs' batch limits and as the unit of resumption; the tagged-kinds-first order and why; the 30 s times attempt backoff; the columns' lifecycle across the three passes; the 10,000-row transaction; the about order
+- the store keeps one read-only connection per path and tests close them; a custom path no longer opens a handle per call
+- the dropped-connection error names both failures, first and second
+- the store is found like the atlas is: `ROADSIDE_STORE_PATH`, then beside the atlas, then under the standalone output; `docs/roadside-store.md` holds the build steps and the two deploy paths (a volume, or a build-time download traced in like the atlas), and says plainly that this repository does not decide where the app runs
+- ANALYZE after the load
+- Answered, not changed: the one-corridor JSON is not kept as a fallback. A silent fallback to Amarillo to Austin would make a broken deployment look like it works on one road and not the rest, which is the quiet degradation the house refuses; a missing store already gives no stops and one warning, and the deploy doc is the fix. The antimeridian does not cross the United States store's roads.

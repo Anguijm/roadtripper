@@ -23,6 +23,14 @@ if (!from || !existsSync(from)) throw new Error("--from=<ndjson from scripts/osm
 
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
+// One row per stop. The builder fills the first eight columns from the
+// record. `short`, `extract`, `url` and `described_at` are filled by
+// roadside-describe (null until then; described_at set even when the
+// encyclopedias had nothing, so a row is not retried forever). `p` and
+// `scored_at` are filled by jev-lab's J10 scorer (null until then; the plan
+// page treats null as "not a survivor"). Rebuilding the table clears all of
+// it; the describe cache lives in the encyclopedias' own responses and the
+// score cache in jev-lab, so a rebuild is cheap to refill.
 db.exec(`
   CREATE TABLE IF NOT EXISTS roadside_stop (
     id TEXT PRIMARY KEY,
@@ -62,10 +70,16 @@ for await (const line of rl) {
   if (!stop) continue;
   kept++;
   batch.push({ id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng, kind: stop.kind, detail: stop.detail, wikidata: stop.wikidata, wikipedia: stop.wikipedia });
+  // One transaction per 10,000 rows: SQLite's cost is per transaction, not
+  // per row, so 10,000 is about 30 commits for the whole country instead of
+  // 324,000 fsyncs, while a batch is only a few megabytes of pending rows.
   if (batch.length >= 10_000) { insertMany(batch); batch = []; process.stdout.write(`\r  ${read.toLocaleString()} read, ${kept.toLocaleString()} stops   `); }
 }
 if (batch.length) insertMany(batch);
 process.stdout.write("\n");
+// ANALYZE after the load so the planner knows the (lat, lng) index is
+// selective; without it, a range query on a fresh table may scan.
+db.exec("ANALYZE");
 const setMeta = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
 setMeta.run("builtAt", new Date().toISOString());
 setMeta.run("source", from);

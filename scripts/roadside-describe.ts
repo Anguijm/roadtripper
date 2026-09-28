@@ -19,6 +19,14 @@ import type { RoadsideStop } from "../src/lib/roadside/record";
 const args = new Map(process.argv.slice(2).filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.replace(/^--/, "").split("="); return [k, v ?? "true"]; }));
 const dbPath = args.get("db") ?? "data/roadside.sqlite";
 const limit = args.has("limit") ? Number(args.get("limit")) : Infinity;
+/**
+ * Rows per chunk. The client batches Wikidata 50 ids a request and Wikipedia
+ * 20 titles a request, so a chunk of 2,000 is about 40 plus up to 100
+ * requests, a minute or so at the client's 250 ms pace: long enough that the
+ * per-chunk write is not the bottleneck, short enough that a dropped
+ * connection loses a minute, not an hour. The chunk is also the unit of
+ * resumption: rows are marked described only when their chunk is written.
+ */
 const CHUNK = 2_000;
 
 const db = new Database(dbPath);
@@ -31,6 +39,12 @@ const next = db.prepare(`
   WHERE described_at IS NULL AND (wikidata IS NOT NULL OR wikipedia IS NOT NULL)
   ORDER BY CASE kind WHEN 'notable' THEN 1 ELSE 0 END, id
   LIMIT ?`);
+// The ORDER BY above: every tagged kind first (attractions, museums, the
+// historic whitelist...), the Wikidata-only "notable" places last. The
+// scorer's first tranche is the tagged kinds, so it can start the moment
+// those are described while the flood (180,000 rows on the US file) is
+// still being fetched; and if the run is cut short, the rows without a
+// line are the ones the model would have scored lowest anyway.
 const write = db.prepare(`UPDATE roadside_stop SET short = @short, extract = @extract, url = @url, described_at = @at WHERE id = @id`);
 const writeMany = db.transaction((rows: Array<Record<string, unknown>>) => { for (const r of rows) write.run(r); });
 const remaining = () => (db.prepare("SELECT COUNT(*) AS n FROM roadside_stop WHERE described_at IS NULL AND (wikidata IS NOT NULL OR wikipedia IS NOT NULL)").get() as { n: number }).n;
@@ -52,6 +66,12 @@ while (done < limit) {
     } catch (err) {
       console.warn(`  chunk failed (attempt ${attempt} of 5): ${err instanceof Error ? err.message : String(err)}`);
       if (attempt === 5) throw err;
+      // 30 s, 60 s, 90 s, 120 s: the client has already retried once after
+      // five seconds inside the chunk, so a failure here is an outage of
+      // more than a few seconds, and Wikimedia's own guidance for a client
+      // that hit an error is to back off, not to hammer. Two minutes at the
+      // fourth try is the longest a person watching would wait before
+      // rerunning by hand, which the resumable chunk makes cheap.
       await new Promise((r) => setTimeout(r, 30_000 * attempt));
     }
   }
