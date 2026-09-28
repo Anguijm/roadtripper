@@ -4,66 +4,38 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/record-detail`
+Branch: `feat/sample-carries-detail`
 
 ## Goal
 
-The encyclopedias cover the wrong half. 627 of the 1,074 stops reach
-Wikidata, but only 47 of the 163 on John's sheet do: the model's yes
-calls are murals, statues and small museums, and those have no page.
-OpenStreetMap often has a line for exactly those (Spirit Rock: "A large
-boulder in the center of a circular garden"), and the pull threw it away.
-The record keeps it now.
+The follow-up #70 named: the sample rows carry the record's new `detail`
+field next to the encyclopedia fields, so the sheet builder and the bench
+can use it. The corridor was re-pulled under the new shape (32 tiles,
+sixteen minutes, free) and 758 of 1,074 stops have a detail; on John's
+sheet, 85 of 163 rows do, and 50 of those had nothing before.
 
 ## Ship rule, written before the work
 
-1. A stop keeps what OpenStreetMap says about it in one field, `detail`:
-   the `description` tag first (an English variant accepted), then the
-   `inscription`, then the subtype its tags spell (`artwork_type`,
-   `memorial`, `museum`, `attraction`, `tower:type`, `castle_type`,
-   `ruins`), and for a Wikidata-only place the value of the first tag that
-   says what it is (`amenity`, `shop`, `leisure`, `craft`, `office`,
-   `man_made`, `natural`, `building`). "yes" is no subtype. Underscores
-   read as spaces; clipped to the reason bound at a word or sentence.
-2. Nothing else in the record changes. PROGRESS_VERSION goes to 2, so the
-   next pull starts the corridor over under the new shape: 32 free
-   requests, about sixteen minutes on a healthy instance.
-3. The clip helper moves to `text.ts` so the record and the encyclopedia
-   fetch share one without importing each other; `describe.ts` still
-   exports it for its callers.
-4. Tested from real tag sets: Spirit Rock's description, a mural, a war
-   memorial, a museum with two types, a hotel and a school on Wikidata
-   only, and the clip at a word boundary.
-5. The sheet already out is not rebuilt under John. The sampler carries
-   `detail` in a follow-up once #69 is in, since both touch the same lines.
+1. Every sample row carries `detail` (null when the record has none). One
+   pass-through line in the script; the sampler is unchanged.
+2. The sample is regenerated from the same scores and seed, so the 163
+   rows and their order are identical and only the new field differs.
+   Checked by diff: no row added, removed or moved.
+3. The sheet John has is updated in place in its About column for the 50
+   rows that gained a line and had none, and nowhere else; his dropdowns
+   are not touched. Done by hand through the Docs tools, cell by cell,
+   under a revision guard, so a tap of his that lands first wins.
 
-**Cost:** $0. One free re-pull of the corridor.
+**Cost:** $0.
 
-**Weakest part:** A `description` tag is crowd text of any quality. Spirit
-Rock's is good; others say "closed", give a phone number, or repeat the
-name. It is shown as text and never used as a reason, and the model will
-see it only from the second corridor on, so the sheet John has now is
-unchanged by this.
+**Weakest part:** The details are uneven: Spirit Rock's is a sentence,
+many artworks' is one word ("installation", "statue"), some museums' is
+"local". One word is still more than the kind alone said, and it is what
+the mapper wrote. There is no test for a one-line pass-through in a
+script; the proof is the count and the diff below.
 
 ## Gate 1 proofs
 
-- Rule 1: with the `description` branch removed from `detailFromTags`, "takes the mapper's description first…" and the clip test fail (the subtype "sculpture" wins instead). Restored, `cmp` clean.
-- 434 tests, 3 new; lint and types clean. Every hand-built fixture gained `detail: null`.
-
-## Council round 1 on #70 (CONDITIONAL, maintainability 5, bugs 6), and what changed
-
-- `detail` defaults to null on read, so a corridor file from before the field is a poorer list, not a broken one; the writer always emits it and a test pins both (old shape reads as null; `detailFromTags()` with no tags is null)
-- `clip` counts code points, so a cut never splits an emoji; tested at the boundary
-- comments: why the two key lists and their order and how to extend them; what a PROGRESS_VERSION bump does and how to verify it; the clip budget's tie to MAX_REASON_LENGTH
-- taken from the deferred list: a test that HTML in a description stays characters
-- Answered, not changed: no renderer reads `detail` yet. The four `dangerouslySetInnerHTML` uses in the app (src/components/NeighborhoodPanel.tsx ) carry JSON-LD and map styling, none a stop's text; when `detail` is shown it goes in the same JSX text slot as a waypoint's reason (RecommendationList.tsx, `data-reason`), which React escapes
-
-## Council round 2 on #70 (CONDITIONAL, bugs 9), and what changed
-
-- an explicit null `tags` returns null rather than throwing; "Yes" and "YES" are "yes". Both tested.
-- Answered, not changed: tag values from Overpass are strings by its JSON contract, so no `String()` coercion; a ZWJ emoji sequence at the cut is a family of code points and the clip may split it, which is a visual glitch at worst on crowd text and not worth a grapheme segmenter here.
-
-## Council round 3 on #70 (CONDITIONAL, bugs 7), and what changed
-
-- a real one: `clip` counted code points while the schema counts UTF-16 units, so an emoji-dense description could pass the clip and fail the schema, and the whole stop would be dropped. The clip now budgets in UTF-16 units, the schema's count, and still never cuts inside a surrogate pair. Proven: with the code-point version restored, the new "emoji-dense" tests fail; a 300-emoji description now yields a stop with a 240-unit detail.
-- Answered, not changed: a warning per element that fails the schema would put logging in a pure function; the pull's summary line already reports how many elements became stops, and the count is the signal to look at.
+- Rule 2: the regenerated sample has the same 163 ids in the same order; the only fields that differ from main's file are `detail` and `sampledAt`.
+- Rule 1: 85 of 163 rows carry a detail; 50 of them had no encyclopedia line.
+- Suite, lint and types unchanged and green.
