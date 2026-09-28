@@ -632,7 +632,12 @@ function PolylineRenderer({
   // same point. zIndex 1800 puts the dot and its name above
   // the diamonds (1500 and 1600) and under the numbered trip stops (2000),
   // so a name is never behind a diamond; not clickable, so a name never
-  // takes a diamond's tap.
+  // takes a diamond's tap. `optimized: false` draws each as its own
+  // element: Google may otherwise draw a marker onto a canvas, where
+  // zIndex does not order it against markers drawn as elements, and the
+  // round-5 rest capture had a diamond over Austin's dot and name
+  // (Gauntlet U3, round 6). Two markers, so the cost is nothing; the
+  // diamonds are untouched and none moves (rule 6).
   useEffect(() => {
     if (!map || !window.google?.maps) return;
 
@@ -642,6 +647,7 @@ function PolylineRenderer({
       title: originName ? `Start: ${originName}` : "Start",
       zIndex: 1800,
       clickable: false,
+      optimized: false,
       icon: endpointIcon("#3fb950"),
       label: endpointLabel(originName),
     });
@@ -652,6 +658,7 @@ function PolylineRenderer({
       title: destinationName ? `End: ${destinationName}` : "End",
       zIndex: 1800,
       clickable: false,
+      optimized: false,
       icon: endpointIcon("#f85149"),
       label: endpointLabel(destinationName),
     });
@@ -746,7 +753,8 @@ function PolylineRenderer({
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
   // The square with its number, and the town's name above it as the
   // endpoints carry theirs (round 5): a stop is where a day ends, and the
-  // framed day's end must read as a town.
+  // framed day's end must read as a town. Drawn as elements, like the
+  // endpoints, so their zIndex holds against the diamonds (round 6).
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!tripStops || tripStops.length === 0) return;
@@ -757,6 +765,7 @@ function PolylineRenderer({
         map,
         title: `Stop ${index + 1}: ${stop.cityName}`,
         zIndex: 2000,
+        optimized: false,
         label: endpointLabel(stop.cityName),
         icon: tripStopIcon(routeColor, index + 1),
       });

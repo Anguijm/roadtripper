@@ -520,6 +520,15 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(existsSync(new URL("../../lib/roadside/spread.ts", import.meta.url))).toBe(false);
     expect(src).toContain('map.addListener("zoom_changed", apply)');
     expect(src).not.toContain('addListener("idle"');
+    // The end of the trip draws above a diamond on the same point (U3,
+    // round 6: at the rest zoom a diamond sat over Austin's dot and its
+    // name): the start, the end and the stops are drawn as elements
+    // (`optimized: false`), above a diamond Google draws on a canvas and,
+    // by zIndex, above one it draws as an element. The diamonds are as
+    // they were, on their points.
+    expect(src.match(/zIndex: 1800,\s*clickable: false,\s*optimized: false,/g)).toHaveLength(2);
+    expect(src).toMatch(/zIndex: 2000,\s*optimized: false,/);
+    expect(src).toMatch(/zIndex: active \? 1600 : 1500, icon: active \? roadsideMarkerIcon\(true\) : icon, visible: false/);
   });
 
   it("closes the card on a sideways swipe, not on a scroll or a tap", () => {

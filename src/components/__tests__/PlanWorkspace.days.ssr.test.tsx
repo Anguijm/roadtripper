@@ -96,6 +96,28 @@ const twoLegs = {
 };
 /** Two stretches that together exceed the budget while each fits a day: 3 h 20 min, then 3 h 50 min. */
 const twoDays = { ...twoLegs, directMinutesToDestination: 230 };
+/**
+ * The towns that fit from Lubbock: the planner offers nothing behind a
+ * stop, so Plainview and Lubbock leave the set, and Fredericksburg joins
+ * it, four hours from Lubbock by road though the direct road passes
+ * nearest it at 526 km, past where 4 h on from Lubbock runs out (513 km).
+ */
+const fredericksburg = city("fredericksburg", "Fredericksburg", 30.27, -98.87);
+const fromLubbock = {
+  status: "fresh" as const,
+  cities: [cities[2], cities[3], cities[4], cities[5], fredericksburg],
+  waypoints: [
+    ...base.waypointFetch.waypoints.filter((w) => w.cityId !== "plainview" && w.cityId !== "lubbock"),
+    { id: "wp-7", cityId: "fredericksburg", name: "Pacific war museum", type: "culture" as const, trendingScore: 50, neighborhoodId: null, description: "The admiral's home town, and the war he ran." },
+  ],
+  neighborhoods: {},
+};
+/** The sheet after Lubbock was added: the towns that fit counted from Lubbock, and Lubbock's own town kept from the set it was added from. */
+const afterLubbock = {
+  ...base,
+  candidateMarkers: fromLubbock.cities.map((c) => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng, detourMinutes: 240 })),
+  waypointFetch: fromLubbock,
+};
 
 /** React puts a comment node between adjacent text and an expression; the sheet's text is read with every tag gone. */
 const clean = (html: string) => html.replace(/<!-- -->/g, "").replace(/&#x27;/g, "'");
@@ -110,7 +132,7 @@ describe("the plan sheet told as days", () => {
   });
 
   it("renders a heading per day in order for a one-stop trip whose second stretch is over the budget, each naming where it ends, with the right towns and places under each", () => {
-    const html = renderToString(<PlanWorkspace {...base} initialTrip={twoLegs} />);
+    const html = renderToString(<PlanWorkspace {...afterLubbock} initialTrip={{ ...twoLegs, addedFrom: base.waypointFetch }} />);
     const text = visible(html);
     // The headings, as sentences with the figures alone in the mono face
     // (round 2: "h" and "min" set in mono came out wide-spaced). The
@@ -128,72 +150,84 @@ describe("the plan sheet told as days", () => {
     expect(text).not.toContain("over the");
     expect(text.indexOf("Day 1 ·")).toBeLessThan(text.indexOf("Day 2 ·"));
     expect(text.indexOf("Day 2 ·")).toBeLessThan(text.indexOf("Day 3 ·"));
-    // The sheet's title stays above the days.
-    expect(text.indexOf("fit in day")).toBeLessThan(text.indexOf("Day 1 ·"));
+    // The sheet's title stays above the days, and names the day the
+    // towns are listed under.
+    expect(text).toContain("Post, Snyder and 3 more fit in day 2");
+    expect(text.indexOf("fit in day 2")).toBeLessThan(text.indexOf("Day 1 ·"));
     const days = daySections(html);
     expect(days.map((d) => d.n)).toEqual(["1", "2", "3"]);
-    // Day 1: Plainview and Lubbock (the stop's own town, under the day that
-    // ends there), and Cadillac Ranch at 10 km. Not Post, Brady, or the
-    // places past Lubbock.
-    expect(days[0].text).toContain("Plainview");
+    // Day 1 ends at Lubbock: the stop's own town, kept from the set it was
+    // added from, with its places and "✓ Added", and Cadillac Ranch at
+    // 10 km. No town that fits (they are counted from Lubbock, so they are
+    // day 2's), no Plainview (behind the stop, gone from the set), none of
+    // the places past Lubbock.
     expect(days[0].text).toContain("What's in Lubbock");
+    expect(days[0].text).toContain("✓ Added");
+    expect(days[0].text).toContain("Buddy Holly Center");
     expect(days[0].text).toContain("1 place worth pulling over for");
     expect(days[0].text).toContain("Cadillac Ranch");
-    expect(days[0].text).not.toContain("Post");
-    expect(days[0].text).not.toContain("Brady");
-    expect(days[0].text).not.toContain("Prairie Dog Town");
-    expect(days[0].text).not.toContain("Windmill");
-    // Day 2, Lubbock to the cut at 513 km: Post, Snyder, Brady and Llano,
-    // and the two places at 250 and 400 km.
-    expect(days[1].text).toContain("What's in Post");
-    expect(days[1].text).toContain("What's in Snyder");
-    expect(days[1].text).toContain("What's in Brady");
-    expect(days[1].text).toContain("What's in Llano");
+    expect(days[0].text).not.toContain("Towns that fit");
+    expect(days[0].text).not.toContain("+ Stop here");
+    for (const name of ["Plainview", "Post", "Brady", "Fredericksburg", "Prairie Dog Town", "Windmill"]) expect(days[0].text).not.toContain(name);
+    // Day 2, the day after the stop: every town that fits from Lubbock
+    // under "Towns that fit in day 2" with "Stop here", Fredericksburg
+    // among them though the road passes nearest it past the cut (round
+    // 6: by position it sat under Day 3 while the title said day 2); and
+    // the two places at 250 and 400 km, on day 2's road.
+    expect(days[1].text).toContain("Towns that fit in day 2");
+    for (const name of ["What's in Post", "What's in Snyder", "What's in Brady", "What's in Llano", "What's in Fredericksburg", "Pacific war museum"]) expect(days[1].text).toContain(name);
+    expect(days[1].text).toContain("+ Stop here");
     expect(days[1].text).toContain("2 places worth pulling over for");
     expect(days[1].text).toContain("Prairie Dog Town");
     expect(days[1].text).toContain("Windmill");
-    expect(days[1].text).not.toContain("Plainview");
+    expect(days[1].text).not.toContain("What's in Lubbock");
     expect(days[1].text).not.toContain("Cadillac Ranch");
+    expect(days[1].text.indexOf("Towns that fit in day 2")).toBeLessThan(days[1].text.indexOf("What's in Post"));
     // Day 3, the last 30 min: nothing on the road but Austin.
     expect(days[2].text).toContain("Nothing listed along this stretch.");
     expect(days[2].text).not.toContain("What's in");
+    expect(days[2].text).not.toContain("Towns that fit");
+    // One assignment: the day the title names is the day whose section
+    // lists the towns, and no other section lists one.
+    const titled = Number(/fit in day (\d)/.exec(text)![1]);
+    expect(days.map((d) => d.text.includes("What's in Fredericksburg"))).toEqual(days.map((d) => Number(d.n) === titled));
+    expect(days.map((d) => d.text.includes("+ Stop here"))).toEqual(days.map((d) => Number(d.n) === titled));
     // Under each day with both, the towns come first, then the places.
     for (const d of days.slice(0, 2)) expect(d.text.indexOf("What's in")).toBeLessThan(d.text.indexOf("worth pulling over for"));
-    // Lubbock is on the trip, so its control says so; the others say "Stop
-    // here". Lubbock is the day's end, drawn after the town that fits
-    // before it, and once only.
-    expect(days[0].text).toContain("✓ Added");
-    expect(days[1].text).toContain("+ Stop here");
-    expect(days[0].text.indexOf("What's in Plainview")).toBeLessThan(days[0].text.indexOf("What's in Lubbock"));
+    // Lubbock is drawn once, as day 1's end.
     expect(clean(html).match(/data-town="lubbock"/g)).toHaveLength(1);
+    expect(clean(html).match(/data-towns-heading/g)).toHaveLength(1);
   });
 
   it("renders two day sections for two legs that together exceed the budget while each fits a day, and assigns each town and place to the right one", () => {
     // The spec's acceptance: 3 h 20 min then 3 h 50 min on a 4 h budget.
-    const html = renderToString(<PlanWorkspace {...base} initialTrip={twoDays} />);
+    const html = renderToString(<PlanWorkspace {...afterLubbock} initialTrip={{ ...twoDays, addedFrom: base.waypointFetch }} />);
     const text = visible(html);
     expect(text).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
     expect(text).toContain("Day 2 · Lubbock to Austin · 3 h 50 min");
     expect(text).not.toContain("Day 3");
     const days = daySections(html);
     expect(days.map((d) => d.n)).toEqual(["1", "2"]);
-    expect(days[0].text).toContain("What's in Plainview");
     expect(days[0].text).toContain("What's in Lubbock");
     expect(days[0].text).toContain("Cadillac Ranch");
+    expect(days[0].text).not.toContain("Towns that fit");
     expect(days[0].text).not.toContain("Post");
-    for (const name of ["What's in Post", "What's in Snyder", "What's in Brady", "What's in Llano", "Prairie Dog Town", "Windmill"]) expect(days[1].text).toContain(name);
-    expect(days[1].text).not.toContain("Plainview");
+    expect(days[1].text).toContain("Towns that fit in day 2");
+    for (const name of ["What's in Post", "What's in Snyder", "What's in Brady", "What's in Llano", "What's in Fredericksburg", "Prairie Dog Town", "Windmill"]) expect(days[1].text).toContain(name);
+    expect(days[1].text).not.toContain("What's in Lubbock");
     expect(days[1].text).not.toContain("Cadillac Ranch");
     expect(text).toContain("Two days, with a night in Lubbock");
+    expect(text).toContain("fit in day 2");
   });
 
-  it("keeps a stop's town and its places under the day it ends after the towns that fit have moved on, names a cut by the mile with no town near it, and stacks nothing above the days", () => {
+  it("keeps a stop's town and its places under the day it ends after the towns that fit have moved on, says a cut with no town near it in hours, and stacks nothing above the days", () => {
     // Round 1's failure: the refresh after Lubbock was added counts the
     // towns that fit from Lubbock, so the set was Fort Worth alone, Day 1
     // read "Nothing listed along this stretch", and Lubbock with its
     // places sat in a collapsed "1 stop · Lubbock" row above the days.
     // Fort Worth sits 340 km off this road, so it cannot name the cut on
-    // from Lubbock: that day ends at the mile (513 km is 319 miles).
+    // from Lubbock: that day is said in hours (round 6: round 5's "mile
+    // 319" was a number a person in a car would not say).
     const fortWorth = city("fort-worth", "Fort Worth", 32.75, -97.33);
     const movedOn = {
       status: "fresh" as const,
@@ -220,22 +254,30 @@ describe("the plan sheet told as days", () => {
     expect(days[0].text).toContain("Buddy Holly Center");
     expect(days[0].text).not.toContain("Nothing listed");
     expect(days[0].text).not.toContain("Plainview");
-    // Day 2 runs to the mile and holds the town that fits from Lubbock,
-    // with its control; day 3 is the last half hour.
-    expect(days[1].text).toContain("Day 2 · Lubbock to mile 319 · 4 h");
+    // Day 2 is four hours on from Lubbock and holds the town that fits
+    // from Lubbock, under what it is, with its control; day 3 is the last
+    // half hour, on to Austin. No mile anywhere.
+    expect(days[1].text).toContain("Day 2 · 4 h down the road from Lubbock See it on the map");
+    expect(days[1].text).toContain("Towns that fit in day 2");
     expect(days[1].text).toContain("What's in Fort Worth");
     expect(days[1].text).toContain("+ Stop here");
     expect(days[1].text).toContain("Stockyards");
     expect(days[1].text).not.toContain("What's in Lubbock");
     expect(days[1].text).not.toContain("Buddy Holly Center");
-    expect(days[2].text).toContain("Day 3 · mile 319 to Austin · 30 min");
-    expect(text).toContain("Three days, with nights in Lubbock and at mile 319");
+    expect(days[2].text).toContain("Day 3 · on to Austin · 30 min");
+    expect(text).toContain("Three days, with a night in Lubbock and one on the road");
+    expect(text).not.toMatch(/\bmile\b/);
+    expect(html).toContain('Day <span class="num">2</span> · <span class="num">4</span> h down the road from Lubbock');
     // The title names the day the towns are listed under (round 3: "fits
     // today after Lubbock" stood over a list that put Fort Worth in day
-    // 2), above the days; and between the sheet's numbers and Day 1 there
-    // is no itinerary row, no lock and no panel nobody asked for.
+    // 2; round 6: the title said day 2 while Fort Worth, placed by where
+    // the road passes nearest it, sat under Day 3), above the days; and
+    // between the sheet's numbers and Day 1 there is no itinerary row, no
+    // lock and no panel nobody asked for.
     expect(text).toContain("Fort Worth fits in day 2");
     expect(text).not.toContain("fits today");
+    const titled = Number(/fits in day (\d)/.exec(text)![1]);
+    expect(days.map((d) => d.text.includes("What's in Fort Worth"))).toEqual(days.map((d) => Number(d.n) === titled));
     expect(text).not.toMatch(/\d+ stops? ·|Your trip|Route locked|Loading what's in/);
     // One figure for one drive (round 3): the stop's row has no "away",
     // the day's heading says the route's drive; the town that fits keeps
@@ -358,12 +400,18 @@ describe("the plan sheet told as days", () => {
     expect(html.match(/See it on the map/g)).toHaveLength(3);
     expect(html).not.toContain("See the whole trip");
     // A day with nothing under it says so rather than standing empty; with
-    // no town on the road at all, a cut is named by the mile (284 km in is
-    // 176 miles).
-    const bare = visible(renderToString(<PlanWorkspace {...base} candidateMarkers={[]} waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }} roadsideStops={[]} />));
-    expect(bare).toContain("Day 1 · Amarillo to mile 176 · 4 h");
-    expect(bare).toContain("Day 2 · mile 176 to Austin · 3 h 50 min");
+    // no town on the road at all, a cut is said in hours, as a person
+    // says it, the figure alone in the mono face (round 6: "mile 176").
+    const bareHtml = clean(renderToString(<PlanWorkspace {...base} candidateMarkers={[]} waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }} roadsideStops={[]} />));
+    const bare = visible(bareHtml);
+    expect(bare).toContain("Day 1 · 4 h down the road from Amarillo See it on the map");
+    expect(bare).toContain("Day 2 · on to Austin · 3 h 50 min See it on the map");
+    expect(bare).toContain("Two days, with a night on the road");
+    expect(bare).not.toMatch(/\bmile\b|on the road to|to on the road/);
+    expect(bareHtml).toContain('Day <span class="num">1</span> · <span class="num">4</span> h down the road from Amarillo');
+    expect(bareHtml).toContain('Day <span class="num">2</span> · on to Austin · <span class="num">3</span> h <span class="num">50</span> min');
     expect(bare.match(/Nothing listed along this stretch\./g)).toHaveLength(2);
+    expect(bare).not.toContain("Towns that fit");
   });
 
   it("tells a trip with no stops as the days the budget cuts it into, each holding what its road passes, and leaves a day's time out until its route is known", () => {
@@ -371,26 +419,35 @@ describe("the plan sheet told as days", () => {
     const days = daySections(rest);
     // 7 h 50 min on a 4 h budget with no night chosen: two days, the first
     // cut where 4 h runs out, near Snyder (round 5: round 4's "Days 1 and
-    // 2 · Amarillo to Austin" never said where day 1 ended). The towns
-    // that fit under day 1 with "Stop here" are the choice.
+    // 2 · Amarillo to Austin" never said where day 1 ended). Every town
+    // that fits is under day 1 with "Stop here", the choice of where the
+    // day ends, Brady and Llano among them though the road passes them
+    // after the cut (round 6: the title says they fit today, so they are
+    // day 1's); the places are day 1's or day 2's by where the road
+    // passes them.
     expect(days).toHaveLength(2);
     expect(visible(rest)).toContain("Day 1 · Amarillo to near Snyder · 4 h See it on the map");
     expect(visible(rest)).toContain("Day 2 · near Snyder to Austin · 3 h 50 min");
     expect(visible(rest)).not.toMatch(/Days \d|over the/);
-    for (const name of ["What's in Plainview", "What's in Lubbock", "What's in Post", "What's in Snyder", "Cadillac Ranch", "Prairie Dog Town"]) expect(days[0].text).toContain(name);
+    expect(days[0].text).toContain("Towns that fit today");
+    for (const name of ["What's in Plainview", "What's in Lubbock", "What's in Post", "What's in Snyder", "What's in Brady", "What's in Llano", "Cadillac Ranch", "Prairie Dog Town"]) expect(days[0].text).toContain(name);
     expect(days[0].text).toContain("2 places worth pulling over for");
     expect(days[0].text).toContain("+ Stop here");
-    for (const name of ["Brady", "Llano", "Windmill"]) expect(days[0].text).not.toContain(name);
-    for (const name of ["What's in Brady", "What's in Llano", "Windmill"]) expect(days[1].text).toContain(name);
+    expect(days[0].text).not.toContain("Windmill");
+    expect(days[0].text.indexOf("Towns that fit today")).toBeLessThan(days[0].text.indexOf("What's in"));
+    expect(days[1].text).toContain("Windmill");
     expect(days[1].text).toContain("1 place worth pulling over for");
-    for (const name of ["What's in Plainview", "What's in Post", "What's in Snyder", "Cadillac Ranch", "Prairie Dog Town"]) expect(days[1].text).not.toContain(name);
-    // The title counts the towns that fit as today's, day 1.
-    expect(visible(rest)).toContain("fit today");
+    expect(days[1].text).not.toContain("What's in");
+    expect(days[1].text).not.toContain("Towns that fit");
+    for (const name of ["Cadillac Ranch", "Prairie Dog Town", "+ Stop here"]) expect(days[1].text).not.toContain(name);
+    // The title counts the towns that fit as today's, day 1, the day they
+    // are listed under.
+    expect(visible(rest)).toContain("Plainview, Lubbock and 4 more fit today");
     // Within the budget, a plain "Day 1" of the whole road holding everything.
     const one = renderToString(<PlanWorkspace {...base} initialDurationSeconds={3 * 3600} />);
     expect(daySections(one)).toHaveLength(1);
     expect(visible(one)).toContain("Day 1 · Amarillo to Austin · 3 h See it on the map");
-    for (const name of ["Plainview", "Lubbock", "Post", "Snyder", "Brady", "Llano", "Cadillac Ranch", "Prairie Dog Town", "Windmill"]) expect(daySections(one)[0].text).toContain(name);
+    for (const name of ["Towns that fit today", "Plainview", "Lubbock", "Post", "Snyder", "Brady", "Llano", "Cadillac Ranch", "Prairie Dog Town", "Windmill"]) expect(daySections(one)[0].text).toContain(name);
     expect(daySections(one)[0].text).toContain("3 places worth pulling over for");
     // A stop whose recompute has not returned: the legs are fewer than the
     // stops, so neither day has a time yet, and nothing says "0 min".

@@ -28,8 +28,8 @@ import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { fitsTodayLine, dayHeadingLine, tripShapeLine } from "@/lib/plan/words";
-import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
+import { fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
+import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import {
   recomputeAndRefreshAction,
@@ -662,12 +662,14 @@ export default function PlanWorkspace({
   // ── The trip as days (Gauntlet U3; quality bar, rule 5) ────────────────
   // The direct route is the frame: the road the page was planned on and
   // the one the roadside stops were measured along. Decoded once per plan;
-  // every town and stop is placed along it once per set. No routing call:
-  // the legs are the recompute's, the road is the page's.
+  // every place is placed along it once per set. No routing call: the
+  // legs are the recompute's, the road is the page's.
   const road = useMemo(() => buildRoad(safeDecode(encodedPolyline)), [encodedPolyline]);
-  // Each town with how far off the road it sits, so a town on the road
-  // can name where a cut day ends ("near Snyder") and one hours off it
-  // cannot.
+  // The towns that fit, each with where the road passes nearest it and
+  // how far off the road it sits, so a town on the road can name where a
+  // cut day ends ("near Snyder") and one hours off it cannot. The towns
+  // are listed under the next day whatever their position (round 6): they
+  // are the choices for where that day ends, counted from the last stop.
   const dayTowns = useMemo(
     () => liveCandidateMarkers.map((c) => ({ id: c.id, name: c.name, ...nearestOnRoad(road, c) })),
     [liveCandidateMarkers, road]
@@ -704,12 +706,19 @@ export default function PlanWorkspace({
   // Lubbock · 3 h 20 min", and a day cut where the budget runs out named
   // by where, "Day 1 · Amarillo to near Snyder · 4 h" then "Day 2 · near
   // Snyder to Austin · 3 h 50 min" (round 5: round 4's "Days 1 and 2 ·
-  // Amarillo to Austin" never said where day 1 ended). The trip's shape
-  // in one line under the numbers, "Three days, with nights in Lubbock
-  // and near Llano", for two days or more; it repeats no heading (round
-  // 4: the strip of day rows did).
+  // Amarillo to Austin" never said where day 1 ended), or in hours with
+  // no town near, "Day 1 · 4 h down the road from Amarillo" then "Day 2
+  // · on to Austin · 3 h 37 min" (round 6: "mile 259" was not a person's
+  // word). The trip's shape in one line under the numbers, "Three days,
+  // with a night in Lubbock and one on the road", for two days or more;
+  // it repeats no heading (round 4: the strip of day rows did).
   const dayHeadings = useMemo(() => days.map((day) => dayHeadingLine(day)), [days]);
   const tripShape = useMemo(() => tripShapeLine(days), [days]);
+  // The day the towns that fit are listed under, and so the day the
+  // sheet's title names: one assignment, read from the days (round 6: the
+  // title said "Fort Worth fits in day 2" over a list that put Fort Worth
+  // under Day 3 by its position along the road).
+  const townsDayNumber = townsDay(days).index + 1;
   // Each day's places strongest first, not road order: the diamonds on the
   // map already say where, and a person scanning ten rows wants the best
   // ten. A name listed twice in the day is listed once (round 4: the Buddy
@@ -728,8 +737,8 @@ export default function PlanWorkspace({
       }),
     [days, sheetFetch.waypoints]
   );
-  // A day's towns that fit, by their position along the road, the stops
-  // among them left out: a stop is drawn as its day's end, never twice.
+  // A day's towns that fit (the next day's, all of them), the stops among
+  // them left out: a stop is drawn as its day's end, never twice.
   const cityIdsByDay = useMemo(
     () => days.map((d) => new Set(d.towns.filter((t) => !addedCityIds.has(t.id)).map((t) => t.id))),
     [days, addedCityIds]
@@ -1152,9 +1161,10 @@ export default function PlanWorkspace({
   // after Lubbock" stood over a list that put Fort Worth in day 2). It
   // sits on the handle row, above everything and at every snap (round 2:
   // the critic saw the sheet open on the roadside heading and no
-  // sentence). The day is the first day after the last stop (round 5: a
-  // stretch over the budget is cut into days), the number its section is
-  // headed with. When the towns
+  // sentence). The day is the one the towns are listed under, read from
+  // the days themselves (round 6: the title and the sections had two
+  // rules, and Fort Worth was "in day 2" in the title and under Day 3 on
+  // the sheet). When the towns
   // could not be read the title says that instead, since "nothing fits"
   // would be false. `liveWaypointFetch` is null until a refresh returns a
   // set, and a refresh whose town read failed leaves it as it was (the
@@ -1166,11 +1176,7 @@ export default function PlanWorkspace({
   const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
   const sheetTitle = townsFailed
     ? "Couldn't load the towns along the road"
-    : fitsTodayLine(
-        effectiveWaypointFetch.cities.map((c) => c.name),
-        toName,
-        (days.find((d) => d.legIndex === tripStops.length)?.index ?? 0) + 1
-      );
+    : fitsTodayLine(effectiveWaypointFetch.cities.map((c) => c.name), toName, townsDayNumber);
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -1418,17 +1424,21 @@ export default function PlanWorkspace({
               heading per day, a sentence with its figures in the mono face
               ("Day 1 · Amarillo to Lubbock · 3 h 20 min", and a day cut
               where the budget runs out named by where, "Day 2 · Lubbock to
-              near Llano · 4 h"), then the towns that fit in that
-              stretch with their "Stop here" controls, then the stop the
-              day ends at with its places and "✓ Added" (round 2: a stop's
-              town leaves the towns that fit, and its day still ends there),
-              then that day's places worth pulling over for, strongest
-              first, ten at a time, in the rows and the card U1 built. The
-              heading is a 44 px button and its second line says what a tap
-              does: fit the map to that day's road, or back to the whole
-              trip. The days are the trip: there is no itinerary above them.
-              Council ISC-S7-PROD-2: the brief highlight on each successful
-              refresh proves the towns actually updated. */}
+              near Llano · 4 h", or in hours, "Day 2 · 4 h down the road
+              from Lubbock"), then, on the day after the last stop, the
+              towns that fit under their label ("Towns that fit in day 2")
+              with their "Stop here" controls, the choices for where that
+              day ends (round 6: one assignment, the title's day and the
+              list's); on a day that ends at a stop, the stop's town with
+              its places and "✓ Added" (round 2: a stop's town leaves the
+              towns that fit, and its day still ends there); then that
+              day's places worth pulling over for, strongest first, ten at
+              a time, in the rows and the card U1 built. The heading is a
+              44 px button and its second line says what a tap does: fit
+              the map to that day's road, or back to the whole trip. The
+              days are the trip: there is no itinerary above them. Council
+              ISC-S7-PROD-2: the brief highlight on each successful refresh
+              proves the towns actually updated. */}
           <div
             className={
               highlightRefresh
@@ -1495,10 +1505,16 @@ export default function PlanWorkspace({
                       The route didn&apos;t update for {endStop.cityName}; the drive shown is the old one.
                     </p>
                   )}
-                  {/* The towns that fit in this stretch, then the day's end:
-                      the stop's town with its places and "✓ Added", from the
+                  {/* The towns that fit, under what they are, on the day
+                      they are the choices for; then the day's end: the
+                      stop's town with its places and "✓ Added", from the
                       set it was added from, since the towns that fit have
-                      moved on past it. */}
+                      moved on past it. A day holds one or the other: the
+                      towns are the day after the last stop's, and that
+                      day ends at no stop. */}
+                  {day.holdsTowns && townIds.size > 0 && (
+                    <h2 data-towns-heading className="text-base leading-6 text-[#8b949e] px-2">{townsFitHeading(n)}</h2>
+                  )}
                   <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} />
                   {endStop && (
                     <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />

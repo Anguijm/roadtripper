@@ -68,44 +68,75 @@ export function kindWord(type: WaypointType): string {
 
 /**
  * A day's heading, a sentence with its figures: "Day 1 · Amarillo to
- * Lubbock · 3 h 20 min"; a day cut where the budget runs out, "Day 1 ·
- * Amarillo to near Snyder · 4 h", then "Day 2 · near Snyder to Austin ·
- * 3 h 50 min"; the drive left off while the stretch's route is not known.
- * Round 4's "Days 1 and 2 · Amarillo to Austin · 7 h 50 min, over the 4 h
- * you wanted" told the count and not where day 1 ended; the cut in
- * days.ts now says where, so no heading is ever over the budget. The
- * figures are set in the mono face by the caller (Figures).
+ * Lubbock · 3 h 20 min"; a day cut where the budget runs out with a town
+ * near, "Day 1 · Amarillo to near Snyder · 4 h", then "Day 2 · near
+ * Snyder to Austin · 3 h 50 min"; a cut with no town near, said in hours
+ * as a person says it, "Day 1 · 4 h down the road from Amarillo", then
+ * "Day 2 · on to Austin · 3 h 37 min", and a second cut in a row "Day 2 ·
+ * another 4 h down the road" (round 6: round 5's "Amarillo to mile 259"
+ * was a number a person in a car would not say). The drive is left off
+ * while the stretch's route is not known. Round 4's "Days 1 and 2 ·
+ * Amarillo to Austin · 7 h 50 min, over the 4 h you wanted" told the
+ * count and not where day 1 ended; the cut in days.ts says where, so no
+ * heading is ever over the budget. The figures are set in the mono face
+ * by the caller (Figures).
  */
-export function dayHeadingLine(day: Pick<TripDay, "index" | "fromName" | "toName" | "minutes">): string {
-  let line = `Day ${day.index + 1} · ${day.fromName} to ${day.toName}`;
-  if (day.minutes !== null) line += ` · ${formatDurationPlain(Math.round(day.minutes * 60))}`;
-  return line;
+export function dayHeadingLine(day: Pick<TripDay, "index" | "fromKind" | "fromName" | "endKind" | "toName" | "minutes">): string {
+  const n = `Day ${day.index + 1}`;
+  const drive = day.minutes !== null ? formatDurationPlain(Math.round(day.minutes * 60)) : null;
+  if (day.endKind === "hours") {
+    // A cut day always has its drive (the budget); "a day" is belt and braces.
+    const hours = drive ?? "a day";
+    return day.fromKind === "hours" ? `${n} · another ${hours} down the road` : `${n} · ${hours} down the road from ${day.fromName}`;
+  }
+  const where = day.fromKind === "hours" ? `on to ${day.toName}` : `${day.fromName} to ${day.toName}`;
+  return drive ? `${n} · ${where} · ${drive}` : `${n} · ${where}`;
 }
 
-/** Where a night is spent, after "a night" or "nights": "in Lubbock" at a stop, "near Snyder" or "at mile 176" at a cut. */
+/** Where a night is spent, after "a night" or "nights": "in Lubbock" at a stop, "near Snyder" at a cut with a town near. */
 function nightAt(day: Pick<TripDay, "toName" | "endKind">): string {
-  if (day.endKind === "near") return day.toName;
-  if (day.endKind === "mile") return `at ${day.toName}`;
-  return `in ${day.toName}`;
+  return day.endKind === "near" ? day.toName : `in ${day.toName}`;
 }
 
 /**
  * The trip's shape in one line under the sheet's numbers, for a trip of
  * two or more days: "Two days, with a night near Snyder", "Three days,
  * with nights in Lubbock and Abilene", "Three days, with nights in Lubbock
- * and near Llano". The count is the days, in words (digits past twenty);
- * the nights are where each day but the last ends, in order, a stop's
- * town or a cut's place; nights all in towns share one "in". Not a second
- * telling of any day (round 4: the strip of day rows repeated each
- * heading): where a day ends and what fits in it is the day's own heading
- * and section. Null for one day, whose heading is a few lines down.
+ * and near Llano", and for a cut with no town near, a night on the road:
+ * "Two days, with a night on the road", "Three days, with a night in
+ * Lubbock and one on the road", "Four days, with nights in Lubbock and
+ * Abilene, and one on the road". The count is the days, in words (digits
+ * past twenty); the nights are where each day but the last ends, a stop's
+ * town or a cut's place first, then the nights on the road counted;
+ * nights all in towns share one "in". Not a second telling of any day
+ * (round 4: the strip of day rows repeated each heading): where a day
+ * ends and what fits in it is the day's own heading and section. Null for
+ * one day, whose heading is a few lines down.
  */
 export function tripShapeLine(days: ReadonlyArray<Pick<TripDay, "toName" | "endKind">>): string | null {
   if (days.length < 2) return null;
   const ends = days.slice(0, -1);
-  const allInTowns = ends.every((d) => d.endKind === "stop" || d.endKind === "end");
-  const nights = allInTowns ? ends.map((d) => d.toName) : ends.map(nightAt);
-  const list = nights.length === 1 ? nights[0] : `${nights.slice(0, -1).join(", ")} and ${nights[nights.length - 1]}`;
+  const named = ends.filter((d) => d.endKind !== "hours");
+  const onRoad = ends.length - named.length;
   const count = countWord(days.length);
-  return `${count[0].toUpperCase()}${count.slice(1)} days, with ${nights.length === 1 ? "a night" : "nights"} ${allInTowns ? "in " : ""}${list}`;
+  const head = `${count[0].toUpperCase()}${count.slice(1)} days, with`;
+  if (named.length === 0) return `${head} ${onRoad === 1 ? "a night" : `${countWord(onRoad)} nights`} on the road`;
+  const allInTowns = named.every((d) => d.endKind === "stop" || d.endKind === "end");
+  const nights = allInTowns ? named.map((d) => d.toName) : named.map(nightAt);
+  const list = nights.length === 1 ? nights[0] : `${nights.slice(0, -1).join(", ")} and ${nights[nights.length - 1]}`;
+  const line = `${head} ${nights.length === 1 ? "a night" : "nights"} ${allInTowns ? "in " : ""}${list}`;
+  if (onRoad === 0) return line;
+  return `${line}${nights.length > 1 ? "," : ""} and ${onRoad === 1 ? "one" : countWord(onRoad)} on the road`;
+}
+
+/**
+ * The label over a day's towns: "Towns that fit today", "Towns that fit
+ * in day 2". The glossary's own phrase for what the planner calls
+ * candidates, said once over the rows so a town the planner offers from
+ * hours off the road (Oklahoma City from Amarillo) reads under Day 1 as a
+ * choice of where the day ends, not as a place along its road (round 6,
+ * rule 5). Day 1 is "today", as the sheet's title says it.
+ */
+export function townsFitHeading(day = 1): string {
+  return day > 1 ? `Towns that fit in day ${day}` : "Towns that fit today";
 }

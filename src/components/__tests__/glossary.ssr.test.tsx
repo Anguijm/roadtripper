@@ -37,7 +37,7 @@ import TripsPage from "@/app/trips/page";
 import PlanLoading from "@/app/plan/loading";
 import PlanError from "@/app/plan/error";
 import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
-import { fitsTodayLine, kindWord, dayHeadingLine, tripShapeLine } from "@/lib/plan/words";
+import { fitsTodayLine, kindWord, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 /**
@@ -225,24 +225,44 @@ describe("the words on the screens, against the glossary", () => {
     // A day's heading (U3): the day's number, its ends, its drive. A day
     // cut where the budget runs out is named by where (round 5: "Days 1
     // and 2 · Amarillo to Austin" never said where day 1 ended), a town
-    // near the cut or the mile, and no heading is "over" anything.
-    const day = { index: 0, fromName: "Amarillo", toName: "Lubbock", minutes: 200 };
+    // near the cut, or said in hours with none near (round 6: "mile 319"
+    // was a number a person in a car would not say), and no heading is
+    // "over" anything.
+    const day = { index: 0, fromKind: "start" as const, fromName: "Amarillo", endKind: "stop" as const, toName: "Lubbock", minutes: 200 };
     expect(dayHeadingLine(day)).toBe("Day 1 · Amarillo to Lubbock · 3 h 20 min");
-    expect(dayHeadingLine({ index: 1, fromName: "Lubbock", toName: "near Llano", minutes: 240 })).toBe("Day 2 · Lubbock to near Llano · 4 h");
-    expect(dayHeadingLine({ index: 2, fromName: "near Llano", toName: "Austin", minutes: 30 })).toBe("Day 3 · near Llano to Austin · 30 min");
-    expect(dayHeadingLine({ index: 1, fromName: "Lubbock", toName: "mile 319", minutes: 240 })).toBe("Day 2 · Lubbock to mile 319 · 4 h");
+    expect(dayHeadingLine({ index: 1, fromKind: "stop", fromName: "Lubbock", endKind: "near", toName: "near Llano", minutes: 240 })).toBe("Day 2 · Lubbock to near Llano · 4 h");
+    expect(dayHeadingLine({ index: 2, fromKind: "near", fromName: "near Llano", endKind: "end", toName: "Austin", minutes: 30 })).toBe("Day 3 · near Llano to Austin · 30 min");
+    expect(dayHeadingLine({ index: 1, fromKind: "stop", fromName: "Lubbock", endKind: "hours", toName: "on the road", minutes: 240 })).toBe("Day 2 · 4 h down the road from Lubbock");
+    expect(dayHeadingLine({ index: 0, fromKind: "start", fromName: "Amarillo", endKind: "hours", toName: "on the road", minutes: 240 })).toBe("Day 1 · 4 h down the road from Amarillo");
+    expect(dayHeadingLine({ index: 1, fromKind: "hours", fromName: "on the road", endKind: "hours", toName: "on the road", minutes: 240 })).toBe("Day 2 · another 4 h down the road");
+    expect(dayHeadingLine({ index: 2, fromKind: "hours", fromName: "on the road", endKind: "end", toName: "Austin", minutes: 30 })).toBe("Day 3 · on to Austin · 30 min");
+    expect(dayHeadingLine({ index: 2, fromKind: "hours", fromName: "on the road", endKind: "near", toName: "near Austin", minutes: 240 })).toBe("Day 3 · on to near Austin · 4 h");
+    expect(dayHeadingLine({ index: 2, fromKind: "hours", fromName: "on the road", endKind: "end", toName: "Austin", minutes: null })).toBe("Day 3 · on to Austin");
     expect(dayHeadingLine({ ...day, minutes: null })).toBe("Day 1 · Amarillo to Lubbock");
     // The trip's shape in one line, for two days or more: the count in
-    // words, where each night is (in a stop's town, near a cut's town, at
-    // a cut's mile); none for one day.
+    // words, where each night is (in a stop's town, near a cut's town, or
+    // on the road for a cut with none near, those counted last); none
+    // for one day.
     const stop = (toName: string) => ({ toName, endKind: "stop" as const });
-    expect(tripShapeLine([stop("Lubbock"), { toName: "near Llano", endKind: "near" }, { toName: "Austin", endKind: "end" }])).toBe("Three days, with nights in Lubbock and near Llano");
-    expect(tripShapeLine([{ toName: "near Snyder", endKind: "near" }, { toName: "Austin", endKind: "end" }])).toBe("Two days, with a night near Snyder");
-    expect(tripShapeLine([{ toName: "mile 176", endKind: "mile" }, { toName: "Austin", endKind: "end" }])).toBe("Two days, with a night at mile 176");
-    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), { toName: "Austin", endKind: "end" }])).toBe("Three days, with nights in Lubbock and Abilene");
-    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), stop("Brady"), { toName: "Austin", endKind: "end" }])).toBe("Four days, with nights in Lubbock, Abilene and Brady");
-    expect(tripShapeLine([{ toName: "Austin", endKind: "end" }])).toBeNull();
+    const onRoad = { toName: "on the road", endKind: "hours" as const };
+    const end = { toName: "Austin", endKind: "end" as const };
+    expect(tripShapeLine([stop("Lubbock"), { toName: "near Llano", endKind: "near" }, end])).toBe("Three days, with nights in Lubbock and near Llano");
+    expect(tripShapeLine([{ toName: "near Snyder", endKind: "near" }, end])).toBe("Two days, with a night near Snyder");
+    expect(tripShapeLine([onRoad, end])).toBe("Two days, with a night on the road");
+    expect(tripShapeLine([onRoad, onRoad, end])).toBe("Three days, with two nights on the road");
+    expect(tripShapeLine([stop("Lubbock"), onRoad, end])).toBe("Three days, with a night in Lubbock and one on the road");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), onRoad, end])).toBe("Four days, with nights in Lubbock and Abilene, and one on the road");
+    expect(tripShapeLine([onRoad, onRoad, { toName: "near Austin", endKind: "near" }, end])).toBe("Four days, with a night near Austin and two on the road");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), end])).toBe("Three days, with nights in Lubbock and Abilene");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), stop("Brady"), end])).toBe("Four days, with nights in Lubbock, Abilene and Brady");
+    expect(tripShapeLine([end])).toBeNull();
     expect(tripShapeLine([])).toBeNull();
+    // The label over a day's towns, the glossary's own words for what the
+    // planner calls candidates (round 6).
+    expect(townsFitHeading()).toBe("Towns that fit today");
+    expect(townsFitHeading(1)).toBe("Towns that fit today");
+    expect(townsFitHeading(2)).toBe("Towns that fit in day 2");
+    expect(text).toContain("Towns that fit today");
   });
 
   it("puts that sentence first: the sheet's title on the handle row, above the roadside heading, reachable by a screen reader", () => {

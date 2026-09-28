@@ -12,16 +12,24 @@
  * is untouched. Each cut falls where that day's budget runs out, placed
  * along the road in proportion to time (the stretch's average pace: no
  * routing call), and the day's end is named by the nearest town on the
- * road ("near Snyder") or, with none near, by the trip's own mile count
- * ("mile 176"). Round 4 kept such a stretch as one section labelled "Days
- * 1 and 2 · Amarillo to Austin", and the critic's verdict was that the
- * reader was told the trip was three days but never where day 1 ended.
+ * road ("near Snyder") or, with none near, said in hours ("4 h down the
+ * road from Amarillo"; round 6: round 5's "mile 176" was a number a person
+ * in a car would not say). Round 4 kept such a stretch as one section
+ * labelled "Days 1 and 2 · Amarillo to Austin", and the critic's verdict
+ * was that the reader was told the trip was three days but never where
+ * day 1 ended.
  *
- * Every town and every roadside place is placed by its position along the
- * direct route: the road the page was planned on, and the one the roadside
- * stops were measured along (roadsideAlong in src/lib/roadside/along.ts).
- * A stop's own position is where the road passes nearest it, so a town
- * hours off the road still belongs to the day you leave the road from.
+ * Every roadside place is placed by its position along the direct route:
+ * the road the page was planned on, and the one the roadside stops were
+ * measured along (roadsideAlong in src/lib/roadside/along.ts). The towns
+ * that fit are not: they are, by the app's own rule, the towns within a
+ * day's drive of the last stop that make progress toward the end
+ * (findCitiesInRadius, makesProgress), the choices for where the next day
+ * ends, so every one of them is listed under the first day after the last
+ * stop whatever its position along the road, and the sheet's title takes
+ * its day from that same day (round 6: round 5 placed Fort Worth, four
+ * hours from Lubbock by road but 340 km east of the direct road, past day
+ * 2's cut under Day 3, while the title said it fit in day 2).
  */
 
 import { haversineKm, type LatLng } from "@/lib/routing/polyline";
@@ -110,17 +118,20 @@ export interface DayTown {
 
 /**
  * What a day ends at: a stop the person chose, a cut where the budget
- * runs out named by a town near it or by the mile, or the trip's end.
+ * runs out named by a town near it ("near") or said in hours with none
+ * near ("hours"), or the trip's end.
  */
-export type DayEndKind = "stop" | "near" | "mile" | "end";
+export type DayEndKind = "stop" | "near" | "hours" | "end";
 
 export interface TripDay {
   /** 0-based position among the days: the section's key; the heading's number is index + 1. */
   index: number;
   /** Which stretch between overnights the day is part of: 0 from the start, i after stop i - 1. */
   legIndex: number;
+  /** What the day starts from: the trip's start, or the previous day's end (its `endKind`). */
+  fromKind: "start" | DayEndKind;
   fromName: string;
-  /** A town, "near Snyder" or "mile 176" for a cut, the trip's end for the last day. */
+  /** A town, "near Snyder" for a cut with a town near it, ON_THE_ROAD for a cut with none, the trip's end for the last day. */
   toName: string;
   /** The stop the day ends at, or null: a cut, or the destination. */
   endStopId: string | null;
@@ -139,7 +150,16 @@ export interface TripDay {
    */
   legFractionStart: number;
   legFractionEnd: number;
+  /**
+   * True on the one day the towns that fit are listed under: the first
+   * day after the last stop, day 1 with no stops. The sheet's title
+   * ("Fort Worth fits in day 2") reads its day number from this day, so
+   * the title and the sections cannot disagree (round 6).
+   */
+  holdsTowns: boolean;
+  /** The towns that fit, all of them on the day that `holdsTowns`; empty on every other day. */
   towns: DayTown[];
+  /** The places worth pulling over for on this day's stretch of road, by their position along it. */
   roadside: RoadsideMarker[];
 }
 
@@ -157,6 +177,11 @@ export interface TripDaysInput {
   legMinutes: ReadonlyArray<number | null>;
   /** The direct route's length, where the last day ends. */
   roadLengthKm: number;
+  /**
+   * The towns that fit from the last stop (the start with no stops): the
+   * choices for where the next day ends. Listed under that day, all of
+   * them; a town on the road also names a cut near it.
+   */
   towns: readonly DayTown[];
   roadside: readonly RoadsideMarker[];
   budgetMinutesPerDay: number;
@@ -176,14 +201,27 @@ export function daysSpannedBy(minutes: number | null, budgetMinutesPerDay: numbe
  * How near a town on the road must be to where a day's budget runs out
  * for the day to end "near" it, in km. 30 is about twenty minutes at
  * highway pace: the most a person plans to drive on, or stop short, to
- * sleep in a town rather than at a mile marker. Farther than that the
- * day's end is the mile. Moves with it: `cutEndName` alone; nothing in
- * CSS. Check: the test "names where a cut day ends by the nearest town on
- * the road, or by the mile with none near" pins 30 and the line at 29
- * and 31 km, and on the page a trip over the budget reads "Day 1 ·
- * Amarillo to near Snyder · 4 h".
+ * sleep in a town rather than wherever the hours run out. Farther than
+ * that the day's end is said in hours. Moves with it: `cutEndName` alone;
+ * nothing in CSS. Check: the test "names where a cut day ends by the
+ * nearest town on the road, or in hours with none near" pins 30 and the
+ * line at 29 and 31 km, and on the page a trip over the budget reads
+ * "Day 1 · Amarillo to near Snyder · 4 h".
  */
 export const NEAR_CUT_KM = 30;
+
+/**
+ * Where a night is when the day's budget runs out with no town on the
+ * road near: the phrase the shape line says ("Two days, with a night on
+ * the road"). The heading says the hours instead ("Day 1 · 4 h down the
+ * road from Amarillo"; `dayHeadingLine` in words.ts), so this is never a
+ * day's start or end on the page. Round 5 said "mile 176", a number a
+ * person in a car would not say (round 6's critic, rule 1). On the
+ * Amarillo to Austin trip this is what every cut gets: the atlas has
+ * eight towns in the corridor, none within 30 km of where four hours run
+ * out.
+ */
+export const ON_THE_ROAD = "on the road";
 
 /** A named point on the road, for naming a cut: a town that fits and sits on the road, a stop, the start, the end. */
 interface NamedKm {
@@ -192,19 +230,11 @@ interface NamedKm {
 }
 
 /**
- * The trip's own mile count from the start, rounded as the roadside rows
- * round theirs ("131 miles along"), so the two never disagree.
+ * Where a cut day ends: "near Snyder" for the nearest named point on the
+ * road within NEAR_CUT_KM of the cut (a tie goes to the earlier one), else
+ * ON_THE_ROAD, which the heading says in hours.
  */
-function mileAlong(km: number): number {
-  return Math.round((km * 1000) / 1609.34);
-}
-
-/**
- * Where a cut day ends, as the heading says it: "near Snyder" for the
- * nearest named point on the road within NEAR_CUT_KM of the cut (a tie
- * goes to the earlier one), else "mile 176".
- */
-export function cutEndName(cutKm: number, named: readonly NamedKm[], nearKm = NEAR_CUT_KM): { toName: string; endKind: "near" | "mile" } {
+export function cutEndName(cutKm: number, named: readonly NamedKm[], nearKm = NEAR_CUT_KM): { toName: string; endKind: "near" | "hours" } {
   let best: NamedKm | null = null;
   let bestKm = Infinity;
   for (const n of named) {
@@ -215,18 +245,19 @@ export function cutEndName(cutKm: number, named: readonly NamedKm[], nearKm = NE
     }
   }
   if (best && bestKm <= nearKm) return { toName: `near ${best.name}`, endKind: "near" };
-  return { toName: `mile ${mileAlong(cutKm)}`, endKind: "mile" };
+  return { toName: ON_THE_ROAD, endKind: "hours" };
 }
 
 /**
  * The days in order. A stretch within the budget is one day; a longer one
  * is cut into the days it takes, each cut where its budget runs out along
- * the road in proportion to time. A town or a place belongs to the first
- * day whose stretch reaches it: inclusive at the end, so the stop's own
- * town (which projects to the same km as the stop) sits under the day that
- * ends there, and a place beyond every stop sits under the last day. A
- * stop added behind an earlier one makes an empty stretch; the earlier day
- * keeps what the road passed first.
+ * the road in proportion to time. A place belongs to the first day whose
+ * stretch reaches it: inclusive at the end, and a place beyond every stop
+ * sits under the last day; a stop added behind an earlier one makes an
+ * empty stretch, and the earlier day keeps what the road passed first.
+ * The towns that fit all belong to the first day after the last stop
+ * (`holdsTowns`): they are the choices for where that day ends, and the
+ * sheet's title names that day from the same flag.
  */
 export function tripDays(input: TripDaysInput): TripDay[] {
   const ends = [
@@ -261,10 +292,12 @@ export function tripDays(input: TripDaysInput): TripDay[] {
       const endKm = start.km + (end.km - start.km) * fEnd;
       const dayMinutes = minutes === null ? null : last ? minutes - k * budget : budget;
       const cut = last ? null : cutEndName(endKm, named);
+      const prev = days[days.length - 1];
       days.push({
         index: days.length,
         legIndex: leg,
-        fromName: k === 0 ? start.name : days[days.length - 1].toName,
+        fromKind: prev ? prev.endKind : "start",
+        fromName: prev ? prev.toName : start.name,
         toName: cut ? cut.toName : end.name,
         endStopId: last ? end.stopId : null,
         endKind: cut ? cut.endKind : end.stopId !== null ? "stop" : "end",
@@ -273,16 +306,27 @@ export function tripDays(input: TripDaysInput): TripDay[] {
         endKm,
         legFractionStart: fStart,
         legFractionEnd: fEnd,
+        holdsTowns: false,
         towns: [],
         roadside: [],
       });
     }
   });
   const lastDay = days[days.length - 1];
+  // The towns that fit: the next day's, all of them (the first day of the
+  // last stretch always exists; the fallback is belt and braces).
+  const next = days.find((d) => d.legIndex === input.stops.length) ?? lastDay;
+  next.holdsTowns = true;
+  next.towns.push(...input.towns);
+  // The places: by where the road passes them.
   const dayFor = (km: number): TripDay => days.find((d) => km <= d.endKm) ?? lastDay;
-  for (const t of input.towns) dayFor(t.alongKm).towns.push(t);
   for (const s of input.roadside) dayFor(s.alongKm).roadside.push(s);
   return days;
+}
+
+/** The day the towns that fit are listed under; the title's day. Always one; the first day if none is flagged. */
+export function townsDay(days: readonly TripDay[]): TripDay {
+  return days.find((d) => d.holdsTowns) ?? days[0];
 }
 
 /**
