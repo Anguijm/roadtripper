@@ -236,11 +236,20 @@ reaches the page, the action and the scorer, and is not this round's.
 
 ## Council round 2 on #85 (CONDITIONAL, two items)
 
-1. `postcss` named in `devDependencies`, pinned to `8.5.8`, the version
-   `@tailwindcss/postcss` already resolves to, so the test and the build's
-   Tailwind plugin share one copy. `^8.5.6` would have resolved to a newer
-   root copy beside Tailwind's nested one: two `postcss` in the tree for
-   one test. The lockfile also catches up with `firebase-admin` having
+1. `postcss` named in `devDependencies`, pinned to `8.5.8`, the copy
+   `@tailwindcss/postcss` resolves to, so the test and Tailwind's plugin
+   share one. Three pushes to get here, recorded because each taught
+   something: the first pin failed the `validate` check, since CI installs
+   with `npm ci` from `package-lock.json` and that lockfile had not been
+   regenerated (its hoisted copy was `8.5.12`, for vite); the caret
+   `^8.5.6` that followed passed `npm ci` but failed Gate 1's type-check
+   with "excessive stack depth" in the stylesheet test, because Bun's
+   tree then held two copies (root `8.5.12`, Tailwind's nested `8.5.8`)
+   and the plugin's types came from the other one. This push: the pin,
+   both lockfiles regenerated (`bun install`, `npm install
+   --package-lock-only`), `npm ci --dry-run` in sync, one copy in Bun's
+   tree; in npm's tree vite keeps its own newer copy nested, which nothing
+   here imports. `bun.lock` also catches up with `firebase-admin` having
    moved to `devDependencies` earlier; that drift was already there.
 2. The thirty-second timeout in `src/app/__tests__/stylesheet.test.ts`
    explained in a comment beside it. Measured: the test runs in about
