@@ -43,5 +43,13 @@ describe("the stylesheet, compiled from this tree", () => {
     // The scan reads every file in the tree, this test and the glossary
     // test among them, and a word in a test is enough to emit the rule; a
     // cut is a class on a name, and glossary.ssr.test.tsx reads the names.
+    //
+    // Thirty seconds, not the suite's five: Tailwind's compile scans the
+    // whole tree for class names before it emits a rule, and the scan is
+    // disk-bound. Here it takes about 0.4 s and the default would pass; the
+    // headroom is for a CI runner with a cold disk and two cores, where a
+    // timeout would read as a broken stylesheet when nothing about the
+    // stylesheet changed. The number is headroom, not a measurement of a
+    // slow run.
   }, 30_000);
 });

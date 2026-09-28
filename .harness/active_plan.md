@@ -233,3 +233,21 @@ weakest part of the round itself: the failed state is a flag beside an
 empty set, which is what the council mistook for a missing guard. A
 `failed` member of the union would make the model say it, but that
 reaches the page, the action and the scorer, and is not this round's.
+
+## Council round 2 on #85 (CONDITIONAL, two items)
+
+1. `postcss` named in `devDependencies`, pinned to `8.5.8`, the version
+   `@tailwindcss/postcss` already resolves to, so the test and the build's
+   Tailwind plugin share one copy. `^8.5.6` would have resolved to a newer
+   root copy beside Tailwind's nested one: two `postcss` in the tree for
+   one test. The lockfile also catches up with `firebase-admin` having
+   moved to `devDependencies` earlier; that drift was already there.
+2. The thirty-second timeout in `src/app/__tests__/stylesheet.test.ts`
+   explained in a comment beside it. Measured: the test runs in about
+   0.4 s on this machine; the thirty is headroom for a cold CI runner, and
+   the comment says so rather than claiming a slow run that was not seen.
+
+The three deferred items (referrer restriction on the Maps key, a request
+sequence on rapid taps, logging the swallowed neighborhood fetch error)
+are not this branch's; noted for the round-1 report. Cost and weakest
+part unchanged.
