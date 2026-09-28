@@ -26,9 +26,11 @@ import RouteMap, {
   roadsideMinProbabilityAt,
   ROADSIDE_ZOOM_STEPS,
   DARK_MAP_STYLES,
-  roadStartPanPx,
-  ROAD_START_TOP_PX,
-  ROAD_START_BOTTOM_PX,
+  fitPaddingPx,
+  FIT_MARGIN_PX,
+  STRIP_MARGIN_PX,
+  STRIP_MIN_PX,
+  MAP_CONTROL_SIZE_PX,
 } from "@/components/RouteMap";
 import { roadsideSpread, mercatorPx, ringRadius, RING_CHORD_PX, RING_MAX, STACK_PX } from "@/lib/roadside/spread";
 import { townsAlong, roadsideAnchor } from "@/lib/roadside/anchor";
@@ -171,33 +173,69 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(css).toMatch(/\.plan-sheet\s*\{[^}]*height:\s*92dvh/);
     // The rows are two lines of 22 px with no vertical padding, so ten are 440.
     expect(html).toMatch(/data-roadside-stop="osm:node:113"><button[^>]*class="w-full min-h-\[44px\] text-left px-2 py-0 /);
-    // The map is told where the sheet's edge is, so the strip above it can
-    // show the start of the road: 100 - 92 * 0.75.
+    // The map is told where the sheet's edge is, so its fit can frame the
+    // road in the strip above it: 100 - 92 * 0.75.
     expect(sheetTopDvh(1)).toBe(31);
   });
 
-  it("pans the start of the road into the strip of map above the sheet at rest, on a phone", () => {
-    // The fit centres the corridor on an 800 px map that the sheet at rest
-    // covers from 218 px down, so Amarillo sat under the sheet's edge and
-    // the strip showed Kansas. At zoom 6 Amarillo is about 132 px above the
-    // route's middle; the pan puts it ROAD_START_TOP_PX under the map's top.
-    const center = { lat: (base.origin.lat + base.destination.lat) / 2, lng: -99.8 };
-    const strip = 218;
-    const south = roadStartPanPx({ origin: base.origin, destination: base.destination, center, zoom: 6, mapHeightPx: 800, stripHeightPx: strip });
-    const originY = 400 + mercatorPx(base.origin.lat, base.origin.lng, 6).y - mercatorPx(center.lat, center.lng, 6).y;
-    expect(originY).toBeGreaterThan(strip);
-    expect(originY - south).toBeCloseTo(ROAD_START_TOP_PX, 0);
-    // Heading north (Austin to Amarillo) the start goes just above the
-    // sheet's edge instead, so the road runs up into the strip.
-    const north = roadStartPanPx({ origin: base.destination, destination: base.origin, center, zoom: 6, mapHeightPx: 800, stripHeightPx: strip });
-    const austinY = 400 + mercatorPx(base.destination.lat, base.destination.lng, 6).y - mercatorPx(center.lat, center.lng, 6).y;
-    expect(austinY - north).toBeCloseTo(strip - ROAD_START_BOTTOM_PX, 0);
-    // Already in place: nothing to pan.
-    const inPlace = roadStartPanPx({ origin: base.origin, destination: base.destination, center: base.origin, zoom: 6, mapHeightPx: 2 * ROAD_START_TOP_PX, stripHeightPx: strip });
-    expect(inPlace).toBe(0);
-    // The room the margins leave: the town's name 30 px above the dot and a ring of three 25 px out.
-    expect(ROAD_START_TOP_PX).toBe(70);
-    expect(ROAD_START_BOTTOM_PX).toBe(60);
+  it("fits the road into the strip of map above the sheet at rest, on a phone", () => {
+    // Round 4's rest capture, measured: the map at y 45, 799 px tall; the
+    // sheet's edge at y 263, so a 218 px strip; Amarillo's dot at y 281,
+    // Austin's at 549, the whole road under the sheet and Kansas in the
+    // strip. That is the fit padded for the whole map. Padded by the
+    // sheet's share of it, the fit frames the road in the strip.
+    const phone = { mapTopPx: 45, mapHeightPx: 799, viewportHeightPx: 844, sheetTopDvh: sheetTopDvh(1), phone: true };
+    const pad = fitPaddingPx(phone);
+    const strip = (844 * sheetTopDvh(1)) / 100 - 45;
+    expect(strip).toBeCloseTo(216.6, 0);
+    // The inner area the corridor is fitted into, and the largest whole
+    // zoom at which the corridor fits it by the map's own projection: 5.
+    // At 6 the road is 267 px tall (the capture's 268 is the dots' rounded
+    // centres) and cannot.
+    const innerW = 390 - pad.left - pad.right;
+    const innerH = 799 - pad.top - pad.bottom;
+    const size = (z: number) => {
+      const a = mercatorPx(base.origin.lat, base.origin.lng, z);
+      const b = mercatorPx(base.destination.lat, base.destination.lng, z);
+      return { w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+    };
+    const fits = (z: number) => size(z).w <= innerW && size(z).h <= innerH;
+    const zoom = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3].find(fits);
+    expect(zoom).toBe(5);
+    expect(Math.round(size(6).h)).toBe(267);
+    // Centred in that area, every point of the road from the start's dot
+    // to the end's sits above the sheet's edge, with the start's name
+    // (30 px above its dot) inside the map and room under the end for a
+    // ring's second row.
+    const top = pad.top + (innerH - size(5).h) / 2;
+    const bottom = top + size(5).h;
+    expect(top).toBeGreaterThanOrEqual(36);
+    expect(bottom + 22).toBeLessThan(strip);
+    // The numbers the frame rests on, pinned after the frame so a wrong
+    // padding fails on the frame first: the sheet's share of the map plus
+    // the margins; the start's name and a ring above and beside, a ring's
+    // lower members below.
+    expect(pad).toEqual({ ...STRIP_MARGIN_PX, bottom: Math.round(799 - strip) + STRIP_MARGIN_PX.bottom });
+    expect(innerW).toBe(310);
+    expect(innerH).toBe(145);
+    expect(STRIP_MARGIN_PX).toEqual({ top: 40, right: 40, bottom: 32, left: 40 });
+    // A strip too short to frame a road falls back; so does a desktop, or
+    // a map with no sheet: the margins as before.
+    expect(STRIP_MIN_PX).toBe(140);
+    expect(fitPaddingPx({ ...phone, viewportHeightPx: 390, mapTopPx: 45 })).toEqual(FIT_MARGIN_PX);
+    expect(fitPaddingPx({ ...phone, phone: false })).toEqual(FIT_MARGIN_PX);
+    expect(fitPaddingPx({ ...phone, sheetTopDvh: undefined })).toEqual(FIT_MARGIN_PX);
+    expect(FIT_MARGIN_PX).toEqual({ top: 60, right: 60, bottom: 120, left: 60 });
+  });
+
+  it("draws the map's own buttons at the 44 px target", () => {
+    // Google's zoom control is 40 px by default (round-4 critic, rule 7).
+    // `controlSize` is a constructor-time option, so it is a constant
+    // given with the map; the source is pinned because the option never
+    // reaches the server-rendered markup.
+    expect(MAP_CONTROL_SIZE_PX).toBe(44);
+    const src = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
+    expect(src).toContain("controlSize={MAP_CONTROL_SIZE_PX}");
   });
 
   it("renders the card from state above the list with its five parts", () => {
@@ -212,8 +250,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toMatch(/data-roadside-where[^>]*>well-known place · 6 mi in, at Amarillo</);
     // 5. One link-button that opens the place in Maps.
     expect(html).toMatch(/<a href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=35\.19381,-101\.75510"[^>]*>Open in Maps<\/a>/);
-    // And a way to close it.
-    expect(html).toContain('aria-label="Close The Big Texan Steak Ranch"');
+    // And a way to close it: a visible 44 px box, not a bare glyph whose
+    // hit area a screenshot cannot show (round-4 critic, rule 7).
+    expect(html).toMatch(/<button[^>]*aria-label="Close The Big Texan Steak Ranch"[^>]*class="[^"]*\bw-11 h-11 flex items-center justify-center border\b/);
     // Above the list: the card comes before the heading and the first row.
     expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("places worth pulling over for"));
     expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("data-roadside-stop="));

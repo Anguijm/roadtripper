@@ -141,7 +141,7 @@ export const SHEET_HANDLE_PX = 45;
 export function sheetScrollBoxPx(viewportPx: number, snap: 0 | 1 | 2): number {
   return Math.floor((viewportPx * SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 10_000) - SHEET_HANDLE_PX;
 }
-/** Where the sheet's top edge sits at a snap, in dvh from the top of the screen; the map keeps the start of the road above it. */
+/** Where the sheet's top edge sits at a snap, in dvh from the top of the screen; the map's one fit frames the road in the strip above it. */
 export function sheetTopDvh(snap: 0 | 1 | 2): number {
   return 100 - (SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 100;
 }
@@ -163,8 +163,9 @@ function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
  * store's, or that there is none), the kind in plain words with how far
  * along the road and which town it is at or past (`anchor`, from the towns
  * the page already has), and one link-button that opens the place in
- * Google Maps. `about` and `name` are untrusted text and are rendered as
- * text.
+ * Google Maps. The close control is a visible 44 px box, not a bare glyph
+ * with an invisible hit area (round-4 critic, rule 7). `about` and `name`
+ * are untrusted text and are rendered as text.
  */
 export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
   return (
@@ -179,7 +180,7 @@ export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideM
           type="button"
           onClick={onClose}
           aria-label={`Close ${stop.name}`}
-          className="shrink-0 min-w-[44px] min-h-[44px] -mt-2 -mr-2 text-2xl leading-none text-[#8b949e] hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          className="shrink-0 w-11 h-11 flex items-center justify-center border border-[#30363d] text-2xl leading-none text-[#c9d1d9] hover:border-[#6e7681] hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
           <span aria-hidden>×</span>
         </button>

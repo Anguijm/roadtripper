@@ -7,7 +7,7 @@ import {
   Map as GMap,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { roadsideSpread, mercatorPx } from "@/lib/roadside/spread";
+import { roadsideSpread } from "@/lib/roadside/spread";
 
 export interface CandidateMarker {
   id: string;
@@ -91,35 +91,67 @@ export function roadsideMarkerSvg(color = ROADSIDE_COLOR, active = false): strin
 
 /** Below this width the sheet is a bottom sheet over the map (the `md` breakpoint; `.plan-sheet` in globals.css). */
 export const PHONE_MAX_WIDTH_PX = 767;
-/** The origin's dot this far under the map's top edge when the road heads south: room for the town's name (30 above) and a ring of three (25 out). */
-export const ROAD_START_TOP_PX = 70;
-/** And this far above the sheet's edge when the road heads north. */
-export const ROAD_START_BOTTOM_PX = 60;
 
 /**
- * How far to pan the map (down is positive, as `map.panBy` counts) so the
- * start of the road sits in the strip of map above the phone's sheet at
- * rest (Gauntlet U1, round 4). The fit centres the whole corridor on a map
- * that is mostly under the sheet; with the sheet tall enough to hold the
- * roadside list, the strip above it showed the state north of the start
- * and not one diamond. With the road heading south the origin goes
- * ROAD_START_TOP_PX under the map's top and the strip holds the first
- * stretch of the route; heading north, ROAD_START_BOTTOM_PX above the
- * sheet's edge. Pure: the fitted zoom and centre in, pixels out, by the
- * map's own projection (mercatorPx), so a test proves it without a map.
+ * The size Google draws its own map buttons at (the + and - of the zoom
+ * control): 44 px, the touch target the quality bar asks for (rule 7);
+ * Google's default is 40. A constructor-time option, so it is a constant
+ * given with the map and never changed after.
  */
-export function roadStartPanPx(args: {
-  origin: { lat: number; lng: number };
-  destination: { lat: number; lng: number };
-  center: { lat: number; lng: number };
-  zoom: number;
+export const MAP_CONTROL_SIZE_PX = 44;
+
+/** What `fitBounds` takes: pixels of the map the corridor stays out of, on each side. */
+export interface FitPadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
+ * The room the first fit leaves around the corridor on a desktop, where the
+ * sheet is a side panel and the whole map is on screen. Unchanged since the
+ * fit was written.
+ */
+export const FIT_MARGIN_PX: FitPadding = { top: 60, right: 60, bottom: 120, left: 60 };
+/**
+ * On a phone, the room inside the strip of map above the sheet: 40 above and
+ * beside for the start's name (drawn 30 px above its dot, 11 px tall) and a
+ * ring of stacked diamonds (25 px out, the diamond 9 more); 32 below for a
+ * ring's lower members. The bottom of the padding proper is the sheet's
+ * share of the map, added in fitPaddingPx.
+ */
+export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: 40, bottom: 32, left: 40 };
+/** A strip shorter than this (a phone on its side) cannot frame a road; the fit takes the desktop's margins and the person pulls the sheet down. */
+export const STRIP_MIN_PX = 140;
+
+/**
+ * The padding for the map's one fit (Gauntlet U1, round 5). On a phone the
+ * sheet at rest covers the map from `sheetTopDvh` down; a fit padded for
+ * the whole map centred the corridor under the sheet, and the strip above
+ * it showed the state north of the start and not one diamond (the round-4
+ * capture: Amarillo's dot 18 px under the sheet's edge, Kansas above).
+ * Round 4 panned the start into the strip from a one-shot `idle` listener
+ * after the fit, which a strict-mode remount on the dev server removed
+ * before it fired. So the padding itself carries the sheet's share of the
+ * map: the fit then frames the whole road, both pins and the state-wide
+ * diamonds in the strip, and a fit applied once stays applied. Pure:
+ * pixels in, pixels out, so a test proves the frame without a map.
+ */
+export function fitPaddingPx(args: {
+  /** The map's top edge in the viewport (under the page's header). */
+  mapTopPx: number;
   mapHeightPx: number;
-  stripHeightPx: number;
-}): number {
-  const { origin, destination, center, zoom, mapHeightPx, stripHeightPx } = args;
-  const originY = mapHeightPx / 2 + (mercatorPx(origin.lat, origin.lng, zoom).y - mercatorPx(center.lat, center.lng, zoom).y);
-  const targetY = destination.lat <= origin.lat ? ROAD_START_TOP_PX : stripHeightPx - ROAD_START_BOTTOM_PX;
-  return Math.round(originY - targetY);
+  viewportHeightPx: number;
+  /** Where the sheet's top edge sits at rest, in dvh; undefined off a phone. */
+  sheetTopDvh: number | undefined;
+  phone: boolean;
+}): FitPadding {
+  const { mapTopPx, mapHeightPx, viewportHeightPx, sheetTopDvh, phone } = args;
+  if (!phone || sheetTopDvh === undefined) return { ...FIT_MARGIN_PX };
+  const stripPx = (viewportHeightPx * sheetTopDvh) / 100 - mapTopPx;
+  if (stripPx < STRIP_MIN_PX) return { ...FIT_MARGIN_PX };
+  return { ...STRIP_MARGIN_PX, bottom: Math.round(mapHeightPx - stripPx) + STRIP_MARGIN_PX.bottom };
 }
 
 /**
@@ -167,9 +199,9 @@ interface RouteMapProps {
   selectedRoadsideId?: string | null;
   /**
    * On a phone, where the sheet's top edge sits at rest, in dvh from the
-   * top of the screen. Given, the first fit is followed by a pan that puts
-   * the start of the road in the strip of map above the sheet
-   * (roadStartPanPx). Not given, or wider than a phone: no pan.
+   * top of the screen. Given, the first fit is padded by the sheet's share
+   * of the map, so the road is framed in the strip above the sheet
+   * (fitPaddingPx). Not given, or wider than a phone: the desktop's margins.
    */
   phoneSheetTopDvh?: number;
 }
@@ -246,9 +278,9 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
  * Effect split (do not collapse — each boundary was added to fix a specific bug):
  *   1a. Polyline geometry — `[map, encodedPolyline, routeColor]`
  *       Tears down and rebuilds JUST the line when the route changes. On
- *       the first render it fits the camera and, on a phone, pans the
- *       start of the road into the strip above the sheet once the fit has
- *       settled (`idle`).
+ *       the first render it fits the camera, padded on a phone by the
+ *       sheet's share of the map so the road is framed in the strip above
+ *       the sheet (fitPaddingPx).
  *   1b. Polyline opacity — `[pending]`
  *       Mutates the existing Polyline in place; no rebuild on pending toggle.
  *   2a. Endpoint markers — `[map, origin, destination, originName, destinationName]`
@@ -358,50 +390,35 @@ function PolylineRenderer({
     polylineRef.current = line;
 
     // Fit-bounds-once: only the FIRST render triggers a camera fit.
-    // Council ISC-S6-ARCH-2 — recomputes redraw in place.
-    let settle: google.maps.MapsEventListener | null = null;
+    // Council ISC-S6-ARCH-2 — recomputes redraw in place. On a phone the
+    // padding carries the sheet's share of the map (fitPaddingPx), so the
+    // road is framed in the strip above the sheet at rest; a later drag
+    // or zoom is the person's. The map's box is read here, synchronously,
+    // and the fit is applied in the same run: nothing waits for an event
+    // a strict-mode remount could take away (Gauntlet U1, round 5).
     if (!hasFitOnceRef.current) {
+      let b: google.maps.LatLngBounds;
       if (bounds) {
-        map.fitBounds(
-          new google.maps.LatLngBounds(
-            { lat: bounds.southwest.lat, lng: bounds.southwest.lng },
-            { lat: bounds.northeast.lat, lng: bounds.northeast.lng }
-          ),
-          { top: 60, right: 60, bottom: 120, left: 60 }
+        b = new google.maps.LatLngBounds(
+          { lat: bounds.southwest.lat, lng: bounds.southwest.lng },
+          { lat: bounds.northeast.lat, lng: bounds.northeast.lng }
         );
       } else {
-        const b = new google.maps.LatLngBounds();
+        b = new google.maps.LatLngBounds();
         path.forEach((p) => b.extend(p));
-        map.fitBounds(b, { top: 60, right: 60, bottom: 120, left: 60 });
       }
+      const box = map.getDiv().getBoundingClientRect();
+      const phone = typeof window.matchMedia === "function" && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH_PX}px)`).matches;
+      map.fitBounds(b, fitPaddingPx({ mapTopPx: box.top, mapHeightPx: box.height, viewportHeightPx: window.innerHeight, sheetTopDvh: phoneSheetTopDvh, phone }));
       hasFitOnceRef.current = true;
-      // A phone: the sheet at rest covers the map from `phoneSheetTopDvh`
-      // down. Once the fit has settled (before `idle` the zoom and centre
-      // can still be the defaults) pan the start of the road into the
-      // strip above the sheet. Once, with the fit; a later drag or zoom is
-      // the person's.
-      if (phoneSheetTopDvh !== undefined && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH_PX}px)`).matches) {
-        settle = google.maps.event.addListenerOnce(map, "idle", () => {
-          settle = null;
-          const zoom = map.getZoom();
-          const center = map.getCenter();
-          if (zoom === undefined || !center) return;
-          const box = map.getDiv().getBoundingClientRect();
-          const stripHeightPx = (window.innerHeight * phoneSheetTopDvh) / 100 - box.top;
-          const dy = roadStartPanPx({ origin, destination, center: { lat: center.lat(), lng: center.lng() }, zoom, mapHeightPx: box.height, stripHeightPx });
-          if (dy !== 0) map.panBy(0, dy);
-        });
-      }
     }
 
     return () => {
-      settle?.remove();
       line.setMap(null);
       polylineRef.current = null;
     };
-    // `pending` and `bounds` intentionally omitted from deps; so are
-    // `origin`, `destination` and `phoneSheetTopDvh`, read only on the
-    // first fit, which runs once.
+    // `pending` and `bounds` intentionally omitted from deps; so is
+    // `phoneSheetTopDvh`, read only on the first fit, which runs once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, encodedPolyline, routeColor]);
 
@@ -764,6 +781,8 @@ export default function RouteMap({
         // under the sheet (Gauntlet U1, rule 6).
         disableDefaultUI
         zoomControl={true}
+        // Google's + and - at the bar's 44 px target (rule 7), not its 40.
+        controlSize={MAP_CONTROL_SIZE_PX}
         // MUST be the library's ControlPosition, never google.maps.ControlPosition.
         // These props are evaluated during render, and "use client" does not stop
         // this component being server-rendered for the first HTML, where no
