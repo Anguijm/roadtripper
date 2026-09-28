@@ -89,6 +89,8 @@ const rows = picked
     ...extra,
     id: s.id,
     name: s.name,
+    // What OpenStreetMap itself says, for the rows the encyclopedias miss.
+    detail: s.detail ?? null,
     kind: s.kind,
     // A stop off to the side of the start can sit "farther than the end" on
     // the straight line; clamp to the route's length so the column reads.
