@@ -596,3 +596,45 @@ cap. Declare the cap with room for that.
 be replaced without saying so.** The 163 rows are four tables; the old
 table's rocket comment had to be detached explicitly, which is right:
 the tool made me read the comment before deleting what it sat on.
+
+## Session 28, second half (2026-09-28 UTC): the bench from a sentence, and step 22
+
+**A label can arrive as one sentence, and that is still a label if you
+say what it is.** John did not tap the sheet. He read the first 41 rows
+and said all of them were worth having on a list. Transcribed to the
+tab-separated file with the criterion recorded ("worth having on a list",
+softer than "would take the exit"), imported, benched: 38 of 38 yes calls
+approved, provisional under the 40-row minimum, the three hidden near
+misses approved too. The results page leads with how the labels were
+made. Do not pretend a sentence is 41 taps; do not throw it away either.
+
+**The bench answered the "model or lookup" question with rows, not a
+score.** Both hit 100% precision on the stretch; the kind rule would have
+dropped seven the model kept and John approved, all things a tag cannot
+name: Big Texan, the Helium Monument, a jet on a pole. That is the
+model's edge, and it is a list, not a number.
+
+**Step 22 shipped as a committed file, not a live call.** The survivors
+per corridor are built once from the corridor, the scores and the
+descriptions, and the plan page filters them by distance to its road.
+No key in the app, no cost per plan, and the whole feature is testable
+without a browser except the marker effect. The line moved to 0.45 on
+the bench's evidence, and the code says how to rebuild the files when it
+moves again.
+
+**Two React server-render gotchas that cost a round each.** A `= []`
+default in a destructuring is a new array every render, and an effect
+keyed on it tears down and rebuilds its markers on every keystroke; use
+one module-level empty array. And `renderToString` puts `<!-- -->`
+between adjacent text and an expression, so an assertion on "· 214"
+fails against "· <!-- -->214"; strip the comment nodes before asserting.
+
+**A pushed commit that fails Gate 1 leaves a waiter idling on a run that
+will never come.** Twice a background chain waited thirteen minutes for a
+council round on a commit the hook had refused. Every chain now exits on
+a failed push before it starts waiting.
+
+**What the screenshot showed that the tests could not.** The diamonds are
+distinct on the road, and at state-wide zoom they overlap around the two
+cities. Density is the next problem on this surface; the tests pass at
+any density.
