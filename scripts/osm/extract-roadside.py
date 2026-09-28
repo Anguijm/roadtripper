@@ -68,7 +68,7 @@ def candidate(tags) -> bool:
         return True
     if tags.get("man_made") in MAN_MADE:
         return True
-    if tags.get("natural") in NATURAL:
+    if tags.get("natural") in NATURAL or tags.get("waterway") == "waterfall":
         return True
     if tags.get("boundary") in BOUNDARY or tags.get("leisure") == "nature_reserve":
         return True
