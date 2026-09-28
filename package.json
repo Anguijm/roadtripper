@@ -17,7 +17,8 @@
     "corridor:describe": "bun scripts/describe-corridor.ts",
     "label:sample": "bun scripts/label-sample.ts",
     "label:import": "bun scripts/label-import.ts",
-    "roadside:survivors": "bun scripts/roadside-survivors.ts"
+    "roadside:store": "bun scripts/roadside-store.ts",
+    "roadside:describe": "bun scripts/roadside-describe.ts"
   },
   "dependencies": {
     "@vis.gl/react-google-maps": "^1.8.2",
