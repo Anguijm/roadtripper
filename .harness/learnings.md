@@ -679,3 +679,39 @@ Wikidata-only kind, so the two rules must not collide. A follow-up.
 on a volume and wrong in a repository; the plan page reads it from
 `data/roadside.sqlite` beside the atlas, and getting it onto the
 deployed app is its own small step.
+
+## Session 29, second half (2026-09-28, evening Japan time): the store goes live
+
+**Check the artifact's URL, not the command's exit code.** `gh release
+create tag file#name` sets a display label; the asset keeps the file's own
+name, and the download URL answered 404 while the four "tests" of the
+fetch script had only exercised its not-fetched path. The publish script
+now uploads a file named as the asset and refuses to finish until the URL
+answers 200. A proof that passes on the failure path is not a proof.
+
+**A pid file must hold the process you mean.** `cd dir && nohup cmd &`
+backgrounds a subshell; `$!` is the subshell's pid, and killing it leaves
+the command running. Two scorers ran on that way, into rows without
+descriptions, until the account's credits ran out. Start the process
+directly, or read its pid from `pgrep` after it starts, or kill by name
+of the script and the interpreter.
+
+**A refused request is not a transient error.** The scorer treated a 402
+like a 429 and looped over five-hundred-row batches for forty minutes, a
+quarter of a million refused requests. Now: a billing error stops the
+run and says what to do; a batch that scores nothing is not repeated.
+
+**The hook's conflict check is a snapshot.** A push a minute before
+another PR merges passes the check and then goes silent, since GitHub runs
+nothing on a conflicting PR. When two PRs are open, rebase the second
+right after the first merges, before reading its council round.
+
+**A rollout is not instant.** The first live check ran the second a new
+revision was "ready" and hit the old one; the log line "no store found"
+came from the previous revision. Curl a minute later, and read the
+revision's own log.
+
+**The deploy is where the requirement is met.** "Open the website and
+get feedback with no model" was true on a laptop for a day and on the site
+only once the store was fetched at build. The build log is the proof:
+"fetched 77 MB, checksum verified, database intact".
