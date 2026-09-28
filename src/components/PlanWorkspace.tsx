@@ -12,7 +12,6 @@ import type { RoadsideMarker } from "@/lib/roadside/along";
 import RouteMap, {
   type CandidateMarker,
   type TripStopMarker,
-  type SearchArc,
 } from "@/components/RouteMap";
 import PersonaSelector from "@/components/PersonaSelector";
 import RecommendationList, {
@@ -31,7 +30,6 @@ import {
   fetchNeighborhoodsAction,
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
-import { HOP_REACH_MAX_MINUTES, METERS_PER_DRIVE_MINUTE } from "@/lib/routing/validation";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
@@ -61,6 +59,12 @@ interface PlanWorkspaceProps {
   initialCandidateFetchFailed?: boolean;
   /** Roadside survivors along the planned route, in road order. Empty when no pulled corridor is near it. */
   roadsideStops?: RoadsideMarker[];
+  /**
+   * The roadside stop whose card is open on the first render. Only the SSR
+   * tests pass it: the card is normally opened by a tap, and a server
+   * render cannot tap. The page never sets it.
+   */
+  initialSelectedRoadsideId?: string;
 }
 
 /**
@@ -72,12 +76,80 @@ interface PlanWorkspaceProps {
  */
 const NO_ROADSIDE: RoadsideMarker[] = [];
 
-/** The kinds as the sidebar says them; anything unknown is "place". */
+/** The kinds as the sheet says them, one or two plain words; anything unknown is "place". */
 const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
   attraction: "attraction", museum: "museum", viewpoint: "viewpoint", artwork: "artwork", theme_park: "theme park", zoo: "zoo",
-  historic: "historic", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
-  notable: "place", other: "place",
+  historic: "historic place", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
+  notable: "well-known place", other: "place",
 };
+
+/** The kind as a sentence, for a card whose store line is empty: "A historic place." */
+export function roadsideKindLine(kind: RoadsideMarker["kind"]): string {
+  const words = ROADSIDE_KIND_WORDS[kind] ?? "place";
+  const article = /^[aeiou]/.test(words) ? "An" : "A";
+  return `${article} ${words}.`;
+}
+
+/** How far along the road a stop sits, as the card says it: "212 km in". */
+export function roadsideAlongText(alongKm: number): string {
+  const km = Math.round(alongKm);
+  return km < 1 ? "Right at the start" : `${km} km in`;
+}
+
+/**
+ * How many roadside stops the list shows before "Show all": the strongest
+ * ten. A corridor holds a few hundred survivors and the diamonds on the
+ * map already say where; ten is a screen's worth on a phone.
+ */
+export const ROADSIDE_SHOWN_FIRST = 10;
+
+function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
+  return `https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`;
+}
+
+/**
+ * The card for one roadside stop (Gauntlet U1). Pure: the five parts from
+ * what the store gives, nothing fetched. The name, the line about it (the
+ * store's, or the kind as a sentence when the store has none), the kind in
+ * plain words with how far along the road, and one link-button that opens
+ * the place in Google Maps. `about` and `name` are untrusted text and are
+ * rendered as text.
+ */
+export function RoadsideCard({ stop, onClose }: { stop: RoadsideMarker; onClose?: () => void }) {
+  return (
+    <section
+      data-roadside-card={stop.id}
+      aria-label={stop.name}
+      className="font-sans border border-[#e3b341] bg-[#161b22] px-3 py-3 space-y-2"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-lg leading-snug text-[#f0f6fc] break-words min-w-0">{stop.name}</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${stop.name}`}
+          className="shrink-0 min-w-[44px] min-h-[44px] -mt-2 -mr-2 text-2xl leading-none text-[#8b949e] hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        >
+          <span aria-hidden>×</span>
+        </button>
+      </div>
+      <p data-roadside-line className="text-base leading-snug text-[#c9d1d9] break-words">
+        {stop.about ?? roadsideKindLine(stop.kind)}
+      </p>
+      <p data-roadside-where className="text-base text-[#8b949e]">
+        {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm)}
+      </p>
+      <a
+        href={roadsideMapsUrl(stop)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center w-full min-h-[44px] text-base border border-[#e3b341] text-[#e3b341] hover:bg-[#e3b341] hover:text-[#0d1117] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+      >
+        Open in Maps
+      </a>
+    </section>
+  );
+}
 
 // 7 stops balances itinerary richness against UI clarity and API cost per recompute.
 const MAX_TRIP_STOPS = 7;
@@ -91,21 +163,6 @@ const ERROR_LABELS: Record<RecomputeErrorCode, string> = {
   upstream_unavailable: "Routes service is unavailable. Retry in a moment.",
   internal_error: "Something went wrong recomputing the route.",
 };
-
-function computeBearing(
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number }
-): number {
-  const lat1 = (from.lat * Math.PI) / 180;
-  const lat2 = (to.lat * Math.PI) / 180;
-  // Normalise to [-180, 180] so routes crossing the antimeridian point the right way.
-  const dLngDeg = ((to.lng - from.lng + 540) % 360) - 180;
-  const dLng = (dLngDeg * Math.PI) / 180;
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
 
 export default function PlanWorkspace({
   origin,
@@ -126,6 +183,7 @@ export default function PlanWorkspace({
   dateMode,
   initialCandidateFetchFailed = false,
   roadsideStops = NO_ROADSIDE,
+  initialSelectedRoadsideId,
 }: PlanWorkspaceProps) {
 
   // Stable UUID per component mount, passed to saveTrip on every attempt so a
@@ -327,20 +385,36 @@ export default function PlanWorkspace({
     );
   }, [tripState, tripDays, budgetHours, effectiveStartDate, endDate]);
 
-  // Arc shows the search semicircle ahead of the frontier stop (last added, or origin).
-  // Suppressed when the route is sealed — user is done exploring candidates.
-  const searchArc = useMemo<SearchArc | null>(() => {
-    if (routeSealed) return null;
-    const arcCenter =
-      tripStops.length > 0
-        ? { lat: tripStops[tripStops.length - 1].lat, lng: tripStops[tripStops.length - 1].lng }
-        : { lat: origin.lat, lng: origin.lng };
-    return {
-      center: arcCenter,
-      radiusMeters: Math.max(0, Math.min(maxDetourMinutes, HOP_REACH_MAX_MINUTES)) * METERS_PER_DRIVE_MINUTE,
-      headingDeg: computeBearing(arcCenter, { lat: destination.lat, lng: destination.lng }),
-    };
-  }, [routeSealed, tripStops, origin, destination, maxDetourMinutes]);
+  // ── Roadside stops (Gauntlet U1) ───────────────────────────────────────
+  // The card: one stop, opened by a tap on its diamond or its row, closed
+  // by a second tap on the same one or the card's close control.
+  const [selectedRoadsideId, setSelectedRoadsideId] = useState<string | null>(initialSelectedRoadsideId ?? null);
+  const [showAllRoadside, setShowAllRoadside] = useState(false);
+  // The list shows the strongest first, not road order: the diamonds on the
+  // map already say where, and a person scanning ten rows wants the best ten.
+  const roadsideByStrength = useMemo(
+    () => [...roadsideStops].sort((a, b) => b.p - a.p || a.alongKm - b.alongKm || a.name.localeCompare(b.name, "en")),
+    [roadsideStops]
+  );
+  const roadsideShown = showAllRoadside ? roadsideByStrength : roadsideByStrength.slice(0, ROADSIDE_SHOWN_FIRST);
+  const selectedRoadside = useMemo(
+    () => (selectedRoadsideId ? roadsideStops.find((s) => s.id === selectedRoadsideId) ?? null : null),
+    [roadsideStops, selectedRoadsideId]
+  );
+  const handleRoadsideSelect = useCallback((id: string) => {
+    setSelectedRoadsideId((curr) => (curr === id ? null : id));
+  }, []);
+  const clearRoadside = useCallback(() => setSelectedRoadsideId(null), []);
+  const roadsideCardRef = useRef<HTMLDivElement>(null);
+  // A tap on the map has to be answered where the person can see it: the
+  // card sits above the roadside list, below the town list, so the sheet
+  // scrolls to it, and a peeked sheet rises to half so the card is on
+  // screen at all. Nothing moves when the card closes.
+  useEffect(() => {
+    if (!selectedRoadsideId) return;
+    setSheetSnap((s) => (s === 0 ? 1 : s));
+    roadsideCardRef.current?.scrollIntoView({ block: "start" });
+  }, [selectedRoadsideId]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -962,68 +1036,96 @@ export default function PlanWorkspace({
                 />
               </div>
 
-              {/* Roadside stops (step 22): what the model says is worth pulling
-                  over for along this road, from a corridor pulled and scored
-                  ahead of time. Collapsed by default: 200 rows would bury the
-                  city list, and the diamonds on the map already say where. */}
-              {roadsideStops.length > 0 && (
-                <details data-roadside className="px-1 py-2 border-t border-[#30363d]">
-                  <summary className="min-h-[44px] flex items-center cursor-pointer text-xs font-mono uppercase tracking-widest text-[#e3b341] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
-                    Roadside stops along the way · {roadsideStops.length}
-                  </summary>
-                  <ul className="mt-2 space-y-2">
-                    {roadsideStops.map((s) => (
-                      <li key={s.id} data-roadside-stop={s.id} className="text-sm leading-snug">
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`${s.name}, opens in Google Maps in a new tab`}
-                          className="text-[#f0f6fc] hover:text-[#e3b341] underline-offset-2 hover:underline"
-                        >
-                          {s.name}
-                        </a>
-                        <span className="text-[#8b949e]"> · {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {Math.round(s.alongKm)} km</span>
-                        {s.about && (
-                          <p data-roadside-about className="text-xs text-[#8b949e] line-clamp-2">{s.about}</p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+            </>
+          )}
 
-              {/* Save trip, at the end of the list rather than in the sticky
-                  header, so the header is short and the reason leads. No
-                  auth gate: trips live in this browser. */}
-              <div className="px-1 py-3">
+          {/* Roadside stops (step 22, first-class in Gauntlet U1): what the
+              model says is worth pulling over for along this road, from a
+              corridor pulled and scored ahead of time. Open, strongest
+              first, ten at a time; the card for the tapped one sits at the
+              top of the section. Outside the sealed branch: a locked route
+              still has a road, and a tap on a diamond must always answer. */}
+          {roadsideStops.length > 0 && (
+            <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 py-2 border-t border-[#30363d] space-y-2">
+              {selectedRoadside && (
+                <div ref={roadsideCardRef} className="scroll-mt-2">
+                  <RoadsideCard stop={selectedRoadside} onClose={clearRoadside} />
+                </div>
+              )}
+              <h2 id="roadside-heading" className="text-base text-[#e3b341] px-2 pt-1">
+                {roadsideStops.length === 1
+                  ? "1 place worth pulling over for"
+                  : `${roadsideStops.length} places worth pulling over for`}
+              </h2>
+              <ul className="space-y-1">
+                {roadsideShown.map((s) => (
+                  <li key={s.id} data-roadside-stop={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleRoadsideSelect(s.id)}
+                      aria-expanded={selectedRoadsideId === s.id}
+                      className={[
+                        "w-full min-h-[44px] text-left px-2 py-2 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                        selectedRoadsideId === s.id
+                          ? "border-[#e3b341] bg-[#161b22]"
+                          : "border-transparent hover:bg-[#161b22]",
+                      ].join(" ")}
+                    >
+                      <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
+                      <span className="block text-base leading-snug text-[#8b949e]">
+                        {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {roadsideByStrength.length > ROADSIDE_SHOWN_FIRST && (
                 <button
                   type="button"
-                  onClick={handleSave}
-                  // Disabled while a recompute is in flight so a save cannot
-                  // capture a half-updated trip. Not disabled after a save:
-                  // the trip can change again, and saving again is how it is
-                  // kept; the label already says "Saved" until it does.
-                  disabled={isPending}
-                  className={[
-                    "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                    saveState === "saved"
-                      ? "border-[#238636] text-[#3fb950]"
-                      : saveState === "error"
-                      ? "border-[#f85149] text-[#ff7b72]"
-                      : "border-[#30363d] text-[#8b949e] hover:border-[#555] hover:text-[#f0f6fc]",
-                  ].join(" ")}
+                  data-roadside-show-all
+                  onClick={() => setShowAllRoadside((o) => !o)}
+                  aria-expanded={showAllRoadside}
+                  className="w-full min-h-[44px] text-base border border-[#30363d] text-[#f0f6fc] hover:border-[#6e7681] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
                 >
-                  {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+                  {showAllRoadside ? "Show the ten strongest" : `Show all ${roadsideByStrength.length}`}
                 </button>
-              </div>
-            </>
+              )}
+            </section>
+          )}
+
+          {/* Save trip, at the end of the list rather than in the sticky
+              header, so the header is short and the reason leads. No
+              auth gate: trips live in this browser. */}
+          {!routeSealed && (
+            <div className="px-1 py-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                // Disabled while a recompute is in flight so a save cannot
+                // capture a half-updated trip. Not disabled after a save:
+                // the trip can change again, and saving again is how it is
+                // kept; the label already says "Saved" until it does.
+                disabled={isPending}
+                className={[
+                  "w-full min-h-[44px] text-xs font-mono uppercase tracking-widest px-3 py-2 border transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                  saveState === "saved"
+                    ? "border-[#238636] text-[#3fb950]"
+                    : saveState === "error"
+                    ? "border-[#f85149] text-[#ff7b72]"
+                    : "border-[#30363d] text-[#8b949e] hover:border-[#555] hover:text-[#f0f6fc]",
+                ].join(" ")}
+              >
+                {saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Save failed — retry" : "Save trip"}
+              </button>
+            </div>
           )}
         </div>
       </aside>
 
-      {/* Map */}
-      <main className="flex-1 relative">
+      {/* Map. `z-0` makes the pane its own stacking context, so nothing
+          Google draws inside it (its controls carry very high z-indexes)
+          can paint over the sheet, which sits at z-10 on a phone. */}
+      <main className="flex-1 relative z-0">
         <RouteMap
           origin={origin}
           destination={destination}
@@ -1035,8 +1137,9 @@ export default function PlanWorkspace({
           onCandidateClick={handleMapClick}
           tripStops={tripStops}
           roadsideStops={roadsideStops}
+          onRoadsideClick={handleRoadsideSelect}
+          selectedRoadsideId={selectedRoadsideId}
           pending={isPending}
-          searchArc={searchArc}
         />
       </main>
     </div>

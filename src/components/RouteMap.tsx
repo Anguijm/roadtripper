@@ -76,17 +76,25 @@ export const ROADSIDE_COLOR = "#e3b341";
 /**
  * A roadside marker: a diamond, so it cannot be mistaken for a round city
  * candidate or a numbered square trip stop even in greyscale. Same 44 px
- * canvas as the candidate icon for the touch target. Pure: an SVG data URI
- * and two numbers; the google.maps objects are made by the caller.
+ * canvas as the candidate icon for the touch target. The tapped one
+ * (`active`) is larger with a light stroke, the same way an active city
+ * dot is. Pure: an SVG string; the google.maps objects are made by the
+ * caller.
  */
-export function roadsideMarkerSvg(color = ROADSIDE_COLOR): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><path d="M22 13 L31 22 L22 31 L13 22 Z" fill="${color}" fill-opacity="0.95" stroke="#0d1117" stroke-width="2"/></svg>`;
+export function roadsideMarkerSvg(color = ROADSIDE_COLOR, active = false): string {
+  const path = active ? "M22 9 L35 22 L22 35 L9 22 Z" : "M22 13 L31 22 L22 31 L13 22 Z";
+  const stroke = active ? "#f0f6fc" : "#0d1117";
+  const sw = active ? 3 : 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><path d="${path}" fill="${color}" fill-opacity="0.95" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
 }
 
-export interface SearchArc {
-  center: google.maps.LatLngLiteral;
-  radiusMeters: number;
-  headingDeg: number;
+/** Must be called inside effects where google.maps is guaranteed loaded. */
+function roadsideMarkerIcon(active = false): google.maps.Icon {
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(roadsideMarkerSvg(ROADSIDE_COLOR, active))}`,
+    anchor: new google.maps.Point(22, 22),
+    scaledSize: new google.maps.Size(44, 44),
+  };
 }
 
 interface RouteMapProps {
@@ -108,10 +116,12 @@ interface RouteMapProps {
   tripStops?: TripStopMarker[];
   /** Subtle dim applied to the polyline while a recompute is pending */
   pending?: boolean;
-  /** 180° arc visualising the radial search area ahead of the frontier stop */
-  searchArc?: SearchArc | null;
   /** Roadside survivors along the route — amber diamonds, distinct from cities and trip stops */
   roadsideStops?: RoadsideMapMarker[];
+  /** Fired when the user taps a roadside diamond; the sheet answers with a card. */
+  onRoadsideClick?: (id: string) => void;
+  /** The roadside stop whose card is open; its diamond is drawn larger and kept visible at every zoom. */
+  selectedRoadsideId?: string | null;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -149,31 +159,6 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
   };
 }
 
-/** Approximates a 180° forward-facing arc as a polyline path.
- *  steps=32 → 33 points: smooth at typical zoom levels, negligible DOM cost. */
-function buildSemicirclePoints(
-  center: google.maps.LatLngLiteral,
-  radiusMeters: number,
-  headingDeg: number,
-  steps = 32
-): google.maps.LatLngLiteral[] {
-  const points: google.maps.LatLngLiteral[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const angleDeg = headingDeg - 90 + (180 * i) / steps;
-    try {
-      const pt = google.maps.geometry.spherical.computeOffset(
-        new google.maps.LatLng(center.lat, center.lng),
-        radiusMeters,
-        angleDeg
-      );
-      points.push({ lat: pt.lat(), lng: pt.lng() });
-    } catch {
-      // SDK error for this point — skip it; arc degrades gracefully.
-    }
-  }
-  return points;
-}
-
 /**
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
@@ -197,11 +182,17 @@ function buildSemicirclePoints(
  *       No teardown on candidates change = zero flicker on route refresh.
  *   3.  Trip-stop markers — `[map, tripStops, routeColor]`
  *       Numbered square markers for stops the user has added.
- *   4.  Highlight — `[highlightedCandidateId, routeColor]`
+ *   4.  Roadside diamonds — `[map, roadsideStops]`
+ *       Built wholesale with the zoom rule applied on every zoom change;
+ *       a tap goes through `onRoadsideClickRef` so it is never stale.
+ *   4b. Tapped diamond — `[selectedRoadsideId]`
+ *       Swaps the icon of the previous and the new selection only, then
+ *       re-applies the zoom rule so the selected one stays visible.
+ *   5.  Highlight — `[highlightedCandidateId, routeColor]`
  *       Mutates only the two affected markers (prev + next highlight).
- *   5.  Search arc — `[map, searchArc, routeColor]`
- *       Draws a 180° polyline arc showing the radial search area ahead of
- *       the frontier stop. Tears down the previous arc on each change.
+ *
+ * The search arc that used to be drawn ahead of the frontier stop is gone
+ * (Gauntlet U1, 2026-09-29): the map shows the trip, not the machinery.
  *
  * `hasFitOnceRef` guards `fitBounds` so the camera only re-fits on the
  * VERY FIRST polyline render — subsequent recomputes redraw the line in
@@ -218,8 +209,9 @@ function PolylineRenderer({
   onCandidateClick,
   tripStops,
   pending,
-  searchArc,
   roadsideStops,
+  onRoadsideClick,
+  selectedRoadsideId,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -231,18 +223,29 @@ function PolylineRenderer({
   onCandidateClick?: (cityId: string) => void;
   tripStops?: TripStopMarker[];
   pending?: boolean;
-  searchArc?: SearchArc | null;
   roadsideStops?: RoadsideMapMarker[];
+  onRoadsideClick?: (id: string) => void;
+  selectedRoadsideId?: string | null;
 }) {
   const map = useMap();
   const candidateMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const previousHighlightRef = useRef<string | null>(null);
   const hasFitOnceRef = useRef(false);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
-  const arcRef = useRef<google.maps.Polyline | null>(null);
   // Always-current ref so survivor markers never hold a stale onCandidateClick closure.
   const onCandidateClickRef = useRef(onCandidateClick);
   onCandidateClickRef.current = onCandidateClick;
+  // The same for the diamonds: the markers are built once per route, the
+  // handler and the selection change with the sheet.
+  const onRoadsideClickRef = useRef(onRoadsideClick);
+  onRoadsideClickRef.current = onRoadsideClick;
+  const selectedRoadsideRef = useRef<string | null>(selectedRoadsideId ?? null);
+  selectedRoadsideRef.current = selectedRoadsideId ?? null;
+  const roadsideMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const previousRoadsideRef = useRef<string | null>(null);
+  // Effect 4's zoom-rule pass, kept so Effect 4b can re-run it after a
+  // selection change without rebuilding the markers.
+  const applyRoadsideZoomRef = useRef<(() => void) | null>(null);
   const [candidateAnnouncement, setCandidateAnnouncement] = useState("");
 
   // ── Effect 1a: polyline geometry / color ───────────────────────────────
@@ -452,28 +455,66 @@ function PolylineRenderer({
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!roadsideStops || roadsideStops.length === 0) return;
-    const icon: google.maps.Icon = {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(roadsideMarkerSvg())}`,
-      anchor: new google.maps.Point(22, 22),
-      scaledSize: new google.maps.Size(44, 44),
-    };
-    const markers = roadsideStops.map(
-      (s) => new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon, visible: false })
-    );
+    const icon = roadsideMarkerIcon();
+    const markers = roadsideStops.map((s) => {
+      const marker = new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon, visible: false });
+      // Delegate through the ref so the handler is never stale on prop change.
+      marker.addListener("click", () => onRoadsideClickRef.current?.(s.id));
+      return marker;
+    });
+    const byId = new Map<string, google.maps.Marker>();
+    roadsideStops.forEach((s, i) => byId.set(s.id, markers[i]));
+    roadsideMarkersRef.current = byId;
     // The zoom rule: at a state-wide view only the strongest diamonds, at a
     // town every survivor. Applied now and on every zoom change; markers are
     // toggled, not rebuilt, so zooming costs nothing but a visibility flag.
+    // The tapped one is always shown, so a row tap at a state-wide zoom
+    // still puts its diamond on the map.
     const apply = () => {
       const minP = roadsideMinProbabilityAt(map.getZoom() ?? 0);
-      roadsideStops.forEach((s, i) => markers[i].setVisible(s.p >= minP));
+      const selected = selectedRoadsideRef.current;
+      roadsideStops.forEach((s, i) => markers[i].setVisible(s.p >= minP || s.id === selected));
     };
     apply();
+    applyRoadsideZoomRef.current = apply;
     const listener = map.addListener("zoom_changed", apply);
     return () => {
       listener.remove();
       markers.forEach((m) => m.setMap(null));
+      roadsideMarkersRef.current = new Map();
+      applyRoadsideZoomRef.current = null;
+      previousRoadsideRef.current = null;
     };
   }, [map, roadsideStops]);
+
+  // ── Effect 4b: the tapped diamond ──────────────────────────────────────
+  // Only the two markers that changed are touched (the previous selection
+  // and the new one), then the zoom rule runs again so the selected one is
+  // visible and a cleared one goes back to its own rule. Declared after
+  // Effect 4 so the markers exist on the first pass.
+  useEffect(() => {
+    if (!window.google?.maps) return;
+    const markers = roadsideMarkersRef.current;
+    if (markers.size === 0) return;
+    const prev = previousRoadsideRef.current;
+    if (prev && prev !== selectedRoadsideId) {
+      const prevMarker = markers.get(prev);
+      if (prevMarker) {
+        prevMarker.setIcon(roadsideMarkerIcon());
+        prevMarker.setZIndex(1500);
+      }
+    }
+    if (selectedRoadsideId) {
+      const nextMarker = markers.get(selectedRoadsideId);
+      if (nextMarker) {
+        nextMarker.setIcon(roadsideMarkerIcon(true));
+        // Above the other diamonds, below the numbered trip stops (2000).
+        nextMarker.setZIndex(1600);
+      }
+    }
+    previousRoadsideRef.current = selectedRoadsideId ?? null;
+    applyRoadsideZoomRef.current?.();
+  }, [selectedRoadsideId]);
 
   // Highlight effect: only touch the markers that actually changed
   // (previous highlight + new highlight). Avoids N-marker churn per hover.
@@ -502,39 +543,6 @@ function PolylineRenderer({
     }
     previousHighlightRef.current = highlightedCandidateId ?? null;
   }, [highlightedCandidateId, routeColor]);
-
-  // ── Effect 5: search arc ───────────────────────────────────────────────
-  // Draws a 180° polyline arc to visualise the radial search area ahead of
-  // the frontier stop. Tears down the old arc before building a new one.
-  useEffect(() => {
-    if (!map || !window.google?.maps?.geometry) return;
-
-    if (arcRef.current) {
-      arcRef.current.setMap(null);
-      arcRef.current = null;
-    }
-
-    if (!searchArc) return;
-
-    const pts = buildSemicirclePoints(
-      searchArc.center,
-      searchArc.radiusMeters,
-      searchArc.headingDeg
-    );
-    const arc = new google.maps.Polyline({
-      path: pts,
-      strokeColor: routeColor,
-      strokeOpacity: 0.8, // meets WCAG 1.4.11 non-text contrast at 3:1
-      strokeWeight: 1.5,  // thin enough to read as a guide, not a hard boundary
-      map,
-    });
-    arcRef.current = arc;
-
-    return () => {
-      arc.setMap(null);
-      arcRef.current = null;
-    };
-  }, [map, searchArc, routeColor]);
 
   return (
     <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -602,8 +610,9 @@ export default function RouteMap({
   onCandidateClick,
   tripStops,
   pending = false,
-  searchArc,
   roadsideStops,
+  onRoadsideClick,
+  selectedRoadsideId = null,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -643,7 +652,17 @@ export default function RouteMap({
         // defined` on every direct load. The library documents its export as a
         // copy of the google.maps constants, so the value is identical.
         // Guarded by src/components/__tests__/RouteMap.ssr.test.tsx.
-        zoomControlOptions={{ position: ControlPosition.RIGHT_CENTER }}
+        //
+        // Top right, not the vertical centre: on a phone the sheet covers
+        // the lower half of the map at its middle snap, and a control at
+        // the centre sat half under it. The top of the map is the map's own
+        // area at every snap but the full one, where the sheet covers
+        // nearly everything anyway. The rotate (compass) and camera
+        // controls are off for the same reason: Google places them at the
+        // bottom, under the sheet (Gauntlet U1, rule 6).
+        zoomControlOptions={{ position: ControlPosition.RIGHT_TOP }}
+        rotateControl={false}
+        cameraControl={false}
         fullscreenControl={false}
         mapTypeControl={false}
         streetViewControl={false}
@@ -662,8 +681,9 @@ export default function RouteMap({
             onCandidateClick={onCandidateClick}
             tripStops={tripStops}
             roadsideStops={roadsideStops}
+            onRoadsideClick={onRoadsideClick}
+            selectedRoadsideId={selectedRoadsideId}
             pending={pending}
-            searchArc={searchArc}
           />
         ) : (
           <DirectionsFallback origin={origin} destination={destination} />
