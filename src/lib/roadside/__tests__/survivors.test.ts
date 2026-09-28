@@ -1,0 +1,37 @@
+import { describe, it, expect } from "vitest";
+import { buildSurvivors, aboutFor, MAP_THRESHOLD, SurvivorsFileSchema } from "../survivors";
+import type { RoadsideStop } from "../record";
+
+const stop = (i: number, extra: Partial<RoadsideStop> = {}): RoadsideStop => ({
+  id: `osm:node:${i}`, name: `Stop ${i}`, lat: 35, lng: -101, kind: "attraction", source: "osm",
+  reason: null, detail: null, wikidata: null, wikipedia: null, ...extra,
+});
+
+describe("the survivors", () => {
+  it("keeps every scored stop at or above the line, skips the unscored, and keeps corridor order", () => {
+    const stops = [stop(1), stop(2), stop(3), stop(4)];
+    const scores = new Map([["osm:node:1", 0.45], ["osm:node:2", 0.44], ["osm:node:4", 0.9]]);
+    const out = buildSurvivors(stops, scores, {});
+    expect(out.map((s) => [s.id, s.p])).toEqual([["osm:node:1", 0.45], ["osm:node:4", 0.9]]);
+    expect(MAP_THRESHOLD).toBe(0.45);
+    expect(buildSurvivors(stops, scores, {}, 0.5).map((s) => s.id)).toEqual(["osm:node:4"]);
+  });
+
+  it("reads about in order: the encyclopedia's opening, its short description, the map's own line, nothing", () => {
+    const s = stop(1, { detail: "mural" });
+    expect(aboutFor(s, { extract: "A large steakhouse. Known for eating.", short: "restaurant" })).toBe("A large steakhouse. Known for eating.");
+    expect(aboutFor(s, { short: "restaurant" })).toBe("restaurant");
+    expect(aboutFor(s, undefined)).toBe("mural");
+    expect(aboutFor(stop(2), { extract: "  " })).toBeNull();
+    const long = "word ".repeat(100);
+    expect(aboutFor(stop(3, { detail: long }), undefined)!.length).toBeLessThanOrEqual(240);
+  });
+
+  it("carries the Wikipedia link and validates as a file", () => {
+    const out = buildSurvivors([stop(1)], new Map([["osm:node:1", 0.7]]), { "osm:node:1": { url: "https://en.wikipedia.org/wiki/X", short: "x" } });
+    expect(out[0].url).toBe("https://en.wikipedia.org/wiki/X");
+    const file = { corridor: "c", builtAt: "2026-09-28T00:00:00Z", threshold: 0.45, model: "jev-1.13.0", stops: out };
+    expect(SurvivorsFileSchema.safeParse(file).success).toBe(true);
+    expect(SurvivorsFileSchema.safeParse({ ...file, stops: [{ ...out[0], p: 1.5 }] }).success).toBe(false);
+  });
+});

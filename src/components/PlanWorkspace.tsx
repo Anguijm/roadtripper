@@ -8,6 +8,7 @@ import React, {
   useRef,
   useTransition,
 } from "react";
+import type { RoadsideMarker } from "@/lib/roadside/along";
 import RouteMap, {
   type CandidateMarker,
   type TripStopMarker,
@@ -58,7 +59,25 @@ interface PlanWorkspaceProps {
   endDate?: string;
   dateMode?: string;
   initialCandidateFetchFailed?: boolean;
+  /** Roadside survivors along the planned route, in road order. Empty when no pulled corridor is near it. */
+  roadsideStops?: RoadsideMarker[];
 }
+
+/**
+ * One empty list, made once. A `= []` default in the destructuring would be
+ * a new array on every render, and RouteMap's roadside effect keys on the
+ * array's identity, so every keystroke in the workspace would tear the
+ * markers down and put them back. The server hands a stable array when
+ * there are stops; this is the stable one when there are none.
+ */
+const NO_ROADSIDE: RoadsideMarker[] = [];
+
+/** The kinds as the sidebar says them; anything unknown is "place". */
+const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
+  attraction: "attraction", museum: "museum", viewpoint: "viewpoint", artwork: "artwork", theme_park: "theme park", zoo: "zoo",
+  historic: "historic", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
+  notable: "place", other: "place",
+};
 
 // 7 stops balances itinerary richness against UI clarity and API cost per recompute.
 const MAX_TRIP_STOPS = 7;
@@ -106,6 +125,7 @@ export default function PlanWorkspace({
   endDate,
   dateMode,
   initialCandidateFetchFailed = false,
+  roadsideStops = NO_ROADSIDE,
 }: PlanWorkspaceProps) {
 
   // Stable UUID per component mount, passed to saveTrip on every attempt so a
@@ -942,6 +962,37 @@ export default function PlanWorkspace({
                 />
               </div>
 
+              {/* Roadside stops (step 22): what the model says is worth pulling
+                  over for along this road, from a corridor pulled and scored
+                  ahead of time. Collapsed by default: 200 rows would bury the
+                  city list, and the diamonds on the map already say where. */}
+              {roadsideStops.length > 0 && (
+                <details data-roadside className="px-1 py-2 border-t border-[#30363d]">
+                  <summary className="min-h-[44px] flex items-center cursor-pointer text-xs font-mono uppercase tracking-widest text-[#e3b341] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
+                    Roadside stops along the way · {roadsideStops.length}
+                  </summary>
+                  <ul className="mt-2 space-y-2">
+                    {roadsideStops.map((s) => (
+                      <li key={s.id} data-roadside-stop={s.id} className="text-sm leading-snug">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${s.name}, opens in Google Maps in a new tab`}
+                          className="text-[#f0f6fc] hover:text-[#e3b341] underline-offset-2 hover:underline"
+                        >
+                          {s.name}
+                        </a>
+                        <span className="text-[#8b949e]"> · {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {Math.round(s.alongKm)} km</span>
+                        {s.about && (
+                          <p data-roadside-about className="text-xs text-[#8b949e] line-clamp-2">{s.about}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
               {/* Save trip, at the end of the list rather than in the sticky
                   header, so the header is short and the reason leads. No
                   auth gate: trips live in this browser. */}
@@ -983,6 +1034,7 @@ export default function PlanWorkspace({
           highlightedCandidateId={highlightedCityId}
           onCandidateClick={handleMapClick}
           tripStops={tripStops}
+          roadsideStops={roadsideStops}
           pending={isPending}
           searchArc={searchArc}
         />
