@@ -99,6 +99,11 @@ export function roadsideMarkerSvg(color = ROADSIDE_COLOR, active = false): strin
 }
 
 /** Below this width the sheet is a bottom sheet over the map (the `md` breakpoint; `.plan-sheet` in globals.css). */
+// Must match the `@media (max-width: 767px)` rules in src/app/globals.css
+// (three of them: the sheet, its reduced-motion variant, the map strip). The
+// CSS decides the layout and this decides the gestures and the fit; if the
+// two disagree, a tablet gets a bottom sheet with desktop margins or the
+// reverse. Change both, and check with a screenshot at 767 and 768 px.
 export const PHONE_MAX_WIDTH_PX = 767;
 
 /**
@@ -181,7 +186,13 @@ export function stripHeightPx(args: {
 export function fitPaddingPx(args: Parameters<typeof stripHeightPx>[0] & { mapHeightPx: number }): FitPadding {
   const stripPx = stripHeightPx(args);
   if (stripPx === undefined || stripPx < STRIP_MIN_PX) return { ...FIT_MARGIN_PX };
-  return { ...STRIP_MARGIN_PX, bottom: Math.round(args.mapHeightPx - stripPx) + STRIP_MARGIN_PX.bottom };
+  // A map whose box has no height yet (a collapsed container during a
+  // layout pass) would give a negative bottom padding, which fitBounds
+  // treats as a crash-worthy request; fall back to the plain margins and
+  // let the next resize event fit properly.
+  const bottom = Math.round(args.mapHeightPx - stripPx) + STRIP_MARGIN_PX.bottom;
+  if (!(args.mapHeightPx > 0) || bottom < 0) return { ...FIT_MARGIN_PX };
+  return { ...STRIP_MARGIN_PX, bottom };
 }
 
 /** Whether the screen is a phone, where the sheet is a bottom sheet over the map. */

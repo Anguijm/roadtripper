@@ -243,3 +243,9 @@ Gate 1 after: 48 files, 485 tests, all green (5 added, in format.test.ts);
 `bun run type-check` clean; `bun run lint` 0 errors, the same 9 warnings
 on the same code (the unused-directive warning in RouteMap.tsx moved from
 line 579 to 601 with the lines added above it).
+
+## Council round 3 on #83 (CONDITIONAL, bugs 9), and what changed
+
+- `fitPaddingPx` falls back to the plain margins when the map's box has no height or the padding would go negative
+- `PHONE_MAX_WIDTH_PX` says which three CSS rules it must match and how to check
+- Answered, not changed: the roadside list cannot hold a duplicate id; `survivorsAlongRoute` in `src/lib/roadside/store.ts` builds the list through a Map keyed by id (line 74 to 77), so the server hands the page one row per stop. This is the third council round on the code, the cap the operator set; the two deferred items are noted and not taken.
