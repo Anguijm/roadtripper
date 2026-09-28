@@ -16,7 +16,8 @@ describe("the roadside record", () => {
     const s = fromOsmElement(cadillac);
     expect(s).toEqual({
       id: "osm:way:42", name: "Cadillac Ranch", lat: 35.1872, lng: -101.9871, kind: "attraction", source: "osm",
-      reason: null, wikidata: "Q1025849", wikipedia: "en:Cadillac Ranch",
+      reason: null,
+      detail: null, wikidata: "Q1025849", wikipedia: "en:Cadillac Ranch",
     });
     expect(RoadsideStopSchema.safeParse(s).success).toBe(true);
   });
@@ -322,5 +323,35 @@ describe("cancelling a pull", () => {
     expect(err.message).toMatch(/cancelled/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(signalSeen).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe("what the tags say about a place (detail)", () => {
+  const at = (tags: Record<string, string>) => fromOsmElement({ type: "node", id: 1, lat: 1, lon: 2, tags: { name: "X", ...tags } })?.detail;
+
+  it("takes the mapper's description first, then the inscription, then the subtype, and reads underscores as spaces", () => {
+    // Spirit Rock, node 12119451158, as the corridor pull saw it.
+    expect(at({ tourism: "attraction", description: "A large boulder in the center of a circular garden." })).toBe("A large boulder in the center of a circular garden.");
+    expect(at({ tourism: "attraction", "description:en": "  English wins over nothing  " })).toBe("English wins over nothing");
+    expect(at({ historic: "memorial", inscription: "To those who served" })).toBe("To those who served");
+    expect(at({ historic: "memorial", memorial: "war_memorial" })).toBe("war memorial");
+    expect(at({ tourism: "artwork", artwork_type: "mural" })).toBe("mural");
+    expect(at({ tourism: "museum", museum: "history;railway" })).toBe("history, railway");
+  });
+
+  it("says what a Wikidata-only place is, and nothing when the tags say nothing beyond the kind", () => {
+    expect(at({ wikidata: "Q1", amenity: "school", building: "yes" })).toBe("school");
+    expect(at({ wikidata: "Q1", building: "hotel" })).toBe("hotel");
+    expect(at({ wikidata: "Q1", building: "yes" })).toBeNull();
+    expect(at({ tourism: "attraction" })).toBeNull();
+    expect(at({ tourism: "artwork", artwork_type: "yes" })).toBeNull();
+  });
+
+  it("clips a long description at a word, never mid-word, within the reason bound", () => {
+    const long = "word ".repeat(100).trim();
+    const d = at({ tourism: "attraction", description: long })!;
+    expect(d.length).toBeLessThanOrEqual(240);
+    expect(d.endsWith("…")).toBe(true);
+    expect(d.slice(0, -1).endsWith("word")).toBe(true);
   });
 });

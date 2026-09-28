@@ -64,7 +64,9 @@ mkdirSync("data/corridors", { recursive: true });
 // PROGRESS_VERSION: bump it when RoadsideStopSchema in
 // src/lib/roadside/record.ts changes shape, so saved tiles in the old
 // shape are not merged with new ones.
-const PROGRESS_VERSION = 1;
+// 2 since 2026-09-28: the record gained `detail`, so tiles saved under 1
+// lack a field every later reader expects.
+const PROGRESS_VERSION = 2;
 const progressPath = `data/corridors/${name}.tiles.json`;
 type Progress = { key: string; tiles: Record<string, RoadsideStop[]> };
 const routeHash = createHash("sha256")

@@ -4,7 +4,7 @@ import type { RoadsideStop } from "../record";
 
 const stop = (i: number, extra: Partial<RoadsideStop> = {}): RoadsideStop => ({
   id: `osm:node:${i}`, name: `Stop ${i}`, lat: 35, lng: -101, kind: "attraction", source: "osm",
-  reason: null, wikidata: null, wikipedia: null, ...extra,
+  reason: null, detail: null, wikidata: null, wikipedia: null, ...extra,
 });
 
 describe("the Wikipedia title on a stop", () => {
