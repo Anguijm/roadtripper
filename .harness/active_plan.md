@@ -58,3 +58,13 @@ is not on it until the next build. The line and the question were
 validated on one corridor in one state. And the store is not deployable
 by git: it is hundreds of megabytes, so the deployed app needs it copied
 onto its volume, which this PR does not do.
+
+## Gate 1 proofs (so far; the scoring of the Wikidata-only tranche is still running)
+
+- Rule 1: the extractor's smoke on a synthetic file emits a node and a way with its centre; on the United States file: 90,544 candidate relations, 275,370 candidate ways, 251,099 candidate nodes, 14 minutes, memory flat at half the machine (the first version held 56 million node references in Python and would not have fit).
+- Rule 2: the store, built under Node (Bun's SQLite binding crashes at startup): 616,163 elements read, 323,888 stops, 58 MB. By kind: notable 178,633; park 53,391; historic 28,099; artwork 20,795; attraction 16,448; museum 14,292; viewpoint 7,438; tower 1,244; cave 973; theme park 842; lighthouse 782; zoo 633; arch 317; waterfall 1.
+- Rule 3: tranche 1 (every tagged kind, 145,255 stops) scored in 27 minutes, 26,741 at or above 0.45; parks almost never (296 of 53,391), viewpoints and arches mostly. The scorer was paused between tranches until the describer finished, so the Wikidata-only flood is scored with its descriptions; 326 rows scored before their description landed were reset and rescored.
+- Rule 4, proven on a road the first corridor never touched: Denver to Santa Fe renders in 1.2 s with 278 roadside stops along I-25, amber diamonds through Denver, Colorado Springs and Pueblo; screenshot sent to John.
+- Rule 5: the store test on a temporary database; with the line removed from the query, two tests fail; with the tile dedupe removed, one fails; restored, `cmp` clean. The corridor check after tranche 1: 7.3% of the corridor's scored stops crossed the 0.45 line against J9, all within a few hundredths of it and all with the map's line newly in the state; the spec stops the run above 10%.
+- The describe pass died once at row 60,000 on a dropped connection; the client now retries a dropped connection once (test: "retries once when the connection drops…", which fails with the retry removed) and the pass retries a chunk five times.
+- 457 tests; lint and types clean.
