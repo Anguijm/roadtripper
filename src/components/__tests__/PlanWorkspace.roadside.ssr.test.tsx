@@ -8,7 +8,9 @@ vi.mock("@/app/plan/actions", () => ({
 }));
 
 import PlanWorkspace, { RoadsideCard, ROADSIDE_NO_WRITEUP, roadsideAlongText, ROADSIDE_SHOWN_FIRST } from "@/components/PlanWorkspace";
-import RouteMap, { roadsideMarkerSvg, ROADSIDE_COLOR, roadsideMinProbabilityAt, ROADSIDE_ZOOM_STEPS } from "@/components/RouteMap";
+import RouteMap, { roadsideMarkerSvg, ROADSIDE_COLOR, roadsideMinProbabilityAt, ROADSIDE_ZOOM_STEPS, DARK_MAP_STYLES } from "@/components/RouteMap";
+import { roadsideSpread, mercatorPx, ringRadius, RING_CHORD_PX, RING_MAX, STACK_PX } from "@/lib/roadside/spread";
+import { townsAlong, roadsideAnchor } from "@/lib/roadside/anchor";
 import { formatDurationPlain } from "@/lib/routing/format";
 import nextConfig from "../../../next.config";
 import type { RoadsideMarker } from "@/lib/roadside/along";
@@ -80,8 +82,10 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toContain("2 places worth pulling over for");
     expect(html).toContain('data-roadside-stop="osm:way:1"');
     expect(html).toContain("The Big Texan Steak Ranch");
-    expect(html).toContain("well-known place · 9 km in");
-    expect(html).toContain("historic place · 9 km in");
+    // The sheet's unit (the summary says "497 mi"), no town on the row.
+    expect(html).toContain("well-known place · 6 mi in");
+    expect(html).toContain("historic place · 6 mi in");
+    expect(html).not.toContain("km in");
     // Two stops, both shown: no "Show all" control below the ten.
     expect(html).not.toContain("data-roadside-show-all");
     // The list does not carry the old engineer heading.
@@ -109,8 +113,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toMatch(/<h3[^>]*>The Big Texan Steak Ranch<\/h3>/);
     // 2. The line about it, from the store.
     expect(html).toMatch(/data-roadside-line[^>]*>A large steakhouse and motel\. A roadside attraction known for competitive eating\.</);
-    // 3 and 4. The kind in plain words and how far along the road.
-    expect(html).toMatch(/data-roadside-where[^>]*>well-known place · 9 km in</);
+    // 3 and 4. The kind in plain words and how far along the road, with the
+    // town it is at: the Big Texan is 7 km from the start, Amarillo.
+    expect(html).toMatch(/data-roadside-where[^>]*>well-known place · 6 mi in, at Amarillo</);
     // 5. One link-button that opens the place in Maps.
     expect(html).toMatch(/<a href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=35\.19381,-101\.75510"[^>]*>Open in Maps<\/a>/);
     // And a way to close it.
@@ -126,11 +131,44 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const html = renderToString(<RoadsideCard stop={stops[1]} />).replace(/<!-- -->/g, "");
     expect(ROADSIDE_NO_WRITEUP).toBe("No write-up for this one.");
     expect(html).toMatch(/data-roadside-line[^>]*>No write-up for this one\.</);
-    expect(html).toMatch(/data-roadside-where[^>]*>historic place · 9 km in</);
+    expect(html).toMatch(/data-roadside-where[^>]*>historic place · 6 mi in</);
     // Round 1 said "A historic place." here, which only repeated the line beneath.
     expect(html).not.toContain("A historic place.");
-    expect(roadsideAlongText(211.6)).toBe("212 km in");
-    expect(roadsideAlongText(0.3)).toBe("Right at the start");
+  });
+
+  it("says how far in miles, the sheet's own unit, and which town it is at or past", () => {
+    expect(roadsideAlongText(211.6)).toBe("131 mi in");
+    expect(roadsideAlongText(9, { name: "Amarillo", near: true })).toBe("6 mi in, at Amarillo");
+    expect(roadsideAlongText(211.6, { name: "Lubbock", near: false })).toBe("131 mi in, past Lubbock");
+    // Under a mile the same shape, not a different sentence (round-2 critic:
+    // "Right at the start" beside "6 km in" read as two styles).
+    expect(roadsideAlongText(0.3)).toBe("Less than a mile in");
+    expect(roadsideAlongText(0.3, { name: "Amarillo", near: true })).toBe("Less than a mile in, at Amarillo");
+  });
+
+  it("places the towns along the road and names the one a stop is at or past", () => {
+    // A road due south from 35,-101 to 34,-101, about 111 km, a point every
+    // 0.01 degrees. Tulia sits 4.6 km off it halfway down; Clovis 46 km off.
+    const road = Array.from({ length: 101 }, (_, i) => ({ lat: 35 - i / 100, lng: -101 }));
+    const towns = townsAlong(
+      road,
+      { name: "Amarillo", lat: 35, lng: -101 },
+      { name: "Lubbock", lat: 34, lng: -101 },
+      [{ name: "Clovis", lat: 34.5, lng: -101.5 }, { name: "Tulia", lat: 34.5, lng: -101.05 }]
+    );
+    expect(towns.map((t) => t.name)).toEqual(["Amarillo", "Tulia", "Lubbock"]);
+    expect(towns[0].alongKm).toBe(0);
+    expect(towns[1].alongKm).toBeCloseTo(55.6, 0);
+    expect(towns[2].alongKm).toBeCloseTo(111.2, 0);
+    // 11 km down the road: past the start, not at it.
+    expect(roadsideAnchor({ lat: 34.9, lng: -101, alongKm: 11.1 }, towns)).toEqual({ name: "Amarillo", near: false });
+    // Beside Tulia: at it.
+    expect(roadsideAnchor({ lat: 34.52, lng: -101, alongKm: 53.4 }, towns)).toEqual({ name: "Tulia", near: true });
+    // Between Tulia and Lubbock, nearer neither: past Tulia.
+    expect(roadsideAnchor({ lat: 34.3, lng: -101, alongKm: 77.8 }, towns)).toEqual({ name: "Tulia", near: false });
+    // A route with no direction: the start alone, and a stop is past it.
+    expect(townsAlong([{ lat: 35, lng: -101 }], { name: "Amarillo", lat: 35, lng: -101 }, { name: "Lubbock", lat: 34, lng: -101 }, []).map((t) => t.name)).toEqual(["Amarillo"]);
+    expect(roadsideAnchor({ lat: 34.3, lng: -101, alongKm: 77.8 }, [])).toBeNull();
   });
 
   it("renders no card when nothing is tapped", () => {
@@ -221,6 +259,74 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(active).toContain("M22 9 L35 22 L22 35 L9 22 Z");
     expect(active).toContain('stroke="#f0f6fc"');
     expect(active).not.toContain("<circle");
+  });
+
+  it("spreads diamonds that sit on one point into a ring, so every one answers its own tap", () => {
+    // The round-2 critic's three: at the state-wide zoom they sat on
+    // Amarillo's point and a tap opened whichever was on top.
+    const amarillo = [
+      { id: "big-texan", name: "The Big Texan Steak Ranch", lat: 35.19381, lng: -101.7551, p: 0.83 },
+      { id: "helium", name: "Helium Monument", lat: 35.19955, lng: -101.91332, p: 0.72 },
+      { id: "mural", name: "Amarillo Mural", lat: 35.20063, lng: -101.83761, p: 0.71 },
+    ];
+    const zoom = 7;
+    // On one point at this zoom: the farthest pair is 14 px apart.
+    const at = (s: { lat: number; lng: number }) => mercatorPx(s.lat, s.lng, zoom);
+    expect(Math.hypot(at(amarillo[0]).x - at(amarillo[1]).x, at(amarillo[0]).y - at(amarillo[1]).y)).toBeLessThan(STACK_PX);
+    const placed = roadsideSpread(amarillo, zoom);
+    expect([...placed.values()].every((p) => p.shown)).toBe(true);
+    // A ring of three around the strongest: 25 px out, 44 px apart, so the
+    // 44 px touch canvases touch and never overlap.
+    const anchor = at(amarillo[0]);
+    const where = amarillo.map((s) => {
+      const p = placed.get(s.id)!;
+      return { x: at(s).x + p.dx, y: at(s).y + p.dy };
+    });
+    for (const w of where) expect(Math.hypot(w.x - anchor.x, w.y - anchor.y)).toBeCloseTo(ringRadius(3), 0);
+    for (let i = 0; i < 3; i++)
+      for (let j = i + 1; j < 3; j++) expect(Math.hypot(where[i].x - where[j].x, where[i].y - where[j].y)).toBeGreaterThanOrEqual(RING_CHORD_PX - 1);
+    // The strongest sits at the bottom; the gap is at the top, where the
+    // town's name is drawn.
+    expect(placed.get("big-texan")).toEqual({ dx: 0, dy: 25, shown: true });
+    expect(where.every((w) => w.y > anchor.y - 15)).toBe(true);
+    // Two sit left and right of the point.
+    const two = roadsideSpread(amarillo.slice(0, 2), zoom);
+    expect(two.get("big-texan")).toEqual({ dx: -22, dy: 0, shown: true });
+    expect(Math.abs(two.get("helium")!.dy)).toBeLessThanOrEqual(1);
+    // Zoomed to the town they are hundreds of pixels apart: nothing moves.
+    const apart = roadsideSpread(amarillo, 13);
+    for (const s of amarillo) expect(apart.get(s.id)).toEqual({ dx: 0, dy: 0, shown: true });
+    // The tapped one takes its stack's first slot, so its diamond is on the
+    // map whatever its strength.
+    expect(roadsideSpread(amarillo, zoom, "mural").get("mural")).toEqual({ dx: 0, dy: 25, shown: true });
+  });
+
+  it("caps a ring at eight and lets the rest wait for a closer zoom, the tapped one always in", () => {
+    // Twelve on one point: downtown at a town zoom.
+    const twelve = Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, name: `Stop ${i}`, lat: 30.2672 + i * 0.0001, lng: -97.7431, p: 0.9 - i * 0.02 }));
+    const placed = roadsideSpread(twelve, 10);
+    expect(RING_MAX).toBe(8);
+    expect([...placed.values()].filter((p) => p.shown)).toHaveLength(8);
+    // The eight strongest show; the four weakest wait.
+    for (let i = 0; i < 8; i++) expect(placed.get(`s${i}`)!.shown).toBe(true);
+    for (let i = 8; i < 12; i++) expect(placed.get(`s${i}`)).toEqual({ dx: 0, dy: 0, shown: false });
+    // The tapped one, the weakest, is shown in the first slot and the
+    // eighth strongest waits instead.
+    const kept = roadsideSpread(twelve, 10, "s11");
+    expect(kept.get("s11")!.shown).toBe(true);
+    expect(kept.get("s7")!.shown).toBe(false);
+    expect([...kept.values()].filter((p) => p.shown)).toHaveLength(8);
+    // A ring of eight reaches 57 px; every shown one is that far out.
+    expect(ringRadius(8)).toBeCloseTo(57.5, 0);
+  });
+
+  it("draws the towns' names once: the basemap's are off and the start and end carry the app's", () => {
+    // Drawn both, "Lubbock" read "Lubbockbock" and "Amarillo" hid behind
+    // the diamonds (round-2 critic, rule 7).
+    expect(DARK_MAP_STYLES).toContainEqual({ featureType: "administrative.locality", elementType: "labels", stylers: [{ visibility: "off" }] });
+    expect(() =>
+      renderToString(<RouteMap origin={base.origin} destination={base.destination} originName="Amarillo" destinationName="Austin" encodedPolyline={base.encodedPolyline} />)
+    ).not.toThrow();
   });
 
   it("draws no search arc: the map has no such prop any more", () => {

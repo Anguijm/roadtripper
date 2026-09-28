@@ -9,6 +9,8 @@ import React, {
   useTransition,
 } from "react";
 import type { RoadsideMarker } from "@/lib/roadside/along";
+import { roadsideAnchor, townsAlong, type RoadsideAnchor } from "@/lib/roadside/anchor";
+import { decodePolyline } from "@/lib/routing/polyline";
 import RouteMap, {
   type CandidateMarker,
   type TripStopMarker,
@@ -96,10 +98,17 @@ const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
  */
 export const ROADSIDE_NO_WRITEUP = "No write-up for this one.";
 
-/** How far along the road a stop sits, as the card says it: "212 km in". */
-export function roadsideAlongText(alongKm: number): string {
-  const km = Math.round(alongKm);
-  return km < 1 ? "Right at the start" : `${km} km in`;
+/**
+ * How far along the road a stop sits, as the sheet says it: "132 mi in",
+ * and with the town when the caller has one, "6 mi in, at Amarillo" or
+ * "132 mi in, past Lubbock". Miles, because the sheet's own summary says
+ * "497 mi" (round-2 critic: one sheet, one unit), through the same
+ * `formatDistance` so the two can never round differently.
+ */
+export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null): string {
+  const mi = Math.round((alongKm * 1000) / 1609.34);
+  const dist = mi < 1 ? "Less than a mile in" : `${formatDistance(alongKm * 1000)} in`;
+  return anchor ? `${dist}, ${anchor.near ? "at" : "past"} ${anchor.name}` : dist;
 }
 
 /**
@@ -116,12 +125,13 @@ function roadsideMapsUrl(s: Pick<RoadsideMarker, "lat" | "lng">): string {
 /**
  * The card for one roadside stop (Gauntlet U1). Pure: the five parts from
  * what the store gives, nothing fetched. The name, the line about it (the
- * store's, or the kind as a sentence when the store has none), the kind in
- * plain words with how far along the road, and one link-button that opens
- * the place in Google Maps. `about` and `name` are untrusted text and are
- * rendered as text.
+ * store's, or that there is none), the kind in plain words with how far
+ * along the road and which town it is at or past (`anchor`, from the towns
+ * the page already has), and one link-button that opens the place in
+ * Google Maps. `about` and `name` are untrusted text and are rendered as
+ * text.
  */
-export function RoadsideCard({ stop, onClose }: { stop: RoadsideMarker; onClose?: () => void }) {
+export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
   return (
     <section
       data-roadside-card={stop.id}
@@ -143,7 +153,7 @@ export function RoadsideCard({ stop, onClose }: { stop: RoadsideMarker; onClose?
         {stop.about ?? ROADSIDE_NO_WRITEUP}
       </p>
       <p data-roadside-where className="text-base text-[#8b949e]">
-        {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm)}
+        {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm, anchor)}
       </p>
       <a
         href={roadsideMapsUrl(stop)}
@@ -405,6 +415,17 @@ export default function PlanWorkspace({
   const selectedRoadside = useMemo(
     () => (selectedRoadsideId ? roadsideStops.find((s) => s.id === selectedRoadsideId) ?? null : null),
     [roadsideStops, selectedRoadsideId]
+  );
+  // The towns on the road, for the card's "at Amarillo" and "past Lubbock":
+  // the start, the end and the towns that fit within 15 km of the route,
+  // placed along a route sampled every kilometre. Once per route; nothing
+  // when there is no roadside stop to say it for.
+  const roadTowns = useMemo(
+    () =>
+      roadsideStops.length === 0
+        ? []
+        : townsAlong(decodePolyline(livePolyline), { name: fromName, ...origin }, { name: toName, ...destination }, liveCandidateMarkers),
+    [roadsideStops.length, livePolyline, fromName, toName, origin, destination, liveCandidateMarkers]
   );
   const handleRoadsideSelect = useCallback((id: string) => {
     setSelectedRoadsideId((curr) => (curr === id ? null : id));
@@ -1055,7 +1076,7 @@ export default function PlanWorkspace({
             <section data-roadside aria-labelledby="roadside-heading" className="font-sans px-1 py-2 border-t border-[#30363d] space-y-2">
               {selectedRoadside && (
                 <div ref={roadsideCardRef} className="scroll-mt-2">
-                  <RoadsideCard stop={selectedRoadside} onClose={clearRoadside} />
+                  <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
                 </div>
               )}
               <h2 id="roadside-heading" className="text-base text-[#e3b341] px-2 pt-1">
@@ -1063,7 +1084,13 @@ export default function PlanWorkspace({
                   ? "1 place worth pulling over for"
                   : `${roadsideStops.length} places worth pulling over for`}
               </h2>
-              <ul className="space-y-1">
+              {/* Two lines of 22 px with 4 px above and below (52 px, over
+                  the 44 px target) and no gap between rows, so ten rows,
+                  the heading and the control fit the sheet fully open on a
+                  390 by 844 phone (about 650 px inside the padding; these
+                  take 608). The row says the kind and the distance; the
+                  card adds the town, so the row stays two lines. */}
+              <ul>
                 {roadsideShown.map((s) => (
                   <li key={s.id} data-roadside-stop={s.id}>
                     <button
@@ -1071,7 +1098,7 @@ export default function PlanWorkspace({
                       onClick={() => handleRoadsideSelect(s.id)}
                       aria-expanded={selectedRoadsideId === s.id}
                       className={[
-                        "w-full min-h-[44px] text-left px-2 py-2 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                        "w-full min-h-[44px] text-left px-2 py-1 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                         selectedRoadsideId === s.id
                           ? "border-[#e3b341] bg-[#161b22]"
                           : "border-transparent hover:bg-[#161b22]",
@@ -1135,6 +1162,8 @@ export default function PlanWorkspace({
         <RouteMap
           origin={origin}
           destination={destination}
+          originName={fromName}
+          destinationName={toName}
           encodedPolyline={livePolyline}
           bounds={bounds}
           candidates={liveCandidateMarkers}

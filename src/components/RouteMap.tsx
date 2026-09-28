@@ -7,6 +7,7 @@ import {
   Map as GMap,
   useMap,
 } from "@vis.gl/react-google-maps";
+import { roadsideSpread } from "@/lib/roadside/spread";
 
 export interface CandidateMarker {
   id: string;
@@ -88,11 +89,17 @@ export function roadsideMarkerSvg(color = ROADSIDE_COLOR, active = false): strin
   return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><path d="${path}" fill="${color}" fill-opacity="0.95" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
 }
 
-/** Must be called inside effects where google.maps is guaranteed loaded. */
-function roadsideMarkerIcon(active = false): google.maps.Icon {
+/**
+ * Must be called inside effects where google.maps is guaranteed loaded.
+ * `dx` and `dy` are the diamond's place in a ring when it stacks with
+ * others (roadsideSpread): the anchor is the pixel of the image that sits
+ * on the marker's position, so moving it left and up draws the diamond
+ * right and down, with no second marker and no false position.
+ */
+function roadsideMarkerIcon(active = false, dx = 0, dy = 0): google.maps.Icon {
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(roadsideMarkerSvg(ROADSIDE_COLOR, active))}`,
-    anchor: new google.maps.Point(22, 22),
+    anchor: new google.maps.Point(22 - dx, 22 - dy),
     scaledSize: new google.maps.Size(44, 44),
   };
 }
@@ -100,6 +107,9 @@ function roadsideMarkerIcon(active = false): google.maps.Icon {
 interface RouteMapProps {
   origin?: google.maps.LatLngLiteral;
   destination?: google.maps.LatLngLiteral;
+  /** The start's and the end's names, drawn by the app above their dots: the basemap's town names are off. */
+  originName?: string;
+  destinationName?: string;
   encodedPolyline?: string;
   bounds?: {
     northeast: { lat: number; lng: number };
@@ -127,7 +137,7 @@ interface RouteMapProps {
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
 const DC: google.maps.LatLngLiteral = { lat: 38.9072, lng: -77.0369 };
 
-const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
+export const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ color: "#1c2128" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#0d1117" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#7d8590" }] },
@@ -138,6 +148,11 @@ const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#1c2128" }] },
   { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#30363d" }] },
   { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  // The app labels the towns of the trip itself (the towns that fit, the
+  // start and the end), so the basemap's town names are off: drawn both,
+  // "Lubbock" read "Lubbockbock" and "Amarillo" hid behind the diamonds
+  // (Gauntlet U1, round 3, rule 7). Roads, states and water keep theirs.
+  { featureType: "administrative.locality", elementType: "labels", stylers: [{ visibility: "off" }] },
 ];
 
 /**
@@ -160,6 +175,30 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
 }
 
 /**
+ * The start (green) and end (red) dots, the same 7 px circle as before on
+ * a canvas tall enough to carry the town's name 30 px above the dot: the
+ * dot at (32, 40), the label at (32, 10). Thirty is where a ring of
+ * stacked diamonds around the town leaves its gap (roadsideSpread: a ring
+ * of three reaches 25 px, and its members sit 13 px below the top). Must
+ * be called inside effects where google.maps is guaranteed loaded.
+ */
+function endpointIcon(fill: string): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="40" r="7" fill="${fill}" stroke="#0d1117" stroke-width="2"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: new google.maps.Point(32, 40),
+    scaledSize: new google.maps.Size(64, 64),
+    labelOrigin: new google.maps.Point(32, 10),
+  };
+}
+
+/** The same face as the candidate towns' labels, so the map has one label style (restyled together in U3). */
+function endpointLabel(name: string | undefined): google.maps.MarkerLabel | undefined {
+  if (!name) return undefined;
+  return { text: name, color: "#f0f6fc", fontSize: "11px", fontWeight: "500", className: "rt-candidate-label" };
+}
+
+/**
  * Renders a precomputed encoded polyline directly on the map.
  * Avoids a second Directions API call when the polyline was already
  * computed server-side.
@@ -169,8 +208,10 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
  *       Tears down and rebuilds JUST the line when the route changes.
  *   1b. Polyline opacity — `[pending]`
  *       Mutates the existing Polyline in place; no rebuild on pending toggle.
- *   2a. Endpoint markers — `[map, origin, destination]`
- *       Start/end pins; independent of candidate set so no flash on refresh.
+ *   2a. Endpoint markers — `[map, origin, destination, originName, destinationName]`
+ *       Start/end dots with the app's own town labels above them, drawn above
+ *       the diamonds and not clickable; independent of candidate set so no
+ *       flash on refresh.
  *   2b. Candidate cleanup — `[map]`
  *       Bulk-removes all candidate markers on map change or unmount.
  *       Must be declared before 2c so its cleanup runs before 2c repopulates.
@@ -183,11 +224,14 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
  *   3.  Trip-stop markers — `[map, tripStops, routeColor]`
  *       Numbered square markers for stops the user has added.
  *   4.  Roadside diamonds — `[map, roadsideStops]`
- *       Built wholesale with the zoom rule applied on every zoom change;
- *       a tap goes through `onRoadsideClickRef` so it is never stale.
+ *       Built wholesale; one pass applies the zoom rule and then the spread
+ *       (stacked diamonds take their places in a ring by re-anchoring the
+ *       icon) on every zoom change, touching only the markers whose place
+ *       changed; a tap goes through `onRoadsideClickRef` so it is never stale.
  *   4b. Tapped diamond — `[selectedRoadsideId]`
- *       Swaps the icon of the previous and the new selection only, then
- *       re-applies the zoom rule so the selected one stays visible.
+ *       Runs Effect 4's pass again: the selection is read from a ref, so the
+ *       previous one goes back to its own icon and rule and the new one is
+ *       drawn larger, kept visible and given its stack's first slot.
  *   5.  Highlight — `[highlightedCandidateId, routeColor]`
  *       Mutates only the two affected markers (prev + next highlight).
  *
@@ -203,6 +247,8 @@ function PolylineRenderer({
   bounds,
   origin,
   destination,
+  originName,
+  destinationName,
   candidates,
   routeColor,
   highlightedCandidateId,
@@ -217,6 +263,8 @@ function PolylineRenderer({
   bounds?: RouteMapProps["bounds"];
   origin: google.maps.LatLngLiteral;
   destination: google.maps.LatLngLiteral;
+  originName?: string;
+  destinationName?: string;
   candidates?: CandidateMarker[];
   routeColor: string;
   highlightedCandidateId?: string | null;
@@ -241,11 +289,9 @@ function PolylineRenderer({
   onRoadsideClickRef.current = onRoadsideClick;
   const selectedRoadsideRef = useRef<string | null>(selectedRoadsideId ?? null);
   selectedRoadsideRef.current = selectedRoadsideId ?? null;
-  const roadsideMarkersRef = useRef<Map<string, google.maps.Marker>>(new Map());
-  const previousRoadsideRef = useRef<string | null>(null);
-  // Effect 4's zoom-rule pass, kept so Effect 4b can re-run it after a
-  // selection change without rebuilding the markers.
-  const applyRoadsideZoomRef = useRef<(() => void) | null>(null);
+  // Effect 4's pass (the zoom rule, then the spread), kept so Effect 4b can
+  // run it again after a selection change without rebuilding the markers.
+  const applyRoadsideRef = useRef<(() => void) | null>(null);
   const [candidateAnnouncement, setCandidateAnnouncement] = useState("");
 
   // ── Effect 1a: polyline geometry / color ───────────────────────────────
@@ -302,42 +348,40 @@ function PolylineRenderer({
   }, [pending]);
 
   // ── Effect 2a: endpoint markers ────────────────────────────────────────
+  // The start and the end carry the app's own town names (the basemap's are
+  // off, DARK_MAP_STYLES), 30 px above the dot where a ring of stacked
+  // diamonds leaves its gap. zIndex 1800 puts the dot and its name above
+  // the diamonds (1500 and 1600) and under the numbered trip stops (2000),
+  // so a name is never behind a diamond; not clickable, so a name never
+  // takes a diamond's tap.
   useEffect(() => {
     if (!map || !window.google?.maps) return;
 
     const startMarker = new google.maps.Marker({
       position: origin,
       map,
-      title: "Start",
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 7,
-        fillColor: "#3fb950",
-        fillOpacity: 1,
-        strokeColor: "#0d1117",
-        strokeWeight: 2,
-      },
+      title: originName ? `Start: ${originName}` : "Start",
+      zIndex: 1800,
+      clickable: false,
+      icon: endpointIcon("#3fb950"),
+      label: endpointLabel(originName),
     });
 
     const endMarker = new google.maps.Marker({
       position: destination,
       map,
-      title: "End",
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 7,
-        fillColor: "#f85149",
-        fillOpacity: 1,
-        strokeColor: "#0d1117",
-        strokeWeight: 2,
-      },
+      title: destinationName ? `End: ${destinationName}` : "End",
+      zIndex: 1800,
+      clickable: false,
+      icon: endpointIcon("#f85149"),
+      label: endpointLabel(destinationName),
     });
 
     return () => {
       startMarker.setMap(null);
       endMarker.setMap(null);
     };
-  }, [map, origin, destination]);
+  }, [map, origin, destination, originName, destinationName]);
 
   // ── Effect 2b: candidate marker cleanup ────────────────────────────────
   // Bulk-removes all candidate markers when the map object is replaced or the
@@ -455,65 +499,64 @@ function PolylineRenderer({
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!roadsideStops || roadsideStops.length === 0) return;
-    const icon = roadsideMarkerIcon();
     const markers = roadsideStops.map((s) => {
-      const marker = new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon, visible: false });
+      const marker = new google.maps.Marker({ position: { lat: s.lat, lng: s.lng }, map, title: s.name, zIndex: 1500, icon: roadsideMarkerIcon(), visible: false });
       // Delegate through the ref so the handler is never stale on prop change.
       marker.addListener("click", () => onRoadsideClickRef.current?.(s.id));
       return marker;
     });
-    const byId = new Map<string, google.maps.Marker>();
-    roadsideStops.forEach((s, i) => byId.set(s.id, markers[i]));
-    roadsideMarkersRef.current = byId;
-    // The zoom rule: at a state-wide view only the strongest diamonds, at a
-    // town every survivor. Applied now and on every zoom change; markers are
-    // toggled, not rebuilt, so zooming costs nothing but a visibility flag.
-    // The tapped one is always shown, so a row tap at a state-wide zoom
-    // still puts its diamond on the map.
+    // What each marker was last given (active, dx, dy), so a pass touches
+    // only the markers whose place changed: a zoom step over a corridor of
+    // two hundred diamonds moves a handful.
+    const given = new Map<string, string>();
+    // The zoom rule, then the spread. At a state-wide view only the
+    // strongest diamonds, at a town every survivor; and among those shown,
+    // any that sit on one point at this zoom take their places in a ring
+    // (roadsideSpread) by re-anchoring the icon, so every diamond on the
+    // map answers a tap with its own card. The tapped one is always shown
+    // and takes its stack's first slot, so a row tap at a state-wide zoom
+    // still puts its diamond on the map. Applied now and on every zoom
+    // change; markers are toggled and re-anchored, never rebuilt.
     const apply = () => {
-      const minP = roadsideMinProbabilityAt(map.getZoom() ?? 0);
+      const zoom = map.getZoom() ?? 0;
+      const minP = roadsideMinProbabilityAt(zoom);
       const selected = selectedRoadsideRef.current;
-      roadsideStops.forEach((s, i) => markers[i].setVisible(s.p >= minP || s.id === selected));
+      const placed = roadsideSpread(roadsideStops.filter((s) => s.p >= minP || s.id === selected), zoom, selected);
+      roadsideStops.forEach((s, i) => {
+        const marker = markers[i];
+        const at = placed.get(s.id);
+        if (at?.shown) {
+          const active = s.id === selected;
+          const key = `${active ? "a" : "-"}${at.dx},${at.dy}`;
+          if (given.get(s.id) !== key) {
+            marker.setIcon(roadsideMarkerIcon(active, at.dx, at.dy));
+            // The tapped one above the other diamonds, below the numbered trip stops (2000).
+            marker.setZIndex(active ? 1600 : 1500);
+            given.set(s.id, key);
+          }
+        }
+        const shown = at?.shown === true;
+        if (marker.getVisible() !== shown) marker.setVisible(shown);
+      });
     };
     apply();
-    applyRoadsideZoomRef.current = apply;
+    applyRoadsideRef.current = apply;
     const listener = map.addListener("zoom_changed", apply);
     return () => {
       listener.remove();
       markers.forEach((m) => m.setMap(null));
-      roadsideMarkersRef.current = new Map();
-      applyRoadsideZoomRef.current = null;
-      previousRoadsideRef.current = null;
+      applyRoadsideRef.current = null;
     };
   }, [map, roadsideStops]);
 
   // ── Effect 4b: the tapped diamond ──────────────────────────────────────
-  // Only the two markers that changed are touched (the previous selection
-  // and the new one), then the zoom rule runs again so the selected one is
-  // visible and a cleared one goes back to its own rule. Declared after
-  // Effect 4 so the markers exist on the first pass.
+  // The selection lives in a ref that Effect 4's pass reads, so a change of
+  // selection is one more pass: the previous one goes back to its own icon
+  // and rule, the new one is drawn larger, kept visible and given its
+  // stack's first slot. Declared after Effect 4 so the pass exists on the
+  // first render.
   useEffect(() => {
-    if (!window.google?.maps) return;
-    const markers = roadsideMarkersRef.current;
-    if (markers.size === 0) return;
-    const prev = previousRoadsideRef.current;
-    if (prev && prev !== selectedRoadsideId) {
-      const prevMarker = markers.get(prev);
-      if (prevMarker) {
-        prevMarker.setIcon(roadsideMarkerIcon());
-        prevMarker.setZIndex(1500);
-      }
-    }
-    if (selectedRoadsideId) {
-      const nextMarker = markers.get(selectedRoadsideId);
-      if (nextMarker) {
-        nextMarker.setIcon(roadsideMarkerIcon(true));
-        // Above the other diamonds, below the numbered trip stops (2000).
-        nextMarker.setZIndex(1600);
-      }
-    }
-    previousRoadsideRef.current = selectedRoadsideId ?? null;
-    applyRoadsideZoomRef.current?.();
+    applyRoadsideRef.current?.();
   }, [selectedRoadsideId]);
 
   // Highlight effect: only touch the markers that actually changed
@@ -602,6 +645,8 @@ function DirectionsFallback({
 export default function RouteMap({
   origin = NYC,
   destination = DC,
+  originName,
+  destinationName,
   encodedPolyline,
   bounds,
   candidates,
@@ -676,6 +721,8 @@ export default function RouteMap({
             bounds={bounds}
             origin={origin}
             destination={destination}
+            originName={originName}
+            destinationName={destinationName}
             candidates={candidates}
             routeColor={routeColor}
             highlightedCandidateId={highlightedCandidateId}

@@ -8,69 +8,95 @@ Branch: `feat/u1-roadside-first-class`
 
 ## Goal
 
-Gauntlet component U1, round 2: the critic's one failure (rule 6, a black
-"N" circle over the sheet) fixed first, then the rest the spec's acceptance
-still needs on the same two captures.
+Gauntlet component U1, round 3: the critic's one failure (rule 4, the three
+Amarillo diamonds on one point at the state-wide zoom, so a tap opens
+whichever is on top and two of the three cannot be reached from the map)
+fixed first, then the lower items the same critic saw: the basemap's town
+labels doubled and cut by the app's, the card's distance with no town and in
+a unit the rest of the sheet does not use, and ten rows unverified.
 
-## What the "N" circle is
+## What the data says
 
-Not Google's compass. Round 1 turned the rotate and camera controls off and
-put the map pane in its own stacking context, and the round-1 captures
-(`scratchpad/u1/r1-list.png`, `r1-card.png`) show no Google control at the
-bottom of the map. The circle is Next's own dev-tools button, which the dev
-server fixes at the bottom-left of the viewport above everything, on the
-server the runner shoots. It never exists in production.
+Measured before the rule (`scratchpad/stacks.mjs` in the session's scratch
+space, over the store along an Amarillo to Austin corridor, 214 survivors).
+
+At the state-wide zoom (7 and under, p at or above 0.7) ten diamonds show in
+three groups: six on Austin's point, three on Amarillo's, one alone. Closer
+than 18 px, two diamonds sit on one point (the diamond is 18 px wide on a
+44 px canvas). Zoomed to a region (8 and 9) the largest stack is 28; at a
+town (10) downtown Austin puts 53 on one point, and even at 13 the Capitol
+grounds put 8 on one. So a spread has to be shaped for three and six at the
+default zoom and bounded for fifty at a town zoom.
 
 ## Ship rule (written before the code)
 
-1. The dev-tools button is off (`devIndicators: false` in `next.config.ts`),
-   so nothing the app does not draw sits over the sheet in a capture. Every
-   Google control is off through `disableDefaultUI`, which the map library
-   forwards on every update (it does not forward `cameraControl`, so round
-   1's `cameraControl={false}` reached only the constructor), and the zoom
-   control alone is turned back on at the top right. The map pane stays its
-   own stacking context.
-2. The sheet header (mood chips, distance, driving left) scrolls with the
-   content instead of staying pinned under the drag handle. Arithmetic on a
-   390 by 844 phone: with the header pinned, the list area at the full snap
-   is about 490 px, which holds the heading and eight two-line rows; with the
-   header scrolling away it is about 670 px, which holds the heading, ten
-   rows of 44 px or more and the "Show all" control. At the half snap ten
-   rows never fit; that capture needs the sheet fully open (one tap on the
-   handle from the half snap). Nothing changes at rest with the sheet
-   unscrolled.
-3. The header says its numbers as sentences, no stat labels: "497 mi ·
-   8 h 3 min on the road" and "4 h of driving left today" (or "… left over
-   3 days", or "1 h 20 min more driving than fits today"), the glossary's
-   own replacement for "budget left (as a stat)". Sentence case, a normal
-   face at 16 px.
-4. The mood chips wrap to a second row instead of scrolling or clipping
-   ("GEARH"), in sentence case at 16 px with 44 px targets. The group's
-   name is "I'm in the mood for", the glossary's word for persona.
-5. The town list's three glossary words go to the glossary's replacements:
-   "★ The pick", "What's in Lubbock", "Stop here". The frontier line loses
-   its counts: "First stop from Amarillo · 2 towns that fit today".
-6. The card's line when the store has no write-up says so ("No write-up for
-   this one.") instead of repeating the kind that the next line shows.
-7. Everything from round 1 stands: the card's five parts, the second tap or
-   close control clearing it, each row opening it, the list open with the
-   ten strongest first and "Show all N", the arc gone, the zoom rule, names
-   wrapping, nothing new fetched or scored.
-8. The /health uptime check (`scratchpad/health_check.json`, Google Cloud,
-   every minute) matches the string "Budget left". A hidden canary on
-   /health, outside the plan screen, carries that string until the check is
-   re-pointed at "of driving left"; the canary is removed with that change.
+1. **Every diamond on the map answers a tap with its own card, at every
+   zoom.** Pure, in `src/lib/roadside/spread.ts`: the diamonds that the
+   zoom rule shows are placed in Web Mercator pixels at the map's zoom (the
+   map's own projection, computed without the map so a test can prove it).
+   A diamond within 18 px of a stack's strongest member joins that stack
+   (strongest first, no chaining, so a corridor of stops 30 km apart never
+   becomes one blob). A stack of two to eight becomes a ring around the
+   strongest member's point with 44 px between neighbours, the width of the
+   touch canvas, so no canvas overlaps another's and each diamond's whole
+   target is its own: radius 22 px for two, 25 for three, 44 for six, 57 for
+   eight. A stack of more than eight shows its eight strongest in the ring
+   and the rest wait for a closer zoom, the same rule the corridor already
+   follows state-wide; the tapped one always takes the first slot, so the
+   card's diamond is on the map at every zoom. Two sit left and right; three
+   and more start at the bottom so the gap is at the top, where the town's
+   name goes (rule 2). The spread is applied by re-anchoring each marker's
+   icon, no new markers, on every zoom change and on every selection, and
+   only the markers whose placement changed are touched. A diamond that
+   stacks with nothing does not move.
+2. **The map's town labels are the app's, once.** The basemap's town labels
+   (`administrative.locality`) are off, so "Lubbock" is no longer drawn
+   twice and "Amarillo" is no longer cut by the diamonds; the towns that fit
+   keep the app's labels, and the start and the end get the app's labels
+   too (the names PlanWorkspace already has), 30 px above their dot, drawn
+   above the diamonds and not clickable, so a name is never behind a diamond
+   and never steals a diamond's tap.
+3. **The card says where, in the sheet's own unit.** "6 mi in, at
+   Amarillo" when the stop is within 10 km of a town on the road, "132 mi
+   in, past Lubbock" otherwise (the last town on the road before it; the
+   start counts, so there is always one), "Less than a mile in" under a
+   mile. Miles because the sheet's own summary says "497 mi"; one sheet, one
+   unit. The towns on the road are the start, the end and the towns that fit
+   within 15 km of the route, placed by the nearest point of the route
+   sampled every kilometre (pure, `src/lib/roadside/anchor.ts`; a few
+   thousand haversines once per route, on the client, nothing fetched). The
+   rows say the kind and the distance ("well-known place · 6 mi in") and
+   stay two lines, so ten of them fit (rule 4); the card adds the town.
+4. **Ten rows and the control in one capture.** On a 390 by 844 phone the
+   sheet at the full snap shows 84 dvh, about 665 px under the handle and
+   650 inside the padding. Rows are two lines of 22 px with 4 px above and
+   below (52 px, above the 44 px target) and no gap between rows; the
+   heading is 28 px, the control 44, the section's gaps 16: 608 px from the
+   heading's top, 40 px to spare. At the half snap (45 percent) the sheet
+   holds about 350 px of list, six rows, and no layout at 16 px with 44 px
+   targets changes that; the capture with ten rows is the sheet fully open
+   with the roadside heading scrolled to the top.
+5. Everything from rounds 1 and 2 stands: the card's five parts, the second
+   tap or close control clearing it, each row opening it, the list open with
+   the ten strongest first and "Show all N", the arc gone, the zoom rule,
+   names wrapping, the sentences in the header, the glossary, the dev
+   server's button off, nothing new fetched or scored.
 
 **Cost:** $0. No new fetch, no new call, no change to the store or the
-scores. The chips, the header and three labels change words and layout only.
+scores. The spread and the town anchor are arithmetic on what the page
+already has; the map draws the same markers with a different anchor.
 
-**Weakest part:** The at-rest capture with ten rows depends on the runner
-opening the sheet fully; at the half snap the phone has room for six rows
-and no layout at 16 px with 44 px targets changes that. Second: the glossary
-canary on /health is a string kept alive for a monitor, and it stays until
-the operator re-points the check; that is routed below, not hidden. Third:
-the town list's other words and its ellipsis on a long town name are U2's
-and still show on the at-rest capture.
+**Weakest part:** The ten-row capture still depends on the runner opening
+the sheet fully and scrolling the roadside heading to the top; at the half
+snap six rows is the phone's limit. Second: at a town zoom a stack of more
+than eight (downtown Austin at zoom 10) shows its eight strongest and hides
+the rest until a closer zoom, which is the corridor's own rule but is still a
+diamond not on the map at that zoom. Third: the town's name 30 px above its
+dot clears a ring of two, three or six but can touch the top corner of a
+ring member for four, five, seven or eight; it is drawn above, so it reads,
+and the diamond's body stays clear. Fourth: the basemap's town labels are off
+everywhere, so a town the app does not label (off the corridor) has no name
+on the map at any zoom.
 
 ## Routed by name
 
@@ -79,48 +105,39 @@ and still show on the at-rest capture.
   the operator (a Google Cloud change, not a code change).
 - Every other visible string on the plan screen, the town name ellipsis,
   the pending line's words, and the chips' short words: U2.
+- The candidate towns' own labels on the map (11 px, centred on the dot):
+  U3, with the map's day view.
 - "Add as a stop" from the card: U6, per the spec's constraints.
 
 ## Gate 1 proofs
 
-Baseline at the start of the round (round 1's commit): 47 files, 468 tests,
+Baseline at the start of the round (round 2's commit): 47 files, 471 tests,
 all green; type-check clean; lint 0 errors, 11 warnings.
-After: 47 files, 471 tests, all green; `bun run type-check` clean;
+After: 47 files, 476 tests, all green; `bun run type-check` clean;
 `bun run lint` 0 errors, 11 warnings, the same rules on the same lines as
-HEAD's copies of every changed file (checked by linting each HEAD copy on
-stdin and diffing the warning lists; PersonaSelector and RecommendationList
-have none before or after).
+before (the one in RouteMap is an older effect's unused directive, which
+moved down the file and is otherwise untouched).
 
-**Mutation, the glossary's sentence.** In `src/components/PlanWorkspace.tsx`
-the header's second line for an untouched trip was changed from
-`${…} of driving left ${daySpan}` to `Budget left ${…}`. Then:
-
-```
-bunx vitest run src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx \
-  -t "carries no word from the glossary"
-× carries no word from the glossary's never column on the sheet at rest
-AssertionError: expected ' ● Culture ◆ Foodie ◇ Nerd ■ Gearhead…' not to match
-  /budget left|candidate|max \d+ min|pe…/i
-Tests  1 failed | 12 skipped (13)
-```
-
-Restored from the backup copy; `cmp` reported the files identical; the same
-test then passed (1 passed, 12 skipped).
-
-**Mutation, the dev server's button.** In `next.config.ts`
-`devIndicators: false` was changed to `devIndicators: { position:
-"bottom-left" }` (Next's default). Then:
+**Mutation, the ring.** In `src/lib/roadside/spread.ts` the stacking test
+`Math.hypot(st.x - p.x, st.y - p.y) < STACK_PX` was inverted to `>`, so a
+diamond joins a stack only when it is far from it and the three on
+Amarillo's point never stack. Then:
 
 ```
 bunx vitest run src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx \
-  -t "keeps the dev server"
-× keeps the dev server's own button off the screen the runner shoots
-AssertionError: expected { position: 'bottom-left' } to be false
-Tests  1 failed | 12 skipped (13)
+  -t "spreads diamonds that sit on one point"
+× spreads diamonds that sit on one point into a ring, so every one answers its own tap
+AssertionError: expected +0 to be close to 25.403411844343534, received
+  difference is 25.403411844343534, but expected 0.5
+Tests  1 failed | 17 skipped (18)
 ```
 
 Restored from the backup copy; `cmp` reported the files identical; the same
-test then passed (1 passed, 12 skipped).
+test then passed (1 passed, 17 skipped). A first mutation, `ringRadius`
+returning 0, failed the same test too (the members landed 0.54 px from the
+anchor instead of on the ring), but the test imports `ringRadius` itself,
+so the inverted stacking test is the proof recorded.
 
-Round 1's two proofs (strongest first; the arc prop gone) stand: their tests
-are unchanged and green.
+Rounds 1 and 2's proofs (strongest first; the arc prop gone; the glossary's
+sentence; the dev server's button) stand: their tests are unchanged and
+green.
