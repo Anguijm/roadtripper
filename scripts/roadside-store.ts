@@ -83,6 +83,14 @@ process.stdout.write("\n");
 // selective; without it, a range query on a fresh table may scan.
 db.exec("ANALYZE");
 db.exec("VACUUM");
+// The working file stays in WAL mode for the two writers that follow (the
+// describe pass and the scorer); the checkpoint folds this run's log back
+// into the main file before close so no -wal file is left beside it. The
+// file the deployed app reads is not this one: the publish script's
+// VACUUM INTO writes a fresh copy, and that copy is in DELETE journal
+// mode by construction (checked 2026-09-28), so a read-only host never
+// needs to create a -shm file to open it.
+db.pragma("wal_checkpoint(TRUNCATE)");
 const setMeta = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
 setMeta.run("builtAt", new Date().toISOString());
 setMeta.run("source", from);

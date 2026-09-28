@@ -75,3 +75,8 @@ nodes, which is on the water and close enough.
 
 - the naming of an element that threw uses optional chaining, since JSON.parse can hand back null or a number; the throw count has its own counter and only the first is named
 - Answered, not changed: the writer, which creates the schema, is made before the row count is taken (`const writer = storeWriter(db)` precedes `const existing`); smoked on a fresh database with a null line and a non-JSON line: one stop written, one not a stop, one not JSON, no crash
+
+## Council round 5 on #78 (CONDITIONAL, bugs 9), and what changed
+
+- a WAL checkpoint before close, so the working file has no log beside it after a rebuild
+- Answered, not changed: VACUUM is there (`db.exec("VACUUM")` after ANALYZE, line 85 before this round); the deployed file is the publish script's `VACUUM INTO` copy, which is in DELETE journal mode by construction (checked on the published snapshot: `journal_mode` = delete), and the atlas the app already opens the same way is itself WAL and runs in production. `import "server-only"` is not added to `store-write.ts`: it is imported by the offline builder under Node, where that package throws on import; the plan page never imports it.
