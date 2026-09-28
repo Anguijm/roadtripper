@@ -150,9 +150,34 @@ export interface SheetOptions {
   random?: number;
   seed?: number;
 }
+/**
+ * The line between yes and no on the sheet. 0.5 because on a sheet a yes
+ * and a no cost the same (one tap each), which is the vendor's own rule for
+ * where to put a Noul threshold; the app may later use a higher line for
+ * what it shows unasked. The bench (jev-lab, J9) reports precision at this
+ * same line, so change both together or the sheet and the bench disagree.
+ */
 export const SHEET_THRESHOLD = 0.5;
+/**
+ * The yes list is cut here by probability. 150 rows at five seconds each
+ * is about twelve minutes, the length of the check John agreed to; the
+ * first corridor gave 143, so the cap did not bind. Raise it for a longer
+ * corridor only with his time in mind; the rows cut are the least likely.
+ */
 export const SHEET_MAX_YES = 150;
+/**
+ * The no calls just under the line: the model's most uncertain rejections.
+ * Ten is enough to see what it hesitates over and few enough not to tilt
+ * the sheet. They are reported by the bench, never scored, since a miss
+ * at 0.49 says the line is close, not that the model is wrong.
+ */
 export const SHEET_NEAR = 10;
+/**
+ * No calls drawn at random from the rest below the line, with the fixed
+ * seed: the thin net for a gem the model buried. Ten is the smallest draw
+ * whose "at most one worth it" bar means anything; twenty would double
+ * John's time on rows that are almost all schools and creeks. Scored.
+ */
 export const SHEET_RANDOM = 10;
 
 /**
@@ -165,7 +190,10 @@ export function sheetFromScores(stops: readonly RoadsideStop[], scores: Readonly
   const maxYes = opts.maxYes ?? SHEET_MAX_YES;
   const near = opts.near ?? SHEET_NEAR;
   const random = opts.random ?? SHEET_RANDOM;
-  const byP = (a: { p: number; stop: RoadsideStop }, b: { p: number; stop: RoadsideStop }) => b.p - a.p || a.stop.name.localeCompare(b.stop.name);
+  // Ties broken by name so the order is stable across runs; a name is
+  // required by the record schema, but a hand-edited corridor file could
+  // lack one, and an empty string sorts rather than throws.
+  const byP = (a: { p: number; stop: RoadsideStop }, b: { p: number; stop: RoadsideStop }) => b.p - a.p || (a.stop.name ?? "").localeCompare(b.stop.name ?? "");
   const seen = new Set<string>();
   const scored: Array<{ stop: RoadsideStop; p: number }> = [];
   for (const stop of stops) {

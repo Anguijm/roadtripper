@@ -558,3 +558,41 @@ dropdowns is two tables of fifty under two headings, and the enum has to
 be created in the same batch as the first table. The read-back maps rows
 to ids by name (unique in the sample) with the OpenStreetMap link as the
 check.
+
+## Session 28 (2026-09-28 UTC): the sheet John could not label, and the one he can
+
+**Never ask for a label the row cannot carry.** The first sheet gave a name
+and a kind and asked "worth it?". John said he did not know these places
+and would need a description, and that most of the judging was
+automatable. Both true, and the lab's own standard 8 says it: never trust
+a label the text cannot carry. The fix was not more of his time but a
+different order: descriptions first (Wikidata and Wikipedia, free, #68),
+the model over the whole corridor with the description in front of it
+(two cents), and a sheet of its yes list with twenty of its no calls mixed
+in blind, in road order, with a map pin per row (#69). Ten minutes of
+taps instead of an hour of guesses, and the taps are what the app's loop
+will look like anyway: it proposes, he decides in the moment.
+
+**A blind check needs its own key.** The sheet shows neither group nor
+probability, so `data/labels/<corridor>.sheet.json` records row number,
+chip key and stop id, and the sample file carries the groups. Without
+that file the read-back would have to match by name, and two rows share
+"Lampasas County Museum".
+
+**Wikipedia covers the wrong half.** 627 of 1,074 stops reach an
+encyclopedia, but only 47 of the 163 on the sheet do: the model's yes
+calls are murals, statues and small museums, which is exactly what has
+no page. The OpenStreetMap record has more for those (a `description`
+tag, `artwork_type`, `inscription`) and the pull throws it away. Keeping
+those tags is the next change to the record, and it costs a free
+sixteen-minute re-pull.
+
+**The token estimate ran a third low on short JSON.** The client's
+characters-per-token guess is tuned for prose; a state of names and
+short fields tokenises heavier. $0.0204 against $0.0155, still under the
+cap. Declare the cap with room for that.
+
+**A doc write holds 64 chips, and a table with a comment on it will not
+be replaced without saying so.** The 163 rows are four tables; the old
+table's rocket comment had to be detached explicitly, which is right:
+the tool made me read the comment before deleting what it sat on.

@@ -47,7 +47,15 @@ free 16-minute re-pull.
 
 ## Gate 1 proofs
 
-- Rule 2: with the near rows left in the random pool, "puts every yes first by probability, then the ten just under the line, then ten at random, none twice" fails on the disjointness check. Restored, `cmp` clean.
+- Rule 2: with the near rows left in the random pool, two tests failed on the first run ("gives all the no calls when there are fewer than twenty" and the no-score count), and the disjointness test passed by luck: a draw of ten from a hundred happened to miss all ten near rows. (Corrected after round 1: the first write-up of this proof named the wrong test.) A new test with fifteen rows below the line, where the random draw has only five to choose from, now fails deterministically under the same mutation for four seeds. Restored, `cmp` clean.
 - Rule 1 and 4: the cap test takes exactly 150 of 200 eligible by probability; the determinism test gets the same random ten twice and a different ten for another seed.
 - The run on the real scores: 1,074 scored of 1,074; 143 yes at 0.5; 163 rows; 47 with a short description, 42 with an opening.
 - 434 tests, 4 new; lint and types clean.
+
+## Council round 1 on #69 (BLOCK, maintainability 4, product 4), and what changed
+
+- the four sheet constants each say why their value and what moving it costs (John's minutes, the bench's line)
+- the sort comment says why the file keeps the sampler's order and where road order and blindness happen
+- the corridor, scores and descriptions files are checked on read through schemas with the path named; a bad JSON file says so instead of a stack trace; the name compare tolerates a missing name
+- a missing descriptions sidecar now stops the run, since the description is the point of this sheet; `--no-descriptions` says you meant it
+- Corrected in the proofs above: the mutation proof named the wrong test; the new test makes it deterministic

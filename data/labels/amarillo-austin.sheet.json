@@ -1,0 +1,987 @@
+{
+ "corridor": "amarillo-austin",
+ "doc": "https://claude.ai/code/artifact/2fd06b78-8d7d-41df-92cd-efc0a42c0059",
+ "enum": "814e3273-9ef6",
+ "builtAt": "2026-09-28T00:26:00Z",
+ "order": "alongKm then name",
+ "rows": [
+  {
+   "row": 1,
+   "key": "r1",
+   "id": "osm:node:4062007802",
+   "name": "Horse"
+  },
+  {
+   "row": 2,
+   "key": "r2",
+   "id": "osm:node:4060284050",
+   "name": "World War II Memorial"
+  },
+  {
+   "row": 3,
+   "key": "r3",
+   "id": "osm:node:13597850817",
+   "name": "Amarillo Mural"
+  },
+  {
+   "row": 4,
+   "key": "r4",
+   "id": "osm:node:4214957445",
+   "name": "Harrington House"
+  },
+  {
+   "row": 5,
+   "key": "r5",
+   "id": "osm:node:13521499595",
+   "name": "Madam Queen"
+  },
+  {
+   "row": 6,
+   "key": "r6",
+   "id": "osm:node:11873425337",
+   "name": "Free Wall"
+  },
+  {
+   "row": 7,
+   "key": "r7",
+   "id": "osm:way:660600136",
+   "name": "Amarillo Museum of Art"
+  },
+  {
+   "row": 8,
+   "key": "r8",
+   "id": "osm:way:50535529",
+   "name": "American Quarter Horse Museum"
+  },
+  {
+   "row": 9,
+   "key": "r9",
+   "id": "osm:node:13732006701",
+   "name": "Tascosa Drive-In"
+  },
+  {
+   "row": 10,
+   "key": "r10",
+   "id": "osm:node:13020910246",
+   "name": "Amarillo Scaregrounds"
+  },
+  {
+   "row": 11,
+   "key": "r11",
+   "id": "osm:relation:11745088",
+   "name": "Amarillo Zoo"
+  },
+  {
+   "row": 12,
+   "key": "r12",
+   "id": "osm:way:1424542197",
+   "name": "Tascosa Drive-In Original Screen"
+  },
+  {
+   "row": 13,
+   "key": "r13",
+   "id": "osm:node:13925720249",
+   "name": "Texas Panhandle Sports Hall of Fame"
+  },
+  {
+   "row": 14,
+   "key": "r14",
+   "id": "osm:node:13734228159",
+   "name": "Cattleman's Cafe Neon Sign"
+  },
+  {
+   "row": 15,
+   "key": "r15",
+   "id": "osm:node:6330177705",
+   "name": "Fighter Jet Display"
+  },
+  {
+   "row": 16,
+   "key": "r16",
+   "id": "osm:node:6330177706",
+   "name": "Helicopter Display"
+  },
+  {
+   "row": 17,
+   "key": "r17",
+   "id": "osm:node:13392417919",
+   "name": "Texas Panhandle War Memorial Center"
+  },
+  {
+   "row": 18,
+   "key": "r18",
+   "id": "osm:node:12453383301",
+   "name": "Slug Bug Ranch"
+  },
+  {
+   "row": 19,
+   "key": "r19",
+   "id": "osm:way:688272732",
+   "name": "Amarillo Botanical Gardens"
+  },
+  {
+   "row": 20,
+   "key": "r20",
+   "id": "osm:way:179921622",
+   "name": "Don Harrington Discovery Center"
+  },
+  {
+   "row": 21,
+   "key": "r21",
+   "id": "osm:node:609552420",
+   "name": "Helium Monument"
+  },
+  {
+   "row": 22,
+   "key": "r22",
+   "id": "osm:way:1059981743",
+   "name": "The Big Texan Steak Ranch"
+  },
+  {
+   "row": 23,
+   "key": "r23",
+   "id": "osm:node:6429057241",
+   "name": "Blue Cadillac"
+  },
+  {
+   "row": 24,
+   "key": "r24",
+   "id": "osm:node:6429057243",
+   "name": "Light-Red Cadillac"
+  },
+  {
+   "row": 25,
+   "key": "r25",
+   "id": "osm:node:6429057240",
+   "name": "Second Amendment Cowboy"
+  },
+  {
+   "row": 26,
+   "key": "r26",
+   "id": "osm:node:6429057242",
+   "name": "White Cadillac"
+  },
+  {
+   "row": 27,
+   "key": "r27",
+   "id": "osm:way:333935519",
+   "name": "Panhandle-Plains Historical Museum"
+  },
+  {
+   "row": 28,
+   "key": "r28",
+   "id": "osm:node:12119451158",
+   "name": "Spirit Rock"
+  },
+  {
+   "row": 29,
+   "key": "r29",
+   "id": "osm:node:9286241324",
+   "name": "Tex Randall statue"
+  },
+  {
+   "row": 30,
+   "key": "r30",
+   "id": "osm:node:12118841343",
+   "name": "The Original Texans"
+  },
+  {
+   "row": 31,
+   "key": "r31",
+   "id": "osm:node:368165537",
+   "name": "Swisher County Museum"
+  },
+  {
+   "row": 32,
+   "key": "r32",
+   "id": "osm:way:681754325",
+   "name": "Jimmy Dean Museum"
+  },
+  {
+   "row": 33,
+   "key": "r33",
+   "id": "osm:node:368165750",
+   "name": "Museum of the Llano Estacado"
+  },
+  {
+   "row": 34,
+   "key": "r34",
+   "id": "osm:way:1191315040",
+   "name": "Hale County Farm & Ranch Museum"
+  },
+  {
+   "row": 35,
+   "key": "r35",
+   "id": "osm:way:221452861",
+   "name": "Silent Wings Museum"
+  },
+  {
+   "row": 36,
+   "key": "r36",
+   "id": "osm:way:472440567",
+   "name": "Lubbock Lake National Historic Landmark"
+  },
+  {
+   "row": 37,
+   "key": "r37",
+   "id": "osm:way:177636261",
+   "name": "Lubbock Lake Landmark Visitors Center"
+  },
+  {
+   "row": 38,
+   "key": "r38",
+   "id": "osm:way:178103601",
+   "name": "Prairie Dog Town"
+  },
+  {
+   "row": 39,
+   "key": "r39",
+   "id": "osm:node:13519907581",
+   "name": "Bronze Steers"
+  },
+  {
+   "row": 40,
+   "key": "r40",
+   "id": "osm:way:406115842",
+   "name": "Museum of Texas Tech University"
+  },
+  {
+   "row": 41,
+   "key": "r41",
+   "id": "osm:way:177852930",
+   "name": "National Ranching Heritage Center"
+  },
+  {
+   "row": 42,
+   "key": "r42",
+   "id": "osm:node:6988514070",
+   "name": "Santa Land"
+  },
+  {
+   "row": 43,
+   "key": "r43",
+   "id": "osm:way:177618621",
+   "name": "Sundial"
+  },
+  {
+   "row": 44,
+   "key": "r44",
+   "id": "osm:way:75509107",
+   "name": "Administration Building"
+  },
+  {
+   "row": 45,
+   "key": "r45",
+   "id": "osm:way:422843554",
+   "name": "American Wind Power Center"
+  },
+  {
+   "row": 46,
+   "key": "r46",
+   "id": "osm:node:12510872911",
+   "name": "As Far as the Eyes Can See"
+  },
+  {
+   "row": 47,
+   "key": "r47",
+   "id": "osm:way:430418567",
+   "name": "Buddy Holly Center"
+  },
+  {
+   "row": 48,
+   "key": "r48",
+   "id": "osm:node:6355615650",
+   "name": "Buddy Holly Statue"
+  },
+  {
+   "row": 49,
+   "key": "r49",
+   "id": "osm:node:7304995584",
+   "name": "Comma"
+  },
+  {
+   "row": 50,
+   "key": "r50",
+   "id": "osm:node:3427532048",
+   "name": "Four Faces"
+  },
+  {
+   "row": 51,
+   "key": "r51",
+   "id": "osm:node:6355610491",
+   "name": "Lubbock Tornado Memorial"
+  },
+  {
+   "row": 52,
+   "key": "r52",
+   "id": "osm:node:917077096",
+   "name": "Riding into the Sunset"
+  },
+  {
+   "row": 53,
+   "key": "r53",
+   "id": "osm:node:8873976358",
+   "name": "Stubb's BBQ Memorial"
+  },
+  {
+   "row": 54,
+   "key": "r54",
+   "id": "osm:node:4815554192",
+   "name": "The Buddy Holly Center"
+  },
+  {
+   "row": 55,
+   "key": "r55",
+   "id": "osm:way:678786760",
+   "name": "West Texas Walk of Fame"
+  },
+  {
+   "row": 56,
+   "key": "r56",
+   "id": "osm:way:220970347",
+   "name": "Science Spectrum & OMNI Theater"
+  },
+  {
+   "row": 57,
+   "key": "r57",
+   "id": "osm:way:1295539828",
+   "name": "Texas Air Museum"
+  },
+  {
+   "row": 58,
+   "key": "r58",
+   "id": "osm:way:606804622",
+   "name": "Garza County Historical Museum"
+  },
+  {
+   "row": 59,
+   "key": "r59",
+   "id": "osm:node:368165728",
+   "name": "O S Ranch Museum"
+  },
+  {
+   "row": 60,
+   "key": "r60",
+   "id": "osm:node:368165580",
+   "name": "Pioneer Museum"
+  },
+  {
+   "row": 61,
+   "key": "r61",
+   "id": "osm:node:368165516",
+   "name": "Z I Hale Museum"
+  },
+  {
+   "row": 62,
+   "key": "r62",
+   "id": "osm:way:220682930",
+   "name": "Heritage Hall Museum"
+  },
+  {
+   "row": 63,
+   "key": "r63",
+   "id": "osm:node:13743559058",
+   "name": "Brown County Museum of History"
+  },
+  {
+   "row": 64,
+   "key": "r64",
+   "id": "osm:way:1268031168",
+   "name": "Howard Payne University"
+  },
+  {
+   "row": 65,
+   "key": "r65",
+   "id": "osm:node:13743401200",
+   "name": "Martin & Frances Lehnis Railroad Musuem"
+  },
+  {
+   "row": 66,
+   "key": "r66",
+   "id": "osm:way:745972088",
+   "name": "Mills County Historical Museum"
+  },
+  {
+   "row": 67,
+   "key": "r67",
+   "id": "osm:node:368165608",
+   "name": "Lampasas County Museum"
+  },
+  {
+   "row": 68,
+   "key": "r68",
+   "id": "osm:way:1001219534",
+   "name": "Lampasas County Museum"
+  },
+  {
+   "row": 69,
+   "key": "r69",
+   "id": "osm:node:9107916010",
+   "name": "World's Largest Spur"
+  },
+  {
+   "row": 70,
+   "key": "r70",
+   "id": "osm:way:951762769",
+   "name": "Interpretive Center"
+  },
+  {
+   "row": 71,
+   "key": "r71",
+   "id": "osm:node:8505103735",
+   "name": "Leander Dinosaur Tracks"
+  },
+  {
+   "row": 72,
+   "key": "r72",
+   "id": "osm:way:29325024",
+   "name": "Henry Middle School"
+  },
+  {
+   "row": 73,
+   "key": "r73",
+   "id": "osm:way:1488875038",
+   "name": "Balcones Canyonlands Preserve - Lake Perspectives"
+  },
+  {
+   "row": 74,
+   "key": "r74",
+   "id": "osm:way:201864155",
+   "name": "Hippie Hollow Park"
+  },
+  {
+   "row": 75,
+   "key": "r75",
+   "id": "osm:way:1488875051",
+   "name": "Balcones Canyonlands Preserve - Grandview Hills"
+  },
+  {
+   "row": 76,
+   "key": "r76",
+   "id": "osm:node:1069006464",
+   "name": "Oasis"
+  },
+  {
+   "row": 77,
+   "key": "r77",
+   "id": "osm:relation:20153669",
+   "name": "Cow Fork"
+  },
+  {
+   "row": 78,
+   "key": "r78",
+   "id": "osm:way:708944434",
+   "name": "Pennybacker Bridge"
+  },
+  {
+   "row": 79,
+   "key": "r79",
+   "id": "osm:node:1398646495",
+   "name": "Artificial Chimney"
+  },
+  {
+   "row": 80,
+   "key": "r80",
+   "id": "osm:way:28714994",
+   "name": "Bright Leaf Natural Area"
+  },
+  {
+   "row": 81,
+   "key": "r81",
+   "id": "osm:node:356700647",
+   "name": "Mount Bonnell"
+  },
+  {
+   "row": 82,
+   "key": "r82",
+   "id": "osm:way:622174090",
+   "name": "Blue Blood"
+  },
+  {
+   "row": 83,
+   "key": "r83",
+   "id": "osm:node:368165064",
+   "name": "Laguna Gloria Art Museum"
+  },
+  {
+   "row": 84,
+   "key": "r84",
+   "id": "osm:node:345558969",
+   "name": "Lake Austin"
+  },
+  {
+   "row": 85,
+   "key": "r85",
+   "id": "osm:way:381997357",
+   "name": "Texas Military Forces Museum"
+  },
+  {
+   "row": 86,
+   "key": "r86",
+   "id": "osm:node:858895978",
+   "name": "Sculpture Falls"
+  },
+  {
+   "row": 87,
+   "key": "r87",
+   "id": "osm:way:313450672",
+   "name": "Austin Nature & Science Center"
+  },
+  {
+   "row": 88,
+   "key": "r88",
+   "id": "osm:way:206160759",
+   "name": "Deep Eddy Pool"
+  },
+  {
+   "row": 89,
+   "key": "r89",
+   "id": "osm:way:381779152",
+   "name": "Elisabet Ney Museum"
+  },
+  {
+   "row": 90,
+   "key": "r90",
+   "id": "osm:way:380916245",
+   "name": "Neill-Cochran House Museum"
+  },
+  {
+   "row": 91,
+   "key": "r91",
+   "id": "osm:node:13141953686",
+   "name": "James C. Hogg"
+  },
+  {
+   "row": 92,
+   "key": "r92",
+   "id": "osm:node:13314987258",
+   "name": "Jolin Lookout"
+  },
+  {
+   "row": 93,
+   "key": "r93",
+   "id": "osm:node:10285208037",
+   "name": "North Shore Overlook"
+  },
+  {
+   "row": 94,
+   "key": "r94",
+   "id": "osm:node:14211223925",
+   "name": "The West"
+  },
+  {
+   "row": 95,
+   "key": "r95",
+   "id": "osm:way:516187631",
+   "name": "UT Tower"
+  },
+  {
+   "row": 96,
+   "key": "r96",
+   "id": "osm:way:967757076",
+   "name": "ATX"
+  },
+  {
+   "row": 97,
+   "key": "r97",
+   "id": "osm:node:10276400290",
+   "name": "Armadillo"
+  },
+  {
+   "row": 98,
+   "key": "r98",
+   "id": "osm:way:575579280",
+   "name": "Austin"
+  },
+  {
+   "row": 99,
+   "key": "r99",
+   "id": "osm:way:27442711",
+   "name": "Barton Springs Pool"
+  },
+  {
+   "row": 100,
+   "key": "r100",
+   "id": "osm:relation:20972967",
+   "name": "Blanton Museum of Art"
+  },
+  {
+   "row": 101,
+   "key": "r101",
+   "id": "osm:node:10266425576",
+   "name": "Bluebonnet"
+  },
+  {
+   "row": 102,
+   "key": "r102",
+   "id": "osm:way:516187606",
+   "name": "Cambridge Tower"
+  },
+  {
+   "row": 103,
+   "key": "r103",
+   "id": "osm:node:9293789970",
+   "name": "Copy of Statue Of Liberty"
+  },
+  {
+   "row": 104,
+   "key": "r104",
+   "id": "osm:node:6879997373",
+   "name": "Goddess of Liberty"
+  },
+  {
+   "row": 105,
+   "key": "r105",
+   "id": "osm:node:2167146225",
+   "name": "Heroes of the Alamo"
+  },
+  {
+   "row": 106,
+   "key": "r106",
+   "id": "osm:node:10266425579",
+   "name": "Horned Lizard"
+  },
+  {
+   "row": 107,
+   "key": "r107",
+   "id": "osm:relation:32671",
+   "name": "Lady Bird Lake"
+  },
+  {
+   "row": 108,
+   "key": "r108",
+   "id": "osm:way:679083604",
+   "name": "Lamar Boulevard Bridge"
+  },
+  {
+   "row": 109,
+   "key": "r109",
+   "id": "osm:node:7641253733",
+   "name": "Lone Star"
+  },
+  {
+   "row": 110,
+   "key": "r110",
+   "id": "osm:node:2161101807",
+   "name": "Lou Neff Point"
+  },
+  {
+   "row": 111,
+   "key": "r111",
+   "id": "osm:way:172662523",
+   "name": "Lyndon Baines Johnson Presidential Library and Museum"
+  },
+  {
+   "row": 112,
+   "key": "r112",
+   "id": "osm:node:2167146221",
+   "name": "Monument to the 36th Infantry Division"
+  },
+  {
+   "row": 113,
+   "key": "r113",
+   "id": "osm:relation:9429067",
+   "name": "Pfluger Pedestrian Bridge"
+  },
+  {
+   "row": 114,
+   "key": "r114",
+   "id": "osm:node:281362867",
+   "name": "Santa Rita No. 1 Oil Well"
+  },
+  {
+   "row": 115,
+   "key": "r115",
+   "id": "osm:node:4668889549",
+   "name": "Stark Center for Physical Culture and Sports"
+  },
+  {
+   "row": 116,
+   "key": "r116",
+   "id": "osm:node:4979610121",
+   "name": "Texas African American History Memorial"
+  },
+  {
+   "row": 117,
+   "key": "r117",
+   "id": "osm:way:126033682",
+   "name": "Texas Memorial Museum"
+  },
+  {
+   "row": 118,
+   "key": "r118",
+   "id": "osm:node:5071522721",
+   "name": "Texas Pioneer Woman Monument"
+  },
+  {
+   "row": 119,
+   "key": "r119",
+   "id": "osm:node:2167146205",
+   "name": "Texas Rangers"
+  },
+  {
+   "row": 120,
+   "key": "r120",
+   "id": "osm:way:25758443",
+   "name": "Texas State Capitol"
+  },
+  {
+   "row": 121,
+   "key": "r121",
+   "id": "osm:way:27397820",
+   "name": "Texas State History Museum"
+  },
+  {
+   "row": 122,
+   "key": "r122",
+   "id": "osm:node:9293789971",
+   "name": "Texas World War II Memorial"
+  },
+  {
+   "row": 123,
+   "key": "r123",
+   "id": "osm:node:13046865982",
+   "name": "The Doughboy"
+  },
+  {
+   "row": 124,
+   "key": "r124",
+   "id": "osm:node:5058269727",
+   "name": "The Ten Commandments"
+  },
+  {
+   "row": 125,
+   "key": "r125",
+   "id": "osm:way:1266596014",
+   "name": "Umlauf Sculpture Garden & Museum"
+  },
+  {
+   "row": 126,
+   "key": "r126",
+   "id": "osm:node:6990944960",
+   "name": "Vietnam Veterans Monument"
+  },
+  {
+   "row": 127,
+   "key": "r127",
+   "id": "osm:way:708605258",
+   "name": "Ann W. Richards Congress Avenue Bridge"
+  },
+  {
+   "row": 128,
+   "key": "r128",
+   "id": "osm:node:5594850253",
+   "name": "Arachnophilia"
+  },
+  {
+   "row": 129,
+   "key": "r129",
+   "id": "osm:way:42806381",
+   "name": "Capitol Complex Visitor Center"
+  },
+  {
+   "row": 130,
+   "key": "r130",
+   "id": "osm:node:8155411808",
+   "name": "Cathedral of Junk"
+  },
+  {
+   "row": 131,
+   "key": "r131",
+   "id": "osm:way:585248467",
+   "name": "Dolores Church Grotto"
+  },
+  {
+   "row": 132,
+   "key": "r132",
+   "id": "osm:node:441998261",
+   "name": "Doug Sahm Hill"
+  },
+  {
+   "row": 133,
+   "key": "r133",
+   "id": "osm:way:368787454",
+   "name": "East Boggy Creek Greenbelt"
+  },
+  {
+   "row": 134,
+   "key": "r134",
+   "id": "osm:node:6379191665",
+   "name": "Fort Colorado Historical Marker"
+  },
+  {
+   "row": 135,
+   "key": "r135",
+   "id": "osm:way:382368408",
+   "name": "Franklin Barbecue"
+  },
+  {
+   "row": 136,
+   "key": "r136",
+   "id": "osm:way:379208448",
+   "name": "French Legation Museum"
+  },
+  {
+   "row": 137,
+   "key": "r137",
+   "id": "osm:way:379166119",
+   "name": "German Texans Heritage Society"
+  },
+  {
+   "row": 138,
+   "key": "r138",
+   "id": "osm:node:9095873737",
+   "name": "Good Luck Statue"
+  },
+  {
+   "row": 139,
+   "key": "r139",
+   "id": "osm:node:3856561923",
+   "name": "Greetings from Austin mural"
+  },
+  {
+   "row": 140,
+   "key": "r140",
+   "id": "osm:node:13253455006",
+   "name": "Homeless Jesus"
+  },
+  {
+   "row": 141,
+   "key": "r141",
+   "id": "osm:node:5023332787",
+   "name": "I love you so much Mural"
+  },
+  {
+   "row": 142,
+   "key": "r142",
+   "id": "osm:way:379165902",
+   "name": "Joseph And Susanna Dickinson Hannig Museum"
+  },
+  {
+   "row": 143,
+   "key": "r143",
+   "id": "osm:node:8957499227",
+   "name": "Longhorn Point"
+  },
+  {
+   "row": 144,
+   "key": "r144",
+   "id": "osm:way:904591717",
+   "name": "McKinney Homestead"
+  },
+  {
+   "row": 145,
+   "key": "r145",
+   "id": "osm:way:929863362",
+   "name": "Mexic-Arte Museum"
+  },
+  {
+   "row": 146,
+   "key": "r146",
+   "id": "osm:node:3353621864",
+   "name": "Museum of the Weird"
+  },
+  {
+   "row": 147,
+   "key": "r147",
+   "id": "osm:way:379166081",
+   "name": "O. Henry Museum"
+  },
+  {
+   "row": 148,
+   "key": "r148",
+   "id": "osm:way:1217636450",
+   "name": "Republic of Texas History Center"
+  },
+  {
+   "row": 149,
+   "key": "r149",
+   "id": "osm:node:10679709429",
+   "name": "Republic of Texas Museum"
+  },
+  {
+   "row": 150,
+   "key": "r150",
+   "id": "osm:way:210286955",
+   "name": "Rosewood Neighborhood Park"
+  },
+  {
+   "row": 151,
+   "key": "r151",
+   "id": "osm:node:13819497945",
+   "name": "Skyline Overlook"
+  },
+  {
+   "row": 152,
+   "key": "r152",
+   "id": "osm:node:280763455",
+   "name": "South Congress Bat Colony"
+  },
+  {
+   "row": 153,
+   "key": "r153",
+   "id": "osm:node:5582617259",
+   "name": "Statesman Bat Observation Center"
+  },
+  {
+   "row": 154,
+   "key": "r154",
+   "id": "osm:node:281230952",
+   "name": "Stevie Ray Vaughan Statue"
+  },
+  {
+   "row": 155,
+   "key": "r155",
+   "id": "osm:node:10282631742",
+   "name": "Tejano Monument"
+  },
+  {
+   "row": 156,
+   "key": "r156",
+   "id": "osm:way:379207889",
+   "name": "Texas Music Museum"
+  },
+  {
+   "row": 157,
+   "key": "r157",
+   "id": "osm:node:13918575386",
+   "name": "Texas Ranger"
+  },
+  {
+   "row": 158,
+   "key": "r158",
+   "id": "osm:node:11792869762",
+   "name": "Texas State Cemetery Visitor Center"
+  },
+  {
+   "row": 159,
+   "key": "r159",
+   "id": "osm:way:328634439",
+   "name": "Texas Toy Museum and Arcade"
+  },
+  {
+   "row": 160,
+   "key": "r160",
+   "id": "osm:node:10747012944",
+   "name": "The Giant Rooster"
+  },
+  {
+   "row": 161,
+   "key": "r161",
+   "id": "osm:way:187668220",
+   "name": "The Long Center for the Performing Arts"
+  },
+  {
+   "row": 162,
+   "key": "r162",
+   "id": "osm:node:8890968112",
+   "name": "Wigwam"
+  },
+  {
+   "row": 163,
+   "key": "r163",
+   "id": "osm:node:8454950386",
+   "name": "Willie Nelson Statue"
+  }
+ ]
+}

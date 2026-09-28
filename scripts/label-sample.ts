@@ -21,6 +21,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { labelSample, sheetFromScores, SHEET_THRESHOLD } from "../src/lib/roadside/sample";
 import type { StopDescription } from "../src/lib/roadside/describe";
+import { RoadsideStopSchema } from "../src/lib/roadside/record";
+import { z } from "zod/v4";
 import type { LatLng } from "../src/lib/routing/polyline";
 import type { RoadsideStop } from "../src/lib/roadside/record";
 
@@ -30,7 +32,14 @@ if (!name) throw new Error("--name=<corridor> is required");
 const corridorPath = `data/corridors/${name}.json`;
 if (!existsSync(corridorPath)) throw new Error(`${corridorPath} is missing; run the pull first`);
 
-const corridor = JSON.parse(readFileSync(corridorPath, "utf8")) as { from: LatLng; to: LatLng; routeKm: number; stops: RoadsideStop[]; route?: LatLng[] };
+// Our own pull's output, but checked on read all the same: a truncated
+// write or a hand edit should fail here with a path named, not as a
+// TypeError three functions down.
+const CorridorSchema = z.object({ from: z.object({ lat: z.number(), lng: z.number() }), to: z.object({ lat: z.number(), lng: z.number() }), routeKm: z.number(), stops: z.array(RoadsideStopSchema) });
+const readJson = (path: string): unknown => { try { return JSON.parse(readFileSync(path, "utf8")); } catch (err) { throw new Error(`${path} is not JSON: ${err instanceof Error ? err.message : String(err)}`); } };
+const corridorParsed = CorridorSchema.safeParse(readJson(corridorPath));
+if (!corridorParsed.success) throw new Error(`${corridorPath} is not a corridor file: ${corridorParsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
+const corridor: { from: LatLng; to: LatLng; routeKm: number; stops: RoadsideStop[] } = corridorParsed.data;
 
 // Either sheet. The scores file is the bench's output in jev-lab
 // (data/roadside_scores.json): rows of id and p_stop.
@@ -39,13 +48,27 @@ type Extra = { group?: string; p_stop?: number } & Partial<Pick<StopDescription,
 let picked: Array<{ stop: RoadsideStop; extra: Extra }>;
 if (scoresPath) {
   if (!existsSync(scoresPath)) throw new Error(`${scoresPath} is missing`);
-  const raw = JSON.parse(readFileSync(scoresPath, "utf8")) as { rows?: Array<{ id: string; p_stop: number | null }> };
-  if (!Array.isArray(raw.rows)) throw new Error(`${scoresPath} has no rows array`);
+  const ScoresSchema = z.object({ rows: z.array(z.object({ id: z.string().min(1), p_stop: z.number().nullable() })) });
+  const scoresParsed = ScoresSchema.safeParse(readJson(scoresPath));
+  if (!scoresParsed.success) throw new Error(`${scoresPath} is not a scores file: ${scoresParsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
   const scores = new Map<string, number>();
-  for (const r of raw.rows) if (typeof r.p_stop === "number") scores.set(r.id, r.p_stop);
+  for (const r of scoresParsed.data.rows) if (r.p_stop !== null) scores.set(r.id, r.p_stop);
+  // The whole point of the second sheet is the description beside the name,
+  // so a missing sidecar stops the run rather than quietly writing a sheet
+  // of bare names; --no-descriptions says you meant that.
   const descPath = `data/corridors/${name}.descriptions.json`;
-  const descriptions = existsSync(descPath) ? (JSON.parse(readFileSync(descPath, "utf8")) as { byId: Record<string, StopDescription> }).byId : {};
-  if (!existsSync(descPath)) console.warn(`  ${descPath} is missing; rows will carry no description`);
+  // Only the three fields the sheet shows; the sidecar's other fields are not read here.
+  let descriptions: Record<string, Pick<StopDescription, "short" | "extract" | "url">> = {};
+  if (existsSync(descPath)) {
+    const DescSchema = z.object({ byId: z.record(z.string(), z.object({ short: z.string().nullable(), extract: z.string().nullable(), url: z.string().nullable() }).loose()) });
+    const descParsed = DescSchema.safeParse(readJson(descPath));
+    if (!descParsed.success) throw new Error(`${descPath} is not a descriptions file: ${descParsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
+    descriptions = descParsed.data.byId;
+  } else if (args.get("no-descriptions") === "true") {
+    console.warn(`  ${descPath} is missing; rows will carry no description, as asked`);
+  } else {
+    throw new Error(`${descPath} is missing; run corridor:describe first, or pass --no-descriptions to build the sheet without`);
+  }
   picked = sheetFromScores(corridor.stops, scores).map((r) => {
     const d = descriptions[r.stop.id];
     return { stop: r.stop, extra: { group: r.group, p_stop: Math.round(r.p * 100) / 100, short: d?.short ?? null, extract: d?.extract ?? null, url: d?.url ?? null } };
@@ -80,8 +103,11 @@ const rows = picked
     // anything else gets no link rather than a broken one.
     osm: /^osm:(node|way|relation):\d+$/.test(s.id) ? `https://www.openstreetmap.org/${s.id.slice(4).replace(":", "/")}` : null,
   }));
-// The first sheet reads in road order; the second keeps the sampler's order
-// (yes by probability, then the two groups of no calls).
+// The first sheet reads in road order. The second keeps the sampler's order
+// in the file (yes by probability, then the near misses, then the random
+// no calls) because the bench reads the groups from it; the sheet John sees
+// is built from this file by hand and re-sorted into road order there, with
+// the groups and probabilities left off, so the check is blind.
 if (!scoresPath) rows.sort((a, b) => a.alongKm - b.alongKm);
 
 mkdirSync("data/labels", { recursive: true });

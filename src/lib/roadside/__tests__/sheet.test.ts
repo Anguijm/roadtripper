@@ -52,6 +52,19 @@ describe("the sheet from scores", () => {
     expect(rows.filter((r) => r.group === "random_no")).toHaveLength(0);
   });
 
+  it("never draws a near miss again at random, whatever the seed", () => {
+    // 30 stops, 15 below the line: ten are near misses, so the random draw
+    // has only five to choose from and must return exactly those five.
+    const { stops, scores } = scored(30);
+    for (const seed of [1, 2, 3, 1337]) {
+      const rows = sheetFromScores(stops, scores, { seed });
+      const near = new Set(rows.filter((r) => r.group === "near_no").map((r) => r.stop.id));
+      const random = rows.filter((r) => r.group === "random_no");
+      expect(random).toHaveLength(5);
+      expect(random.some((r) => near.has(r.stop.id))).toBe(false);
+    }
+  });
+
   it("leaves out stops with no score, or a score that is not a number", () => {
     const { stops, scores } = scored(10);
     scores.delete("osm:node:9");
