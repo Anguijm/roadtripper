@@ -4,55 +4,50 @@
 
 # Active plan — roadtripper
 
-Branch: `chore/gate1-conflict-check`
+Branch: `feat/corridor-descriptions`
 
 ## Goal
 
-Gate 1 learns the lesson of 2026-09-27: a pull request that conflicts with
-main runs no council and no CI, and GitHub says nothing. Two PRs were open;
-both rewrote this file, as every PR does; when the first merged, the
-second's next two pushes fired no workflow and looked like a queue for half
-an hour. The hook now refuses such a push and says to rebase. The learnings
-file gets the session's other lessons at the same time.
+John looked at the labelling sheet and said the right thing: a name and a
+kind are not enough to judge a place by, and most of the judging is
+automatable anyway. So the order changes. Descriptions come first, from the
+two free encyclopedias every stop with a Wikidata id can reach; the model
+runs over the whole corridor with the description in front of it; John
+reads only its yes list, with the description and a map link, and taps the
+ones he would really stop for. This PR is the descriptions.
 
 ## Ship rule, written before the work
 
-1. The check is first, before lint, types and tests, because it is the
-   cheapest and its answer is "rebase before you spend two minutes here".
-2. It fetches origin/main quietly and asks `git merge-tree --write-tree`
-   whether the merge would conflict, touching no file. Exit 1 is a conflict
-   and refuses the push with the reason and the fix. Any other failure
-   (no network, a git too old for `--write-tree`) is a warning and the push
-   goes on: a flaky remote is not a reason to refuse work.
-3. Proven both ways on the real commits: the old head of #66 against main
-   after #65 is refused with the message; this branch passes and then runs
-   the rest of the gate.
-4. Learnings: the timeout signal born outside the retry loop, the silent
-   council on a conflicting PR, resumption over patience confirmed by the
-   16-minute corridor, the corridor eyeball under the second tag list, and
-   the sheet's 64-chip write limit.
+1. Free sources only: Wikidata entities and English Wikipedia extracts
+   through the MediaWiki APIs, batched (50 ids, 20 titles), one request at
+   a time, 250 ms apart, with our User-Agent. About 45 requests for this
+   corridor. One retry after a pause on 429 or a 5xx; anything else stops
+   the run with the status.
+2. Every stop with a Wikidata id gets Wikidata's short description ("airport",
+   "roller coaster"). Every stop with an English Wikipedia page, from the
+   OpenStreetMap tag or the Wikidata sitelink, gets the page's first two
+   sentences clipped to 240 characters at a sentence end where one falls
+   late enough, and the page URL. Stops with neither get nothing, and the
+   file says how many.
+3. Titles follow MediaWiki's `normalized` and `redirects` maps, so a stop's
+   result is keyed by the stop, not by whatever title Wikipedia answered
+   with. Tested with a fixture that has both and a missing page.
+4. Output is a sidecar, `data/corridors/<name>.descriptions.json`, keyed by
+   stop id. The corridor file and the record schema are untouched: no
+   re-pull, no version bump. Gitignored with the corridor.
+5. Pure parsers and the batching loop live in `src/lib/roadside/describe.ts`
+   with injected fetch and sleep; the script reads and writes files.
 
-**Cost:** $0. One quiet fetch of main per push, on a connection the push
-already needs.
+**Cost:** $0. Wikimedia's APIs are free; the run is about 45 requests.
 
-**Weakest part:** A bash hook with no test harness; the proof is the two
-manual runs recorded here, not a test that runs on every change. And the
-check protects only against the conflict we have met; a pull request
-GitHub declines to run for any other reason will still look like a queue.
+**Weakest part:** An encyclopedia's opening sentence is a description, not
+a reason to stop, so the reason step is still ahead. And 448 of the 1,074
+stops have no Wikidata at all (murals, sinkholes, small memorials) and stay
+name-only, which is uneven exactly where the pre-filter is weakest.
 
 ## Gate 1 proofs
 
-- Negative: a temporary worktree at 0212f7c (the head of #66 before its rebase) fed a fake ref line to the new hook: "gate1: FAIL this branch conflicts with origin/main. Rebase first: …", exit 1, before lint ran.
-- Positive: the same on this branch: "merges cleanly onto origin/main", then lint, types and tests pass.
-- `git merge-tree --write-tree 0af6f1f 0212f7c` exits 1 and names `.harness/active_plan.md` as the conflict; against this branch it exits 0.
-
-## Council round 1 on #67 (CONDITIONAL, bugs 5, product 5), and what changed
-
-- the check now runs on each branch head in the push (gathered from the ref lines git hands the hook), not on HEAD, so pushing another branch from this checkout checks the right commit; a push of tags alone, or deletions alone, skips it and says so
-- the fetch is bounded to 20 s with coreutils `timeout` where present. Answered, not changed: `git fetch` has no `--timeout` flag; the bound is the process timeout
-- Proven again: the old head of #66 pushed from a checkout of main is refused by its own sha; a tags-only ref line skips the check and the gate goes on; this branch's head passes
-
-## Council round 2 on #67 (CONDITIONAL, product 5), and what changed
-
-- the twenty seconds is explained where it is set: not reached by a slow network, only a dead one, and short enough to be seen at the terminal
-- Answered, not changed: quoting `"$PUSHED_BRANCH_SHAS"` in the loop would make one word of the whole list and check nothing; the list holds only 40-digit hex shas git itself handed the hook. The portable fallback for a system without coreutils `timeout` is left as it was: an unbounded fetch, which is what every push did before this PR.
+- Rule 3: with the redirect step removed from `parseExtracts`, "keys each page by the title that was asked for, following normalized and redirects" fails. Restored, `cmp` clean.
+- Rule 1 and 2: the batching test counts two Wikidata requests for 55 ids and two Wikipedia requests for 28 titles, three pauses of 250 ms, and checks a stop filled from both sources, one from Wikidata alone, one from the tag alone, and one left out.
+- The run: 31 requests in 81 seconds. 1,074 stops; 627 reach an encyclopedia; 602 have a short description, 369 an opening; 447 have neither. Big Texan reads "restaurant and motel in Amarillo, Texas" and "a roadside attraction known for competitive eating".
+- 430 tests, 7 new; lint and types clean.
