@@ -52,3 +52,10 @@ scored is one command and one commit.
 - Rule 2, on a temporary directory against the real asset: an empty directory downloads 77 MB and verifies; a matching file is left alone; a wrong checksum refuses the download and leaves no file; a file that does not match the checksum is replaced by the published one. (Corrected: the first write-up of this proof was wrong. `gh release create file#name` sets a display label, not the asset's name, so the first publish went up as `roadside-snapshot.sqlite`, the download URL answered 404, and the four "tests" had exercised the not-fetched path. The publish script now writes the snapshot under the asset's name and refuses to finish unless the download URL answers 200; the four cases were rerun and passed for real.)
 - Rule 3: the tracing include beside the atlas; not exercised by a full `next build` here, the mechanism is the atlas's and the deploy will show it.
 - Lint, types and the suite unchanged.
+
+## Council round 1 on #76 (CONDITIONAL, bugs 6), and what changed
+
+- the download streams to a temporary file and is hashed as it streams, then renamed into place: no partial file is ever at the store's path and the build never holds 77 MB in memory
+- SQLite's `quick_check` runs on the downloaded file before the rename; a User-Agent names us to GitHub; the two-minute timeout says why two minutes
+- the publish script says it needs a signed-in `gh` with release rights and what happens without
+- Answered, not changed: no placeholder file on a failed download. A build without the store was run to check the claim and succeeded (exit 0, 2026-09-28); `outputFileTracingIncludes` is a glob and a missing file traces nothing. A 0-byte placeholder would instead open as an empty database and fail on the first query.

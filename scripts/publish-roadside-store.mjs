@@ -36,6 +36,13 @@ writeFileSync("data/roadside.sqlite.sha256", `${sha}  ${ASSET}\n`);
 console.log(`snapshot ${snapshot}: ${(bytes.length / 1e6).toFixed(0)} MB, ${stops.toLocaleString()} stops, ${scored.toLocaleString()} scored, sha256 ${sha.slice(0, 16)}…`);
 
 const notes = `Roadside store snapshot, ${new Date().toISOString()}: ${stops.toLocaleString()} stops, ${scored.toLocaleString()} scored. Built by scripts/osm/extract-roadside.py and scripts/roadside-store.ts; see docs/roadside-store.md. The checksum lives in data/roadside.sqlite.sha256.`;
+// Publishing goes through the GitHub CLI (`gh`), which must be installed
+// and signed in (`gh auth status`) as someone who can write releases on
+// this repository. Unauthenticated or without that permission, the
+// `release` commands below fail with gh's own message and this script
+// stops before touching the release; the snapshot and the checksum file
+// are already written by then, so a rerun after `gh auth login` picks up
+// where it stopped. The download side needs no token: the repo is public.
 const exists = (() => { try { execFileSync("gh", ["release", "view", TAG], { stdio: "ignore" }); return true; } catch { return false; } })();
 if (!exists) {
   execFileSync("gh", ["release", "create", TAG, snapshot, "--title", "Roadside store", "--notes", notes], { stdio: "inherit" });
