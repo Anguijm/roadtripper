@@ -212,8 +212,13 @@ describe("the words on the screens, against the glossary", () => {
     expect(fitsTodayLine(["Lubbock"], "Austin")).toBe("Lubbock fits today");
     expect(fitsTodayLine(["Lubbock", "Abilene", "Sweetwater", "Snyder"], "Austin")).toBe("Lubbock, Abilene and 2 more fit today");
     expect(fitsTodayLine([], "Austin")).toBe("Nothing fits today; drive on to Austin");
-    expect(fitsTodayLine(["Abilene"], "Austin", "Lubbock")).toBe("Abilene fits today after Lubbock");
-    expect(fitsTodayLine([], "Austin", "Lubbock")).toBe("Nothing fits today after Lubbock; drive on to Austin");
+    // After a stop the towns are the next day's, and the sentence says
+    // which (U3, round 3: "fits today after Lubbock" stood over a list
+    // that put the town in day 2). Day 1 is "today".
+    expect(fitsTodayLine(["Abilene"], "Austin", 2)).toBe("Abilene fits in day 2");
+    expect(fitsTodayLine(["Abilene", "Sweetwater"], "Austin", 3)).toBe("Abilene and Sweetwater fit in day 3");
+    expect(fitsTodayLine([], "Austin", 2)).toBe("Nothing fits in day 2; drive on to Austin");
+    expect(fitsTodayLine(["Lubbock"], "Austin", 1)).toBe("Lubbock fits today");
     // A kind of place in sentence case, never an identifier.
     expect(kindWord("hidden_gem")).toBe("Hidden gem");
     expect(text).not.toMatch(/hidden_gem|HIDDEN GEM/);
@@ -289,6 +294,9 @@ describe("the words on the screens, against the glossary", () => {
     expect(clean(itinerary)).toContain('Day <span class="num">2</span> · Lubbock to Abilene · <span class="num">1</span> h <span class="num">40</span> min');
     expect(visible(itinerary)).toContain("Day 3 · Abilene to Austin · 3 h 20 min");
     expect(visible(itinerary)).toContain("✓ Added");
+    // Two stops: the towns that fit are day 3's, and the title says so.
+    expect(visible(itinerary)).toContain("Lubbock fits in day 3");
+    expect(visible(itinerary)).not.toContain("fits today");
     expect(visible(itinerary)).not.toMatch(/\d+ stops? ·|Your trip|Route locked/);
   });
 

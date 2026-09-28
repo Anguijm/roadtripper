@@ -8,164 +8,138 @@ Branch: `feat/u3-trip-as-days`
 
 ## Ship rule (written before the work)
 
-Gauntlet component U3, round 2: the trip told as days (quality bar, rule
-5). Round 1 cut the road into days; the critic's one failure was that once
-Lubbock is a stop, Day 1 read "Nothing listed along this stretch" and
-Lubbock with its places left the days for a collapsed "1 stop · Lubbock"
-row above them, so neither day said where it ends or what fits in it. This
-round puts a stop's town under the day it ends, takes what was stacked
-above the days off the sheet, and closes the three smaller notes (the town
-row's overlap and 30 px buttons, the mono face on words, the arrival count
-from the UTC day).
+Gauntlet component U3, round 3: the trip told as days (quality bar, rule
+5). Round 2 put a stop's town under the day it ends and took the
+itinerary off the sheet; the critic's one failure was that after a stop
+is added the phone shows "Day 1 · Amarillo to Lubbock · 1 h 43 min" and
+nothing else about days: Day 2's heading sat 1,100 px below the fold, and
+neither the title, the numbers nor the amber box said the trip is now two
+days or where day two starts and ends. This round puts the run of days
+where the eye lands, under the sheet's numbers, and closes the three
+smaller notes (the title that said "today" for a day-2 town, two figures
+for one drive, the off-day town's label clipped in a day's frame).
 
 **Cost:** $0 in API calls; one council run on the hook change, cents.
 
-1. **A stop's town stays under the day it ends.** The refresh after a stop
-   is added counts the towns that fit from that stop, so the stop's own
-   town leaves the set; the sheet remembers it. The moment a town is added
-   the workspace keeps its town and its places (`stopTowns`, snapshotted
-   from the set it was added from; seeded from `initialTrip.addedFrom` or
-   the page's set for a trip rendered on the server), drops it when the
-   stop is taken out, and draws it last among the day's towns, in the same
-   row as every town, with "✓ Added" for its state and "What's in Lubbock".
-   A stop's town with nothing written up still gets its row and says so.
-   The candidates of a day are the towns that fit in that stretch by their
-   position along the direct road, the stops among them left out (a stop is
-   drawn as its day's end, never twice). "Nothing listed along this
-   stretch" only when a day has no town, no stop and no place. A stop whose
-   recompute failed says so under its day's heading in a sentence. Held by
-   `PlanWorkspace.days.ssr.test.tsx`: the towns moved on (the set is Fort
-   Worth after Lubbock) and Day 1 still holds Lubbock and its places with
-   "✓ Added", Day 2 holds Fort Worth with "Stop here".
-2. **The days are the trip; nothing stacks above them after a stop.** The
-   collapsed itinerary row, the `Itinerary` component and the route lock
-   leave the sheet: each day's heading already says where it ends and its
-   drive, "✓ Added" takes a stop out, and the failed state is on the day.
-   `Itinerary.tsx`, `itinerary-summary.ts` and their tests are deleted, not
-   kept idle. "What's in X" no longer opens by itself when a stop is added:
-   it opens on its button (a second tap closes it) or a tap on a stop's
-   square on the map, is drawn under that town's row inside its day, and
-   closes when its town leaves both lists (`nextPanelCityId` closes instead
-   of moving to the last stop). The panel resolves its town from the live
-   towns, not the page's first set.
-3. **A tap on a day shows that day.** The map fits the live road between
-   the day's ends (the route as drawn, cut at the stops by `alongRoadKm`),
-   padded by the sheet's share of the map as before; a second tap fits the
-   whole trip. The sheet scrolls so the day's heading is at the top of its
-   box, so what fits in the day is what the strip and the box show
-   together; a fully open sheet drops to rest. A recompute closes the open
-   day and moves nothing.
-4. **The town row is two rows, both readable.** The name with its drive
-   ("Lubbock · 1 h 40 min away", the figures in the mono face) on one line
-   that wraps, then "What's in Lubbock" and "+ Stop here" side by side,
-   each 44 px tall on the screen and sharing the width; no invisible hit
-   area. The heading is the town's name; the buttons are its siblings.
-5. **The mono face is for figures only.** One component, `Figures`, sets
-   the digit runs of a sentence in `.num` and leaves every word in the
-   body face: "Day 1 · Amarillo to Lubbock · 3 h 20 min" has 1, 3 and 20
-   in mono and "h", "min", "Day" and "over the 4 h you wanted" in sans;
-   "Arrive in Austin by October 14, six days from now" has only 14 in
-   mono; the sheet's numbers, the driving-left line, the alerts, the town
-   row's drive and the masthead's range dates the same. The glossary test
-   pins the new shape.
-6. **The arrival count is the person's clock.** `localTodayIso` beside
-   `todayIso` gives the calendar day in the running clock's zone; the page
-   passes it (the server's local day, Japan on the operator's machine) and
-   the sheet re-reads the browser's on mount, so "sixteen days from now"
-   on a UTC day that is already tomorrow in Japan is "fifteen". Pinned in
-   `deadline.test.ts` with dates built from local parts, so the test does
-   not depend on the machine's zone.
-7. **Unchanged from round 1, and not touched:** the day cut in
+1. **The run of days sits under the numbers.** A trip of two or more days
+   draws a strip right under "497 mi · 7 h 45 min on the road" and the
+   driving-left line, before any alert: one row per day, the day's own
+   heading sentence ("Day 1 · Amarillo to Lubbock · 1 h 43 min", "Day 2 ·
+   Lubbock to Austin · 6 h 1 min, over the 4 h you wanted", the figures in
+   the mono face), each row a 44 px button that does what the day's
+   heading does (fits the map to that day and scrolls the sheet to that
+   day's section; a second tap on the open day fits the whole trip), the
+   open day marked, and one line under the rows that says what a tap does
+   ("Tap a day to see it on the map.", or "Tap Day 1 again to see the
+   whole trip."). On a 390 by 844 phone at rest the strip's two rows are
+   on screen with the numbers (the box is 537 px; the mood, the numbers
+   and the strip are about 350). A one-day trip draws no strip: its one
+   heading is a few lines down and a second copy of it would be a
+   duplicate. The day sections keep their headings and their open lists
+   of towns and places (rule 4). Held by `PlanWorkspace.days.ssr.test.tsx`
+   ("puts the run of days under the sheet's numbers…").
+2. **The title agrees with the days.** After a stop the towns that fit are
+   counted from that stop, so they are the next day's: the sheet's title
+   says "Fort Worth fits in day 2" (`fitsTodayLine(towns, toName, day)`,
+   day 1 is "fit today" as U2 wrote it), "Fort Worth and Abilene fit in
+   day 2", "Nothing fits in day 2; drive on to Austin". The day is the
+   number of stops plus one, the section the towns are listed under. The
+   "after Lubbock" clause goes: the strip's Day 2 row says where day two
+   starts. The glossary test pins the shapes.
+3. **One figure for one drive.** A stop's row drops its "· 1 h 40 min
+   away": the day's heading right above says the drive the route gave
+   ("Amarillo to Lubbock · 1 h 43 min"), and the row's figure was the
+   town set's estimate of the same drive. A town that fits keeps its
+   "away", the only figure for that drive on the sheet.
+   `RecommendationList.ssr.test.tsx` pins both.
+4. **A day's frame shows that day's towns.** While a day is open on the
+   map, the towns that are not in it (the dots the sheet lists under
+   other days) are drawn faded (`Marker.setOpacity`, `OFF_DAY_OPACITY`),
+   name and dot together; the day's own towns and every stop stay as they
+   are; nothing moves (rule 6). The whole trip restores every town. Pure
+   `candidateOpacity(id, focus)` in RouteMap.tsx with a test; the
+   workspace hands the open day's towns and its two ends as `focus`.
+   The fit's padding is not changed: for Amarillo to Lubbock the height
+   binds at zoom 6 with 40 px or 56 px margins alike, so a wider margin
+   moves nothing on the screenshot and the day's ends keep the room the
+   trip's fit gives them.
+5. **Unchanged from rounds 1 and 2, and not touched:** the day cut in
    `src/lib/plan/days.ts` and its tests; the deadline arithmetic in
    `trip-state.ts`; the fit at rest (PLAN_HEADER_PX, the masthead's
-   classes, the fit test); no new routing call: the days come from the
-   legs the recompute already returns and the routes the page already has.
+   classes, the fit test); the arrival sentence and `localTodayIso`; the
+   stop's town kept under its day; no new routing call: the strip is the
+   same `days` array the sections draw.
 
-Routed by name, not dropped: the mood chips still sit above the days (U5's
-row that fits 390 px would give the days 50 px back); whether the budget
-warning belongs above the days when each day already says it is over is
-the critic's call. The roadside store lists no place on the runner's
-Amarillo to Austin road, so the screenshots show towns and their places
-under the days, not roadside rows; that is the store's, not this
-component's.
+Routed by name, not dropped: the driving-left line says "2 h 16 min of
+driving left today" after a stop on a trip without dates, because the
+trip's budget is one day's when no dates were given (the documented
+default in PlanWorkspace) while the stops make two days; whether a trip
+with no dates should budget a day per stretch is the operator's call, a
+change to the budget's arithmetic, not its words. The mood chips still
+sit above the days (U5). The roadside store lists no place on the
+runner's Amarillo to Austin road, so the screenshots show towns and their
+places under the days, not roadside rows.
 
 **Cost:** $0. No new routing call, no store write, no score touched, no
-dependency added, no deploy. The stop's town is a snapshot of data the
-sheet already had; the day's frame is cut from the polyline already drawn.
+dependency added, no deploy. The strip draws the `days` array the
+sections already draw; the faded towns are the markers already on the
+map with one option set.
 
-**Weakest part:** The stop's town is remembered from the set it was added
-from, so its "N min away" is the drive from the previous stop as the set
-measured it then, and if that set was degraded its places are what loaded
-then; a reload rebuilds it from the page's set, which for a stop that no
-longer fits from the start is the name alone. Second, the day frame reads
-the live route, which lags a recompute by one round trip: a tap in that
-window frames the old road. Third, the sheet at rest still shows one day's
-worth before the fold when the first day has a town with five places; the
-tap's scroll is what puts a day's heading at the top, and a screenshot
-without the tap shows Day 2 only by scrolling.
+**Weakest part:** The strip's tap scrolls the sheet to the day's section,
+so the strip itself leaves the screen on a tap and comes back on a scroll
+up; the section's heading then says "See the whole trip". Second, the
+fading relies on the legacy Marker's `opacity` applying to the label as
+well as the icon (the documented option covers the marker); if a browser
+draws the label unfaded the dot fades alone, which is less than promised
+but not wrong. Third, the title's "day 2" is the count of stops plus one,
+and a town that fits from the last stop but projects onto the direct road
+before it is listed under the earlier day; the days test names that case
+and the title does not.
 
 ## Gate 1 proofs
 
 - `bun run type-check`: clean. `bun run lint`: 0 errors, 9 warnings, the
-  same 9 U2 and round 1 recorded, none new. `bunx vitest run`: 51 files,
-  513 tests, all green (round 1 left 53 files, 517: the itinerary's 4 and
-  its summary's 4 are deleted with their components; 4 are new). New or
-  reshaped: `PlanWorkspace.days.ssr.test.tsx` (7): the headings with the
-  figures alone in mono; "keeps a stop's town and its places under the
-  day it ends after the towns that fit have moved on, and stacks nothing
-  above the days" (the set is Fort Worth after Lubbock: Day 1 holds
-  Lubbock, "✓ Added" and Buddy Holly Center, Day 2 holds Fort Worth and
-  "+ Stop here", no "Nothing listed", no "1 stop ·", no lock, no panel
-  above the days; and a stop the page's set no longer holds keeps its row
-  with "Nothing written up for Lubbock yet"); "says on the day when its
-  stop's route did not update, and draws the answer to What's in under
-  that town's row"; the arrival sentence with only the day's figure in
-  mono. `RecommendationList.ssr.test.tsx` (8): the two-row header pinned
-  to its markup, both buttons `min-h-[44px]`, no `before:` hit area;
-  `keepEmpty` and `detail`. `glossary.ssr.test.tsx`: the sheet with two
-  stops replaces the itinerary screen; `class="num">` never followed by
-  a letter on the sheet. `panel-city.test.ts`: closes instead of moving.
-  `deadline.test.ts`: `localTodayIso` from dates built of local parts.
+  same 9 U2 and rounds 1 and 2 recorded, none new. `bunx vitest run`:
+  51 files, 516 tests, all green (round 2 left 513; 3 are new). New or
+  reshaped: `PlanWorkspace.days.ssr.test.tsx`: "puts the run of days
+  under the sheet's numbers, before the alerts, each row a 44 px button
+  with the day's sentence, and none for a one-day trip" (two rows in
+  order after "on the road" and before the amber box and Day 1's
+  section, `aria-pressed="false"`, `min-h-[44px]`, the hint, no strip
+  with no stop); "keeps a stop's town…" now pins "Fort Worth fits in day
+  2" and that Lubbock's row has no "away" while Fort Worth's has; "fades
+  the towns of the other days while one is open, and never a stop"
+  (`candidateOpacity`). `RecommendationList.ssr.test.tsx`: "drops the
+  drive from a stop's row: the day's heading says it". `glossary.ssr.
+  test.tsx`: `fitsTodayLine` with the day.
 - Mutation, rule 1 of round 1 (every town and place in the first day):
   in `src/lib/plan/days.ts`, `dayFor` set to return `days[0]` regardless
-  of the position. `bunx vitest run src/lib/plan/__tests__/days.test.ts
-  src/components/__tests__/PlanWorkspace.days.ssr.test.tsx` fails five
-  of thirteen by name: "cuts two legs that together exceed a day's budget
-  into two days, and lands every town and roadside stop in its day by its
-  position along the road" (`expected [ 'Plainview', 'Post', 'Brady',
-  …(1) ] to deeply equal [ 'Plainview', 'Lubbock' ]`), "keeps a place
-  beyond every stop in the last day, and a stop added behind an earlier
-  one leaves the earlier day what the road passed first", "renders two
-  day headings in order for a one-stop trip, with the right towns and
-  places under each" (`to contain '1 place worth pulling over for'`),
-  "keeps a stop's town and its places under the day it ends after the
-  towns that fit have moved on, and stacks nothing above the days"
-  (`to contain "What's in Fort Worth"`, Fort Worth fell into day 1), and
-  "shows the ten strongest places per day and one Show all per day only
-  where a day has more than ten" (`'14 places'`). Restored from the copy
-  taken first; `cmp` reports the file identical.
-- Mutation, rule 1 of this round (the sheet forgets a stop's town): in
-  `PlanWorkspace.tsx`, `sheetFetch` made to return the effective set
-  always (`kept.length >= 0`). The days test and the glossary test run 17
-  and fail one by name: "keeps a stop's town and its places under the day
-  it ends after the towns that fit have moved on, and stacks nothing above
-  the days" (`to contain "What's in Lubbock"`). Restored; `cmp` identical;
-  the three files run 23 green after.
-- Decisions taken here, for the critic and the council: the `Itinerary`
-  component, `itinerary-summary.ts` and their tests are deleted, not left
-  unused (Council ISC-S6-PROD-2 wanted the trip above the towns whenever
-  it has stops; the days are that, each heading a stop with its drive,
-  and the bar's rule 5 is the answer). The route lock went with it: no
-  screen offered it but the itinerary's end row. `nextPanelCityId` closes
-  instead of moving to the last stop, and the panel resolves from the
-  live towns (a town a refresh brought in could not be read about before).
-  The day's frame is cut from the live route; the towns and places are
-  still placed along the direct route, the road the store measured them
-  on. `Figures` is one component for the sheet, the town row and the
-  masthead; the home form's date button (U4's screen) is not touched.
-  `next-env.d.ts` in this worktree carries the dev server's own edit and
-  is not in the commit. For the runner, unchanged: delete `.next` in the
-  worktree before the round's dev server, or the screenshot is the
-  previous round's stylesheet; and the two-day screenshot after the tap
-  on Day 1 shows Day 1's heading at the top of the sheet and Day 2's
-  heading under Lubbock's places.
+  of the position. The days unit test and the days SSR test fail by name
+  ("cuts two legs that together exceed a day's budget into two days, and
+  lands every town and roadside stop in its day by its position along
+  the road", "keeps a place beyond every stop in the last day…", "renders
+  two day headings in order…", "keeps a stop's town and its places under
+  the day it ends…", "shows the ten strongest places per day…"): five of
+  fifteen. Restored; `cmp` identical. Recorded in round 1 and re-run
+  this round with the same five.
+- Mutation, rule 1 of this round (the strip shows the first day only):
+  in `PlanWorkspace.tsx`, the strip maps `days.slice(0, 1)`. The days SSR
+  test and the glossary test run 19 and fail one by name: "puts the run
+  of days under the sheet's numbers, before the alerts, each row a 44 px
+  button with the day's sentence, and none for a one-day trip"
+  (`expected ' Day 1 · Amarillo to Lubbock · 3 h 20…' to contain 'Day 2 ·
+  Lubbock to Austin · 4 h 30 mi…'`). Restored; `cmp` identical; the
+  three files run 25 green after.
+- Decisions taken here, for the critic and the council: the strip is a
+  second reading of the same headings, not a second source: one
+  `dayHeadings` array feeds both, so the two can never disagree. The
+  strip shows for two days or more only. The stop's row loses its
+  estimate rather than the heading losing the route's figure, because
+  the route's is the measured one. Off-day towns fade rather than hide:
+  a hidden dot would say a town is not there. `next-env.d.ts` in this
+  worktree carries the dev server's own edit and is not in the commit.
+  For the runner, unchanged: delete `.next` in the worktree before the
+  round's dev server; the two-day screenshot at rest after adding
+  Lubbock shows the strip's two rows under the numbers; the day-tap
+  screenshot shows Day 1's heading at the top of the sheet and the towns
+  of day 2 faded on the map.

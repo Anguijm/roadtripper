@@ -697,6 +697,20 @@ export default function PlanWorkspace({
       }),
     [fromName, toName, dayStops, legMinutes, road, dayTowns, roadsideStops, budgetHours]
   );
+  // Each day's heading, a sentence with its figures: "Day 1 · Amarillo to
+  // Lubbock · 3 h 20 min", and "over the 4 h you wanted" when it is. One
+  // array feeds the strip under the numbers and the sections below, so
+  // the two can never disagree (round 3).
+  const dayHeadings = useMemo(
+    () =>
+      days.map(
+        (day) =>
+          `Day ${day.index + 1} · ${day.fromName} to ${day.toName}` +
+          (day.minutes !== null ? ` · ${formatDurationPlain(Math.round(day.minutes * 60))}` : "") +
+          (day.minutes !== null && day.overBudget ? `, over the ${formatDurationPlain(budgetHours * 3600)} you wanted` : "")
+      ),
+    [days, budgetHours]
+  );
   // Each day's places strongest first, not road order: the diamonds on the
   // map already say where, and a person scanning ten rows wants the best ten.
   const roadsideByDay = useMemo(
@@ -756,6 +770,17 @@ export default function PlanWorkspace({
     },
     [days, openDay, tripBounds, liveRoad, origin, destination, tripStops]
   );
+  // The towns the map draws at full strength while a day is open: that
+  // day's towns and its two ends; every other town fades, dot and name
+  // together, and nothing moves (round 3; rule 6). Null with no day open,
+  // and the map draws every town as it is.
+  const focusCandidateIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (openDay === null || !cityIdsByDay[openDay]) return null;
+    return new Set([
+      ...cityIdsByDay[openDay],
+      ...tripStops.slice(Math.max(0, openDay - 1), openDay + 1).map((s) => s.cityId),
+    ]);
+  }, [openDay, cityIdsByDay, tripStops]);
 
   // Merged neighborhood data: recompute-fetched + on-demand local fetches.
   const effectiveNeighborhoods = useMemo(
@@ -1099,9 +1124,13 @@ export default function PlanWorkspace({
   // The sheet's title: a sentence built from the data, "Lubbock and
   // Abilene fit today" or "Nothing fits today; drive on to Austin", and
   // after a stop where it counts from. Never a count or a minutes figure
-  // as a label (quality bar, rule 1; Gauntlet U2). It sits on the handle
-  // row, above everything and at every snap (round 2: the critic saw the
-  // sheet open on the roadside heading and no sentence). When the towns
+  // as a label (quality bar, rule 1; Gauntlet U2). After a stop the towns
+  // are counted from that stop, so the sentence names the day they are
+  // listed under, "Fort Worth fits in day 2" (U3, round 3: "fits today
+  // after Lubbock" stood over a list that put Fort Worth in day 2). It
+  // sits on the handle row, above everything and at every snap (round 2:
+  // the critic saw the sheet open on the roadside heading and no
+  // sentence). When the towns
   // could not be read the title says that instead, since "nothing fits"
   // would be false. `liveWaypointFetch` is null until a refresh returns a
   // set, and a refresh whose town read failed leaves it as it was (the
@@ -1116,7 +1145,7 @@ export default function PlanWorkspace({
     : fitsTodayLine(
         effectiveWaypointFetch.cities.map((c) => c.name),
         toName,
-        tripStops.length > 0 ? tripStops[tripStops.length - 1].cityName : null
+        tripStops.length + 1
       );
 
   return (
@@ -1227,6 +1256,43 @@ export default function PlanWorkspace({
                 </p>
               )}
             </div>
+            {/* The run of days, where the eye lands after a stop is added
+                (Gauntlet U3, round 3: the critic saw "Day 1 · Amarillo to
+                Lubbock · 1 h 43 min" and nothing that said the trip was
+                now two days, Day 2's heading 1,100 px below the fold).
+                One row per day, the day's own heading sentence, each a
+                44 px button that does what the heading below does: fits
+                the map to the day and scrolls the sheet to its section,
+                or fits the whole trip again on the open day. One line
+                under the rows says what a tap does. Two days or more
+                only: a one-day trip's heading is a few lines down, and a
+                second copy of it would be a duplicate. */}
+            {days.length > 1 && (
+              <div data-day-strip className="text-base leading-snug space-y-1">
+                <ul className="space-y-1">
+                  {days.map((day) => (
+                    <li key={day.index}>
+                      <button
+                        type="button"
+                        onClick={() => handleDayTap(day.index)}
+                        aria-pressed={openDay === day.index}
+                        className={[
+                          "w-full min-h-[44px] text-left px-2 py-1 border-l-2 break-words transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                          openDay === day.index
+                            ? "border-[#f0f6fc] bg-[#161b22] text-[#f0f6fc]"
+                            : "border-[#30363d] text-[#f0f6fc] hover:bg-[#161b22]",
+                        ].join(" ")}
+                      >
+                        <Figures text={dayHeadings[day.index]} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <p data-day-strip-hint className="text-[#8b949e] px-2">
+                  {openDay === null ? "Tap a day to see it on the map." : <Figures text={`Tap Day ${openDay + 1} again to see the whole trip.`} />}
+                </p>
+              </div>
+            )}
             {/* Only while updating; idle it costs no height. */}
             {isPending && (
               <p
@@ -1380,10 +1446,7 @@ export default function PlanWorkspace({
               // ends at the destination, which is not a town on the sheet.
               const endStop = day.index < tripStops.length ? tripStops[day.index] : null;
               const townIds = cityIdsByDay[day.index];
-              const heading =
-                `Day ${n} · ${day.fromName} to ${day.toName}` +
-                (day.minutes !== null ? ` · ${formatDurationPlain(Math.round(day.minutes * 60))}` : "") +
-                (day.minutes !== null && day.overBudget ? `, over the ${formatDurationPlain(budgetHours * 3600)} you wanted` : "");
+              const heading = dayHeadings[day.index];
               const townProps = {
                 activePersonaId,
                 highlightedCityId,
@@ -1555,6 +1618,7 @@ export default function PlanWorkspace({
           selectedRoadsideId={selectedRoadsideId}
           phoneSheetTopDvh={sheetTopDvh(sheetSnap === 2 ? 1 : sheetSnap)}
           fitTo={mapFit}
+          focusCandidateIds={focusCandidateIds}
           pending={isPending}
         />
       </main>

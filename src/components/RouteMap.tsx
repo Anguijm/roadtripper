@@ -177,6 +177,26 @@ export interface MapFit {
 }
 
 /**
+ * How faded a town outside the open day is drawn, dot and name together
+ * (Gauntlet U3, round 3: with day 1 framed, Fort Worth's name sat clipped
+ * at the map's edge as if it were part of the day). 0.35 keeps the dot
+ * readable as a place that is there while the day's own towns, at 1, are
+ * what the eye reads; hidden, a town would look absent. Nothing moves
+ * (rule 6). Check: `candidateOpacity` below and its test; a screenshot
+ * with Day 1 open shows Fort Worth's dot and name faint, Plainview's not.
+ */
+export const OFF_DAY_OPACITY = 0.35;
+
+/**
+ * A town's strength on the map: full with no day open (`focus` null), or
+ * when the town is in the open day; faded otherwise. Pure, so a test can
+ * prove the rule without a map.
+ */
+export function candidateOpacity(id: string, focus: ReadonlySet<string> | null | undefined): number {
+  return !focus || focus.has(id) ? 1 : OFF_DAY_OPACITY;
+}
+
+/**
  * The strip: how much of the map is on screen from its top edge, on a
  * phone with the sheet at rest (the sheet's top in dvh times the viewport,
  * less the map's top). Undefined off a phone or with no sheet, where the
@@ -281,6 +301,13 @@ interface RouteMapProps {
    * moves the camera.
    */
   fitTo?: MapFit | null;
+  /**
+   * The towns to draw at full strength while a day is open on the map
+   * (Gauntlet U3, round 3): that day's towns and its ends; every other
+   * town is faded, dot and name, by OFF_DAY_OPACITY. Null: every town
+   * as it is.
+   */
+  focusCandidateIds?: ReadonlySet<string> | null;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -420,6 +447,7 @@ function PolylineRenderer({
   selectedRoadsideId,
   phoneSheetTopDvh,
   fitTo,
+  focusCandidateIds,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -438,6 +466,13 @@ function PolylineRenderer({
   selectedRoadsideId?: string | null;
   phoneSheetTopDvh?: number;
   fitTo?: MapFit | null;
+  /**
+   * The towns to draw at full strength while a day is open on the map
+   * (Gauntlet U3, round 3): that day's towns and its ends; every other
+   * town is faded, dot and name, by OFF_DAY_OPACITY. Null: every town
+   * as it is.
+   */
+  focusCandidateIds?: ReadonlySet<string> | null;
 }) {
   const map = useMap();
   // Null until the geometry library lands (it lazy-loads after the map);
@@ -666,6 +701,20 @@ function PolylineRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, candidates, routeColor]);
 
+  // ── Effect 2d: the open day's towns (Gauntlet U3, round 3) ─────────────
+  // While a day is open on the map, the towns the sheet lists under other
+  // days are faded and the day's own stay as they are; the whole trip
+  // restores every town. One option set on markers that already exist,
+  // after 2c has diffed them in the same commit (effects run in order),
+  // so a town a refresh brings in while a day is open is faded or not by
+  // the same rule. Nothing is moved, added or removed (rule 6).
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+    for (const [id, marker] of candidateMarkersRef.current) {
+      marker.setOpacity(candidateOpacity(id, focusCandidateIds));
+    }
+  }, [map, candidates, focusCandidateIds]);
+
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
   useEffect(() => {
     if (!map || !window.google?.maps) return;
@@ -884,6 +933,7 @@ export default function RouteMap({
   selectedRoadsideId = null,
   phoneSheetTopDvh,
   fitTo = null,
+  focusCandidateIds = null,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -961,6 +1011,7 @@ export default function RouteMap({
             selectedRoadsideId={selectedRoadsideId}
             phoneSheetTopDvh={phoneSheetTopDvh}
             fitTo={fitTo}
+            focusCandidateIds={focusCandidateIds}
             pending={pending}
           />
         ) : (

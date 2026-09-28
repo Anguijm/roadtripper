@@ -115,6 +115,20 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(renderToString(<RecommendationList {...baseProps} fetchResult={result} detail={{ cityId: "lubbock", node: <p data-answer /> }} />)).not.toContain("data-answer");
   });
 
+  it("drops the drive from a stop's row: the day's heading above it says the drive the route measured", () => {
+    // Gauntlet U3, round 3: "Lubbock · 1 h 40 min away" sat under "Day 1 ·
+    // Amarillo to Lubbock · 1 h 43 min", two figures for one drive. A town
+    // that fits keeps its drive, the only figure for it on the sheet.
+    const render = (added: string[]) =>
+      renderToString(<RecommendationList {...baseProps} fetchResult={result} addedCityIds={new Set(added)} />).replace(/<!-- -->/g, "");
+    const fits = render([]);
+    expect(fits).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="num">20<\/span> min away<\/span><\/h3>/);
+    const stop = render(["amarillo"]);
+    expect(stop).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<\/h3>/);
+    expect(stop).not.toContain("away");
+    expect(stop).toContain("✓ Added");
+  });
+
   it("shows no preview button when the parent does not offer one", () => {
     const html = renderToString(
       <RecommendationList

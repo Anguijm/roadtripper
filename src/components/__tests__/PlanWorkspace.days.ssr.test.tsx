@@ -7,7 +7,9 @@ vi.mock("@/app/plan/actions", () => ({
   fetchNeighborhoodsAction: vi.fn(),
 }));
 
+import { readFileSync } from "node:fs";
 import PlanWorkspace from "@/components/PlanWorkspace";
+import { candidateOpacity, OFF_DAY_OPACITY } from "@/components/RouteMap";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 /**
@@ -175,11 +177,20 @@ describe("the plan sheet told as days", () => {
     expect(days[1].text).toContain("Stockyards");
     expect(days[1].text).not.toContain("What's in Lubbock");
     expect(days[1].text).not.toContain("Buddy Holly Center");
-    // The title still counts from the stop, above the days; and between
-    // the sheet's numbers and Day 1 there is no itinerary row, no lock
-    // and no panel nobody asked for.
-    expect(text).toContain("Fort Worth fits today after Lubbock");
+    // The title names the day the towns are listed under (round 3: "fits
+    // today after Lubbock" stood over a list that put Fort Worth in day
+    // 2), above the days; and between the sheet's numbers and Day 1 there
+    // is no itinerary row, no lock and no panel nobody asked for.
+    expect(text).toContain("Fort Worth fits in day 2");
+    expect(text).not.toContain("fits today");
     expect(text).not.toMatch(/\d+ stops? ·|Your trip|Route locked|Loading what's in/);
+    // One figure for one drive (round 3): the stop's row has no "away",
+    // the day's heading says the route's drive; the town that fits keeps
+    // its own, the only figure for that drive on the sheet.
+    const row = (id: string) => /<section[^>]*data-town="ID"[\s\S]*?<\/h3>/.source.replace("ID", id);
+    expect(visible(new RegExp(row("lubbock")).exec(html)![0]).trim()).toBe("Lubbock");
+    expect(visible(new RegExp(row("fort-worth")).exec(html)![0]).trim()).toBe("Fort Worth · 2 h away");
+    expect(days[0].text).toContain("Amarillo to Lubbock · 3 h 20 min");
     expect(text.indexOf("on the road")).toBeLessThan(text.indexOf("Day 1 ·"));
     expect(html).not.toContain("itinerary");
     // A stop's town the page's own set no longer holds (a reload with the
@@ -208,6 +219,69 @@ describe("the plan sheet told as days", () => {
     expect(answer).toBeGreaterThan(html.indexOf("Buddy Holly Center"));
     expect(answer).toBeLessThan(html.indexOf('<section data-day="2"'));
     expect(html).toMatch(/aria-pressed="true"[^>]*>What's in Lubbock<\/button>/);
+  });
+
+  it("puts the run of days under the sheet's numbers, before the alerts, each row a 44 px button with the day's sentence, and none for a one-day trip", () => {
+    // Round 2's failure: after a stop the phone showed "Day 1 · Amarillo
+    // to Lubbock · 1 h 43 min" and nothing that said the trip was now two
+    // days; Day 2's heading sat 1,100 px below the fold. The strip is the
+    // days in a row where the eye lands, under the numbers.
+    const html = clean(renderToString(<PlanWorkspace {...base} initialTrip={twoLegs} />));
+    const strip = /<div data-day-strip="true"[^>]*>([\s\S]*?)<\/div>/.exec(html);
+    expect(strip).not.toBeNull();
+    const stripText = text(strip![0]);
+    expect(stripText).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
+    expect(stripText).toContain("Day 2 · Lubbock to Austin · 4 h 30 min, over the 4 h you wanted");
+    expect(stripText.indexOf("Day 1 ·")).toBeLessThan(stripText.indexOf("Day 2 ·"));
+    expect(stripText).toContain("Tap a day to see it on the map.");
+    // Each row a 44 px button, none pressed until a tap, the figures in mono.
+    const rows = strip![0].match(/<button[^>]*>/g) ?? [];
+    expect(rows).toHaveLength(2);
+    for (const r of rows) {
+      expect(r).toMatch(/aria-pressed="false"/);
+      expect(r).toMatch(/class="[^"]*\bmin-h-\[44px\]/);
+    }
+    expect(strip![0]).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">3</span> h <span class="num">20</span> min');
+    // Under the numbers, before the budget's alert and before Day 1's
+    // section; the same sentence heads the section below, from one array.
+    const at = html.indexOf("data-day-strip");
+    expect(at).toBeGreaterThan(html.indexOf("on the road"));
+    expect(at).toBeGreaterThan(html.indexOf("of driving left"));
+    expect(at).toBeLessThan(html.indexOf('role="alert"'));
+    expect(at).toBeLessThan(html.indexOf('<section data-day="1"'));
+    expect(html.match(/Day <span class="num">1<\/span> · Amarillo to Lubbock/g)).toHaveLength(2);
+    expect(html.match(/Day <span class="num">2<\/span> · Lubbock to Austin/g)).toHaveLength(2);
+    // Nothing in the strip is a day section: the sections are still two.
+    expect(daySections(html).map((d) => d.n)).toEqual(["1", "2"]);
+    // A stop whose route has not returned: the rows without a time, and
+    // never "0 min".
+    const pending = clean(renderToString(<PlanWorkspace {...base} initialTrip={{ stops: [lubbock], legs: [], directMinutesToDestination: 470 }} />));
+    const pendingStrip = text(/<div data-day-strip="true"[^>]*>([\s\S]*?)<\/div>/.exec(pending)![0]);
+    expect(pendingStrip).toContain("Day 1 · Amarillo to Lubbock Day 2 · Lubbock to Austin");
+    expect(pendingStrip).not.toMatch(/\b0 min\b/);
+    // One day: no strip; its one heading is a few lines down already.
+    expect(renderToString(<PlanWorkspace {...base} />)).not.toContain("data-day-strip");
+  });
+
+  it("fades the towns of the other days on the map while one is open, and never the day's own or its ends", () => {
+    // Round 2's day-tap capture: Fort Worth's name clipped at the map's
+    // edge as if it were part of day 1. The rule is pure; the map applies
+    // it to the markers it already has, moving nothing.
+    const day1 = new Set(["plainview", "lubbock"]);
+    expect(candidateOpacity("plainview", day1)).toBe(1);
+    expect(candidateOpacity("lubbock", day1)).toBe(1);
+    expect(candidateOpacity("fort-worth", day1)).toBe(OFF_DAY_OPACITY);
+    expect(candidateOpacity("fort-worth", null)).toBe(1);
+    expect(candidateOpacity("fort-worth", undefined)).toBe(1);
+    // Faint, not gone: a hidden dot would say the town is not there.
+    expect(OFF_DAY_OPACITY).toBeGreaterThanOrEqual(0.25);
+    expect(OFF_DAY_OPACITY).toBeLessThanOrEqual(0.5);
+    // The map sets that and only that on the markers it has (rule 6:
+    // nothing moves), and the workspace hands it the open day's towns.
+    const map = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
+    expect(map).toContain("marker.setOpacity(candidateOpacity(id, focusCandidateIds))");
+    const sheet = readFileSync(new URL("../PlanWorkspace.tsx", import.meta.url), "utf8");
+    expect(sheet).toContain("focusCandidateIds={focusCandidateIds}");
   });
 
   it("makes the heading a 44 px button that says what a tap does, and asks the map for nothing until one", () => {

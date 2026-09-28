@@ -231,10 +231,14 @@ export default function RecommendationList({
                   row, with its figures in the mono face. detourMinutes is
                   the round trip, so half of it is the drive there, the
                   same figure the today screen shows; nothing when the
-                  set never measured it. */}
+                  set never measured it. A stop's row says none: its day's
+                  heading right above carries the drive the route measured,
+                  and this figure was the town set's estimate of the same
+                  drive (Gauntlet U3, round 3: "Lubbock · 1 h 40 min away"
+                  under "Amarillo to Lubbock · 1 h 43 min"). */}
               <h3 className="text-base leading-6 break-words">
                 {cityName}
-                {detourMinutes > 0 && (
+                {detourMinutes > 0 && !isAdded && (
                   <span className="ml-2 text-[#8b949e]">
                     · <Figures text={formatDrive(detourMinutes / 2)} /> away
                   </span>
