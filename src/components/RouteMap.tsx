@@ -31,7 +31,12 @@ export interface RoadsideMapMarker {
   lng: number;
 }
 
-/** Amber, the colour the pending pulse already uses, so it reads as "ours" and unlike any persona's route. */
+/**
+ * Amber, the colour PlanWorkspace's pending pulse and the roadside list's
+ * heading already use (`#e3b341` in src/components/PlanWorkspace.tsx), so
+ * it reads as "ours" and unlike any persona's route colour. Change all
+ * three together or the map and the list stop agreeing.
+ */
 export const ROADSIDE_COLOR = "#e3b341";
 
 /**
@@ -403,9 +408,13 @@ function PolylineRenderer({
   }, [map, tripStops, routeColor]);
 
   // ── Effect 4: roadside survivors ───────────────────────────────────────
-  // Diamonds in amber, below trip stops and above candidates in z-order, so a
-  // numbered stop always wins a tap and a roadside stop wins over a city dot.
-  // Rebuilt wholesale when the list changes: it changes only with the route.
+  // Diamonds in amber. zIndex 1500 sits between the trip-stop squares
+  // (zIndex 2000 in Effect 3 above) and the candidate dots (no zIndex set in
+  // Effect 2b, so the map's default, below both), so a numbered stop always
+  // wins a tap and a roadside stop wins over a city dot. Rebuilt wholesale
+  // when the list changes, which is only with the route: the array comes
+  // from the server, and PlanWorkspace hands a single shared empty array
+  // when there are none, so this does not churn on unrelated renders.
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!roadsideStops || roadsideStops.length === 0) return;

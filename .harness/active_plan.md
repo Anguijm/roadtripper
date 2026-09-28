@@ -58,3 +58,11 @@ not attempt it.
 - Rule 3 and 4: the workspace SSR test renders the section with two fixture stops (map link, kind, km, the line to read, one `data-roadside-about` for the one stop that has a line) and nothing without them; the diamond helper has the diamond path and the amber and no circle or rect.
 - The build: 214 survivors of 1,074 at 0.45; 139 have a line to read. Against the straight line Amarillo to Austin with the 10 km buffer (a lower bound, since the road bends), 159 of them are along the route.
 - 453 tests, 9 new; lint and types clean.
+
+## Council round 1 on #73 (CONDITIONAL, bugs 6, maintainability 6), and what changed
+
+- the empty default is one module-level array, so the map's roadside effect does not tear down and rebuild on unrelated renders; the comment says why
+- an unknown kind reads as "place" rather than "undefined"
+- `MAP_THRESHOLD` says how to rebuild the committed files and which test moves with it
+- the map says where the amber and the z-indices come from and why 1500 sits where it does
+- taken from the deferred list: each map link has an aria-label saying it opens Google Maps in a new tab; the filter's cost is stated in the code with the numbers

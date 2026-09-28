@@ -22,7 +22,11 @@ export function roadsideAlong(survivors: readonly RoadsideSurvivor[], route: rea
   if (route.length < 2) return [];
   // Cumulative distance at each vertex, once; each survivor then takes the
   // distance at its nearest vertex. A vertex every few hundred metres makes
-  // that within a rounding of the true along-route distance.
+  // that within a rounding of the true along-route distance. Cost: one
+  // projection plus one nearest-vertex pass per survivor, about 2 × 214 ×
+  // 3,700 haversines on the first corridor, a few milliseconds on the
+  // server; a route with the decoder's cap of 10,000 vertices stays under
+  // a hundred. It runs once per plan render, not per interaction.
   const cum: number[] = [0];
   for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + haversineKm(route[i - 1], route[i]));
   const out: RoadsideMarker[] = [];

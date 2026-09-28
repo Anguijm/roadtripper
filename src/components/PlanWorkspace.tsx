@@ -63,7 +63,16 @@ interface PlanWorkspaceProps {
   roadsideStops?: RoadsideMarker[];
 }
 
-/** The kinds as the sidebar says them. */
+/**
+ * One empty list, made once. A `= []` default in the destructuring would be
+ * a new array on every render, and RouteMap's roadside effect keys on the
+ * array's identity, so every keystroke in the workspace would tear the
+ * markers down and put them back. The server hands a stable array when
+ * there are stops; this is the stable one when there are none.
+ */
+const NO_ROADSIDE: RoadsideMarker[] = [];
+
+/** The kinds as the sidebar says them; anything unknown is "place". */
 const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
   attraction: "attraction", museum: "museum", viewpoint: "viewpoint", artwork: "artwork", theme_park: "theme park", zoo: "zoo",
   historic: "historic", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
@@ -116,7 +125,7 @@ export default function PlanWorkspace({
   endDate,
   dateMode,
   initialCandidateFetchFailed = false,
-  roadsideStops = [],
+  roadsideStops = NO_ROADSIDE,
 }: PlanWorkspaceProps) {
 
   // Stable UUID per component mount, passed to saveTrip on every attempt so a
@@ -969,11 +978,12 @@ export default function PlanWorkspace({
                           href={`https://www.google.com/maps/search/?api=1&query=${s.lat.toFixed(5)},${s.lng.toFixed(5)}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          aria-label={`${s.name}, opens in Google Maps in a new tab`}
                           className="text-[#f0f6fc] hover:text-[#e3b341] underline-offset-2 hover:underline"
                         >
                           {s.name}
                         </a>
-                        <span className="text-[#8b949e]"> · {ROADSIDE_KIND_WORDS[s.kind]} · {Math.round(s.alongKm)} km</span>
+                        <span className="text-[#8b949e]"> · {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {Math.round(s.alongKm)} km</span>
                         {s.about && (
                           <p data-roadside-about className="text-xs text-[#8b949e] line-clamp-2">{s.about}</p>
                         )}

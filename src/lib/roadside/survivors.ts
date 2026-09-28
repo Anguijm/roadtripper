@@ -19,6 +19,13 @@ import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
  * were all approved by John, so the map takes one notch more. On the first
  * corridor: 214 stops at 0.45 against 143 at 0.5. Move it with the bench,
  * not by eye: the jev-lab spec J9 records the reason for the current value.
+ *
+ * To change it: edit here, then rebuild every committed survivors file with
+ * `bun run roadside:survivors -- --name=<corridor> --scores=<the bench's
+ * scores file>` and commit the result, since the files carry the stops at
+ * the line they were built with (their `threshold` field says which). The
+ * test "keeps every scored stop at or above the line" in
+ * __tests__/survivors.test.ts asserts the value and must move with it.
  */
 export const MAP_THRESHOLD = 0.45;
 
