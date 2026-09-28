@@ -28,7 +28,7 @@ import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { fitsTodayLine } from "@/lib/plan/words";
+import { fitsTodayLine, dayHeadingLine, tripShapeLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, tripDays as cutIntoDays, dayBounds, boundsOf } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import {
@@ -698,19 +698,13 @@ export default function PlanWorkspace({
     [fromName, toName, dayStops, legMinutes, road, dayTowns, roadsideStops, budgetHours]
   );
   // Each day's heading, a sentence with its figures: "Day 1 · Amarillo to
-  // Lubbock · 3 h 20 min", and "over the 4 h you wanted" when it is. One
-  // array feeds the strip under the numbers and the sections below, so
-  // the two can never disagree (round 3).
-  const dayHeadings = useMemo(
-    () =>
-      days.map(
-        (day) =>
-          `Day ${day.index + 1} · ${day.fromName} to ${day.toName}` +
-          (day.minutes !== null ? ` · ${formatDurationPlain(Math.round(day.minutes * 60))}` : "") +
-          (day.minutes !== null && day.overBudget ? `, over the ${formatDurationPlain(budgetHours * 3600)} you wanted` : "")
-      ),
-    [days, budgetHours]
-  );
+  // Lubbock · 3 h 20 min", and a stretch over the budget labelled by the
+  // days it takes, "Days 2 and 3 · Lubbock to Austin · 6 h 1 min, over
+  // the 4 h you wanted" (round 4). The trip's shape in one line under the
+  // numbers, "Three days, with a night in Lubbock", for two stretches or
+  // more; it repeats no heading (round 4: the strip of day rows did).
+  const dayHeadings = useMemo(() => days.map((day) => dayHeadingLine(day, budgetHours * 60)), [days, budgetHours]);
+  const tripShape = useMemo(() => tripShapeLine(days), [days]);
   // Each day's places strongest first, not road order: the diamonds on the
   // map already say where, and a person scanning ten rows wants the best ten.
   const roadsideByDay = useMemo(
@@ -1130,7 +1124,9 @@ export default function PlanWorkspace({
   // after Lubbock" stood over a list that put Fort Worth in day 2). It
   // sits on the handle row, above everything and at every snap (round 2:
   // the critic saw the sheet open on the roadside heading and no
-  // sentence). When the towns
+  // sentence). The day is the last stretch's first day (round 4: a
+  // stretch over the budget takes more than one), the number its section
+  // is headed with. When the towns
   // could not be read the title says that instead, since "nothing fits"
   // would be false. `liveWaypointFetch` is null until a refresh returns a
   // set, and a refresh whose town read failed leaves it as it was (the
@@ -1145,7 +1141,7 @@ export default function PlanWorkspace({
     : fitsTodayLine(
         effectiveWaypointFetch.cities.map((c) => c.name),
         toName,
-        tripStops.length + 1
+        days[days.length - 1]?.firstDay ?? 1
       );
 
   return (
@@ -1255,44 +1251,20 @@ export default function PlanWorkspace({
                   <Figures text={arrivalSentence({ toName, endDate, today: sheetToday })} />
                 </p>
               )}
-            </div>
-            {/* The run of days, where the eye lands after a stop is added
-                (Gauntlet U3, round 3: the critic saw "Day 1 · Amarillo to
-                Lubbock · 1 h 43 min" and nothing that said the trip was
-                now two days, Day 2's heading 1,100 px below the fold).
-                One row per day, the day's own heading sentence, each a
-                44 px button that does what the heading below does: fits
-                the map to the day and scrolls the sheet to its section,
-                or fits the whole trip again on the open day. One line
-                under the rows says what a tap does. Two days or more
-                only: a one-day trip's heading is a few lines down, and a
-                second copy of it would be a duplicate. */}
-            {days.length > 1 && (
-              <div data-day-strip className="text-base leading-snug space-y-1">
-                <ul className="space-y-1">
-                  {days.map((day) => (
-                    <li key={day.index}>
-                      <button
-                        type="button"
-                        onClick={() => handleDayTap(day.index)}
-                        aria-pressed={openDay === day.index}
-                        className={[
-                          "w-full min-h-[44px] text-left px-2 py-1 border-l-2 break-words transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                          openDay === day.index
-                            ? "border-[#f0f6fc] bg-[#161b22] text-[#f0f6fc]"
-                            : "border-[#30363d] text-[#f0f6fc] hover:bg-[#161b22]",
-                        ].join(" ")}
-                      >
-                        <Figures text={dayHeadings[day.index]} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <p data-day-strip-hint className="text-[#8b949e] px-2">
-                  {openDay === null ? "Tap a day to see it on the map." : <Figures text={`Tap Day ${openDay + 1} again to see the whole trip.`} />}
+              {/* The trip's shape after a stop, where the eye lands (round
+                  2: the phone showed Day 1's heading and nothing that said
+                  the trip was now two days; round 3 answered with a row
+                  per day that repeated each heading, and round 4's critic
+                  asked for one telling of each day). One sentence, the
+                  count and the nights: "Three days, with a night in
+                  Lubbock". Where each day ends and what fits in it is its
+                  own heading and section below. */}
+              {tripShape && (
+                <p data-trip-shape className="text-[#f0f6fc]">
+                  <Figures text={tripShape} />
                 </p>
-              </div>
-            )}
+              )}
+            </div>
             {/* Only while updating; idle it costs no height. */}
             {isPending && (
               <p
@@ -1416,8 +1388,9 @@ export default function PlanWorkspace({
 
           {/* The trip told as days (Gauntlet U3; quality bar, rule 5): a
               heading per day, a sentence with its figures in the mono face
-              ("Day 1 · Amarillo to Lubbock · 3 h 20 min", and "over the 4 h
-              you wanted" when it is), then the towns that fit in that
+              ("Day 1 · Amarillo to Lubbock · 3 h 20 min", and a stretch over
+              the budget by the days it takes, "Days 2 and 3 · Lubbock to
+              Austin · 6 h 1 min, over the 4 h you wanted"), then the towns that fit in that
               stretch with their "Stop here" controls, then the stop the
               day ends at with its places and "✓ Added" (round 2: a stop's
               town leaves the towns that fit, and its day still ends there),

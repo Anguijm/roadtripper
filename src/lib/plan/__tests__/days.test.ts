@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRoad, alongRoadKm, tripDays, dayBounds, boundsOf, type DayTown } from "../days";
+import { buildRoad, alongRoadKm, tripDays, daysSpannedBy, dayBounds, boundsOf, type DayTown } from "../days";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 /**
@@ -101,6 +101,37 @@ describe("the trip as days", () => {
     expect(tripDays({ ...base, legMinutes: [200] }).map((d) => d.minutes)).toEqual([200, null, null]);
     expect(tripDays({ ...base, legMinutes: [200, 0, null] }).map((d) => d.minutes)).toEqual([200, null, null]);
     expect(tripDays({ ...base, legMinutes: [200, NaN, 300] }).map((d) => [d.minutes, d.overBudget])).toEqual([[200, false], [null, false], [300, true]]);
+  });
+
+  it("counts the days a stretch takes by the budget, and numbers the next stretch from there", () => {
+    // Round 4: "8 h of driving left over 2 days" stood over a lone "Day
+    // 1". A stretch takes ceil(minutes / budget) days, the reading the
+    // deadline math gives a leg (legsQuantizedDays), so the sheet's day
+    // numbers and its deadline can never disagree.
+    expect(daysSpannedBy(200, 240)).toBe(1);
+    expect(daysSpannedBy(240, 240)).toBe(1);
+    expect(daysSpannedBy(241, 240)).toBe(2);
+    expect(daysSpannedBy(470, 240)).toBe(2);
+    expect(daysSpannedBy(721, 240)).toBe(4);
+    // Unknown, or a budget that is not a positive number: one, never NaN.
+    expect(daysSpannedBy(null, 240)).toBe(1);
+    expect(daysSpannedBy(300, 0)).toBe(1);
+    expect(daysSpannedBy(300, NaN)).toBe(1);
+    const lubbock = { id: "lubbock", name: "Lubbock", alongKm: 167 };
+    const abilene = { id: "abilene", name: "Abilene", alongKm: 334 };
+    const base = { fromName: "Amarillo", toName: "Austin", roadLengthKm: road.lengthKm, towns: [], roadside: [], budgetMinutesPerDay: 240 };
+    // Amarillo to Lubbock in 3 h 20 min is day 1; Lubbock to Austin in
+    // 4 h 30 min is days 2 and 3.
+    const two = tripDays({ ...base, stops: [lubbock], legMinutes: [200, 270] });
+    expect(two.map((d) => [d.firstDay, d.daysSpanned])).toEqual([[1, 1], [2, 2]]);
+    // 3 h 20 min, 4 h exactly, 4 h 1 min: days 1, 2, and 3 and 4.
+    const three = tripDays({ ...base, stops: [lubbock, abilene], legMinutes: [200, 240, 241] });
+    expect(three.map((d) => [d.firstDay, d.daysSpanned])).toEqual([[1, 1], [2, 1], [3, 2]]);
+    // No stop, 7 h 50 min: one stretch, days 1 and 2.
+    expect(tripDays({ ...base, stops: [], legMinutes: [470] }).map((d) => [d.firstDay, d.daysSpanned])).toEqual([[1, 2]]);
+    // A leg not yet known counts one until it is.
+    expect(tripDays({ ...base, stops: [lubbock], legMinutes: [] }).map((d) => [d.firstDay, d.daysSpanned])).toEqual([[1, 1], [2, 1]]);
+    expect(tripDays({ ...base, stops: [lubbock], legMinutes: [500, null] }).map((d) => [d.firstDay, d.daysSpanned])).toEqual([[1, 3], [4, 1]]);
   });
 
   it("keeps a place beyond every stop in the last day, and a stop added behind an earlier one leaves the earlier day what the road passed first", () => {

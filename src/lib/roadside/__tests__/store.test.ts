@@ -1,9 +1,9 @@
 import { describe, it, expect, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { roadsideStore, survivorsAlongRoute, closeRoadsideStores } from "../store";
+import { roadsideStore, survivorsAlongRoute, closeRoadsideStores, resolveStorePath, mainWorktreeDir } from "../store";
 
 /** A road due south from 35,-101 for about 111 km, a point every 0.01 degrees. */
 const route = Array.from({ length: 101 }, (_, i) => ({ lat: 35 - i / 100, lng: -101 }));
@@ -48,5 +48,62 @@ describe("the roadside store", () => {
     expect(roadsideStore(join(dir, "nope.sqlite"))).toBeNull();
     expect(roadsideStore(null)).toBeNull();
     expect(survivorsAlongRoute(roadsideStore(path)!, [route[0]])).toEqual([]);
+  });
+});
+
+describe("where the store is", () => {
+  /**
+   * A main checkout and a linked worktree beside it, laid out as git lays
+   * them out: the worktree's `.git` is a file naming the main checkout's
+   * `.git/worktrees/<name>`. The Gauntlet builds each component in such a
+   * worktree, and the store (gitignored) is beside the main checkout's
+   * atlas alone (round 4 of U3: three rounds of captures drew no roadside
+   * place because the resolver looked in the worktree's own data/ only).
+   */
+  const root = mkdtempSync(join(tmpdir(), "roadside-where-"));
+  const main = join(root, "main");
+  const wt = join(root, "wt");
+  mkdirSync(join(main, ".git", "worktrees", "wt"), { recursive: true });
+  mkdirSync(join(main, "data"), { recursive: true });
+  writeFileSync(join(main, "data", "roadside.sqlite"), "");
+  mkdirSync(wt, { recursive: true });
+  writeFileSync(join(wt, ".git"), `gitdir: ${join(main, ".git", "worktrees", "wt")}\n`);
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it("finds the main checkout's store from a linked worktree, and lets the worktree's own file and the explicit path win", () => {
+    expect(mainWorktreeDir(wt)).toBe(main);
+    expect(resolveStorePath(wt, undefined)).toBe(join(main, "data", "roadside.sqlite"));
+    // A relative gitdir line resolves against the worktree.
+    const rel = join(root, "rel");
+    mkdirSync(rel, { recursive: true });
+    writeFileSync(join(rel, ".git"), "gitdir: ../main/.git/worktrees/rel\n");
+    expect(mainWorktreeDir(rel)).toBe(main);
+    // The explicit path wins when it is there, and is skipped when it is not.
+    expect(resolveStorePath(wt, join(main, "data", "roadside.sqlite"))).toBe(join(main, "data", "roadside.sqlite"));
+    expect(resolveStorePath(wt, join(root, "nope.sqlite"))).toBe(join(main, "data", "roadside.sqlite"));
+    // The worktree's own file wins over the main checkout's.
+    mkdirSync(join(wt, "data"), { recursive: true });
+    writeFileSync(join(wt, "data", "roadside.sqlite"), "");
+    expect(resolveStorePath(wt, undefined)).toBe(join(wt, "data", "roadside.sqlite"));
+  });
+
+  it("names no store from a plain checkout, or with no .git at all, and never throws", () => {
+    // The main checkout itself: `.git` is a directory, so no fallback, and
+    // its own data/ is where it looks.
+    expect(mainWorktreeDir(main)).toBeNull();
+    expect(resolveStorePath(main, undefined)).toBe(join(main, "data", "roadside.sqlite"));
+    // A deploy: no `.git`, no store, null.
+    const bare = join(root, "bare");
+    mkdirSync(bare, { recursive: true });
+    expect(mainWorktreeDir(bare)).toBeNull();
+    expect(resolveStorePath(bare, undefined)).toBeNull();
+    // A `.git` file that is not a worktree's, and one that names no gitdir.
+    const odd = join(root, "odd");
+    mkdirSync(odd, { recursive: true });
+    writeFileSync(join(odd, ".git"), "gitdir: /somewhere/else/.git\n");
+    expect(mainWorktreeDir(odd)).toBeNull();
+    writeFileSync(join(odd, ".git"), "not a pointer\n");
+    expect(mainWorktreeDir(odd)).toBeNull();
+    expect(resolveStorePath(odd, undefined)).toBeNull();
   });
 });

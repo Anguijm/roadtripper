@@ -4,11 +4,14 @@
  *
  * A day is a stretch of road between overnights: the start to the first
  * stop, each stop to the next, the last stop to the end. No stops is one
- * day, the whole road. A stretch longer than the daily budget is still one
- * day, and its heading says it is over ("7 h 31 min, over the 4 h you
- * wanted"). The deadline arithmetic in trip-state.ts, which turns a long
- * leg into several nights, is untouched: that counts nights, this tells
- * the road.
+ * stretch, the whole road. A stretch longer than the daily budget is still
+ * one section, and its heading counts the days it takes and says it is
+ * over ("Days 1 and 2 · Amarillo to Austin · 7 h 31 min, over the 4 h you
+ * wanted"; round 4: "8 h of driving left over 2 days" stood over "Day 1"
+ * alone). The count is ceil(minutes / budget), the reading
+ * `legsQuantizedDays` in trip-state.ts gives the deadline (a 6 h leg on a
+ * 4 h budget costs two days), so the numbers on the sheet and the deadline
+ * math can never disagree; that arithmetic is untouched.
  *
  * Every town and every roadside place is placed by its position along the
  * direct route: the road the page was planned on, and the one the roadside
@@ -69,8 +72,12 @@ export interface DayTown {
 }
 
 export interface TripDay {
-  /** 0-based; the heading says index + 1. */
+  /** 0-based position among the stretches: the section's key, never shown. */
   index: number;
+  /** The first day this stretch takes, 1-based: the heading's number. */
+  firstDay: number;
+  /** How many days the stretch takes at the budget, ceil(minutes / budget); one while the drive is unknown. */
+  daysSpanned: number;
   fromName: string;
   toName: string;
   /** The drive, in minutes. Null while this stretch's route is not known yet (a recompute in flight or failed). */
@@ -104,26 +111,43 @@ export interface TripDaysInput {
 }
 
 /**
+ * The days a stretch takes at the budget: ceil(minutes / budget), the
+ * deadline's own reading (`legsQuantizedDays`), and one while the drive is
+ * unknown or the budget is not a positive number.
+ */
+export function daysSpannedBy(minutes: number | null, budgetMinutesPerDay: number): number {
+  if (minutes === null || !(budgetMinutesPerDay > 0)) return 1;
+  return Math.max(1, Math.ceil(minutes / budgetMinutesPerDay));
+}
+
+/**
  * The days in order. A town or a place belongs to the first day whose
  * stretch reaches it: inclusive at the stop, so the stop's own town (which
  * projects to the same km as the stop) sits under the day that ends there,
  * and a place beyond every stop sits under the last day. A stop added
  * behind an earlier one makes an empty stretch; the earlier day keeps what
- * the road passed first.
+ * the road passed first. Each stretch's first day number follows the days
+ * the stretches before it took.
  */
 export function tripDays(input: TripDaysInput): TripDay[] {
   const ends = [
     ...input.stops.map((s) => ({ name: s.name, km: s.alongKm })),
     { name: input.toName, km: input.roadLengthKm },
   ];
+  let nextDay = 1;
   const days: TripDay[] = ends.map((end, i) => {
     const start = i === 0 ? { name: input.fromName, km: 0 } : ends[i - 1];
     const raw = input.legMinutes[i] ?? null;
     // A leg the recompute has not answered is 0 (trip-state fills missing
     // legs with 0); a zero-minute day is a lie, so it is unknown, not "0 min".
     const minutes = raw !== null && Number.isFinite(raw) && raw > 0 ? raw : null;
+    const daysSpanned = daysSpannedBy(minutes, input.budgetMinutesPerDay);
+    const firstDay = nextDay;
+    nextDay += daysSpanned;
     return {
       index: i,
+      firstDay,
+      daysSpanned,
       fromName: start.name,
       toName: end.name,
       minutes,

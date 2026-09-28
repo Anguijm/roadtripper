@@ -177,13 +177,16 @@ export interface MapFit {
 }
 
 /**
- * How faded a town outside the open day is drawn, dot and name together
- * (Gauntlet U3, round 3: with day 1 framed, Fort Worth's name sat clipped
- * at the map's edge as if it were part of the day). 0.35 keeps the dot
- * readable as a place that is there while the day's own towns, at 1, are
- * what the eye reads; hidden, a town would look absent. Nothing moves
- * (rule 6). Check: `candidateOpacity` below and its test; a screenshot
- * with Day 1 open shows Fort Worth's dot and name faint, Plainview's not.
+ * How faded a town outside the open day's dot is drawn (Gauntlet U3,
+ * round 3). 0.35 keeps the dot readable as a place that is there while
+ * the day's own towns, at 1, are what the eye reads; hidden, a town would
+ * look absent. Its name is not drawn at all while a day is framed (round
+ * 4: faded, Fort Worth's name still sat at the map's right edge cut to
+ * "For", and a name cut short fails rule 2 whatever its strength); the
+ * whole trip restores every name. Nothing moves (rule 6). Check:
+ * `candidateOpacity` and `candidateLabelShown` below and their test; a
+ * screenshot with Day 1 open shows Fort Worth's dot faint with no name,
+ * Plainview's dot and name as they were.
  */
 export const OFF_DAY_OPACITY = 0.35;
 
@@ -194,6 +197,16 @@ export const OFF_DAY_OPACITY = 0.35;
  */
 export function candidateOpacity(id: string, focus: ReadonlySet<string> | null | undefined): number {
   return !focus || focus.has(id) ? 1 : OFF_DAY_OPACITY;
+}
+
+/** Whether a town's name is drawn: only at full strength, so no off-day name can sit cut at the map's edge. */
+export function candidateLabelShown(id: string, focus: ReadonlySet<string> | null | undefined): boolean {
+  return candidateOpacity(id, focus) === 1;
+}
+
+/** The town's name above its dot, the app's one label style (the basemap's town names are off). */
+function candidateLabel(name: string): google.maps.MarkerLabel {
+  return { text: name, color: "#f0f6fc", fontSize: "11px", fontWeight: "500", className: "rt-candidate-label" };
 }
 
 /**
@@ -303,9 +316,9 @@ interface RouteMapProps {
   fitTo?: MapFit | null;
   /**
    * The towns to draw at full strength while a day is open on the map
-   * (Gauntlet U3, round 3): that day's towns and its ends; every other
-   * town is faded, dot and name, by OFF_DAY_OPACITY. Null: every town
-   * as it is.
+   * (Gauntlet U3, rounds 3 and 4): that day's towns and its ends; every
+   * other town's dot is faded by OFF_DAY_OPACITY and its name not drawn.
+   * Null: every town as it is.
    */
   focusCandidateIds?: ReadonlySet<string> | null;
 }
@@ -468,9 +481,9 @@ function PolylineRenderer({
   fitTo?: MapFit | null;
   /**
    * The towns to draw at full strength while a day is open on the map
-   * (Gauntlet U3, round 3): that day's towns and its ends; every other
-   * town is faded, dot and name, by OFF_DAY_OPACITY. Null: every town
-   * as it is.
+   * (Gauntlet U3, rounds 3 and 4): that day's towns and its ends; every
+   * other town's dot is faded by OFF_DAY_OPACITY and its name not drawn.
+   * Null: every town as it is.
    */
   focusCandidateIds?: ReadonlySet<string> | null;
 }) {
@@ -679,13 +692,7 @@ function PolylineRenderer({
       const marker = new google.maps.Marker({
         position: { lat: candidate.lat, lng: candidate.lng },
         map,
-        label: {
-          text: candidate.name,
-          color: "#f0f6fc",
-          fontSize: "11px",
-          fontWeight: "500",
-          className: "rt-candidate-label",
-        },
+        label: candidateLabel(candidate.name),
         title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
         icon: candidateMarkerIcon(routeColor),
       });
@@ -701,17 +708,20 @@ function PolylineRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, candidates, routeColor]);
 
-  // ── Effect 2d: the open day's towns (Gauntlet U3, round 3) ─────────────
+  // ── Effect 2d: the open day's towns (Gauntlet U3, rounds 3 and 4) ──────
   // While a day is open on the map, the towns the sheet lists under other
-  // days are faded and the day's own stay as they are; the whole trip
-  // restores every town. One option set on markers that already exist,
-  // after 2c has diffed them in the same commit (effects run in order),
-  // so a town a refresh brings in while a day is open is faded or not by
-  // the same rule. Nothing is moved, added or removed (rule 6).
+  // days are faded and lose their names, and the day's own stay as they
+  // are; the whole trip restores every town and every name. Two options
+  // set on markers that already exist, after 2c has diffed them in the
+  // same commit (effects run in order), so a town a refresh brings in
+  // while a day is open is faded or not by the same rule. Nothing is
+  // moved, added or removed (rule 6).
   useEffect(() => {
     if (!map || !window.google?.maps) return;
+    const names = new Map((candidates ?? []).map((c) => [c.id, c.name]));
     for (const [id, marker] of candidateMarkersRef.current) {
       marker.setOpacity(candidateOpacity(id, focusCandidateIds));
+      marker.setLabel(candidateLabelShown(id, focusCandidateIds) ? candidateLabel(names.get(id) ?? "") : null);
     }
   }, [map, candidates, focusCandidateIds]);
 

@@ -9,7 +9,7 @@ vi.mock("@/app/plan/actions", () => ({
 
 import { readFileSync } from "node:fs";
 import PlanWorkspace from "@/components/PlanWorkspace";
-import { candidateOpacity, OFF_DAY_OPACITY } from "@/components/RouteMap";
+import { candidateOpacity, candidateLabelShown, OFF_DAY_OPACITY } from "@/components/RouteMap";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 /**
@@ -100,12 +100,15 @@ describe("the plan sheet told as days", () => {
     const text = visible(html);
     // The headings, as sentences with the figures alone in the mono face
     // (round 2: "h" and "min" set in mono came out wide-spaced); the
-    // second day is over the 4 h budget and says so.
+    // second stretch is over the 4 h budget, so it takes two days and
+    // says so, and its label counts them (round 4: "over 2 days" in the
+    // numbers stood over a lone "Day 1").
     expect(clean(html)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">3</span> h <span class="num">20</span> min');
-    expect(clean(html)).toContain('Day <span class="num">2</span> · Lubbock to Austin · <span class="num">4</span> h <span class="num">30</span> min, over the <span class="num">4</span> h you wanted');
+    expect(clean(html)).toContain('Days <span class="num">2</span> and <span class="num">3</span> · Lubbock to Austin · <span class="num">4</span> h <span class="num">30</span> min, over the <span class="num">4</span> h you wanted');
     expect(text).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
-    expect(text).toContain("Day 2 · Lubbock to Austin · 4 h 30 min, over the 4 h you wanted");
-    expect(text.indexOf("Day 1 ·")).toBeLessThan(text.indexOf("Day 2 ·"));
+    expect(text).toContain("Days 2 and 3 · Lubbock to Austin · 4 h 30 min, over the 4 h you wanted");
+    expect(text).not.toContain("Day 2 ·");
+    expect(text.indexOf("Day 1 ·")).toBeLessThan(text.indexOf("Days 2 and 3 ·"));
     // The sheet's title stays above the days.
     expect(text.indexOf("fit today")).toBeLessThan(text.indexOf("Day 1 ·"));
     const days = daySections(html);
@@ -221,65 +224,64 @@ describe("the plan sheet told as days", () => {
     expect(html).toMatch(/aria-pressed="true"[^>]*>What's in Lubbock<\/button>/);
   });
 
-  it("puts the run of days under the sheet's numbers, before the alerts, each row a 44 px button with the day's sentence, and none for a one-day trip", () => {
+  it("says the trip's shape in one line under the numbers, tells each day once, and says nothing for a one-stretch trip", () => {
     // Round 2's failure: after a stop the phone showed "Day 1 · Amarillo
     // to Lubbock · 1 h 43 min" and nothing that said the trip was now two
-    // days; Day 2's heading sat 1,100 px below the fold. The strip is the
-    // days in a row where the eye lands, under the numbers.
+    // days; round 3 answered with a row per day under the numbers that
+    // repeated each heading, and round 4's critic asked for one telling
+    // of each day. So: one sentence, the count and the nights, and each
+    // heading once, in its section.
     const html = clean(renderToString(<PlanWorkspace {...base} initialTrip={twoLegs} />));
-    const strip = /<div data-day-strip="true"[^>]*>([\s\S]*?)<\/div>/.exec(html);
-    expect(strip).not.toBeNull();
-    const stripText = text(strip![0]);
-    expect(stripText).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
-    expect(stripText).toContain("Day 2 · Lubbock to Austin · 4 h 30 min, over the 4 h you wanted");
-    expect(stripText.indexOf("Day 1 ·")).toBeLessThan(stripText.indexOf("Day 2 ·"));
-    expect(stripText).toContain("Tap a day to see it on the map.");
-    // Each row a 44 px button, none pressed until a tap, the figures in mono.
-    const rows = strip![0].match(/<button[^>]*>/g) ?? [];
-    expect(rows).toHaveLength(2);
-    for (const r of rows) {
-      expect(r).toMatch(/aria-pressed="false"/);
-      expect(r).toMatch(/class="[^"]*\bmin-h-\[44px\]/);
-    }
-    expect(strip![0]).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">3</span> h <span class="num">20</span> min');
+    const shape = /<p data-trip-shape="true"[^>]*>([\s\S]*?)<\/p>/.exec(html);
+    expect(shape).not.toBeNull();
+    // Three days: one to Lubbock, two on to Austin at 4 h a day.
+    expect(text(shape![0]).trim()).toBe("Three days, with a night in Lubbock");
     // Under the numbers, before the budget's alert and before Day 1's
-    // section; the same sentence heads the section below, from one array.
-    const at = html.indexOf("data-day-strip");
+    // section; nothing of it is a button or a heading.
+    const at = html.indexOf("data-trip-shape");
     expect(at).toBeGreaterThan(html.indexOf("on the road"));
     expect(at).toBeGreaterThan(html.indexOf("of driving left"));
     expect(at).toBeLessThan(html.indexOf('role="alert"'));
     expect(at).toBeLessThan(html.indexOf('<section data-day="1"'));
-    expect(html.match(/Day <span class="num">1<\/span> · Amarillo to Lubbock/g)).toHaveLength(2);
-    expect(html.match(/Day <span class="num">2<\/span> · Lubbock to Austin/g)).toHaveLength(2);
-    // Nothing in the strip is a day section: the sections are still two.
+    expect(shape![0]).not.toContain("<button");
+    // Each day's sentence once, in its own section's heading, and no strip.
+    expect(html.match(/Day <span class="num">1<\/span> · Amarillo to Lubbock/g)).toHaveLength(1);
+    expect(html.match(/Days <span class="num">2<\/span> and <span class="num">3<\/span> · Lubbock to Austin/g)).toHaveLength(1);
+    expect(html).not.toContain("data-day-strip");
+    expect(html).not.toContain("Tap a day");
     expect(daySections(html).map((d) => d.n)).toEqual(["1", "2"]);
-    // A stop whose route has not returned: the rows without a time, and
-    // never "0 min".
+    // A stop whose route has not returned: each stretch counts one day
+    // until its drive is known, and nothing says "0 min".
     const pending = clean(renderToString(<PlanWorkspace {...base} initialTrip={{ stops: [lubbock], legs: [], directMinutesToDestination: 470 }} />));
-    const pendingStrip = text(/<div data-day-strip="true"[^>]*>([\s\S]*?)<\/div>/.exec(pending)![0]);
-    expect(pendingStrip).toContain("Day 1 · Amarillo to Lubbock Day 2 · Lubbock to Austin");
-    expect(pendingStrip).not.toMatch(/\b0 min\b/);
-    // One day: no strip; its one heading is a few lines down already.
-    expect(renderToString(<PlanWorkspace {...base} />)).not.toContain("data-day-strip");
+    expect(text(/<p data-trip-shape="true"[^>]*>([\s\S]*?)<\/p>/.exec(pending)![0]).trim()).toBe("Two days, with a night in Lubbock");
+    expect(visible(pending)).not.toMatch(/\b0 min\b/);
+    // One stretch: no shape line; its one heading is a few lines down.
+    expect(renderToString(<PlanWorkspace {...base} />)).not.toContain("data-trip-shape");
   });
 
-  it("fades the towns of the other days on the map while one is open, and never the day's own or its ends", () => {
+  it("fades the dots of the other days' towns on the map while one is open and draws no name for them, and never the day's own or its ends", () => {
     // Round 2's day-tap capture: Fort Worth's name clipped at the map's
-    // edge as if it were part of day 1. The rule is pure; the map applies
-    // it to the markers it already has, moving nothing.
+    // edge as if it were part of day 1; round 3 faded it and round 4's
+    // capture still read "For" at the edge. The rule is pure; the map
+    // applies it to the markers it already has, moving nothing: the dot
+    // faint, the name not drawn.
     const day1 = new Set(["plainview", "lubbock"]);
     expect(candidateOpacity("plainview", day1)).toBe(1);
     expect(candidateOpacity("lubbock", day1)).toBe(1);
     expect(candidateOpacity("fort-worth", day1)).toBe(OFF_DAY_OPACITY);
     expect(candidateOpacity("fort-worth", null)).toBe(1);
     expect(candidateOpacity("fort-worth", undefined)).toBe(1);
+    expect(candidateLabelShown("plainview", day1)).toBe(true);
+    expect(candidateLabelShown("fort-worth", day1)).toBe(false);
+    expect(candidateLabelShown("fort-worth", null)).toBe(true);
     // Faint, not gone: a hidden dot would say the town is not there.
     expect(OFF_DAY_OPACITY).toBeGreaterThanOrEqual(0.25);
     expect(OFF_DAY_OPACITY).toBeLessThanOrEqual(0.5);
-    // The map sets that and only that on the markers it has (rule 6:
-    // nothing moves), and the workspace hands it the open day's towns.
+    // The map sets those two and only those on the markers it has (rule
+    // 6: nothing moves), and the workspace hands it the open day's towns.
     const map = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
     expect(map).toContain("marker.setOpacity(candidateOpacity(id, focusCandidateIds))");
+    expect(map).toContain("marker.setLabel(candidateLabelShown(id, focusCandidateIds) ? candidateLabel(names.get(id) ?? \"\") : null)");
     const sheet = readFileSync(new URL("../PlanWorkspace.tsx", import.meta.url), "utf8");
     expect(sheet).toContain("focusCandidateIds={focusCandidateIds}");
   });
@@ -296,15 +298,21 @@ describe("the plan sheet told as days", () => {
     expect(html).not.toContain("See the whole trip");
     // A day with nothing under it says so rather than standing empty.
     const bare = visible(renderToString(<PlanWorkspace {...base} candidateMarkers={[]} waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }} roadsideStops={[]} />));
-    expect(bare).toContain("Day 1 · Amarillo to Austin · 7 h 50 min, over the 4 h you wanted");
+    expect(bare).toContain("Days 1 and 2 · Amarillo to Austin · 7 h 50 min, over the 4 h you wanted");
     expect(bare).toContain("Nothing listed along this stretch.");
   });
 
-  it("tells a trip with no stops as one day holding every town and place, and leaves a day's time out until its route is known", () => {
+  it("tells a trip with no stops as one stretch holding every town and place, labelled by the days it takes, and leaves a day's time out until its route is known", () => {
     const one = renderToString(<PlanWorkspace {...base} />);
     const days = daySections(one);
     expect(days).toHaveLength(1);
-    expect(visible(one)).toContain("Day 1 · Amarillo to Austin · 7 h 50 min, over the 4 h you wanted");
+    // 7 h 50 min on a 4 h budget is two days of driving with no night
+    // chosen: one section, its label the two days (round 4), the towns
+    // that fit today under it as the choice.
+    expect(visible(one)).toContain("Days 1 and 2 · Amarillo to Austin · 7 h 50 min, over the 4 h you wanted");
+    expect(visible(one)).not.toContain("Day 1 ·");
+    // Within the budget, a plain "Day 1".
+    expect(visible(renderToString(<PlanWorkspace {...base} initialDurationSeconds={3 * 3600} />))).toContain("Day 1 · Amarillo to Austin · 3 h See it on the map");
     for (const name of ["Plainview", "Lubbock", "Post", "Brady", "Cadillac Ranch", "Prairie Dog Town", "Windmill"]) expect(days[0].text).toContain(name);
     expect(days[0].text).toContain("3 places worth pulling over for");
     // A stop whose recompute has not returned: the legs are fewer than the

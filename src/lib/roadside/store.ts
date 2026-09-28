@@ -8,8 +8,8 @@ import "server-only";
  * within the buffer of the road itself. No network, no model, no key.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { decodePolyline, type LatLng } from "@/lib/routing/polyline";
 import { corridorTiles, DEFAULT_BUFFER_KM } from "./corridor";
@@ -17,18 +17,48 @@ import { roadsideAlong, type RoadsideMarker } from "./along";
 import { MAP_THRESHOLD, RoadsideSurvivorSchema, type RoadsideSurvivor } from "./survivors";
 
 /**
- * Where the store is, in order: ROADSIDE_STORE_PATH (a volume on the
- * deployed app), beside the atlas in the working directory, or under
- * Next's standalone output when the build traced it in. The same three
- * places the atlas looks (src/lib/atlas/db.ts), for the same reason: the
- * file is data, not code, and the deploy decides where data lives.
+ * The main checkout's directory when `cwd` is a linked git worktree, else
+ * null. A linked worktree's `.git` is a file, "gitdir: <main>/.git/
+ * worktrees/<name>" (git's documented layout; the path can be relative to
+ * the worktree), and the main checkout is what stands before `/.git/`.
+ * Pure but for the one small file it reads; anything else (no `.git`, a
+ * `.git` directory, a line that is not a worktree's) is null.
  */
-export function resolveStorePath(): string | null {
-  const explicit = process.env.ROADSIDE_STORE_PATH;
+export function mainWorktreeDir(cwd: string): string | null {
+  const dotGit = join(cwd, ".git");
+  try {
+    if (!statSync(dotGit).isFile()) return null;
+    const m = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, "utf8"));
+    if (!m) return null;
+    const gitdir = resolve(cwd, m[1]);
+    const w = /^(.*)[\\/]\.git[\\/]worktrees[\\/][^\\/]+$/.exec(gitdir);
+    return w ? w[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where the store is, in order: ROADSIDE_STORE_PATH (a volume on the
+ * deployed app), beside the atlas in the working directory, under Next's
+ * standalone output when the build traced it in, and, when the working
+ * directory is a linked git worktree, beside the atlas in the main
+ * checkout. The first three are the places the atlas looks
+ * (src/lib/atlas/db.ts), for the same reason: the file is data, not code,
+ * and the deploy decides where data lives. The fourth is for a worktree
+ * (Gauntlet U3, round 4): the store is 111 MB, gitignored and built once,
+ * so a worktree beside the main checkout has none of its own, and the dev
+ * server the runner started there logged "no store found" and drew no
+ * roadside place under the days. A deploy has no `.git`, so nothing
+ * changes there. `cwd` and `explicit` are parameters for the tests only.
+ */
+export function resolveStorePath(cwd: string = process.cwd(), explicit: string | undefined = process.env.ROADSIDE_STORE_PATH): string | null {
+  const main = mainWorktreeDir(cwd);
   const candidates = [
     ...(explicit ? [explicit] : []),
-    join(process.cwd(), "data", "roadside.sqlite"),
-    join(process.cwd(), ".next", "standalone", "data", "roadside.sqlite"),
+    join(cwd, "data", "roadside.sqlite"),
+    join(cwd, ".next", "standalone", "data", "roadside.sqlite"),
+    ...(main ? [join(main, "data", "roadside.sqlite")] : []),
   ];
   return candidates.find((p) => existsSync(p)) ?? null;
 }
@@ -89,11 +119,21 @@ export function survivorsAlongRoute(db: Database.Database, route: LatLng[], thre
 }
 
 let warnedMissing = false;
+let saidPath = false;
 
 /** The survivors along a planned route, or none if the store is missing or the route cannot be read. */
 export function roadsideForRoute(encodedPolyline: string): RoadsideMarker[] {
   try {
-    const db = roadsideStore();
+    const path = resolveStorePath();
+    const db = roadsideStore(path);
+    if (db && !saidPath) {
+      // Once per process, the other half of the warning below: a capture
+      // with no diamonds can then be read against the log (Gauntlet U3,
+      // round 4: three rounds of captures drew none, and the log's one
+      // line about it was the "no store found" warning nobody read).
+      saidPath = true;
+      console.info(`[roadside] store: ${path}`);
+    }
     if (!db) {
       // Once per process, not once per plan: a deployment without the file
       // should say so in the log, and a busy server should not say it a
