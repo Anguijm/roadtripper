@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { wikipediaTitle, parseWikidataEntities, parseExtracts, clip, describeStops, chunk, WIKIDATA_BATCH, EXTRACT_BATCH, PAUSE_MS } from "../describe";
+import { wikipediaTitle, parseWikidataEntities, parseExtracts, clip, describeStops, chunk, DescriptionsFileSchema, WIKIDATA_BATCH, EXTRACT_BATCH, PAUSE_MS } from "../describe";
 import type { RoadsideStop } from "../record";
 
 const stop = (i: number, extra: Partial<RoadsideStop> = {}): RoadsideStop => ({
@@ -123,5 +123,18 @@ describe("describing a corridor", () => {
   it("chunks evenly and keeps order", () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(chunk([], 3)).toEqual([]);
+  });
+});
+
+describe("the descriptions sidecar schema", () => {
+  const entry = { wikidata: "Q1", title: "Page", url: "https://en.wikipedia.org/wiki/Page", short: "thing", extract: "About it." };
+  const file = { name: "amarillo-austin", describedAt: "2026-09-28T00:00:00Z", stops: 2, described: 1, byId: { "osm:node:1": entry } };
+
+  it("accepts the file the script writes, keeps a key it does not know, and refuses a missing field", () => {
+    expect(DescriptionsFileSchema.safeParse(file).success).toBe(true);
+    const extra = DescriptionsFileSchema.safeParse({ ...file, byId: { "osm:node:1": { ...entry, added_later: 1 } } });
+    expect(extra.success && (extra.data.byId["osm:node:1"] as { added_later?: number }).added_later).toBe(1);
+    const { url: _url, ...noUrl } = entry;
+    expect(DescriptionsFileSchema.safeParse({ ...file, byId: { "osm:node:1": noUrl } }).success).toBe(false);
   });
 });

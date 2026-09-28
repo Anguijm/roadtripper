@@ -4,56 +4,67 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/corridor-descriptions`
+Branch: `feat/label-sheet-from-scores`
 
 ## Goal
 
-John looked at the labelling sheet and said the right thing: a name and a
-kind are not enough to judge a place by, and most of the judging is
-automatable anyway. So the order changes. Descriptions come first, from the
-two free encyclopedias every stop with a Wikidata id can reach; the model
-runs over the whole corridor with the description in front of it; John
-reads only its yes list, with the description and a map link, and taps the
-ones he would really stop for. This PR is the descriptions.
+The second sheet. John said a name and a kind are not enough to judge a
+place by and that most of the judging is automatable. So the model judged
+first: Jev scored all 1,074 stops with the description in front of it
+(jev-lab, J9, two cents), and the sheet is now its yes list with twenty of
+its no calls mixed in blind, each row with the description and a map link,
+in road order. He taps the ones he would really pull over for. His taps
+are the labels the bench joins back to the scores.
 
 ## Ship rule, written before the work
 
-1. Free sources only: Wikidata entities and English Wikipedia extracts
-   through the MediaWiki APIs, batched (50 ids, 20 titles), one request at
-   a time, 250 ms apart, with our User-Agent. About 45 requests for this
-   corridor. One retry after a pause on 429 or a 5xx; anything else stops
-   the run with the status.
-2. Every stop with a Wikidata id gets Wikidata's short description ("airport",
-   "roller coaster"). Every stop with an English Wikipedia page, from the
-   OpenStreetMap tag or the Wikidata sitelink, gets the page's first two
-   sentences clipped to 240 characters at a sentence end where one falls
-   late enough, and the page URL. Stops with neither get nothing, and the
-   file says how many.
-3. Titles follow MediaWiki's `normalized` and `redirects` maps, so a stop's
-   result is keyed by the stop, not by whatever title Wikipedia answered
-   with. Tested with a fixture that has both and a missing page.
-4. Output is a sidecar, `data/corridors/<name>.descriptions.json`, keyed by
-   stop id. The corridor file and the record schema are untouched: no
-   re-pull, no version bump. Gitignored with the corridor.
-5. Pure parsers and the batching loop live in `src/lib/roadside/describe.ts`
-   with injected fetch and sleep; the script reads and writes files.
+1. `label:sample --scores=<file>` builds the sheet from a scores file (rows
+   of id and probability) instead of the stratified hundred. Yes is p at
+   or above 0.5; the yes list is cut at 150 by probability.
+2. Twenty of the model's no calls ride along: the ten just under the line
+   (where it was unsure; reported, never scored) and ten at random from the
+   rest below the line with the fixed seed (the thin net for a buried gem;
+   scored). No stop is in two groups. Stops without a score are left out.
+3. Each row carries its group and probability for the bench, and the
+   description from the corridor's sidecar (short description, opening,
+   URL) for the person. The sheet itself shows neither the group nor the
+   probability: the check is blind.
+4. Deterministic: same scores, same seed, same sheet. The sample file is
+   committed as before; the import script needs no change, since it checks
+   ids against whatever sample file is there.
+5. The first sheet's mode stays available without `--scores`, untouched.
 
-**Cost:** $0. Wikimedia's APIs are free; the run is about 45 requests.
+**Cost:** $0 in this repo. The scores it reads cost $0.0204 in jev-lab,
+declared and capped there.
 
-**Weakest part:** An encyclopedia's opening sentence is a description, not
-a reason to stop, so the reason step is still ahead. And 448 of the 1,074
-stops have no Wikidata at all (murals, sinkholes, small memorials) and stay
-name-only, which is uneven exactly where the pre-filter is weakest.
+**Weakest part:** 116 of the 163 rows have no encyclopedia entry, so on
+the sheet they are still a name, a kind and a map pin. The model's yes
+calls are mostly murals and small museums, which is exactly the set
+Wikipedia does not cover. The OpenStreetMap record has more (a
+`description` tag, `artwork_type`, an inscription) and the pull drops it;
+keeping those tags is the next improvement to the record, and it costs a
+free 16-minute re-pull.
 
 ## Gate 1 proofs
 
-- Rule 3: with the redirect step removed from `parseExtracts`, "keys each page by the title that was asked for, following normalized and redirects" fails. Restored, `cmp` clean.
-- Rule 1 and 2: the batching test counts two Wikidata requests for 55 ids and two Wikipedia requests for 28 titles, three pauses of 250 ms, and checks a stop filled from both sources, one from Wikidata alone, one from the tag alone, and one left out.
-- The run: 31 requests in 81 seconds. 1,074 stops; 627 reach an encyclopedia; 602 have a short description, 369 an opening; 447 have neither. Big Texan reads "restaurant and motel in Amarillo, Texas" and "a roadside attraction known for competitive eating".
-- 430 tests, 7 new; lint and types clean.
+- Rule 2: with the near rows left in the random pool, two tests failed on the first run ("gives all the no calls when there are fewer than twenty" and the no-score count), and the disjointness test passed by luck: a draw of ten from a hundred happened to miss all ten near rows. (Corrected after round 1: the first write-up of this proof named the wrong test.) A new test with fifteen rows below the line, where the random draw has only five to choose from, now fails deterministically under the same mutation for four seeds. Restored, `cmp` clean.
+- Rule 1 and 4: the cap test takes exactly 150 of 200 eligible by probability; the determinism test gets the same random ten twice and a different ten for another seed.
+- The run on the real scores: 1,074 scored of 1,074; 143 yes at 0.5; 163 rows; 47 with a short description, 42 with an opening.
+- 434 tests, 4 new; lint and types clean.
 
-## Council round 1 on #68 (BLOCK, maintainability 4), and what changed
+## Council round 1 on #69 (BLOCK, maintainability 4, product 4), and what changed
 
-- four comments: the pacing against Wikimedia's etiquette and how to tune it; the single five-second retry and why not a loop; the description bound now imported from `MAX_REASON_LENGTH` rather than copied, with what diverging would do on screen; the quarter-of-budget rule in `clip`
-- Answered, not changed: `.gitignore` line 57 is `data/corridors/`, the whole directory, so the sidecar is covered like the corridor
-- Taken from the deferred list: a 30 s timeout signal per request, fresh per try; a test that malformed bodies parse to nothing rather than throwing
+- the four sheet constants each say why their value and what moving it costs (John's minutes, the bench's line)
+- the sort comment says why the file keeps the sampler's order and where road order and blindness happen
+- the corridor, scores and descriptions files are checked on read through schemas with the path named; a bad JSON file says so instead of a stack trace; the name compare tolerates a missing name
+- a missing descriptions sidecar now stops the run, since the description is the point of this sheet; `--no-descriptions` says you meant it
+- Corrected in the proofs above: the mutation proof named the wrong test; the new test makes it deterministic
+
+## Council round 2 on #69 (CONDITIONAL, product 5), and what changed
+
+- The item said `.loose()` does not exist in zod and would crash at runtime. It does: it is zod 4's name for `.passthrough()`, and the round-2 script run on the real sidecar ("163 rows from 1074 stops") went through it. Rather than argue, the schema moved next to the writer: `DescriptionsFileSchema` in `describe.ts` is what `describe-corridor.ts` writes through and `label-sample.ts` reads through, and a test parses a file with an added key (kept) and with a missing field (refused). `.optional()` was not added: the writer always emits every field, null when the source had nothing, and a reader that tolerates a missing field would hide a writer that stopped emitting it.
+
+## Council round 3 on #69 (CONDITIONAL, product 5), and what changed
+
+- the name tie-break uses a fixed locale, so the same scores give the same sheet on a laptop and in CI; tested with accented names
+- a scores row with no `p_stop` at all reads as unscored, like a null one

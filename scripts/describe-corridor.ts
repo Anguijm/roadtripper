@@ -12,7 +12,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { describeStops } from "../src/lib/roadside/describe";
+import { describeStops, DescriptionsFileSchema, type StopDescription } from "../src/lib/roadside/describe";
 import type { RoadsideStop } from "../src/lib/roadside/record";
 
 const args = new Map(process.argv.slice(2).filter((a) => a.startsWith("--")).map((a) => { const [k, v] = a.replace(/^--/, "").split("="); return [k, v ?? "true"]; }));
@@ -29,7 +29,7 @@ const described = await describeStops(
 );
 process.stdout.write("\n");
 
-const byId: Record<string, unknown> = {};
+const byId: Record<string, StopDescription> = {};
 let withShort = 0, withExtract = 0;
 for (const [id, d] of described) {
   byId[id] = d;
@@ -37,5 +37,7 @@ for (const [id, d] of described) {
   if (d.extract) withExtract++;
 }
 const outPath = `data/corridors/${name}.descriptions.json`;
-writeFileSync(outPath, JSON.stringify({ name, describedAt: new Date().toISOString(), stops: stops.length, described: described.size, byId }, null, 1));
+// Written through the same schema the sampler reads with, so the two cannot drift.
+const file = DescriptionsFileSchema.parse({ name, describedAt: new Date().toISOString(), stops: stops.length, described: described.size, byId });
+writeFileSync(outPath, JSON.stringify(file, null, 1));
 console.log(`${outPath}: ${stops.length} stops; ${described.size} reach an encyclopedia; ${withShort} have a short description, ${withExtract} an opening; ${stops.length - described.size} have neither`);
