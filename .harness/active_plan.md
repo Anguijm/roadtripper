@@ -49,6 +49,6 @@ scored is one command and one commit.
 ## Gate 1 proofs
 
 - Rule 1: the publish ran once for real: a 77 MB snapshot of 323,888 stops, 156,899 scored, on the release `roadside-store`; its checksum is in `data/roadside.sqlite.sha256`.
-- Rule 2, on a temporary directory against the real asset: an empty directory downloads 77 MB and verifies; a matching file is left alone; a wrong checksum file refuses the download and leaves no file; a file that does not match the checksum is replaced by the published one.
+- Rule 2, on a temporary directory against the real asset: an empty directory downloads 77 MB and verifies; a matching file is left alone; a wrong checksum refuses the download and leaves no file; a file that does not match the checksum is replaced by the published one. (Corrected: the first write-up of this proof was wrong. `gh release create file#name` sets a display label, not the asset's name, so the first publish went up as `roadside-snapshot.sqlite`, the download URL answered 404, and the four "tests" had exercised the not-fetched path. The publish script now writes the snapshot under the asset's name and refuses to finish unless the download URL answers 200; the four cases were rerun and passed for real.)
 - Rule 3: the tracing include beside the atlas; not exercised by a full `next build` here, the mechanism is the atlas's and the deploy will show it.
 - Lint, types and the suite unchanged.

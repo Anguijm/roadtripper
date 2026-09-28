@@ -17,7 +17,10 @@ const args = new Map(process.argv.slice(2).filter((a) => a.startsWith("--")).map
 const dbPath = args.get("db") ?? "data/roadside.sqlite";
 const TAG = "roadside-store";
 const ASSET = "roadside.sqlite";
-const snapshot = "data/osm/roadside-snapshot.sqlite";
+// The asset's download URL uses the uploaded file's own name (the `#label`
+// form of gh only changes the display label; the first publish learned
+// that with a 404), so the snapshot is written under the asset's name.
+const snapshot = `data/osm/${ASSET}`;
 
 if (!existsSync(dbPath)) throw new Error(`${dbPath} is missing`);
 mkdirSync("data/osm", { recursive: true });
@@ -35,9 +38,12 @@ console.log(`snapshot ${snapshot}: ${(bytes.length / 1e6).toFixed(0)} MB, ${stop
 const notes = `Roadside store snapshot, ${new Date().toISOString()}: ${stops.toLocaleString()} stops, ${scored.toLocaleString()} scored. Built by scripts/osm/extract-roadside.py and scripts/roadside-store.ts; see docs/roadside-store.md. The checksum lives in data/roadside.sqlite.sha256.`;
 const exists = (() => { try { execFileSync("gh", ["release", "view", TAG], { stdio: "ignore" }); return true; } catch { return false; } })();
 if (!exists) {
-  execFileSync("gh", ["release", "create", TAG, `${snapshot}#${ASSET}`, "--title", "Roadside store", "--notes", notes], { stdio: "inherit" });
+  execFileSync("gh", ["release", "create", TAG, snapshot, "--title", "Roadside store", "--notes", notes], { stdio: "inherit" });
 } else {
-  execFileSync("gh", ["release", "upload", TAG, `${snapshot}#${ASSET}`, "--clobber"], { stdio: "inherit" });
+  execFileSync("gh", ["release", "upload", TAG, snapshot, "--clobber"], { stdio: "inherit" });
   execFileSync("gh", ["release", "edit", TAG, "--notes", notes], { stdio: "inherit" });
 }
-console.log(`published ${ASSET} to release ${TAG}. Now commit data/roadside.sqlite.sha256, or the next build will refuse the new file.`);
+const url = `https://github.com/Anguijm/roadtripper/releases/download/${TAG}/${ASSET}`;
+const head = await fetch(url, { method: "HEAD", redirect: "follow" });
+if (!head.ok) throw new Error(`published, but ${url} answers ${head.status}; the fetch at build would find nothing`);
+console.log(`published ${ASSET} to release ${TAG}; ${url} answers ${head.status}. Now commit data/roadside.sqlite.sha256, or the next build will refuse the new file.`);
