@@ -7,16 +7,18 @@ interface DriveBudgetSelectorProps {
   onChange: (hours: number) => void;
 }
 
-// One list for "hours per day" here and "hours today" on the today screen,
+// One list for "hours a day" here and "hours today" on the today screen,
 // so the two cannot drift apart.
 const PRESETS = HOURS_PRESETS;
 
 export default function DriveBudgetSelector({ value, onChange }: DriveBudgetSelectorProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-mono uppercase tracking-widest text-[#7d8590]">
-        Drive Budget Per Day
-      </label>
+    <fieldset className="flex flex-col gap-1">
+      {/* A sentence a person would say, not a stat's label (quality bar,
+          rule 1); the chips are numbers, so they carry the mono face. */}
+      <legend className="text-base text-[#b0b9c2] mb-1">
+        Each day I will drive up to
+      </legend>
       <div className="flex gap-1">
         {PRESETS.map((hours) => {
           const active = value === hours;
@@ -24,18 +26,19 @@ export default function DriveBudgetSelector({ value, onChange }: DriveBudgetSele
             <button
               key={hours}
               type="button"
+              aria-pressed={active}
               onClick={() => onChange(hours)}
-              className={`flex-1 py-2 text-sm font-mono border transition-colors ${
+              className={`flex-1 min-h-[44px] text-base num border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none ${
                 active
                   ? "bg-[#1c2128] border-[#6e7681] text-[#f0f6fc]"
-                  : "bg-[#0d1117] border-[#30363d] text-[#7d8590] hover:border-[#3d444d] hover:text-[#b0b9c2]"
+                  : "bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:border-[#3d444d] hover:text-[#b0b9c2]"
               }`}
             >
-              {hours}h
+              {`${hours} h`}
             </button>
           );
         })}
       </div>
-    </div>
+    </fieldset>
   );
 }

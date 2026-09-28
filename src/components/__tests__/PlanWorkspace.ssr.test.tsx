@@ -49,7 +49,6 @@ describe("PlanWorkspace server rendering", () => {
           initialDurationSeconds={148384}
           fromName="New York"
           toName="Los Angeles"
-          maxDetourMinutes={270}
         />
       )
     ).not.toThrow();
@@ -70,7 +69,6 @@ describe("PlanWorkspace server rendering", () => {
           initialDurationSeconds={0}
           fromName="New York"
           toName="Los Angeles"
-          maxDetourMinutes={270}
           initialCandidateFetchFailed
         />
       )

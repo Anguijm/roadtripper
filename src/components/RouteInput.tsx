@@ -25,6 +25,27 @@ function formatDateLabel(iso: string): string {
   return `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`;
 }
 
+/**
+ * Why the button cannot be pressed yet, as a line beside it (quality bar,
+ * rule 3): the button keeps its verb, the reason is its own sentence.
+ * Empty when it can be pressed. Pure, so a test can read every line.
+ */
+export function planReason(opts: {
+  from: boolean;
+  to: boolean;
+  dateMode: "range" | "arrival";
+  startDate: string;
+  endDate: string;
+  dateOrderValid: boolean;
+}): string {
+  if (!opts.from) return "Choose where you start first";
+  if (!opts.to) return "Choose where you're going first";
+  if (opts.dateMode === "arrival") return opts.endDate ? "" : "Pick the arrival date first";
+  if (!opts.startDate || !opts.endDate) return "Pick the dates first";
+  if (!opts.dateOrderValid) return "The end date is before the start date";
+  return "";
+}
+
 export default function RouteInput({
   initialFrom,
   initialTo,
@@ -51,9 +72,8 @@ export default function RouteInput({
   const dateOrderValid = !startDate || !endDate || startDate <= endDate;
   // arrival mode: only endDate required (startDate derived server-side from route)
   // range mode: both dates required and must be in order
-  const canSubmit =
-    from && to && !submitting &&
-    (dateMode === "arrival" ? !!endDate : !!(startDate && endDate && dateOrderValid));
+  const reason = planReason({ from: !!from, to: !!to, dateMode, startDate, endDate, dateOrderValid });
+  const canSubmit = reason === "" && !submitting;
 
   const tripDays =
     dateMode === "range" && startDate && endDate && dateOrderValid
@@ -102,12 +122,12 @@ export default function RouteInput({
 
   const dateLabel =
     dateMode === "arrival"
-      ? endDate ? `Arrive by ${formatDateLabel(endDate)}` : "Select arrival date"
+      ? endDate ? `Arrive by ${formatDateLabel(endDate)}` : "Pick the arrival date"
       : startDate && endDate
-        ? `${formatDateLabel(startDate)} → ${formatDateLabel(endDate)}`
+        ? `${formatDateLabel(startDate)} to ${formatDateLabel(endDate)}`
         : startDate
-        ? `${formatDateLabel(startDate)} → ?`
-        : "Select dates";
+        ? `${formatDateLabel(startDate)} to ?`
+        : "Pick the dates";
 
   return (
     <APIProvider apiKey={apiKey} libraries={["places"]}>
@@ -124,12 +144,12 @@ export default function RouteInput({
             type="button"
             onClick={() => void located.locate()}
             disabled={located.status.kind === "locating"}
-            className="min-h-[44px] px-3 text-xs font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] text-[#b0b9c2] hover:text-[#f0f6fc] disabled:opacity-40 disabled:cursor-wait transition-colors focus:outline-none focus:border-[#f0f6fc]"
+            className="min-h-[44px] px-3 text-base border border-[#30363d] hover:border-[#6e7681] text-[#b0b9c2] hover:text-[#f0f6fc] disabled:opacity-40 disabled:cursor-wait transition-colors focus:outline-none focus:border-[#f0f6fc]"
           >
             Use where I am
           </button>
           <p
-            className={`text-xs font-mono ${located.status.kind === "error" ? "text-[#ff7b72]" : "text-[#8b949e]"}`}
+            className={`text-base ${located.status.kind === "error" ? "text-[#ff7b72]" : "text-[#8b949e]"}`}
             aria-live="polite"
             aria-atomic="true"
           >
@@ -144,15 +164,15 @@ export default function RouteInput({
         />
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">
+          <p className="text-base text-[#b0b9c2]">
             Trip dates
-          </label>
+          </p>
           <button
             type="button"
             onClick={() => setDateDialogOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={dateDialogOpen}
-            className="min-h-[44px] px-3 py-2 text-sm font-mono bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] text-left focus:outline-none focus:border-[#f0f6fc] hover:border-[#f0f6fc] transition-colors"
+            className="min-h-[44px] px-3 py-2 text-base num bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] text-left focus:outline-none focus:border-[#f0f6fc] hover:border-[#f0f6fc] transition-colors"
           >
             {dateLabel}
           </button>
@@ -172,24 +192,24 @@ export default function RouteInput({
               ref={dialogRef}
               role="dialog"
               aria-modal="true"
-              aria-label="Select trip dates"
+              aria-label="Trip dates"
               tabIndex={-1}
               className="relative bg-[#161b22] border border-[#30363d] w-full sm:max-w-sm p-6 flex flex-col gap-4 focus:outline-none"
             >
-              <p className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">
+              <p className="text-base text-[#b0b9c2]">
                 Trip dates
               </p>
 
               {/* Mode toggle — keyboard-accessible radio group */}
               <fieldset className="flex gap-2">
-                <legend className="sr-only">Date mode</legend>
+                <legend className="sr-only">How the dates are given</legend>
                 {(["range", "arrival"] as const).map((mode) => (
                   <label
                     key={mode}
-                    className={`flex-1 min-h-[44px] flex items-center justify-center text-xs font-mono uppercase tracking-widest cursor-pointer border transition-colors ${
+                    className={`flex-1 min-h-[44px] flex items-center justify-center text-base cursor-pointer border transition-colors ${
                       dateMode === mode
                         ? "border-[#f0f6fc] text-[#f0f6fc] bg-[#21262d]"
-                        : "border-[#30363d] text-[#7d8590] hover:border-[#6e7681]"
+                        : "border-[#30363d] text-[#8b949e] hover:border-[#6e7681]"
                     }`}
                   >
                     <input
@@ -200,15 +220,15 @@ export default function RouteInput({
                       onChange={() => setDateMode(mode)}
                       className="sr-only"
                     />
-                    {mode === "range" ? "Date range" : "Arrival date"}
+                    {mode === "range" ? "Start and end" : "Arrive by"}
                   </label>
                 ))}
               </fieldset>
               {/* Announce mode change to screen readers */}
               <p className="sr-only" aria-live="polite" aria-atomic="true">
                 {dateMode === "arrival"
-                  ? "Arrival date mode: enter only your arrival date. Departure date will be calculated."
-                  : "Date range mode: enter a start and end date."}
+                  ? "Arrive by: give only the day you need to be there. The start date is worked out from the drive."
+                  : "Start and end: give a start date and an end date."}
               </p>
 
               {dateMode === "range" ? (
@@ -216,7 +236,7 @@ export default function RouteInput({
                   <div className="flex-1 flex flex-col gap-1">
                     <label
                       htmlFor="trip-start-date"
-                      className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
+                      className="text-base text-[#8b949e]"
                     >
                       Start
                     </label>
@@ -225,13 +245,13 @@ export default function RouteInput({
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
+                      className="min-h-[44px] py-2 px-3 text-base num bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
                     />
                   </div>
                   <div className="flex-1 flex flex-col gap-1">
                     <label
                       htmlFor="trip-end-date"
-                      className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
+                      className="text-base text-[#8b949e]"
                     >
                       End
                     </label>
@@ -240,7 +260,7 @@ export default function RouteInput({
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
+                      className="min-h-[44px] py-2 px-3 text-base num bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
                     />
                   </div>
                 </div>
@@ -248,7 +268,7 @@ export default function RouteInput({
                 <div className="flex flex-col gap-1">
                   <label
                     htmlFor="trip-arrive-date"
-                    className="text-xs font-mono uppercase tracking-widest text-[#7d8590]"
+                    className="text-base text-[#8b949e]"
                   >
                     Arrive by
                   </label>
@@ -257,23 +277,23 @@ export default function RouteInput({
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="min-h-[44px] py-2 px-3 text-sm font-mono bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
+                    className="min-h-[44px] py-2 px-3 text-base num bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] focus:outline-none focus:border-[#f0f6fc] [color-scheme:dark]"
                   />
-                  <p className="text-xs font-mono text-[#7d8590] mt-1">
-                    Departure date calculated from route length.
+                  <p className="text-base text-[#8b949e] mt-1">
+                    We work out the start date from the drive.
                   </p>
                 </div>
               )}
 
               {dateMode === "range" && !dateOrderValid && (
-                <p className="text-xs font-mono text-[#f85149]" role="alert">
-                  End date must be on or after start date.
+                <p className="text-base text-[#f85149]" role="alert">
+                  The end date must be on or after the start date.
                 </p>
               )}
               <button
                 type="button"
                 onClick={() => setDateDialogOpen(false)}
-                className="min-h-[44px] text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] text-[#f0f6fc] transition-colors focus:outline-none focus:border-[#f0f6fc]"
+                className="min-h-[44px] text-base border border-[#30363d] hover:border-[#6e7681] text-[#f0f6fc] transition-colors focus:outline-none focus:border-[#f0f6fc]"
               >
                 Done
               </button>
@@ -282,22 +302,28 @@ export default function RouteInput({
         )}
 
         <p
-          className="text-xs font-mono text-[#b0b9c2]"
+          className="text-base text-[#b0b9c2]"
           aria-live="polite"
           aria-atomic="true"
         >
           {tripDays !== null && budgetHrs !== null
-            ? `${tripDays} ${tripDays === 1 ? "day" : "days"} · ${budget} hrs/day · ${budgetHrs} total drive hours`
+            ? `${tripDays} ${tripDays === 1 ? "day" : "days"} at ${budget} h a day: ${budgetHrs} h of driving in all`
             : " "}
         </p>
         <DriveBudgetSelector value={budget} onChange={setBudget} />
+        {/* The one obvious action (quality bar, rule 3): the button keeps
+            its verb, and when it cannot be pressed the reason is the line
+            under it, not the button's own label. */}
         <button
           type="submit"
           disabled={!canSubmit}
-          className="mt-2 py-3 text-sm font-mono uppercase tracking-widest border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="mt-2 min-h-[44px] py-3 text-base border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
-          {submitting ? "Calculating route..." : "Plan route"}
+          {submitting ? "Planning..." : "Plan the trip"}
         </button>
+        <p className="text-base text-[#8b949e] -mt-2 min-h-6" aria-live="polite" aria-atomic="true">
+          {submitting ? "" : reason}
+        </p>
       </form>
     </APIProvider>
   );

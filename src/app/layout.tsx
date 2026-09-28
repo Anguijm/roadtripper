@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
+// The body face (quality bar, rule 2: a normal typeface at 16 px or more on
+// a phone). Geist Mono stays for numbers, distances, times and codes only,
+// through the `.num` class in globals.css.
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -9,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Roadtripper",
-  description: "Plan road trips with persona-based stop recommendations",
+  description: "Plan a road trip and see what is worth stopping for along the way",
 };
 
 export const viewport: Viewport = {
@@ -23,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistMono.variable} h-full`}>
-      <body className="min-h-full bg-[#0a0a0a] text-white font-mono antialiased">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+      <body className="min-h-full bg-[#0a0a0a] text-white font-sans antialiased">
         {children}
       </body>
     </html>

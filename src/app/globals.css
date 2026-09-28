@@ -22,16 +22,28 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/* The body face is Geist (sans) at 16 px, the floor for text on a phone
+   (quality bar, rule 2). The mono face is for numbers, distances, times
+   and codes only, through `.num` below; nothing else asks for it. */
 body {
   background: var(--bg-page);
   color: var(--text-primary);
-  font-family: var(--font-mono), "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 1rem;
 }
 
 @layer utilities {
+  /* A number, a distance, a time, a date or a code: the one place the mono
+     face is used (quality bar, rule 2). Tabular figures so a column of
+     drive times lines up. */
+  .num {
+    font-family: var(--font-geist-mono), ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    font-variant-numeric: tabular-nums;
+  }
   /* The phone's bottom sheet. Its height, the snaps (--sheet-y, the hidden
      share of that height) and the handle are mirrored by SHEET_HEIGHT_DVH,
      SHEET_SNAPS and SHEET_HANDLE_PX in src/components/PlanWorkspace.tsx;

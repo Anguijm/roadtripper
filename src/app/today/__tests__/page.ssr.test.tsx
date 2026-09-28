@@ -56,7 +56,11 @@ describe("the today screen, server-rendered", () => {
     const html = await render({});
     expect(html).toContain("What is in range today?");
     expect(html).toContain("Use where I am");
-    expect(html).toContain("Pick where you are first");
+    // The button keeps its verb; the reason it cannot be pressed is a line
+    // beside it (quality bar, rule 3).
+    expect(html).toContain("Show me what&#x27;s in range");
+    expect(html).toContain("Choose where you are first");
+    expect(html).not.toContain("Pick where you are first");
     expect(html).toContain("5 h");
   });
 

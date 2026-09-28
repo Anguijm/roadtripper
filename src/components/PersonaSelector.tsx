@@ -25,7 +25,8 @@ export default function PersonaSelector({
       // Wraps to a second row on a phone: five chips at 16 px do not fit
       // 390 px, and a strip that scrolled sideways clipped the last one to
       // "GEARH" (round-1 critic, rule 7: no horizontal scroll, nothing
-      // truncated). Shorter chip words are U2's.
+      // truncated). The chip words are one short word each (Culture, Food,
+      // Nerd, Gear, Outdoors; Gauntlet U2), from src/lib/personas/index.ts.
       className="flex flex-wrap gap-2 font-sans"
     >
       {PERSONA_ORDER.map((id) => {
@@ -51,7 +52,7 @@ export default function PersonaSelector({
               isActive ? { backgroundColor: persona.accentColor } : undefined
             }
           >
-            <span aria-hidden className="text-sm leading-none">
+            <span aria-hidden className="text-base leading-none">
               {persona.glyph}
             </span>
             <span>{persona.label}</span>

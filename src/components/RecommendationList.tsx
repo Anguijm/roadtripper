@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
+import { formatDrive } from "@/lib/today/presets";
+import { kindWord } from "@/lib/plan/words";
 
 export interface AddCityPayload {
   cityId: string;
@@ -29,17 +31,22 @@ interface RecommendationListProps {
   pending?: boolean;
   /** Disable Add when the trip is at the cap */
   atCap?: boolean;
-  /** Open the city's neighbourhood write-up without adding it. */
+  /** Open the city's write-up without adding it. */
   onCityPreview?: (cityId: string) => void;
   /** The city whose write-up is open, so its button reads as pressed. */
   previewedCityId?: string | null;
 }
 
-const TIER_LABELS: Record<RankedWaypoint["tier"], string> = {
-  // The glossary's word for the "primary" badge (quality bar, rule 1).
+/**
+ * The badge on a row, in the glossary's words (quality bar, rule 1): "the
+ * pick" for what was the "primary" tier, a plain phrase for the second
+ * tier, and nothing at all for the rest; a badge that said "Other" was
+ * noise beside a name.
+ */
+const TIER_LABELS: Record<RankedWaypoint["tier"], string | null> = {
   primary: "★ The pick",
-  secondary: "Secondary",
-  other: "Other",
+  secondary: "Also good",
+  other: null,
 };
 
 const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
@@ -54,6 +61,14 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
   hidden_gem: "◇",
 };
 
+/**
+ * The towns that fit today, each with the places in it the mood ranks
+ * first. Every word in sentence case in the body face at 16 px; a town's
+ * or a place's name wraps and is never cut with an ellipsis; only a
+ * description paragraph is clamped (quality bar, rules 1 and 2). The
+ * sentence above the list ("Lubbock and Abilene fit today", or that
+ * nothing does) is the workspace's, so an empty list says nothing here.
+ */
 export default function RecommendationList({
   fetchResult,
   activePersonaId,
@@ -79,29 +94,19 @@ export default function RecommendationList({
   const hasRows = groups.some((g) => g.rows.length > 0);
 
   if (fetchResult.cities.length === 0) {
-    return (
-      <div className="p-4 border border-[#30363d] bg-[#161b22]">
-        <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] mb-2">
-          No coverage
-        </p>
-        <p className="text-xs text-[#b0b9c2] leading-relaxed">
-          Urban Explorer covers ~22 North American cities. Try an East Coast,
-          West Coast, or Southwest corridor for richer recommendations.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   if (!hasRows) {
     return (
       <div className="p-4 border border-[#30363d] bg-[#161b22]">
-        <p className="text-xs font-mono uppercase tracking-widest text-[#7d8590] mb-2">
-          No waypoints yet
+        <p className="text-base text-[#f0f6fc] mb-2">
+          Nothing written up for these towns yet
         </p>
-        <p className="text-xs text-[#b0b9c2]">
+        <p className="text-base text-[#b0b9c2]">
           {fetchResult.status === "degraded"
-            ? "Waypoint data is degraded — some chunks failed to load. Reload to retry."
-            : "Candidate cities had no waypoint data in Urban Explorer. Try a different corridor."}
+            ? "Some of the places did not load. Reload to try again."
+            : "The towns that fit today have no places written up yet."}
         </p>
       </div>
     );
@@ -111,8 +116,8 @@ export default function RecommendationList({
     <div className="flex flex-col">
       {fetchResult.status === "degraded" && (
         <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
-          <p className="text-xs font-mono uppercase tracking-widest text-[#d29922]">
-            Partial data — some waypoint chunks failed
+          <p className="text-base text-[#d29922]">
+            Some of the places did not load.
           </p>
         </div>
       )}
@@ -147,21 +152,25 @@ export default function RecommendationList({
               className={[
                 // 44 px tall so the buttons' extended hit areas (see below)
                 // stay inside the header and never reach the rows beneath.
-                "sticky top-0 z-10 min-h-[44px] text-xs font-mono uppercase tracking-widest px-2 py-1.5 border-b flex items-center justify-between gap-2",
+                "sticky top-0 z-10 min-h-[44px] text-base px-2 py-1.5 border-b flex items-center justify-between gap-2",
                 isHighlighted
                   ? "bg-[#262c36] text-[#f0f6fc] border-[#6e7681]"
-                  : "bg-[#161b22] text-[#7d8590] border-[#30363d]",
+                  : "bg-[#161b22] text-[#b0b9c2] border-[#30363d]",
               ].join(" ")}
             >
-              <span className="truncate">
+              {/* The town's name wraps; the drive to it is a phrase, said
+                  once here and not under every row, with the number in the
+                  mono face. detourMinutes is the round trip, so half of it
+                  is the drive there, the same figure the today screen
+                  shows. */}
+              <span className="min-w-0 flex-1 break-words">
                 {cityName}
-                <span className="ml-2 text-[#4a5159]">
-                  · +{Math.round(detourMinutes)}m
+                <span className="ml-2 text-[#8b949e] whitespace-nowrap">
+                  <span className="num">{formatDrive(detourMinutes / 2)}</span> away
                 </span>
               </span>
-              {/* Read about the city before deciding. Opens the neighbourhood
-                  panel for a candidate the same way a click on a stop does;
-                  nothing is added. */}
+              {/* Read about the town before deciding. Opens the panel for a
+                  town the same way a tap on a stop does; nothing is added. */}
               {onCityPreview && (
                 <button
                   type="button"
@@ -169,16 +178,19 @@ export default function RecommendationList({
                   aria-pressed={previewedCityId === cityId}
                   aria-label={`See what is in ${cityName}`}
                   className={[
-                    // The visible button is about 20 px tall (10 px text,
-                    // 2 px padding each side, 1 px border each side). The
-                    // invisible ::before adds 12 px above and below
-                    // (-inset-y-3), which is 44 px, the touch-target minimum.
-                    // It extends vertically only, so the two side-by-side
-                    // buttons cannot overlap each other, and the header is
-                    // 44 px tall with the buttons centred, so it cannot reach
-                    // the rows beneath either.
-                    "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
-                    "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    // The visible button is 30 px tall (24 px line, 2 px
+                    // padding each side, 1 px border each side). The
+                    // invisible ::before adds 7 px above and below, which
+                    // is 44 px, the touch-target minimum. It extends
+                    // vertically only, so the two side-by-side buttons
+                    // cannot overlap each other, and the header is 44 px
+                    // tall with the buttons centred, so it cannot reach the
+                    // rows beneath either.
+                    "relative before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']",
+                    // The glossary's words ("what's in Lubbock"); a long
+                    // town name wraps inside the button rather than
+                    // pushing past the sheet's edge.
+                    "text-base border px-2 py-0.5 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                     previewedCityId === cityId
                       ? "border-[#f0f6fc] text-[#f0f6fc]"
                       : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
@@ -193,21 +205,21 @@ export default function RecommendationList({
                 disabled={!isAdded && !canAdd}
                 title={
                   isAdded
-                    ? "Remove from trip"
+                    ? "Take this stop out"
                     : atCap
-                    ? "Trip is at the maximum number of stops"
+                    ? "The trip has all the stops it can hold"
                     : "Stop here"
                 }
                 className={[
-                  // Same 44 px hit area as the preview button beside it, so
+                  // Same 44 px hit area as the button beside it, so
                   // neither is the hard one to hit on a phone.
-                  "relative before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
-                  "text-[10px] font-mono uppercase tracking-widest border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                  "relative before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']",
+                  "text-base border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                   isAdded
                     ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
                     : canAdd
                     ? "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]"
-                    : "border-[#21262d] text-[#4a5159] cursor-not-allowed",
+                    : "border-[#21262d] text-[#6e7681] cursor-not-allowed",
                 ].join(" ")}
                 style={
                   isAdded ? { backgroundColor: accent, color: "#0d1117" } : undefined
@@ -216,10 +228,10 @@ export default function RecommendationList({
                 {isAdded ? "✓ Added" : "+ Stop here"}
               </button>
             </h3>
-            {/* The reason leads (step 14): the persona's top-ranked spot that
+            {/* The reason leads (step 14): the mood's top-ranked spot that
                 has a description, name and description, before anything else
-                in the card. It is the answer to "why this city" and must be
-                the first thing seen. Every atlas waypoint has a description
+                in the card. It is the answer to "why this town" and must be
+                the first thing seen. Every atlas place has a description
                 today (asserted in the atlas tests), so in practice this is the
                 top-ranked spot; the fallback to a spot without one only
                 matters if that ever changes. */}
@@ -231,12 +243,12 @@ export default function RecommendationList({
                 className="px-2 pt-2 pb-1"
                 style={{ borderLeft: `2px solid ${accent}` }}
               >
-                <p className="text-sm text-[#f0f6fc]">
+                <p className="text-base text-[#f0f6fc] break-words">
                   <span aria-hidden className="mr-1.5" style={{ color: accent }}>{TYPE_GLYPHS[lead.type] ?? "·"}</span>
                   {lead.name}
                 </p>
                 {lead.description && (
-                  <p className="text-sm text-[#b0b9c2] mt-1 line-clamp-3" data-reason>{lead.description}</p>
+                  <p className="text-base text-[#b0b9c2] mt-1 line-clamp-3" data-reason>{lead.description}</p>
                 )}
               </div>
             )}
@@ -251,42 +263,38 @@ export default function RecommendationList({
                 >
                   <span
                     aria-hidden
-                    className="text-base leading-5 mt-0.5"
+                    className="text-base leading-6 shrink-0"
                     style={{ color: accent }}
                   >
                     {TYPE_GLYPHS[r.type] ?? "·"}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#f0f6fc] truncate">{r.name}</p>
-                    {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
+                    <p className="text-base text-[#f0f6fc] break-words">{r.name}</p>
+                    {/* The reason to stop. Untrusted text, rendered as text; React escapes it. A description may be clamped; a name never is. */}
                     {r.description && (
-                      <p className="text-xs text-[#b0b9c2] mt-0.5 line-clamp-2" data-reason>{r.description}</p>
+                      <p className="text-base text-[#b0b9c2] mt-0.5 line-clamp-2" data-reason>{r.description}</p>
                     )}
-                    <p className="text-xs text-[#7d8590] mt-0.5">
-                      <span className="font-mono uppercase">{r.type.replace("_", " ")}</span>
-                      <span className="mx-1">·</span>
-                      <span>{cityName}</span>
-                      <span className="mx-1">·</span>
-                      <span className="font-mono">{Math.round(r.detourMinutes)}m</span>
+                    <p className="text-base text-[#8b949e] mt-0.5">
+                      {kindWord(r.type)}
                     </p>
                   </div>
-                  <span
-                    className={[
-                      "text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 border whitespace-nowrap self-start mt-0.5",
-                      r.tier === "primary"
-                        ? "text-[#0d1117] border-transparent"
-                        : r.tier === "secondary"
-                        ? "text-[#b0b9c2] border-[#30363d]"
-                        : "text-[#4a5159] border-[#21262d]",
-                    ].join(" ")}
-                    style={
-                      r.tier === "primary"
-                        ? { backgroundColor: accent }
-                        : undefined
-                    }
-                  >
-                    {TIER_LABELS[r.tier]}
-                  </span>
+                  {TIER_LABELS[r.tier] && (
+                    <span
+                      className={[
+                        "text-base px-1.5 py-0.5 border whitespace-nowrap self-start",
+                        r.tier === "primary"
+                          ? "text-[#0d1117] border-transparent"
+                          : "text-[#b0b9c2] border-[#30363d]",
+                      ].join(" ")}
+                      style={
+                        r.tier === "primary"
+                          ? { backgroundColor: accent }
+                          : undefined
+                      }
+                    >
+                      {TIER_LABELS[r.tier]}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

@@ -6,7 +6,8 @@ import { planToday } from "@/lib/today/plan";
 import { hoursFrom, formatDrive, pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
 import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
-import { parsePersonaId, PERSONAS } from "@/lib/personas";
+import { parsePersonaId } from "@/lib/personas";
+import { kindWord } from "@/lib/plan/words";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
 import { parseIsoDate, deadlineLine, todayIso, daysUntil } from "@/lib/plan/deadline";
@@ -40,16 +41,18 @@ export const dynamic = "force-dynamic";
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen bg-[#0d1117]">
-      <header className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
+      {/* The masthead in sentence case, the body face, 16 px (quality bar,
+          rules 1 and 2). */}
+      <header className="flex items-center justify-between gap-4 px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
         <Link
           href="/"
-          className="text-sm font-mono uppercase tracking-[0.3em] text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors"
+          className="min-h-[44px] flex items-center text-base text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
           ← Roadtripper
         </Link>
-        <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e]">Today</span>
+        <span className="text-base text-[#8b949e]">Today</span>
       </header>
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <div className="w-full max-w-md mx-auto">{children}</div>
       </main>
     </div>
@@ -58,12 +61,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Notice({ title, text }: { title: string; text: string }) {
   return (
-    <div className="border border-[#30363d] bg-[#161b22] p-6 flex flex-col gap-3">
-      <p className="text-xs font-mono uppercase tracking-widest text-[#b0b9c2]">{title}</p>
-      <p className="text-sm text-[#b0b9c2]">{text}</p>
+    <div className="border border-[#30363d] bg-[#161b22] p-5 flex flex-col gap-3">
+      <p className="text-lg text-[#f0f6fc]">{title}</p>
+      <p className="text-base text-[#b0b9c2]">{text}</p>
       <Link
         href="/today"
-        className="self-start min-h-[44px] text-sm font-mono uppercase tracking-widest border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        className="self-start min-h-[44px] flex items-center text-base border border-[#30363d] hover:border-[#6e7681] px-4 py-2 text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
       >
         Type a city
       </Link>
@@ -96,8 +99,8 @@ export default async function TodayPage({
     return (
       <Shell>
         <div className="mb-6">
-          <h1 className="text-2xl font-mono tracking-tight text-[#f0f6fc] mb-2">What is in range today?</h1>
-          <p className="text-sm text-[#8b949e]">No destination needed. Where you are, how long you have, what you like.</p>
+          <h1 className="text-2xl tracking-tight text-[#f0f6fc] mb-2">What is in range today?</h1>
+          <p className="text-base text-[#8b949e]">No destination needed. Where you are, how long you have, what you like.</p>
         </div>
         <TodayStart initialHours={hours} initialPersonaId={personaId} carry={carry} deadlineText={deadlineText} />
       </Shell>
@@ -124,7 +127,7 @@ export default async function TodayPage({
       <Shell>
         <Notice
           title="Not near a city we know"
-          text="There is no atlas city within 40 km of that point, so the drive graph cannot answer from here. Type the nearest city instead."
+          text="We know no city within 40 km of that point, so we cannot say what is in range from here. Type the nearest city instead."
         />
       </Shell>
     );
@@ -133,8 +136,8 @@ export default async function TodayPage({
     return (
       <Shell>
         <Notice
-          title={`No drive times for ${plan.here?.city.name ?? "this city"}`}
-          text="The atlas knows the city but has no drive graph rows for it yet. Type a nearby city instead."
+          title={`No drive times from ${plan.here?.city.name ?? "this city"}`}
+          text="We know the city but not the drives out of it yet. Type a nearby city instead."
         />
       </Shell>
     );
@@ -194,15 +197,14 @@ export default async function TodayPage({
   };
   const shown = groups.length;
   const total = plan.reachable.length;
-  const persona = PERSONAS[personaId];
 
   return (
     <Shell>
       <div className="mb-5">
-        <h1 className="text-2xl font-mono tracking-tight text-[#f0f6fc] mb-1">
+        <h1 className="text-2xl tracking-tight text-[#f0f6fc] mb-1">
           {total === 0 ? `Nothing within ${hours} hours` : `${total} ${total === 1 ? "city" : "cities"} within ${hours} hours`}
         </h1>
-        <p className="text-sm text-[#8b949e]">
+        <p className="text-base text-[#8b949e]">
           From {whereLabel}
           {/* Same 3 km as the "Near <city>" label, imported so it cannot drift:
               inside it you are in the city; beyond it, say how far. The
@@ -212,7 +214,7 @@ export default async function TodayPage({
         </p>
         {deadline && deadlineText && (
           <div className="mt-3 flex flex-col gap-2">
-            <p className="text-sm text-[#f0f6fc]" role="status">{deadlineText}</p>
+            <p className="text-base text-[#f0f6fc]" role="status">{deadlineText}</p>
             {/* The trip itself, from here to the deadline's destination, in
                 arrival mode so the planner keeps the date as a deadline. */}
             <Link
@@ -226,33 +228,38 @@ export default async function TodayPage({
                 dateMode: "arrival",
                 endDate: deadline.endDate,
               }).toString()}`}
-              className="self-start text-xs font-mono uppercase tracking-widest text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+              className="self-start min-h-[44px] flex items-center text-base text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
             >
               {`Plan the trip to ${deadline.toName} from here`}
             </Link>
           </div>
         )}
         {spotsDegraded && (
-          <p className="mt-2 text-xs font-mono text-[#ff7b72]" role="status">
+          <p className="mt-2 text-base text-[#ff7b72]" role="status">
             The cities are right, but some spots could not be loaded just now.
           </p>
         )}
       </div>
 
-      <div className="mb-5">
+      <div className="mb-5 flex flex-col gap-2">
+        {/* The glossary's words for "persona" (quality bar, rule 1). */}
+        <p className="text-base text-[#b0b9c2]">I&apos;m in the mood for</p>
         <TodayPersonaBar activePersonaId={personaId} />
       </div>
 
       {total === 0 ? (
-        <Notice title="Try more hours" text={`No atlas city is within ${hours} hours of ${whereLabel}.`} />
+        <Notice title="Try more hours" text={`No city we know is within ${hours} hours of ${whereLabel}.`} />
       ) : (
         <ol className="flex flex-col gap-4" aria-label={`Cities within ${hours} hours, nearest first`}>
           {groups.map((g) => (
             <li key={g.cityId} className="border border-[#30363d] bg-[#161b22] p-4">
               <div className="flex items-baseline justify-between gap-3 mb-2">
-                <h2 className="text-base font-mono text-[#f0f6fc]">{g.cityName}</h2>
-                <span className="text-sm font-mono text-[#8b949e] whitespace-nowrap">
-                  {formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)}
+                {/* A name wraps; it is never cut with an ellipsis (rule 2). */}
+                <h2 className="text-lg text-[#f0f6fc] min-w-0 break-words">{g.cityName}</h2>
+                {/* A drive time, said as a phrase; the number is the one
+                    thing in the mono face. */}
+                <span className="text-base num text-[#8b949e] whitespace-nowrap">
+                  {`${formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)} away`}
                 </span>
               </div>
               {/* The way out of this screen into the trip planner: start and
@@ -262,7 +269,7 @@ export default async function TodayPage({
                   than a link to the equator. */}
               {(() => {
                 const verdict = feasibilityFor(g.cityId);
-                return verdict ? <p className="text-sm text-[#f0f6fc] mb-2">{verdict}</p> : null;
+                return verdict ? <p className="text-base text-[#f0f6fc] mb-2">{verdict}</p> : null;
               })()}
               {(() => {
                 const city = cityById.get(g.cityId);
@@ -277,27 +284,28 @@ export default async function TodayPage({
                       toLat: city.lat.toString(),
                       toLng: city.lng.toString(),
                     }).toString()}`}
-                    className="inline-block mb-2 text-xs font-mono uppercase tracking-widest text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                    className="inline-flex items-center min-h-[44px] mb-1 text-base text-[#8b949e] underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
                   >
                     Plan a trip here
                   </Link>
                 );
               })()}
               {g.rows.length === 0 ? (
-                <p className="text-xs font-mono text-[#8b949e]">
-                  {spotsDegraded ? "Spots did not load." : `Nothing in the atlas for a ${persona.label.toLowerCase()} here yet.`}
+                <p className="text-base text-[#8b949e]">
+                  {spotsDegraded ? "Spots did not load." : "Nothing here for this mood yet."}
                 </p>
               ) : (
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col gap-2">
                   {g.rows.map((w) => (
-                    <li key={w.waypointId} className="flex flex-col gap-0.5 text-sm" data-spot>
+                    <li key={w.waypointId} className="flex flex-col gap-0.5 text-base" data-spot>
                       <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-[#f0f6fc]">{w.name}</span>
-                        <span className="text-xs font-mono uppercase tracking-widest text-[#8b949e] whitespace-nowrap">{w.type.replace("_", " ")}</span>
+                        {/* A place's name wraps; it is never cut (rule 2). */}
+                        <span className="text-[#f0f6fc] min-w-0 break-words">{w.name}</span>
+                        <span className="text-base text-[#8b949e] whitespace-nowrap">{kindWord(w.type)}</span>
                       </div>
                       {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
-                      {/* Three lines, not two as on the candidate list: here the reason is the content, and 240 characters at this size is about three lines on a phone. */}
-                      {w.description && <p className="text-xs text-[#b0b9c2] line-clamp-3" data-reason>{w.description}</p>}
+                      {/* Three lines: here the reason is the content, and a description at this size is about three lines on a phone. A description may be clamped; a name never is. */}
+                      {w.description && <p className="text-base text-[#b0b9c2] line-clamp-3" data-reason>{w.description}</p>}
                     </li>
                   ))}
                 </ul>
@@ -307,7 +315,7 @@ export default async function TodayPage({
         </ol>
       )}
 
-      <p className="mt-5 text-xs font-mono text-[#8b949e]">
+      <p className="mt-5 text-base text-[#8b949e]">
         {shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
         <Link href={`/today?${new URLSearchParams({ hours: String(hours), persona: personaId, ...(carry ?? {}) }).toString()}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
           Change where or how long

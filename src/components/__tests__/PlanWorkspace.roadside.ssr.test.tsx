@@ -54,7 +54,6 @@ const base = {
   initialDurationSeconds: 29_000,
   fromName: "Amarillo",
   toName: "Austin",
-  maxDetourMinutes: 270,
 };
 const stops: RoadsideMarker[] = [
   { id: "osm:way:1", name: "The Big Texan Steak Ranch", lat: 35.19381, lng: -101.7551, kind: "notable", p: 0.83, about: "A large steakhouse and motel. A roadside attraction known for competitive eating.", url: "https://en.wikipedia.org/wiki/Big_Texan_Steak_Ranch", alongKm: 9 },
@@ -157,7 +156,7 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(section).toBeLessThan(html.indexOf("on the road"));
     expect(section).toBeLessThan(html.indexOf("of driving left today"));
     expect(section).toBeLessThan(html.indexOf("I&#x27;m in the mood for"));
-    expect(section).toBeLessThan(html.indexOf("First stop from Amarillo"));
+    expect(section).toBeLessThan(html.indexOf("Lubbock fits today"));
     expect(section).toBeLessThan(html.indexOf("sticky top-0"));
     // The tenth row and the control come before the first town too.
     expect(html.indexOf("data-roadside-show-all")).toBeLessThan(html.indexOf("What&#x27;s in Lubbock"));
@@ -394,8 +393,10 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // read on the sheet with a town listed and the roadside list open.
     const never = /budget left|candidate|max \d+ min|persona|see what.s here|add city to trip|\bprimary\b|waypoint|neighbou?rhood|recompute|refresh|pending|roadside stops along the way/i;
     expect(text).not.toMatch(never);
-    // The replacements are there instead.
-    expect(text).toContain("First stop from Amarillo · 1 town that fits today");
+    // The replacements are there instead: the header over the towns is a
+    // sentence built from the data (U2), not a count.
+    expect(text).toContain("Lubbock fits today");
+    expect(text).not.toMatch(/\d+ towns? that fit/);
     expect(text).toContain("What&#x27;s in Lubbock");
     expect(text).toContain("+ Stop here");
     expect(text).toContain("★ The pick");

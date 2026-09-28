@@ -32,9 +32,9 @@ describe("the home page, server-rendered", () => {
     const html = await render({ dateMode: "arrival", endDate: "2026-10-14" });
     expect(html).toContain("Arrive by Oct 14");
     // a bad date opens the picker with nothing selected
-    expect(await render({ dateMode: "arrival", endDate: "2026-02-31" })).toContain("Select arrival date");
+    expect(await render({ dateMode: "arrival", endDate: "2026-02-31" })).toContain("Pick the arrival date");
     // no mode means a range, whatever the dates
-    expect(await render({ startDate: "2026-10-10", endDate: "2026-10-14" })).toContain("Oct 10 → Oct 14");
+    expect(await render({ startDate: "2026-10-10", endDate: "2026-10-14" })).toContain("Oct 10 to Oct 14");
   });
 
   it("ignores a handoff with bad coordinates and escapes the names", async () => {

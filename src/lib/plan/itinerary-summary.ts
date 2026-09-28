@@ -1,11 +1,12 @@
 /**
- * The itinerary in one line, so it can sit above the candidates without
+ * The itinerary in one line, so it can sit above the towns without
  * pushing the first reason below the fold: "2 stops · Lubbock, Austin ·
- * 7 h 20 min". Pure; the workspace renders it with a toggle that opens the
- * full itinerary.
+ * 7 h 20 min of driving". Pure; the workspace renders it with a toggle
+ * that opens the full itinerary. The drive is said the way a person says
+ * it (quality bar, rule 1), never the compact "7h 20m".
  */
 
-import { formatDuration } from "@/lib/routing/format";
+import { formatDurationPlain } from "@/lib/routing/format";
 
 export function itinerarySummary(
   stops: ReadonlyArray<{ cityName: string }>,
@@ -21,6 +22,6 @@ export function itinerarySummary(
   const parts = [...legDurationsSeconds, finalLegSeconds];
   const known = parts.every((x) => Number.isFinite(x) && x >= 0);
   const total = known ? parts.reduce((a, b) => a + b, 0) : 0;
-  const drive = known && total > 0 ? formatDuration(total) : null;
+  const drive = known && total > 0 ? `${formatDurationPlain(total)} of driving` : null;
   return [head, names || null, drive].filter(Boolean).join(" · ");
 }
