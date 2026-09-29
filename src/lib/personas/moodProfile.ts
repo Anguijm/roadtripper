@@ -25,8 +25,10 @@ import { DEFAULT_PERSONA_ID, PERSONAS } from "./index";
  *   - `machines` and `sports` map to nothing at all. The atlas has no type
  *     for a locomotive or a ballpark.
  *
- * An empty mapping is not an empty list. `typeWeight` returns 0.2 for the
- * "other" tier — a floor written so non-matching places still appear — so
+ * An empty mapping is not an empty list. `typeWeight` in
+ * `src/lib/routing/scoring.ts` returns 0.2 for the "other" tier — a floor
+ * written there so non-matching places still appear, with its own note
+ * saying a floor of 0 would make them score 0 and silently disappear — so
  * every place scores the same multiplier and the town's list falls back to
  * trending score within detour, which is the order it had before any mood
  * was chosen. The roadside stops, which are what Machines and Sports are

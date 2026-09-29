@@ -214,3 +214,64 @@ which is silent. Nobody in this loop has heard it read aloud.
 
 Next: the operator sees these screenshots before merge, which is the bar's
 own gate and not the critic's.
+
+## Council round 1 on #94 — 🔴 BLOCK, four applied and five declined with evidence
+
+**1 was real and is the one that mattered.** `handleMoodToggle` ran
+`window.history.replaceState` *inside* a `setChosenMoods` updater. A state
+updater must be pure: React runs it twice in Strict Mode and may discard a
+render and re-run it, so one tap fired the URL write more than once and
+could leave the address bar describing a state the component never settled
+on. The next value is now computed in the handler and the URL written
+there, with `chosenMoods` in the dependency list.
+
+**7 was a good catch.** The trip schema capped `moods` at a literal `2`.
+It is `MAX_MOODS` now, so the screen's limit and what the store accepts
+cannot drift apart, and the 40-character cap says what it is for.
+
+**8 and 9 applied.** `SORT_ACCENT` says where `#e3b341` is decided and why
+it is repeated rather than imported (a leaf importing the plan screen's
+client root would make a cycle), and a new test holds the two together.
+`moodProfile` names `scoring.ts` for the 0.2 floor rather than describing
+it.
+
+**The deferred `aria-live` is in, because it closes this branch's declared
+weakest part.** The chips and the order control both reorder a list
+further down the sheet than the control that reordered it, so the one
+thing a tap does is the one thing a screen-reader user cannot see it do.
+One polite region now reports both, set only on a tap so it never reads
+the sheet's state on arrival. It does not close the gap — nobody has heard
+it read aloud — but it makes it smaller.
+
+**2 declined: `fetchResult.cities` cannot be undefined.**
+`WaypointFetchResult` has exactly two arms, `"fresh"` and `"degraded"`,
+and *both* carry `cities`. There is no `"failed"` status on that type. The
+`"failed"` in `scoring.ts` is `kind: "failed"` on `NeighborhoodLoadState`,
+a different union. The council filed this as a veto violation of the
+discriminated-union invariant; the invariant is being kept.
+
+**3 declined: the save already has a client-asserted stable id.**
+`saveTripIdRef = useRef<string>(crypto.randomUUID())` is created once at
+mount and passed to `saveTrip`, which is exactly what was asked for. It
+predates this branch and this branch does not touch it.
+
+**4 declined: `initialMoods` into `useState` is the architecture, not a
+regression.** `initialPersonaId` was read the same way before this branch.
+`/plan` is `force-dynamic`, so arriving with different parameters
+re-invokes the Server Component and remounts; CLAUDE.md's invariant says
+in as many words that all UI state lives in `useState` plus
+`window.history.replaceState`. Keying the component on the route would
+undo that.
+
+**5 and 6 declined: the boundary already guarantees it, and there is now a
+test saying so.** `RoadsideSurvivorSchema` has `name: z.string().min(1)`,
+and `survivorsAlongRoute` *skips* a row the schema refuses rather than
+passing it on, so pipeline drift makes the store return fewer stops, never
+malformed ones. `alongKm` is not from the store at all: `roadsideAlong`
+computes it from schema-validated coordinates. Guarding the comparator
+would say those two things are not true. A new test asserts a stop with an
+empty name never reaches a marker and that every marker's `alongKm` is
+finite — and its comment says that if it ever fails, the argument has
+stopped holding and the guards go in.
+
+Gates: 612 green; `tsc --noEmit` clean; `eslint` 0 errors.

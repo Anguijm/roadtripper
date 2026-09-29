@@ -28,6 +28,8 @@ import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
 import { orderRoadside } from "@/lib/roadside/order";
 import {
   toggleMood,
+  MOOD_CONFIG,
+  SORT_LABELS,
   MOODS_PARAM,
   SORT_MODES,
   type MoodId,
@@ -408,6 +410,22 @@ export default function PlanWorkspace({
   type SaveState = "idle" | "saved" | "error";
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveAnnouncement, setSaveAnnouncement] = useState("");
+  /**
+   * What a mood tap or an order tap changed, for a screen reader (U6).
+   *
+   * The chips and the order control both reorder a list that is further
+   * down the sheet than the control that reordered it, so the one thing a
+   * tap actually does is the one thing a person using a screen reader
+   * cannot see it do. `aria-pressed` says the chip is on; it does not say
+   * the list underneath moved.
+   *
+   * Polite and set only on a tap, never on the first render, so it does
+   * not read the sheet's whole state on arrival. Council round 1 on #94
+   * asked for it for the order; it is worth as much for the moods, and
+   * they share one region so two taps in a row cannot talk over each
+   * other.
+   */
+  const [listAnnouncement, setListAnnouncement] = useState("");
 
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
   const [chosenMoods, setChosenMoods] = useState<readonly MoodId[]>(initialMoods);
@@ -903,9 +921,21 @@ export default function PlanWorkspace({
   );
 
   // ── Persona / hover handlers ───────────────────────────────────────────
-  const handleMoodToggle = useCallback((mood: MoodId) => {
-    setChosenMoods((curr) => {
-      const next = toggleMood(curr, mood);
+  const handleMoodToggle = useCallback(
+    (mood: MoodId) => {
+      // The next value is computed here, not inside a `setChosenMoods`
+      // updater, and the URL is written here too. A state updater must be
+      // pure: React runs it twice in Strict Mode and may discard a render
+      // and re-run it, so a `history.replaceState` inside one fires more
+      // than once per tap and can leave the URL describing a state the
+      // component never settled on. Council round 1 on #94.
+      const next = toggleMood(chosenMoods, mood);
+      setChosenMoods(next);
+      setListAnnouncement(
+        next.length === 0
+          ? "No mood chosen. The places are back in their usual order."
+          : `In the mood for ${next.map((m) => MOOD_CONFIG[m].label.toLowerCase()).join(" and ")}. The places are reordered.`
+      );
       if (typeof window !== "undefined") {
         // history.replaceState, never router.replace: /plan is
         // force-dynamic and a route change re-invokes the Server Component,
@@ -915,9 +945,9 @@ export default function PlanWorkspace({
         else url.searchParams.set(MOODS_PARAM, next.join(","));
         window.history.replaceState(null, "", url.toString());
       }
-      return next;
-    });
-  }, []);
+    },
+    [chosenMoods]
+  );
 
   // ── Trip add/remove ────────────────────────────────────────────────────
   const handleAddCity = useCallback((city: AddCityPayload) => {
@@ -1304,6 +1334,7 @@ export default function PlanWorkspace({
       <div aria-live="polite" className="sr-only">{candidatePoolAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{sheetAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{saveAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{listAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{startDateAnnouncement}</div>
 
       {/* Side panel / mobile bottom sheet */}
@@ -1572,7 +1603,14 @@ export default function PlanWorkspace({
               its name is the rule. Its label also avoids the heading's
               own words, since two tests find that phrase by position. */}
           {roadsideByDay.some((d) => d.length > 0) && (
-            <SortControl mode={sortMode} onChange={setSortMode} label="Order the day's places" />
+            <SortControl
+              mode={sortMode}
+              onChange={(next) => {
+                setSortMode(next);
+                setListAnnouncement(`The places are ordered ${SORT_LABELS[next]}.`);
+              }}
+              label="Order the day's places"
+            />
           )}
 
           <div

@@ -8,7 +8,8 @@ vi.mock("@/app/plan/actions", () => ({
 }));
 
 import PlanWorkspace from "@/components/PlanWorkspace";
-import { SORT_LABELS } from "@/lib/roadside/tags";
+import { SORT_LABELS, SORT_LEAD } from "@/lib/roadside/tags";
+import { SORT_ACCENT } from "@/components/SortControl";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import type { MoodId } from "@/lib/roadside/tags";
 
@@ -105,9 +106,31 @@ describe("the day's places under the chosen moods", () => {
     }
   });
 
+  it("fills the chosen order in the same gold the places are headed in", () => {
+    // SORT_ACCENT is written in SortControl.tsx and the heading's colour in
+    // PlanWorkspace.tsx; importing one into the other would make a cycle,
+    // so this is what stops the two drifting apart.
+    const html = render(["food"]);
+    expect(SORT_ACCENT).toBe("#e3b341");
+    expect(html).toContain(`style="background-color:${SORT_ACCENT}"`);
+    expect(html).toMatch(new RegExp(`id="roadside-heading-1"[^>]*class="[^"]*text-\\[${SORT_ACCENT}\\]`));
+  });
+
+  it("says out loud what a tap changed, since the list it moves is off the screen", () => {
+    // The chips and the order control both reorder a list further down the
+    // sheet than the control itself, so a screen reader is the only way to
+    // know the tap did anything. The region is empty on arrival: it reports
+    // a change, it does not read the state.
+    const html = render(["food"]);
+    const live = html.match(/<div aria-live="polite" class="sr-only">([^<]*)<\/div>/g) ?? [];
+    expect(live.length).toBeGreaterThan(0);
+    for (const region of live) expect(region).toBe('<div aria-live="polite" class="sr-only"></div>');
+  });
+
   it("offers the two orders once for the sheet, not once per day", () => {
     const html = render(["food"]);
     expect(html.match(/data-sort-control/g)).toHaveLength(1);
+    expect(html).toContain(SORT_LEAD);
     expect(html).toContain(SORT_LABELS.best);
     expect(html).toContain(SORT_LABELS.along);
     expect(html).toContain('aria-label="Order the day&#x27;s places"');

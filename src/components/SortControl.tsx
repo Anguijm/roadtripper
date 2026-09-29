@@ -2,7 +2,18 @@
 
 import { SORT_MODES, SORT_LABELS, SORT_LEAD, type SortMode } from "@/lib/roadside/tags";
 
-/** The gold the day's places are headed in; the on state is filled with it. */
+/**
+ * The gold the day's places are headed in; the on state is filled with it.
+ *
+ * The authority is `src/components/PlanWorkspace.tsx`, where the day's
+ * roadside heading is `text-[#e3b341]` and the open row's border is the
+ * same value. It is repeated here rather than imported because that file
+ * is the plan screen's client root and importing it into a leaf component
+ * would make a cycle; the test "fills the chosen order in the same gold
+ * the places are headed in" in
+ * `src/components/__tests__/PlanWorkspace.moods.ssr.test.tsx` holds the
+ * two together, so they cannot drift silently.
+ */
 export const SORT_ACCENT = "#e3b341";
 
 interface SortControlProps {
