@@ -34,6 +34,7 @@ vi.mock("@/app/plan/actions", () => ({
 
 import PlanPage from "@/app/plan/page";
 import { PLAN_HEADER_PX } from "@/components/RouteMap";
+import { DEFAULT_PERSONA_ID, PERSONAS, type PersonaId } from "@/lib/personas";
 
 const BASE = {
   fromName: "Amarillo", fromLat: "35.2073", fromLng: "-101.8338",
@@ -87,5 +88,29 @@ describe("the plan page knows the deadline", () => {
     expect(header).not.toMatch(/\bpy-[1-9]|\bpt-[1-9]|\bpb-[1-9]|\bh-\[/);
     expect(html).toMatch(/<a class="min-h-\[44px\] flex items-center [^"]*" href="\/">← Roadtripper<\/a>/);
     expect(PLAN_HEADER_PX).toBe(44 + 1 + 4);
+  });
+});
+
+describe("the plan page reads the mood from the URL", () => {
+  /** The chip for `id`, checked or not; its glyph and label sit in spans the render strips. */
+  const chip = (id: PersonaId, checked: boolean) =>
+    new RegExp(`<button type="button" role="radio" aria-checked="${checked}"[^>]*>${PERSONAS[id].glyph}${PERSONAS[id].label}</button>`);
+
+  it("takes a known persona id as the checked chip, and the default for an arbitrary string or none, not an error", async () => {
+    // The home sends persona only when a chip was tapped (Gauntlet U4). The
+    // page reads it through parsePersonaId, PersonaIdSchema's enum with the
+    // default for anything else, so a link with a made-up mood still plans,
+    // the same as a link with none.
+    expect(DEFAULT_PERSONA_ID).not.toBe("nerd");
+    const known = await render({ persona: "nerd" });
+    expect(known).toMatch(chip("nerd", true));
+    expect(known).toMatch(chip(DEFAULT_PERSONA_ID, false));
+    for (const persona of ["banana", "NERD", "nerd,culture", ""]) {
+      const html = await render({ persona });
+      expect(html, JSON.stringify(persona)).not.toContain("Something is off with this link");
+      expect(html, JSON.stringify(persona)).toMatch(chip(DEFAULT_PERSONA_ID, true));
+      expect(html, JSON.stringify(persona)).toMatch(chip("nerd", false));
+    }
+    expect(await render({})).toMatch(chip(DEFAULT_PERSONA_ID, true));
   });
 });

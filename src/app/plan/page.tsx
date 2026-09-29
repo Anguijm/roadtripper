@@ -106,6 +106,13 @@ export default async function PlanPage({
   const { origin, destination, budgetHours } = validated;
   const fromName = params.fromName ?? "Start";
   const toName = params.toName ?? "End";
+  // The mood, through PersonaIdSchema (src/lib/personas/types.ts), a zod
+  // enum of the five ids: parsePersonaId (src/lib/personas/index.ts) takes
+  // a known id and gives DEFAULT_PERSONA_ID for anything else, an arbitrary
+  // string the same as none, with no error screen. The home has sent
+  // persona since Gauntlet U4, only when a chip was tapped; this page has
+  // read it this way since the persona system (Session 5). The invalid
+  // case is pinned in src/app/plan/__tests__/page.ssr.test.tsx.
   const activePersonaId = parsePersonaId(params.persona);
 
   // Parse and validate date params. Three modes:

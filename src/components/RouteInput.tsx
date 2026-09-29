@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { useRouter } from "next/navigation";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
 import DriveBudgetSelector from "./DriveBudgetSelector";
+import PersonaSelector from "./PersonaSelector";
 import { useLocatedOrigin } from "./useLocatedOrigin";
 import { totalDays, totalBudgetMinutes } from "@/lib/plan/types";
+import type { PersonaId } from "@/lib/personas/types";
 
 interface RouteInputProps {
   initialFrom?: CitySelection;
@@ -16,6 +18,13 @@ interface RouteInputProps {
   initialEndDate?: string;
   /** "arrival" opens the picker in arrive-by mode with the end date as the deadline. */
   initialDateMode?: "range" | "arrival";
+  /**
+   * The fold ("More": dates and the mood) open on the first paint. The page
+   * sets it when the URL carries dateMode, startDate or endDate, however
+   * they parse; left out, it opens when a date or arrival mode was handed
+   * in, so a form given a date never hides it.
+   */
+  initialMoreOpen?: boolean;
 }
 
 function formatDateLabel(iso: string): string {
@@ -45,10 +54,28 @@ function dateButtonLabel(dateMode: "range" | "arrival", startDate: string, endDa
   return "Pick the dates";
 }
 
+/** The words on the disclosure, closed and open: its state in words a person reads, never an icon alone. */
+export const MORE_CLOSED_LABEL = "More: dates and what I'm in the mood for";
+export const MORE_OPEN_LABEL = "Less";
+
 /**
  * Why the button cannot be pressed yet, as a line beside it (quality bar,
  * rule 3): the button keeps its verb, the reason is its own sentence.
  * Empty when it can be pressed. Pure, so a test can read every line.
+ *
+ * Dates are optional (Gauntlet U4): from and to are enough, and a trip with
+ * no dates is planned with no deadline. Half a range (a start with no end,
+ * an end with no start) is refused here, at the button, because the plan
+ * page cannot plan it: given startDate or endDate but not both it runs
+ * TripParamsSchema (src/lib/plan/types.ts), whose two dates are both
+ * required, and answers with its error screen, "Something is off with this
+ * link", and a link back to an empty home. That is loud, not silent, but
+ * it is a dead end after the page load; here the missing date is named in
+ * the line beside the button while it is one tap away. Arrive-by without
+ * its date is refused the same way, for ArrivalTripParamsSchema. The lines
+ * are pinned in src/components/__tests__/glossary.ssr.test.tsx; the plan
+ * page's refusal is the schema's, and no test renders the plan page with
+ * half a range.
  */
 export function planReason(opts: {
   from: boolean;
@@ -61,7 +88,8 @@ export function planReason(opts: {
   if (!opts.from) return "Choose where you start first";
   if (!opts.to) return "Choose where you're going first";
   if (opts.dateMode === "arrival") return opts.endDate ? "" : "Pick the arrival date first";
-  if (!opts.startDate || !opts.endDate) return "Pick the dates first";
+  if (opts.startDate && !opts.endDate) return "Pick the end date too";
+  if (!opts.startDate && opts.endDate) return "Pick the start date too";
   if (!opts.dateOrderValid) return "The end date is before the start date";
   return "";
 }
@@ -73,6 +101,7 @@ export default function RouteInput({
   initialStartDate = "",
   initialEndDate = "",
   initialDateMode = "range",
+  initialMoreOpen,
 }: RouteInputProps) {
   const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
@@ -84,14 +113,19 @@ export default function RouteInput({
   const [submitting, setSubmitting] = useState(false);
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [dateMode, setDateMode] = useState<"range" | "arrival">(initialDateMode);
+  // The mood is asked under the fold and is optional: null until a chip is
+  // tapped, and then the one thing the query gains.
+  const [persona, setPersona] = useState<PersonaId | null>(null);
+  const [moreOpen, setMoreOpen] = useState(
+    initialMoreOpen ?? (initialDateMode === "arrival" || initialStartDate !== "" || initialEndDate !== "")
+  );
+  const foldId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   // Where you are, as the start. Fills on its own once permission has been
   // granted; before that it is one tap. Typing a city replaces it.
   const located = useLocatedOrigin(setFrom);
 
   const dateOrderValid = !startDate || !endDate || startDate <= endDate;
-  // arrival mode: only endDate required (startDate derived server-side from route)
-  // range mode: both dates required and must be in order
   const reason = planReason({ from: !!from, to: !!to, dateMode, startDate, endDate, dateOrderValid });
   const canSubmit = reason === "" && !submitting;
 
@@ -114,11 +148,13 @@ export default function RouteInput({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!from || !to) return;
-    if (dateMode === "range" && (!startDate || !endDate)) return;
-    if (dateMode === "arrival" && !endDate) return;
+    if (!from || !to || !canSubmit) return;
     setSubmitting(true);
 
+    // The plan page's query, unchanged in form (U4's constraint): dateMode
+    // and endDate for a deadline, startDate and endDate for a range, neither
+    // for a trip with no dates, and persona only when a mood was chosen.
+    // Every name here is one the plan page has read since it was written.
     const params = new URLSearchParams({
       from: from.placeId,
       fromName: from.name,
@@ -133,10 +169,11 @@ export default function RouteInput({
     if (dateMode === "arrival") {
       params.set("dateMode", "arrival");
       params.set("endDate", endDate);
-    } else {
+    } else if (startDate && endDate) {
       params.set("startDate", startDate);
       params.set("endDate", endDate);
     }
+    if (persona) params.set("persona", persona);
     router.push(`/plan?${params.toString()}`);
   }
 
@@ -145,22 +182,38 @@ export default function RouteInput({
   return (
     <APIProvider apiKey={apiKey} libraries={["places"]}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <CityAutocomplete
-          label="From"
-          placeholder="Start city"
-          value={from ?? undefined}
-          onChange={(city) => { located.noteManualChange(); setFrom(city); }}
-          onTyping={located.noteManualChange}
-        />
-        <div className="flex items-center gap-3 -mt-2">
-          <button
-            type="button"
-            onClick={() => void located.locate()}
-            disabled={located.status.kind === "locating"}
-            className="min-h-[44px] px-3 text-base border border-[#30363d] hover:border-[#6e7681] text-[#b0b9c2] hover:text-[#f0f6fc] disabled:opacity-40 disabled:cursor-wait transition-colors focus:outline-none focus:border-[#f0f6fc]"
-          >
-            Use where I am
-          </button>
+        {/* Three things above the fold, then the button (Gauntlet U4):
+            From, To, the hours. The fold with the dates and the mood comes
+            after the button, so opening it moves nothing above it. */}
+        <div className="flex flex-col gap-1">
+          <CityAutocomplete
+            label="From"
+            placeholder="Start city"
+            value={from ?? undefined}
+            onChange={(city) => { located.noteManualChange(); setFrom(city); }}
+            onTyping={located.noteManualChange}
+            trailing={
+              // Where you are, as a control inside the From box at its
+              // right end: the box's full 44 px height (rule 7), a glyph
+              // with one short word, so a long city name keeps the room
+              // ("Where I am" took a third of the box, the round-1 critic).
+              // The accessible name starts with the word on it and still
+              // says what it does. Its state is the line under the field.
+              <button
+                type="button"
+                onClick={() => void located.locate()}
+                disabled={located.status.kind === "locating"}
+                aria-label="Here, use where I am"
+                className="shrink-0 min-h-[44px] px-3 flex items-center gap-1.5 text-base text-[#8b949e] hover:text-[#f0f6fc] border-l border-[#30363d] disabled:opacity-40 disabled:cursor-wait transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#f0f6fc]"
+              >
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <circle cx="8" cy="8" r="3" />
+                  <path d="M8 1v3M8 12v3M1 8h3M12 8h3" />
+                </svg>
+                Here
+              </button>
+            }
+          />
           <p
             className={`text-base ${located.status.kind === "error" ? "text-[#ff7b72]" : "text-[#8b949e]"}`}
             aria-live="polite"
@@ -175,22 +228,74 @@ export default function RouteInput({
           value={to ?? undefined}
           onChange={setTo}
         />
+        <DriveBudgetSelector value={budget} onChange={setBudget} />
+        {/* The one obvious action (quality bar, rule 3): the button keeps
+            its verb, and when it cannot be pressed the reason is the line
+            under it, not the button's own label. */}
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="mt-2 min-h-[44px] py-3 text-base border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        >
+          {submitting ? "Planning..." : "Plan the trip"}
+        </button>
+        <p className="text-base text-[#8b949e] -mt-2 min-h-6" aria-live="polite" aria-atomic="true">
+          {submitting ? "" : reason}
+        </p>
 
-        <div className="flex flex-col gap-1">
-          <p className="text-base text-[#b0b9c2]">
-            Trip dates
-          </p>
-          <button
-            type="button"
-            onClick={() => setDateDialogOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={dateDialogOpen}
-            // Words in the body face; only a chosen date inside is mono.
-            className="min-h-[44px] px-3 py-2 text-base bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] text-left focus:outline-none focus:border-[#f0f6fc] hover:border-[#f0f6fc] transition-colors"
-          >
-            {dateLabel}
-          </button>
-        </div>
+        {/* The fold: dates and the mood, under one disclosure that says its
+            state in words (never an icon alone), 44 px tall. Closed, the
+            dates control and the chips are not in the markup at all. Open,
+            everything in it sits inside the 844 px of a phone under the
+            button (the round-1 critic saw the last chip cut at the bottom),
+            so the control follows the reason line as closely as the reason
+            follows the button. */}
+        <button
+          type="button"
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-expanded={moreOpen}
+          aria-controls={moreOpen ? foldId : undefined}
+          className="self-start -mt-2 min-h-[44px] flex items-center gap-2 text-left text-base text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        >
+          <span aria-hidden="true">{moreOpen ? "▾" : "▸"}</span>
+          {moreOpen ? MORE_OPEN_LABEL : MORE_CLOSED_LABEL}
+        </button>
+        {moreOpen && (
+          <div id={foldId} className="flex flex-col gap-3">
+            {/* The date button is its own sentence ("Pick the dates",
+                "Arrive by Oct 14", "Oct 10 to Oct 14"), so no label line
+                sits above it; the dialog it opens is titled "Trip dates".
+                The count of days is the line under it, only when there is
+                a range to count, its numbers in the mono face. */}
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setDateDialogOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={dateDialogOpen}
+                // Words in the body face; only a chosen date inside is mono.
+                className="min-h-[44px] px-3 py-2 text-base bg-[#1c2128] border border-[#8b949e] text-[#f0f6fc] text-left focus:outline-none focus:border-[#f0f6fc] hover:border-[#f0f6fc] transition-colors"
+              >
+                {dateLabel}
+              </button>
+              <p
+                className="text-base text-[#b0b9c2]"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {tripDays !== null && budgetHrs !== null && (
+                  <><span className="num">{tripDays}</span> {tripDays === 1 ? "day" : "days"} at <span className="num">{budget} h</span> a day: <span className="num">{budgetHrs} h</span> of driving in all</>
+                )}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              {/* The glossary's words for "persona" (quality bar, rule 1);
+                  the chips fill the row three then two, none alone. */}
+              <p className="text-base text-[#b0b9c2]">{"I'm in the mood for"}</p>
+              <PersonaSelector activePersonaId={persona} onChange={setPersona} fill />
+            </div>
+          </div>
+        )}
 
         {dateDialogOpen && (
           <div
@@ -314,30 +419,6 @@ export default function RouteInput({
             </div>
           </div>
         )}
-
-        <p
-          className="text-base text-[#b0b9c2]"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {tripDays !== null && budgetHrs !== null
-            ? `${tripDays} ${tripDays === 1 ? "day" : "days"} at ${budget} h a day: ${budgetHrs} h of driving in all`
-            : " "}
-        </p>
-        <DriveBudgetSelector value={budget} onChange={setBudget} />
-        {/* The one obvious action (quality bar, rule 3): the button keeps
-            its verb, and when it cannot be pressed the reason is the line
-            under it, not the button's own label. */}
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="mt-2 min-h-[44px] py-3 text-base border bg-[#1c2128] border-[#6e7681] text-[#f0f6fc] hover:bg-[#262c36] disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
-        >
-          {submitting ? "Planning..." : "Plan the trip"}
-        </button>
-        <p className="text-base text-[#8b949e] -mt-2 min-h-6" aria-live="polite" aria-atomic="true">
-          {submitting ? "" : reason}
-        </p>
       </form>
     </APIProvider>
   );

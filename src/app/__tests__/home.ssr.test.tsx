@@ -5,6 +5,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 vi.mock("@/app/actions/snapOrigin", () => ({ snapOriginAction: vi.fn() }));
+// The example line's names come from the roadside store when one sits in
+// data/; a fixture here so the page reads the same on every desk.
+vi.mock("@/lib/roadside/examples", () => ({
+  homeExampleNames: () => ["Cadillac Ranch", "the Big Texan"] as const,
+}));
 
 import Home from "@/app/page";
 
@@ -18,6 +23,7 @@ describe("the home page, server-rendered", () => {
   it("opens empty by default", async () => {
     const html = await render({});
     expect(html).toContain("Plan your road trip");
+    expect(html).toContain("Places like the Cadillac Ranch and the Big Texan, along your road.");
     expect(html).toContain("Just today");
     expect(html).not.toContain('value="Near Amarillo"');
   });

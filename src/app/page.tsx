@@ -3,6 +3,8 @@ import RouteInput from "@/components/RouteInput";
 import type { CitySelection } from "@/components/CityAutocomplete";
 import { pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { parseDateMode, parseIsoDate } from "@/lib/plan/deadline";
+import { exampleLine } from "@/lib/plan/words";
+import { homeExampleNames } from "@/lib/roadside/examples";
 
 interface HomeSearchParams {
   fromName?: string;
@@ -37,6 +39,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
   const initialDateMode = parseDateMode(params.dateMode);
   const initialEndDate = parseIsoDate(params.endDate) ?? "";
   const initialStartDate = initialDateMode === "range" ? parseIsoDate(params.startDate) ?? "" : "";
+  // The fold with the dates and the mood (Gauntlet U4) opens when the URL
+  // carries any of them, however it parses: a link that names dates is a
+  // link that wants them seen, even one whose date is wrong.
+  const initialMoreOpen = params.dateMode !== undefined || params.startDate !== undefined || params.endDate !== undefined;
+  // What comes back, with two real places from the roadside store (or the
+  // two everybody knows when the store is not here). Read on the server,
+  // no network, no model.
+  const example = exampleLine(homeExampleNames());
   return (
     <div className="flex flex-col min-h-screen">
       {/* The masthead in sentence case, the body face, 16 px (quality bar,
@@ -61,15 +71,19 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
         </nav>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+      {/* Top-aligned, not centred: the fold below the button opens
+          downward and moves nothing above it, and on a 390 by 844 phone the
+          button's bottom edge sits near 520 px and the fold, opened, ends
+          near 815 px (840 with a range's count of days), inside the first
+          screen (Gauntlet U4; quality bar, rule 7). */}
+      <main className="flex-1 flex items-start justify-center p-4 sm:p-6">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
+          <div className="mb-4 text-center">
             <h2 className="text-2xl text-[#f0f6fc] mb-2">
               Plan your road trip
             </h2>
             <p className="text-base text-[#8b949e]">
-              Where you start, where you end and how long you will drive each
-              day. We show what is worth stopping for along the way.
+              {example}
             </p>
           </div>
           <RouteInput
@@ -78,6 +92,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
             initialDateMode={initialDateMode}
             initialStartDate={initialStartDate}
             initialEndDate={initialEndDate}
+            initialMoreOpen={initialMoreOpen}
           />
           <p className="mt-6 text-base text-center text-[#7d8590]">
             Built on Urban Explorer: <span className="num">258</span> cities and thousands of places.

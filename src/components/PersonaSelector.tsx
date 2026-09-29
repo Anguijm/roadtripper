@@ -4,8 +4,26 @@ import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 
 interface PersonaSelectorProps {
-  activePersonaId: PersonaId;
+  /** Null is "nothing chosen yet": the home's fold, where a mood is optional (Gauntlet U4). */
+  activePersonaId: PersonaId | null;
   onChange: (next: PersonaId) => void;
+  /**
+   * The chips share the row's width: each takes at least 30 % of it and
+   * grows, so five wrap three then two at any row width (three are 90 % of
+   * the row, four are 120 %), never one chip alone on a row (the home's
+   * fold, Gauntlet U4: the round-1 critic saw "Outdoors" alone on a second
+   * row). The plan and today screens leave it off and keep the natural row;
+   * fitting five on one row there is U5's.
+   *
+   * Changing the 30 %: the split changes with it (25 % is four then one,
+   * the one alone again). src/app/__tests__/home.fold.ssr.test.tsx reads
+   * the literal `grow` and `basis-[30%]` on all five chips with the fold
+   * open, so any other value fails it by string, and
+   * src/app/__tests__/stylesheet.test.ts pins that the `.basis-[30%]` rule
+   * is compiled; neither lays the row out, and the three-then-two on the
+   * phone is the runner's screenshot at 390 by 844.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -16,6 +34,7 @@ interface PersonaSelectorProps {
 export default function PersonaSelector({
   activePersonaId,
   onChange,
+  fill = false,
 }: PersonaSelectorProps) {
   return (
     <div
@@ -46,6 +65,8 @@ export default function PersonaSelector({
               // 7's 44, so a measurement of the painted box (the round-1
               // critic read 43) cannot land under it (rules 1 and 7).
               "flex items-center gap-1.5 px-3 min-h-[48px] text-base border transition-colors whitespace-nowrap",
+              // The 30 % is explained at the fill prop; the fold test reads this string.
+              fill ? "grow basis-[30%] justify-center" : "",
               isActive
                 ? "font-semibold text-[#0d1117] border-transparent"
                 : "font-normal text-[#b0b9c2] bg-transparent border-[#30363d] hover:border-[#6e7681]",

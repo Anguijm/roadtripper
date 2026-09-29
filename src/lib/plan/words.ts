@@ -140,3 +140,20 @@ export function tripShapeLine(days: ReadonlyArray<Pick<TripDay, "toName" | "endK
 export function townsFitHeading(day = 1): string {
   return day > 1 ? `Towns that fit in day ${day}` : "Towns that fit today";
 }
+
+/**
+ * The line under the home's title: what comes back, said with two real
+ * places (Gauntlet U4, deliverable 2). "the" goes before each name and is
+ * folded when the name already starts with it, so "The Big Texan Steak
+ * Ranch" reads "the Big Texan Steak Ranch" in the middle of the sentence.
+ * Pure; the names come from src/lib/roadside/examples.ts on the server.
+ */
+export function exampleLine(names: readonly [string, string]): string {
+  const [a, b] = names.map(withThe);
+  return `Places like ${a} and ${b}, along your road.`;
+}
+
+function withThe(name: string): string {
+  const trimmed = name.trim();
+  return /^the\s/i.test(trimmed) ? `the ${trimmed.slice(4).trimStart()}` : `the ${trimmed}`;
+}
