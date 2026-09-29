@@ -4,138 +4,136 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/t1-tag-vocabulary`
+Branch: `feat/t2-tags-in-plan-lookup`
 
 ## Ship rule (written before the work)
 
-Ships when `src/lib/roadside/tags.ts` holds the eighteen tags and the eight
-moods John approved on 2026-09-30, the roll-up from tag to mood, the
-question each tag is asked (so the vocabulary and the scorer cannot drift
-apart), and the ranking rule for one or two chosen moods; with unit tests
-including the two-mood case, and no consumer changed. Gate 1 green.
+Ships when the stops the plan page reads carry their tag scores, so that
+`rankFor` can be given something to rank. Concretely:
+`survivorsAlongRoute` attaches a `scores` field to every marker it
+returns, read from `roadside_tag` in batched queries against the table's
+primary key, and `RoadsideMarker.scores` is typed as `TagScores`. With
+unit tests over a temporary SQLite store, including a stop with no tag
+rows at all. No screen changed, no ranking applied yet: the chips and the
+sort control are the next unit.
 
-Why additive: the persona module is imported by fourteen files. Replacing
-it and the vocabulary in one branch is a change no reviewer can hold in
-their head. This branch adds the vocabulary and the math; the screens keep
-their five personas until the interface round swaps them.
+Why this slice: the vocabulary (#92) is in and the store holds the scores,
+but nothing carries one to the other. This is the join and only the join,
+which is a server change reviewable on its own. Applying it to the list is
+a UI change with its own screenshot round, and mixing them would put a
+Firestore-free pure query and a React render in one diff.
 
-**Cost:** $0. No model call, no store write, no route. A pure module and
-its tests.
+**Cost:** $0. One extra indexed read per plan render against a local
+SQLite file. No model call, no route, no Firestore.
 
-**Weakest part:** The eighteen questions are written here but not yet
-asked. Their wording is a guess until the dry run on a sample of the store
-shows what the model does with them, and the first real run may send me
-back to reword a criterion. The glyphs and accent colours are provisional:
-the blind critic judges them on the phone in the interface round, not here.
+**Weakest part:** The cost of the join at plan time is argued from the
+table's shape rather than measured on a real corridor. The primary key is
+`(stop_id, tag)` `WITHOUT ROWID`, so a lookup by stop is a single index
+seek, and the markers are fetched after the corridor has narrowed them —
+but "after the corridor" is the thing to check, because getting it the
+other way round would read tags for every candidate in the bounding
+tiles rather than the few hundred on the road.
+
+## What the store actually holds, measured before the work
+
+Every stop that can appear on the map is tagged. At `MAP_THRESHOLD`
+(0.45) the store holds 27,976 stops and all 27,976 have tag rows; none is
+missing. The tagging run went further down than the map does — 31,941
+stops tagged, the lowest at a general score of 0.02 — so the threshold has
+room to move down without leaving a hole.
+
+That matters for this unit: the join has no partial-coverage case on the
+screen. A chip can never show a place the ranking cannot read. The
+untagged path still has to work (a store built before the tagging run, or
+a threshold moved below 0.02), which is why the tests cover a stop with no
+tag rows, but it is a compatibility path rather than the common one.
 
 ## Gate 1 proofs
 
-Mutation: the three bands in `rankFor` replaced by the plain `return
-weakest` the first cut had. `bunx vitest run
-src/lib/roadside/__tests__/tags.test.ts` then fails seven tests by name,
-among them "orders the tail instead of flattening it to zero" and "ranks
-both above one above neither, and drops nothing off the list". Restored
-from the copy taken first; `cmp` reports the file identical.
+Four mutations, each restored from a copy taken first (`cmp` identical):
 
-That first cut was not a straw man. It is what I wrote, and it is what I
-described to the operator as the rule: rank by the weaker of the two
-chosen moods. The test caught what the description hid. Under it every
-place that misses either mood scores exactly zero, so the whole tail below
-the both-matches comes back in arbitrary order. The bands keep the
-promise (what answers both is on top) and order everything underneath.
+1. The missing-table guard removed from `tagScoresByStop`. Three tests
+   fail, two of them the *existing* store tests — which is how the problem
+   was found in the first place, not a test written to fit a fix.
+2. The `KNOWN_TAGS` filter removed. "drops a tag the vocabulary does not
+   know instead of carrying it" fails.
+3. `TAG_CHUNK` raised to 100,000, i.e. one query. See below.
+4. An untagged stop given `scores: {}` instead of no field. "leaves a stop
+   the tagging never reached without a scores field at all" fails.
 
-Gates: `bunx vitest run` all green; `bun run type-check` clean; `bun run
-lint` 0 errors.
+**Mutation 3 is the one worth writing down, because the first version of
+its test did not catch it.** The test asked for 2,501 ids and checked the
+rows came back. It passed with the chunking removed, because SQLite's
+host-parameter ceiling is 32,766 on anything built since 3.32 and this
+machine has a current build; the single oversized query simply worked. The
+test proved the loop reassembles across chunks and proved nothing about
+why the loop exists.
 
-## Council round 1 on #92
+It now watches the SQL instead, through a proxy on the handle's `prepare`:
+every statement that touches `roadside_tag` must carry at most 999
+parameters, there must be more than one of them, and their widths must sum
+to the number of ids asked for. That fails the moment the chunking goes,
+on any machine, and it is a statement about the code rather than about the
+SQLite this laptop happens to link.
 
-1, 2 and 3 are comments and they are written: `MAX_MOODS` names the chip
-component and the two tests that pin its layout; `MOOD_ANSWERED` names the
-test file and says it must stay above zero and below one; `accentColor`
-says which test computes the contrast; the test file says where `#0d1117`
-comes from and why the question length has a floor and a ceiling (the
-scorer's state-plus-question budget). `rankFor` now carries the proof that
-the bands cannot meet: a general score is at most 1, a band-1 key is at
-least 1 + `MOOD_ANSWERED`, a band-2 key at least 2 + `MOOD_ANSWERED`, and
-the whole separation rests on `MOOD_ANSWERED` being above zero. A new test
-walks the range and checks no lower band reaches a higher one.
+## What the join costs, measured
 
-4 was real and is fixed. `moodScore` read `scores[tag]` and compared it
-with `>`, so a null or undefined `scores` threw, and an `Infinity` written
-into the table would have won every comparison and pinned one place to the
-top of every list for ever. A `NaN` was already harmless by luck rather
-than design. Scores now pass through `scoreOf`, which takes a finite
-number in 0 to 1 and treats anything else as no answer, and the general
-score is clamped to the same range so it cannot break the band
-separation. Three tests cover it: rubbish values, no scores at all, and an
-out-of-range general score.
+Against the real 178 MB store, chunked exactly as the code does it, twenty
+runs after three warm ones:
 
-The council's three "before merge" notes are the same ground: the drift
-between the questions here and the scorer is the reason the questions live
-in this file and are exported to `data/tag-questions.json` for the bench to
-read rather than retyped there, which the J11 spec in jev-lab records; the
-contrast test is in the same file as the colours it guards; and the
-validation it asks the ingest to do is now done at the point of use, which
-is the only place that can be sure of it.
+| markers | tag rows | per join |
+|---|---|---|
+| 50 | 900 | 0.53 ms |
+| 200 | 3,600 | 2.05 ms |
+| 500 | 9,000 | 4.28 ms |
+| 1,000 | 18,000 | 9.58 ms |
 
-## What the real tag scores changed, before the council saw them
+Linear, about 9 µs per marker, and a tagged stop always has all eighteen
+rows. A corridor of a few hundred markers costs a few milliseconds once
+per plan render, against the route fetch it sits behind. The weakest part
+written above is therefore closed: it was argued from the index and is now
+measured. What is still argued rather than measured is the *ordering* —
+that tags are read after the corridor narrows — which the code does at the
+one call site and a comment there says why.
 
-The tagging run finished while #92 was in review (jev-lab J11, 31,941
-places, $2.94). Reading the result exposed a gap the fixtures could not:
-the Rose Bowl and a college practice field both score 0.99 for
-`sports_place`, because both are unarguably about sport. Their general
-scores are 0.06 and 0.04. Ranked on the mood alone, the list put them in
-whatever order the database returned.
+Gates: `npx vitest run` 589 green; `tsc --noEmit` clean; `eslint` 0 errors.
 
-So the within-band key is now nine parts mood and one part general score.
-The general score cannot overturn a real difference in the mood (a place
-half a point better on the mood still wins from a general score of zero),
-but it decides a near-tie, which is exactly the Rose Bowl case. The band
-separation still holds and its test now walks each band at its worst case.
+## Council round 1 on #93 — 🟡 CONDITIONAL, four applied and one declined
 
-This is scope added to a branch already in review, and the reason is that
-shipping a ranking I had just watched pick wrong would have been worse.
+**2, 4 and 5 applied as asked.** Values from `roadside_tag` are now checked
+as well as keys: a row is carried only if the tag is one of the eighteen
+*and* the value is a finite number in 0 to 1. The council is right and my
+original comment was wrong. It said values were left alone because
+`rankFor` is the single place that decides what a number means. But this
+function already refused an unknown *tag* at the same boundary, so it was
+filtering the key and not the value — half a border. `scoreOf` still
+refuses a bad number, and that is not a duplicate: a marker can also come
+from a committed survivors file that never passed through here, so one
+keeps rubbish out of the object and the other keeps the comparator honest
+about an object it did not build.
 
-## Council round 2 on #92 — 🟡 CONDITIONAL, both remediations applied
+The `TAG_CHUNK` comment now names the test that holds it and warns that a
+behavioural test proves nothing here. The doc block names jev-lab,
+`bench/roadside_tag_score.py` and J11 rather than "a bench in another
+repository".
 
-**1. The clamp on the no-mood path.** `rankFor` returned `generalScore`
-untouched when nothing was chosen, while both banded paths clamped. The
-council called it minor. It is not: `chosen.length === 0` is the state of
-the list before anyone taps a chip, so the unguarded return was the most
-travelled line in the function, and a single corrupt row reached the
-comparator unchecked on the default screen. The expression now lives once,
-in `clamp01`, instead of being written a third time.
+**1 applied, though not for the reason given.** The council read a shared
+reference between stops; there is none, since each stop id gets a fresh
+object and the writes are idempotent. But there is a real one between the
+map and the markers: `withTagScores` is exported, the map holds one object
+per stop, and two markers with the same id would have been handed the same
+object. `survivorsAlongRoute` dedupes by id so it cannot happen there.
+Each marker now gets a copy.
 
-I did not follow the council's suggested value. It asked that `Infinity`
-resolve to `1`; `clamp01` resolves it to `0`, which its own "or a safe
-clamped fallback" allows. Clamping a corrupt value *upward* to 1 would tie
-it with the best real place and let it win a stable sort — the exact
-failure `scoreOf` is documented as existing to prevent. A value nothing can
-be read from is not an answer, so it reads as no answer.
+**3 declined: it is already done.** `import "server-only";` is line 1 of
+`src/lib/roadside/store.ts` and has been since #75. It does not appear in
+this diff, which is what the council reviewed, so it read the absence from
+the diff rather than the file. Nothing to change.
 
-**2. The tests.** `NaN`, `±Infinity`, out-of-range high and low, and a
-sort over a corrupt row proving it lands last rather than first.
+Mutations: the probability check deleted — three tests fail, among them
+"drops a value that is not a probability instead of carrying it to a
+marker"; the copy in `withTagScores` replaced by the map's own object —
+"gives each marker its own scores object rather than the lookup's" fails.
+Restored from the copy taken first; `cmp` identical.
 
-Mutation: `clamp01(generalScore)` on the no-mood path put back to `return
-generalScore`. The two new tests fail by name and the other thirty still
-pass — which is the point, since it shows the previous suite never covered
-that path. Restored from the copy taken first; `cmp` reports identical.
-
-**The deferred follow-up was worse than the council could see, so it is
-done too.** `data/tag-questions.json` was not merely un-synced: it was not
-in the repository at all, an untracked file in one working copy. The
-jev-lab bench reads it by path, and its own error message names
-`scripts/export-tag-questions.ts` — a script that had never been written.
-The cross-repo contract this branch's ship rule rests on ("so the
-vocabulary and the scorer cannot drift apart") was held together by one
-file on one disk.
-
-`tagQuestionsJson()` now lives beside the vocabulary it serialises, the
-script is its only writer, `bun run tags:export` runs it, and two tests
-compare the committed bytes with the module. Mutation: one word added to
-the `waterfall` question without re-exporting; both tests fail by name.
-The generated file is byte-identical to the one the bench actually read
-during the 31,941-place run, so committing it changes nothing already
-scored and locks it going forward.
-
-Gates: `npx vitest run` 582 green; `tsc --noEmit` clean; `eslint` 0 errors.
+Gates: `npx vitest run` 591 green; `tsc --noEmit` clean; `eslint` 0 errors.

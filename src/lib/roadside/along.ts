@@ -7,10 +7,24 @@
 import { haversineKm, type LatLng } from "@/lib/routing/polyline";
 import { withinCorridor, DEFAULT_BUFFER_KM } from "./corridor";
 import type { RoadsideSurvivor } from "./survivors";
+import type { TagScores } from "./tags";
 
 export interface RoadsideMarker extends RoadsideSurvivor {
   /** Distance along the route to the nearest point of the road, in km. */
   alongKm: number;
+  /**
+   * What kind of thing this place is, per tag, from `roadside_tag`.
+   *
+   * Optional because it depends on where the marker came from: the store
+   * attaches it (`survivorsAlongRoute`), while a marker built from a
+   * committed survivors file has none, and a store built before the
+   * tagging run has none either. `rankFor` reads an absent `scores` as a
+   * place that answers no mood, which is the correct reading of "not
+   * tagged" and the reason this is optional rather than defaulted to an
+   * empty object — an empty object and a missing one must rank the same,
+   * and they do.
+   */
+  scores?: TagScores;
 }
 
 /**
