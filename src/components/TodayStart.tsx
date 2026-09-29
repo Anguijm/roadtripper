@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
-import PersonaSelector from "./PersonaSelector";
+import MoodChips from "./MoodChips";
 import { useLocatedOrigin } from "./useLocatedOrigin";
 import { HOURS_PRESETS, type HoursPreset } from "@/lib/today/presets";
 import type { PersonaId } from "@/lib/personas/types";
@@ -123,11 +123,9 @@ export default function TodayStart({ initialHours, initialPersonaId, carry, dead
           </div>
         </fieldset>
 
-        <div className="flex flex-col gap-2">
-          {/* The glossary's words for "persona" (quality bar, rule 1). */}
-          <p className="text-base text-[#b0b9c2]">I&apos;m in the mood for</p>
-          <PersonaSelector activePersonaId={persona} onChange={setPersona} />
-        </div>
+        {/* The one mood component (Gauntlet U5): its label, its chips, its
+            two rows. Only the tap is the form's. */}
+        <MoodChips activeId={persona} onChange={setPersona} />
 
         {/* The one obvious action (quality bar, rule 3): the button keeps
             its verb, and when it cannot be pressed the reason is the line

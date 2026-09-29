@@ -33,6 +33,7 @@ import RouteInput, { planReason } from "@/components/RouteInput";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import RecommendationList from "@/components/RecommendationList";
 import TodayStart from "@/components/TodayStart";
+import MoodChips, { MOOD_LABEL } from "@/components/MoodChips";
 import TripsPage from "@/app/trips/page";
 import PlanLoading from "@/app/plan/loading";
 import PlanError from "@/app/plan/error";
@@ -362,21 +363,51 @@ describe("the words on the screens, against the glossary", () => {
     expect(PERSONA_ORDER.map((id) => PERSONAS[id].label)).toEqual(["Culture", "Food", "Nerd", "Gear", "Outdoors"]);
     for (const id of PERSONA_ORDER) expect(PERSONAS[id].label.length).toBeLessThanOrEqual(8);
     const { home, sheet, today } = screens();
-    for (const html of [sheet, today]) {
-      expect(html).toContain('aria-label="I&#x27;m in the mood for"');
-      expect(html).toMatch(/role="radiogroup"[^>]*class="[^"]*flex-wrap/);
-      expect(html).not.toContain("overflow-x-auto");
-      expect(visible(html)).toContain("I'm in the mood for");
+    // The home's chips sit under its fold (U4); open, they are the same.
+    const fold = renderToString(<RouteInput initialMoreOpen />);
+    for (const [name, html] of Object.entries({ fold, sheet, today })) {
+      expect(html, name).toContain('aria-label="I&#x27;m in the mood for"');
+      expect(html, name).toMatch(/role="radiogroup"[^>]*class="[^"]*flex-wrap/);
+      expect(html, name).not.toContain("overflow-x");
+      expect(visible(html), name).toContain("I'm in the mood for");
       // Every chip a few pixels over rule 7's 44 (the round-1 critic
       // measured 43): the same for every hour button on the two forms.
       const chips = html.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
-      expect(chips).toHaveLength(5);
-      for (const chip of chips) expect(chip).toMatch(/class="[^"]*\bmin-h-\[48px\]/);
+      expect(chips, name).toHaveLength(5);
+      for (const chip of chips) {
+        expect(chip, name).toMatch(/class="[^"]*\bmin-h-\[48px\]/);
+        // Three then two, never one alone (U4 round 1; U5 on every screen).
+        expect(chip, name).toMatch(/class="[^"]*\bgrow\b[^"]*\bbasis-\[30%\]/);
+      }
     }
     for (const html of [home, today]) {
       const hours = html.match(/<button[^>]*aria-pressed="(?:true|false)"[^>]*>\d h<\/button>/g) ?? [];
       expect(hours).toHaveLength(6);
       for (const h of hours) expect(h).toMatch(/class="[^"]*\bmin-h-\[48px\]/);
+    }
+  });
+
+  it("mounts the one mood component on every screen: its render found byte for byte inside the home's fold, the plan sheet and the today form, once each", () => {
+    // Gauntlet U5: the look and the words live in MoodChips; a screen
+    // keeps only the tap. Rendered standalone with the screen's mood (the
+    // home's fold has none chosen), the component's markup is a substring
+    // of the screen's, and the runner's data-mood-chips is there once.
+    // The today results (src/app/today/page.tsx) are checked the same way
+    // in src/app/today/__tests__/page.ssr.test.tsx.
+    const { sheet, today } = screens();
+    const fold = renderToString(<RouteInput initialMoreOpen />);
+    const chosen = renderToString(<MoodChips activeId="culture" onChange={() => {}} />);
+    const none = renderToString(<MoodChips activeId={null} onChange={() => {}} />);
+    expect(chosen).toMatch(/^<div data-mood-chips="true"/);
+    expect(chosen).toContain('aria-checked="true"');
+    expect(none).not.toContain('aria-checked="true"');
+    for (const [name, html, expected] of [["sheet", sheet, chosen], ["today", today, chosen], ["fold", fold, none]] as const) {
+      expect(html, name).toContain(expected);
+      expect(html.match(/data-mood-chips/g), name).toHaveLength(1);
+      // The label once, as the component says it, and not a second time
+      // from the screen (the fold's closed disclosure says the phrase too,
+      // but the fold is open here and the control reads "Less").
+      expect(textNodes(html).filter((t) => t.trim() === MOOD_LABEL), name).toHaveLength(1);
     }
   });
 

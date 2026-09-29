@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import TodayStart from "@/components/TodayStart";
-import TodayPersonaBar from "@/components/TodayPersonaBar";
+import TodayMoodChips from "@/components/TodayMoodChips";
 import { planToday } from "@/lib/today/plan";
 import { hoursFrom, formatDrive, pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
@@ -241,10 +241,10 @@ export default async function TodayPage({
         )}
       </div>
 
-      <div className="mb-5 flex flex-col gap-2">
-        {/* The glossary's words for "persona" (quality bar, rule 1). */}
-        <p className="text-base text-[#b0b9c2]">I&apos;m in the mood for</p>
-        <TodayPersonaBar activePersonaId={personaId} />
+      {/* The one mood component (Gauntlet U5) behind the results' wiring:
+          a tap changes the URL's mood. */}
+      <div className="mb-5">
+        <TodayMoodChips activeId={personaId} />
       </div>
 
       {total === 0 ? (

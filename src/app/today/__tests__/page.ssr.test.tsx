@@ -13,6 +13,7 @@ vi.mock("@/app/actions/snapOrigin", () => ({
 }));
 
 import TodayPage from "@/app/today/page";
+import MoodChips from "@/components/MoodChips";
 import { todayIso, formatDeadline } from "@/lib/plan/deadline";
 
 /** A date `days` from today, as the page will count it. */
@@ -53,6 +54,20 @@ describe("the today screen, server-rendered", () => {
     // Not a dead end: every city links into the planner with both ends filled.
     expect(html).toContain("Plan a trip here");
     expect(html).toMatch(/href="\/\?fromName=[^"]*fromLat=35\.2073[^"]*toName=Albuquerque[^"]*toLat=/);
+  });
+
+  it("mounts the one mood component on the results with the URL's mood checked: its render found byte for byte, once", async () => {
+    // Gauntlet U5: TodayMoodChips is the results' wiring (a tap changes
+    // the URL); the markup is MoodChips', the same as on every screen.
+    const html = await render({ lat: "35.2073", lng: "-101.8338", hours: "5", persona: "nerd" });
+    const chips = renderToString(<MoodChips activeId="nerd" onChange={() => {}} />);
+    expect(chips).toContain('aria-checked="true"');
+    expect(html).toContain(chips);
+    expect(html.match(/data-mood-chips/g)).toHaveLength(1);
+    // The start screen, before a point, mounts it too.
+    const start = await render({});
+    expect(start).toContain(renderToString(<MoodChips activeId="culture" onChange={() => {}} />));
+    expect(start.match(/data-mood-chips/g)).toHaveLength(1);
   });
 
   it("without a point shows the start screen and never touches the browser", async () => {
