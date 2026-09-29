@@ -77,7 +77,23 @@ interface RecommendationListProps {
  */
 export function RecommendationNotices({ fetchResult, moodProfile, atCap = false }: Pick<RecommendationListProps, "fetchResult" | "moodProfile" | "moodKey" | "atCap">) {
   const groups = useMemo(() => buildRankedGroupsWith(fetchResult, moodProfile), [fetchResult, moodProfile]);
-  if (fetchResult.cities.length === 0) return null;
+  if (fetchResult.cities.length === 0) {
+    // A degraded read that came back with no towns at all used to return
+    // null, so a failure looked exactly like a route with nothing near it:
+    // the screen said nothing and the person had no way to know a reload
+    // would help. Same lesson as the missing `roadside_tag` table in #93 —
+    // a silent empty is a worse failure than a loud one. A *fresh* read
+    // with no towns is not a failure and still says nothing here; the
+    // sheet's own day lines already tell that story.
+    if (fetchResult.status !== "degraded") return null;
+    return (
+      <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
+        <p className="text-base text-[#d29922]">
+          The towns along this road did not load. Reload to try again.
+        </p>
+      </div>
+    );
+  }
   if (!groups.some((g) => g.rows.length > 0)) {
     return (
       <div className="p-4 border border-[#30363d] bg-[#161b22]">

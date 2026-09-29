@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
 import React from "react";
-import RecommendationList from "@/components/RecommendationList";
+import RecommendationList, { RecommendationNotices } from "@/components/RecommendationList";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
 import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
 
@@ -213,5 +213,35 @@ describe("the candidate list on a failed or degraded fetch", () => {
     const html = renderToString(<RecommendationList {...baseProps} fetchResult={degraded} />);
     expect(html).toContain("Some of the places did not load.");
     expect(html).toContain("Cadillac Ranch");
+  });
+});
+
+
+describe("a read that failed does not look like a road with nothing on it", () => {
+  // Council round 4 on #94. A degraded fetch that came back with no towns
+  // returned null, so the screen said nothing and the person had no way to
+  // know a reload would help.
+  const degraded = {
+    status: "degraded" as const,
+    cities: [],
+    waypoints: [],
+    neighborhoods: {},
+    failures: [{ cityId: "lubbock", reason: "timeout" }],
+  };
+  const fresh = { status: "fresh" as const, cities: [], waypoints: [], neighborhoods: {} };
+
+  it("says the towns did not load when the read was degraded and brought none", () => {
+    const html = renderToString(
+      <RecommendationNotices fetchResult={degraded as never} moodProfile={PROFILE} moodKey="museums" />
+    );
+    expect(html).toContain("did not load");
+    expect(html).toContain("Reload to try again");
+  });
+
+  it("still says nothing when the read was fine and the road simply has no towns", () => {
+    const html = renderToString(
+      <RecommendationNotices fetchResult={fresh as never} moodProfile={PROFILE} moodKey="museums" />
+    );
+    expect(html).toBe("");
   });
 });

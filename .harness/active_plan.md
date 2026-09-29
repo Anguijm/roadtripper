@@ -357,3 +357,39 @@ fields, so neither the optional `personaId` nor the new `moods` can be
 refused by a rule.
 
 Gates: 618 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Council round 4 on #94 — both items real, and one was a comment that lied
+
+**1. The route line never changed colour.** `waypointProfileForMoods`
+returned `PERSONAS[DEFAULT_PERSONA_ID].accentColor` whatever was chosen,
+while the comment at the use site in `PlanWorkspace` said "the first mood
+chosen, so that adding a second never repaints the road the first one
+painted". The comment described an intention I had not implemented, which
+is worse than either a missing feature or a wrong comment on its own: it
+reads as settled behaviour and nothing points at the gap.
+
+It now returns the first chosen mood's accent, and `moodProfile.ts` — the
+module carrying the operator's whole mapping decision and which had no
+tests of its own — has nine. Among them: the accent follows the *first*
+mood and not the last; nothing chosen gives the default persona's profile
+unchanged, so the sheet at rest is untouched; and an unmapped mood leaves
+every waypoint type on the same `typeWeight`, which is the arithmetic the
+operator's ruling rests on. Mutation: the accent put back to the default,
+"paints the route line with the first mood chosen" fails.
+
+There is also a test asserting History, Art and Museums order a town's
+places *identically*, so nobody later reads that as a bug and "fixes" it
+into a difference the atlas cannot support.
+
+**2. A failed read looked like an empty road.** `RecommendationNotices`
+returned null when `cities` was empty, before either of the two places it
+handles a degraded read. So a degraded fetch that came back with no towns
+at all said nothing, and the person had no way to know a reload would
+help. It now says so; a *fresh* read with no towns still says nothing,
+because that is not a failure and the day lines already tell it.
+
+Same lesson as the missing `roadside_tag` table in #93, and I should have
+recognised it: I argued there that a silent empty is a worse failure than
+a loud one, and then left one standing two files away.
+
+Gates: 629 green; `tsc --noEmit` clean; `eslint` 0 errors.

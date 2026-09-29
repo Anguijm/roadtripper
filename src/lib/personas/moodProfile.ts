@@ -1,5 +1,5 @@
 import type { WaypointType } from "@/lib/urban-explorer/types";
-import { MOODS, type MoodId } from "@/lib/roadside/tags";
+import { MOODS, MOOD_CONFIG, type MoodId } from "@/lib/roadside/tags";
 import type { PersonaConfig } from "./types";
 import { DEFAULT_PERSONA_ID, PERSONAS } from "./index";
 
@@ -91,6 +91,11 @@ export function waypointProfileForMoods(chosen: readonly MoodId[]): PersonaConfi
     primaryTypes: [...primary],
     secondaryTypes: [...secondary],
     preferredVibes: [],
-    accentColor: PERSONAS[DEFAULT_PERSONA_ID].accentColor,
+    // The first mood chosen, which is what paints the route line on the
+    // plan sheet. First and not last, so adding a second mood never
+    // repaints the road the first one painted. This returned the default
+    // persona's colour until council round 4 on #94, which meant the line
+    // never changed at all while a comment at the use site said it did.
+    accentColor: MOOD_CONFIG[chosen[0]].accentColor,
   };
 }
