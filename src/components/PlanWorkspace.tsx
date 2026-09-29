@@ -31,6 +31,7 @@ import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
+import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
 import {
   recomputeAndRefreshAction,
   fetchNeighborhoodsAction,
@@ -482,8 +483,10 @@ export default function PlanWorkspace({
   // Screen-reader announcement for panel loading / content updates (WCAG 4.1.3).
   const [panelAnnouncement, setPanelAnnouncement] = useState("");
 
-  // Council ISC-S6-ARCH-5 — incrementing request id, latest wins.
-  const requestIdRef = useRef(0);
+  // Which recompute is current: the latest ask wins, and a reset is an
+  // ask (Council ISC-S6-ARCH-5; council round 3 on #87, item 3; the rule
+  // is src/lib/plan/recompute-sequence.ts and its test).
+  const recomputeSeqRef = useRef(recomputeSequence());
 
   // Mobile bottom sheet snap state: 0 = peek, 1 = rest (the default), 2 =
   // full; the hidden share at each is SHEET_SNAPS above.
@@ -579,6 +582,22 @@ export default function PlanWorkspace({
   // stop's town the set no longer holds, with the places it had when it
   // was added. The title, the notices and the map keep the effective set:
   // a stop is on the trip, not a town that fits.
+  //
+  // Nothing here needs a guard on the set's state (council round 3 on
+  // #87, item 1, as round 1 on #85 found). WaypointFetchResult has two
+  // members, "fresh" and "degraded", and both carry `cities`, `waypoints`
+  // and `neighborhoods`; there is no "loading" or "failed" member, and no
+  // optional field the sheet reads. The one field that belongs to a
+  // single member, `failures`, is read once, at the panel below, behind
+  // `status === "degraded"`. `effectiveWaypointFetch` is never null: the
+  // prop is required, and `liveWaypointFetch` is null or a set. So every
+  // `.waypoints` and `.cities` on this set, and on `effectiveWaypointFetch`
+  // (the title, the notices, the panel, the map's dots), is a read of an
+  // array that is always there. Rendered for each member and for the empty
+  // set with the flag, with a stop's town kept and the panel open, in
+  // "draws the days from each member of the set's type" in
+  // src/components/__tests__/PlanWorkspace.days.ssr.test.tsx, which also
+  // fails to compile if a member is added.
   const sheetFetch = useMemo<WaypointFetchResult>(() => {
     const have = new Set(effectiveWaypointFetch.cities.map((c) => c.id));
     const kept = Object.values(stopTowns).filter((t) => !have.has(t.city.id));
@@ -930,11 +949,26 @@ export default function PlanWorkspace({
   // Fires whenever the user changes the trip-stops list.
   // Empty-stops branch restores the server-rendered route AND
   // recommendations via the `liveRoute = null` / `liveWaypointFetch = null`
-  // pattern (Council ISC-S6-ARCH-3, S7-ARCH-2). The `requestIdRef` increment
-  // is gated behind that early-return so empty resets don't burn IDs
-  // (Council S7-ARCH-5).
+  // pattern (Council ISC-S6-ARCH-3, S7-ARCH-2).
+  //
+  // Rapid taps (council round 3 on #87, item 3). Two recomputes can be in
+  // flight: "Stop here" is off while one runs (`pending` in
+  // RecommendationList), but "Take this stop out" is not, and a tap on a
+  // town's dot on the map adds it whatever the buttons say; so a second
+  // change to the stops can dispatch before the first answer lands, and
+  // the older answer can land last. Every change takes a number from the
+  // sequence, and an answer is applied only when its number is still the
+  // latest, both state updates together. The reset with no stops left
+  // takes a number too: Council S7-ARCH-5 had gated the increment behind
+  // the early return "so empty resets don't burn IDs", and so "Stop here"
+  // then "Take this stop out" before the route returned let the answer
+  // for the trip through that stop land on the empty trip (its route
+  // drawn, its leg counted, the towns counted from it). The rule is
+  // src/lib/plan/recompute-sequence.ts, tested there; this effect only
+  // calls it, once per change and once per answer.
   useEffect(() => {
-    if (tripStops.length === 0) {
+    const ask = nextRecompute(recomputeSeqRef.current, tripStops.length);
+    if (ask.kind === "reset") {
       if (liveRoute !== null) setLiveRoute(null);
       if (liveWaypointFetch !== null) setLiveWaypointFetch(null);
       if (recomputeError !== null) setRecomputeError(null);
@@ -944,7 +978,7 @@ export default function PlanWorkspace({
       return;
     }
 
-    const myId = ++requestIdRef.current;
+    const myId = ask.id;
     const stopsForRequest = tripStops.map((s) => ({
       cityId: s.cityId,
       lat: s.lat,
@@ -968,7 +1002,7 @@ export default function PlanWorkspace({
 
       // Stale-response guard — wraps BOTH state updates so a stale
       // response can't half-update (Council ISC-S7-ARCH-5).
-      if (myId !== requestIdRef.current) return;
+      if (!isCurrentRecompute(recomputeSeqRef.current, myId)) return;
 
       if (result.ok) {
         // Council ISC-S7-ARCH-4 — atomic batching: setters fire on adjacent
@@ -1046,6 +1080,33 @@ export default function PlanWorkspace({
   const panelHasData = panelCityId === null || effectiveNeighborhoods[panelCityId] !== undefined;
 
   // Fetch neighborhoods on demand when panelCityId changes and data is absent.
+  //
+  // The pulse under the town ("Loading what's in Lubbock…", in panelNode
+  // below) shows while `effectiveNeighborhoods[panelCityId]` is absent,
+  // and every way this fetch can settle stores a state under the town's
+  // key, so the pulse ends with a sentence (council round 3 on #87, item
+  // 2): a town with no parts listed answers `{ kind: "empty" }` and reads
+  // "Everything in Lubbock."; parts read but none kept answers
+  // `{ kind: "loaded", data: [] }` and reads "No parts of town listed for
+  // Lubbock; here is everything."; a refused or failed read answers
+  // `ok: false` and is stored as `{ kind: "failed" }`, "Couldn't load the
+  // parts of town; here are the places."; a rejected promise, or a
+  // malformed answer that throws inside `then` (null has no `.ok`), lands
+  // in `catch` and is stored as failed under the id asked for. The action
+  // never answers null by its type (NeighborhoodsActionResult), and its
+  // `cityId` is the id sent (CityIdSchema is a regex, no transform). Each
+  // sentence is rendered in "ends the pulse with a sentence for each way
+  // the parts can come back" in PlanWorkspace.days.ssr.test.tsx. What no
+  // stored state can end is a promise that never settles; that is a
+  // transport failure, and the town's row can be tapped again once the
+  // page has moved on.
+  //
+  // Rapid taps (item 3): one fetch per town in flight at a time, since the
+  // effect runs only while the town's key is absent and the cleanup marks
+  // the older fetch `cancelled` when the panel moves to another town or
+  // closes, so no older answer is applied; and an answer is stored under
+  // its own town's key, so an answer for Post could never stand for
+  // Snyder even if it did land. No sequence counter is needed here.
   useEffect(() => {
     if (!panelCityId) return;
     if (panelHasData) return;

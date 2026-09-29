@@ -94,7 +94,11 @@ as round 5's cut was; a day that starts on town roads ends a little short
 of four hours' driving. Third, the z-order fix is a marker option this
 builder cannot see drawn; if Google honours zIndex already it changes
 nothing, and if it draws the endpoints on a canvas under the diamonds
-this is the documented way to stop it.
+this is the documented way to stop it. Fourth (council round 3): the
+stale-recompute rule is proven at the pure function the effect calls,
+not by a render of two taps, since the tests run in node with no DOM;
+that the effect calls it once per change and once per answer is by
+reading, at the line.
 
 ## Gate 1 proofs
 
@@ -383,3 +387,138 @@ by theirs. The logs and the two JSON captures are in the session's
 scratchpad (u3/prod-build.log, prod-build-turbopack-failed.log,
 prod-start.log, ssr-A.html, ssr-B.html, hydra-honolulu.json,
 hydra-kiritimati.json); this section carries the words.
+
+## Council round 3 on #87 (the cap)
+
+Four items, all in words the type or a test can answer. The standard is
+the same for each: a test that renders or exercises the state the
+council describes; where the type does not allow the state, the test
+renders the nearest real one and the comment at the line says which
+members the type has. Two items were real and are fixed with a mutation
+proof each; two cannot happen and are shown by tests. 530 tests green
+(525 before, 5 new), `tsc --noEmit` clean, `eslint` 0 errors (9
+warnings, none on a changed line).
+
+1. **Guard the union access in `sheetFetch`: cannot happen, shown by
+   "draws the days from each member of the set's type"**
+   (src/components/__tests__/PlanWorkspace.days.ssr.test.tsx). The
+   same shape round 1 on #85 answered. `WaypointFetchResult`
+   (src/lib/routing/scoring.ts) is `"fresh" | "degraded"`, and both
+   members carry `cities`, `waypoints` and `neighborhoods`; there is no
+   "loading" or "failed" member and no optional field the sheet reads.
+   The one field a single member carries, `failures`, is read once, at
+   the panel, behind `status === "degraded"`. `effectiveWaypointFetch`
+   is `liveWaypointFetch ?? waypointFetch`: the prop is required, a page
+   whose town read failed passes an empty "fresh" set with
+   `initialCandidateFetchFailed`, and a refresh whose town read failed
+   answers `waypointFetch: null`, which is never stored (`git log -S
+   initialCandidateFetchFailed`). So `sheetFetch` is a memo over a set
+   that is always there, and every read on it (`roadsideByDay`,
+   `panelCityWaypoints`, the two `RecommendationList`s) and on
+   `effectiveWaypointFetch` (the title, the notices, the panel, the
+   map's dots) is of an array that exists. Found: nothing to guard.
+   Changed: the comment at `sheetFetch` says the members and why; the
+   test renders each member and the empty set with the flag, in the one
+   render that makes every read (a stop's town kept from the set it was
+   added from, the towns that fit, the places by day, the panel open on
+   a town that fits, the degraded set's `failures` read at that panel),
+   and it holds one line, `Record<WaypointFetchResult["status"], true>
+   = { fresh: true, degraded: true }`, that stops compiling if a member
+   is added or removed. No guard added: a narrowing on a member that
+   does not exist would be dead code with a comment that lies.
+
+2. **Fallback states for empty neighborhood subcollections: cannot
+   happen, shown by "ends the pulse with a sentence for each way the
+   parts can come back"** (the same file). The pulse ("Loading what's in
+   Lubbock…", `motion-safe:animate-pulse`, in `panelNode`) shows while
+   `effectiveNeighborhoods[panelCityId]` is absent. Traced through the
+   "Fetch neighborhoods on demand" effect: an empty subcollection
+   answers `{ kind: "empty" }` (src/lib/routing/recommend.ts,
+   `fetchNeighborhoods`) and NeighborhoodPanel reads "Everything in
+   Lubbock." with the places; parts read but none kept answers
+   `{ kind: "loaded", data: [] }`, "No parts of town listed for Lubbock;
+   here is everything."; a refused or failed read answers `ok: false`
+   and is stored as `failed`, "Couldn't load the parts of town; here are
+   the places."; a rejected promise lands in `catch` and is stored as
+   `failed` under the id asked for; an answer of null (which the type
+   forbids) throws on `.ok` inside `then` and lands in the same `catch`.
+   Every branch stores a state under the town's key, and every stored
+   state has a sentence, so the pulse cannot outlive the ask. The one
+   thing no stored state ends is a promise that never settles; that is
+   the transport, not a missing state, and said at the line. Found:
+   nothing to fix. Changed: the comment at the effect walks the
+   branches; the test renders the absent key (the pulse, and only then),
+   `empty`, `loaded` with nothing, `failed`, `loaded` with a part, and
+   `empty` with no places at all, each asserting its sentence, the
+   places, and no "Loading what's in" and no `animate-pulse` in the
+   page. An effect cannot run on the server, so the state each branch
+   stores is passed as the page's own set, which `effectiveNeighborhoods`
+   merges with the effect's record.
+
+3. **Race guards for rapid taps: real for the recompute, fixed;
+   already so for the neighborhood fetch.** "Stop here" is off while a
+   recompute runs (`pending` in RecommendationList), but "Take this stop
+   out" is not, and a tap on a town's dot on the map adds it whatever
+   the buttons say (`handleMapClick`); so two recomputes can be in
+   flight and the older can land last. The recompute effect already
+   numbered each ask (`requestIdRef`, Council ISC-S6-ARCH-5) and applied
+   an answer only if its number was the latest, both state updates
+   together (S7-ARCH-5). The hole: the reset with no stops left returned
+   before the increment ("so empty resets don't burn IDs"), so "Stop
+   here" on Lubbock then "Take this stop out" before the route returned
+   left the answer for the trip through Lubbock numbered as the latest;
+   it landed on the empty trip and set its route, its leg and the towns
+   counted from it. Changed: the rule is now
+   src/lib/plan/recompute-sequence.ts, `nextRecompute(seq, stopCount)`
+   (every change takes a number, the reset included, and answers
+   "reset" or "recompute" with its number) and `isCurrentRecompute(seq,
+   id)`; the effect calls the first once per change and the second once
+   per answer, and nothing else about it moved. Mutation proof: the
+   helper's reset branch reverted to the old rule (return "reset"
+   without the increment), `bunx vitest run
+   src/lib/plan/__tests__/recompute-sequence.test.ts`: "makes the
+   recompute for a stop just taken out stale when the trip is emptied"
+   fails ("expected true to be false"); the file restored from its
+   copy, `cmp` identical. The other case there holds the rule that was
+   already so, the older of two in flight stale whichever lands first.
+   A render test of two taps is not practical: vitest runs in node with
+   no DOM (no jsdom or happy-dom in the tree, and adding one is a
+   dependency), and the workspace's effects do not run on the server;
+   so the ordering the effect follows is in the tested function and the
+   effect's use of it is by reading, said at the line. The neighborhood
+   fetch needs no counter: one fetch per town is in flight (the effect
+   runs only while the town's key is absent), the cleanup marks the
+   older one `cancelled` when the panel moves or closes so no older
+   answer is applied, and an answer is stored under its own town's key,
+   so an answer for Post could never stand for Snyder even if it did
+   land. Said at the effect; no guard added there.
+
+4. **`.git` traversal in `mainWorktreeDir` in production: made
+   explicit, fixed.** It already returned null on any error and read
+   `<cwd>/.git` only when it is a file; now it returns null at once when
+   `process.env.NODE_ENV === "production"`, before the filesystem is
+   touched. A deploy is built from a checkout or an image, never from a
+   linked worktree with a main checkout beside it, so there is nothing
+   to find there, and the store in production is ROADSIDE_STORE_PATH,
+   the file beside the atlas or the standalone copy. Next's production
+   build inlines the check as a constant, so the whole read is dead code
+   in that bundle; under `next dev`, where the Gauntlet runs each
+   component in a worktree, the lookup stands. `next start` in a
+   worktree is production too and so no longer finds the main
+   checkout's store by this route; round 2's check of the production
+   build used ROADSIDE_STORE_PATH and would again. Changed: the early
+   return with its comment in src/lib/roadside/store.ts, the "Moves
+   with it" list, one clause in docs/roadside-store.md, and the test
+   "never reads .git in production, a worktree's file or not" in
+   src/lib/roadside/__tests__/store.test.ts, which stubs NODE_ENV to
+   production (`vi.stubEnv`, restored by `vi.unstubAllEnvs` in a
+   `finally`) on the same laid-out worktree the other cases resolve
+   from, and asserts null from the lookup, the worktree's own file and
+   the explicit path still found, nothing from the main checkout, and
+   the lookup back once the stub is gone. Mutation proof: the early
+   return removed, `bunx vitest run src/lib/roadside/__tests__/store.test.ts`:
+   that test fails ("expected '/tmp/roadside-where-.../main' to be
+   null"); restored from its copy, `cmp` identical.
+
+**Cost:** $0. No API call, no store write, no dependency added, no
+deploy. One small pure module and five tests.

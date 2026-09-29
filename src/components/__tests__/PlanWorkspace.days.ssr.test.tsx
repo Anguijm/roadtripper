@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import { candidateOpacity, candidateLabelShown, OFF_DAY_OPACITY } from "@/components/RouteMap";
 import type { RoadsideMarker } from "@/lib/roadside/along";
+import type { WaypointFetchResult } from "@/lib/routing/scoring";
 
 /**
  * The plan sheet told as days (Gauntlet U3; quality bar, rule 5), rendered
@@ -533,5 +534,171 @@ describe("the plan sheet told as days", () => {
     expect(visible(html)).toContain("Day 1 · Amarillo to near Snyder · 4 h");
     expect(visible(html)).toContain("Day 2 · near Snyder to Austin · 3 h 50 min");
     expect(visible(html)).not.toContain("over the");
+  });
+});
+
+/**
+ * Council round 3 on #87, items 1 and 2: the set the sheet draws from,
+ * rendered for each member of its type, and the answer under a town for
+ * each way the parts of town can come back. Server renders, as above:
+ * the state each branch of the client's effects stores is passed in as
+ * the page's own set, so what the sheet says in that state is what is
+ * checked, not the effect itself (vitest runs in node with no DOM).
+ */
+describe("the sheet's set and the answer under a town, in every state the type allows", () => {
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY = "test-key-not-a-real-key";
+  });
+
+  it("draws the days from each member of the set's type", () => {
+    // The type has these members and no other: this line fails to
+    // compile if one is added (a missing key) or taken away (an excess
+    // one), so a "loading" or "failed" member could not arrive unnoticed.
+    const members: Record<WaypointFetchResult["status"], true> = { fresh: true, degraded: true };
+    expect(Object.keys(members).sort()).toEqual(["degraded", "fresh"]);
+    // Every read the sheet makes on the set, in one render: a stop's town
+    // kept from the set it was added from (the merge in `sheetFetch`),
+    // the towns that fit from it, the places under each day
+    // (`roadsideByDay` reads `sheetFetch.waypoints`), the panel open on a
+    // town that fits (`panelCityWaypoints`, and the panel's read of
+    // `failures`), the title and the notices (`effectiveWaypointFetch`).
+    // "fresh": the common case.
+    const fresh = clean(renderToString(
+      <PlanWorkspace {...afterLubbock} initialTrip={{ ...twoLegs, addedFrom: base.waypointFetch }} initialPanelCityId="post" />
+    ));
+    let days = daySections(fresh);
+    expect(days.map((d) => d.n)).toEqual(["1", "2", "3"]);
+    expect(days[0].text).toContain("What's in Lubbock");
+    expect(days[0].text).toContain("Buddy Holly Center");
+    expect(days[0].text).toContain("Cadillac Ranch");
+    expect(days[1].text).toContain("What's in Post");
+    expect(days[1].text).toContain("Loading what's in Post…");
+    expect(visible(fresh)).toContain("Post, Snyder and 3 more fit in day 2");
+    // "degraded": the towns read, some places and some parts of town not.
+    // The one field a single member carries, `failures`, is read at the
+    // panel behind `status === "degraded"`; Post's parts failed by it, so
+    // its answer says so and lists the places it has.
+    const degraded = clean(renderToString(
+      <PlanWorkspace
+        {...afterLubbock}
+        waypointFetch={{
+          ...fromLubbock,
+          status: "degraded",
+          neighborhoods: { post: { kind: "loaded", data: [] } },
+          failures: [
+            { kind: "neighborhoods", cityId: "post", reason: "atlas read failed" },
+            { kind: "waypoints", cityId: "snyder", reason: "atlas read failed" },
+          ],
+        }}
+        initialTrip={{ ...twoLegs, addedFrom: base.waypointFetch }}
+        initialPanelCityId="post"
+      />
+    ));
+    days = daySections(degraded);
+    expect(days.map((d) => d.n)).toEqual(["1", "2", "3"]);
+    expect(days[0].text).toContain("What's in Lubbock");
+    expect(days[0].text).toContain("Buddy Holly Center");
+    expect(days[1].text).toContain("Couldn't load the parts of town; here are the places.");
+    expect(days[1].text).toContain("Post cotton gin");
+    expect(days[1].text).not.toContain("Loading what's in");
+    expect(visible(degraded)).toContain("Some of the places did not load.");
+    expect(visible(degraded)).toContain("Post, Snyder and 3 more fit in day 2");
+    // The empty "fresh" set with the flag: what the page passes when the
+    // town read failed (there is no "failed" member to pass). A stop in
+    // the URL still has its day, its row by its name alone, and its
+    // answer open; the places along the road are still listed; the title
+    // says the towns could not be read.
+    const failed = clean(renderToString(
+      <PlanWorkspace
+        {...base}
+        candidateMarkers={[]}
+        waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }}
+        initialCandidateFetchFailed
+        initialTrip={twoLegs}
+        initialPanelCityId="lubbock"
+      />
+    ));
+    days = daySections(failed);
+    expect(days.map((d) => d.n)).toEqual(["1", "2", "3"]);
+    expect(visible(failed)).toContain("Couldn't load the towns along the road");
+    expect(visible(failed)).not.toMatch(/fits? (today|in day)/);
+    expect(days[0].text).toContain("What's in Lubbock");
+    expect(days[0].text).toContain("Nothing written up for Lubbock yet.");
+    expect(days[0].text).toContain("Loading what's in Lubbock…");
+    expect(days[0].text).toContain("Cadillac Ranch");
+    expect(days[1].text).toContain("Prairie Dog Town");
+    expect(days[1].text).not.toContain("Towns that fit");
+  });
+
+  it("ends the pulse with a sentence for each way the parts can come back", () => {
+    // The effect that asks for a town's parts stores one of these under
+    // the town's key however the ask settles (PlanWorkspace.tsx, the
+    // "Fetch neighborhoods on demand" effect), and the panel says a
+    // sentence for each; only the absent key pulses. The page's own set
+    // carries the stored state here, which is the same record the effect
+    // writes to (`effectiveNeighborhoods` merges the two).
+    const open = (neighborhoods: WaypointFetchResult["neighborhoods"]) =>
+      clean(renderToString(
+        <PlanWorkspace {...base} waypointFetch={{ ...base.waypointFetch, neighborhoods }} initialTrip={twoLegs} initialPanelCityId="lubbock" />
+      ));
+    const answer = (html: string) => {
+      const day = daySections(html)[0];
+      // The answer sits under Lubbock's row, inside Day 1.
+      expect(html.indexOf("Buddy Holly Center")).toBeLessThan(html.indexOf('<section data-day="2"'));
+      return day.text.slice(day.text.indexOf("What's in Lubbock"));
+    };
+    // Not asked yet, or in flight: the pulse, and only then.
+    const loading = open({});
+    expect(answer(loading)).toContain("Loading what's in Lubbock…");
+    expect(loading).toContain("motion-safe:animate-pulse");
+    // The town has no parts listed (`{ kind: "empty" }`, the atlas's
+    // answer for an empty subcollection): a sentence and the places.
+    const empty = open({ lubbock: { kind: "empty" } });
+    expect(answer(empty)).toContain("Everything in Lubbock.");
+    expect(answer(empty)).toContain("Buddy Holly Center");
+    expect(empty).not.toContain("Loading what's in");
+    expect(empty).not.toContain("animate-pulse");
+    // Parts read but none kept (`loaded` with an empty list).
+    const none = open({ lubbock: { kind: "loaded", data: [] } });
+    expect(answer(none)).toContain("No parts of town listed for Lubbock; here is everything.");
+    expect(answer(none)).toContain("Buddy Holly Center");
+    expect(none).not.toContain("Loading what's in");
+    expect(none).not.toContain("animate-pulse");
+    // The read refused or failed (`ok: false`), the promise rejected, or
+    // an answer with no `.ok`: all stored as `failed`.
+    const failed = open({ lubbock: { kind: "failed" } });
+    expect(answer(failed)).toContain("Couldn't load the parts of town; here are the places.");
+    expect(answer(failed)).toContain("Buddy Holly Center");
+    expect(failed).not.toContain("Loading what's in");
+    expect(failed).not.toContain("animate-pulse");
+    // Parts read and kept: the part's name beside its place.
+    const loaded = clean(renderToString(
+      <PlanWorkspace
+        {...base}
+        waypointFetch={{
+          ...base.waypointFetch,
+          waypoints: base.waypointFetch.waypoints.map((w) => (w.cityId === "lubbock" ? { ...w, neighborhoodId: "depot-district" } : w)),
+          neighborhoods: { lubbock: { kind: "loaded", data: [{ id: "depot-district", name: { en: "Depot District" }, trending_score: 60 }] } },
+        }}
+        initialTrip={twoLegs}
+        initialPanelCityId="lubbock"
+      />
+    ));
+    expect(answer(loaded)).toContain("Buddy Holly Center Depot District");
+    expect(loaded).not.toContain("Loading what's in");
+    expect(loaded).not.toContain("animate-pulse");
+    // The sentence for a town with nothing at all: no parts and no
+    // places, the pulse still ends.
+    const bare = clean(renderToString(
+      <PlanWorkspace
+        {...base}
+        waypointFetch={{ ...base.waypointFetch, waypoints: base.waypointFetch.waypoints.filter((w) => w.cityId !== "lubbock"), neighborhoods: { lubbock: { kind: "empty" } } }}
+        initialTrip={twoLegs}
+        initialPanelCityId="lubbock"
+      />
+    ));
+    expect(visible(bare)).toContain("Everything in Lubbock.");
+    expect(bare).not.toContain("Loading what's in");
+    expect(bare).not.toContain("animate-pulse");
   });
 });

@@ -52,17 +52,32 @@ import { MAP_THRESHOLD, RoadsideSurvivorSchema, type RoadsideSurvivor } from "./
  * whole, since git writes the line unquoted; a file with no `gitdir:`
  * line, or one that is not text, is null through the same `catch`.
  *
+ * A dev's lookup only (council round 3 on #87, item 4). In production it
+ * returns null at once, before touching the filesystem: a deploy is built
+ * from a checkout or an image, never from a linked worktree with a main
+ * checkout beside it, so there is nothing to find, and the store there is
+ * ROADSIDE_STORE_PATH, the file beside the atlas or the standalone copy.
+ * The check is `process.env.NODE_ENV === "production"`, which Next's
+ * production build inlines as a constant, so the whole read is dead code
+ * there; under `next dev`, where the Gauntlet runs each component in a
+ * worktree, it is "development" and the lookup stands. `next start` in a
+ * worktree is production too, and so does not find the main checkout's
+ * store by this route; set ROADSIDE_STORE_PATH for that (round 2's check
+ * of the production build did).
+ *
  * Moves with it: resolveStorePath (its one caller), docs/roadside-store.md
  * (which says where the app looks), and the tests "finds the main
  * checkout's store from a linked worktree, and lets the worktree's own
- * file and the explicit path win" and "names no store from a plain
- * checkout, or with no .git at all, and never throws" in
+ * file and the explicit path win", "names no store from a plain
+ * checkout, or with no .git at all, and never throws" and "never reads
+ * .git in production, a worktree's file or not" in
  * src/lib/roadside/__tests__/store.test.ts, which lay out a main checkout
  * and a worktree under tmpdir as git does (an absolute and a relative
  * gitdir line, a `.git` directory, no `.git`, a pointer elsewhere, a file
  * that is not a pointer). A change to either regex goes with a case there.
  */
 export function mainWorktreeDir(cwd: string): string | null {
+  if (process.env.NODE_ENV === "production") return null;
   const dotGit = join(cwd, ".git");
   try {
     if (!statSync(dotGit).isFile()) return null;

@@ -115,6 +115,30 @@ describe("where the store is", () => {
     }
   });
 
+  it("never reads .git in production, a worktree's file or not", () => {
+    // Council round 3 on #87, item 4: a deploy is never a linked worktree,
+    // so in production the lookup answers null before the filesystem is
+    // touched, and the main checkout's store is not a candidate. The same
+    // worktree that resolves above resolves to nothing here; the
+    // worktree's own file and the explicit path still do.
+    mkdirSync(join(wt, "data"), { recursive: true });
+    writeFileSync(join(wt, "data", "roadside.sqlite"), "");
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(mainWorktreeDir(wt)).toBeNull();
+      expect(resolveStore(wt, undefined)?.source).toBe("beside the atlas");
+      rmSync(join(wt, "data"), { recursive: true, force: true });
+      expect(resolveStore(wt, undefined)).toBeNull();
+      expect(resolveStore(wt, join(main, "data", "roadside.sqlite"))?.source).toBe("ROADSIDE_STORE_PATH");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    // Back in the test environment the lookup stands, so the stub was what
+    // changed the answer.
+    expect(process.env.NODE_ENV).not.toBe("production");
+    expect(mainWorktreeDir(wt)).toBe(main);
+  });
+
   it("names no store from a plain checkout, or with no .git at all, and never throws", () => {
     // The main checkout itself: `.git` is a directory, so no fallback, and
     // its own data/ is where it looks.
