@@ -34,6 +34,7 @@ not in git. So the build fetches it:
 The app finds the file, in order, at `ROADSIDE_STORE_PATH`, at `data/roadside.sqlite`
 in the working directory, under `.next/standalone/data/`, or, when the working
 directory is a linked git worktree (`git worktree add`), at `data/roadside.sqlite` in
-the main checkout, so a feature worktree needs no copy of its own. The path opened is
-logged once per process (`[roadside] store: …`); a missing file logs one warning per
-process and the plan page shows no roadside stops.
+the main checkout, so a feature worktree needs no copy of its own. Which of those it
+found is logged once per process in words (`[roadside] store: beside the atlas`), never
+the path; a missing file logs one warning per process and the plan page shows no
+roadside stops.

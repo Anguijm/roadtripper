@@ -167,6 +167,38 @@ export const STRIP_MIN_PX = 140;
  * strip of map above the sheet at rest, on a phone", which takes the strip
  * from it. Check: a screenshot at 390 by 844 with the sheet at rest shows
  * the road from end to end above the sheet, and Texas, not the country.
+ *
+ * What it is not: a value the app reads. The fit measures the map's real
+ * box (`map.getDiv().getBoundingClientRect()` in effects 1a and 1c
+ * below), so changing this number alone changes nothing on screen. It is
+ * the masthead's height as the fit arithmetic was done for it, and the
+ * two tests are what tie the masthead to it; without them the page can
+ * grow a taller masthead while a fit test keeps proving a strip the
+ * screen no longer has, which is exactly what happened before U3.
+ *
+ * To change it, change three things together and run both tests:
+ *   1. The header's classes in src/app/plan/page.tsx, which are what make
+ *      the masthead 45 px, or 49 with a second line on the right.
+ *   2. This number, and the test "keeps the masthead at the height the
+ *      fit at rest counts on: a 44 px link, no vertical padding, one
+ *      border" in src/app/plan/__tests__/page.ssr.test.tsx, which asserts
+ *      44 + 1 + 4 and forbids vertical padding or a fixed height on the
+ *      header; it fails on a change to either side alone.
+ *   3. The test "fits the road into the strip of map above the sheet at
+ *      rest, on a phone" in
+ *      src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx, which
+ *      takes the map's top from this value and the sheet's top from the
+ *      rest snap (`sheetTopDvh(1)`, from SHEET_SNAPS[1] in
+ *      src/components/PlanWorkspace.tsx: 31 dvh, so a 212.6 px strip on
+ *      a 390 by 844 phone) and proves the Amarillo to Austin road fits
+ *      that strip at a zoom above 5, and that a 73 px masthead drops it
+ *      to 4. A taller masthead needs a lower rest snap to keep the strip,
+ *      and a strip under STRIP_MIN_PX (140) makes fitPaddingPx give up on
+ *      the strip and pad for the whole map, so the road goes under the
+ *      sheet: the strip is this number and the rest snap together, and
+ *      every fit (the mount's and a day's frame) goes through the same
+ *      padding, so a wrong strip moves them all.
+ * Then the screenshot above. Nothing in CSS reads it.
  */
 export const PLAN_HEADER_PX = 49;
 
@@ -187,6 +219,32 @@ export interface MapFit {
  * `candidateOpacity` and `candidateLabelShown` below and their test; a
  * screenshot with Day 1 open shows Fort Worth's dot faint with no name,
  * Plainview's dot and name as they were.
+ *
+ * Its bounds, and what it does to reading the map. The faded mark is the
+ * town's dot alone (`candidateMarkerIcon`: the route colour at
+ * fill-opacity 0.9 inside a 2 px #0d1117 stroke, 12 px across) over the
+ * basemap's #1c2128 land and #3d444d roads (DARK_MAP_STYLES), so the
+ * marker's opacity multiplies an already dim mark. At 0.35 the dot is a
+ * tint a person finds when looking for it and passes over when not.
+ * Below about 0.25 it is the land's colour on a phone in daylight and
+ * the town reads as gone, which this rule exists to avoid; above 0.5 it
+ * reads as one of the day's own and the frame stops saying which towns
+ * are the day's. The names' contrast is not a function of this value: a
+ * faded town has no name drawn at all (`candidateLabelShown`), so there
+ * is no half-strength 11 px text to fail contrast, and the #f0f6fc label
+ * is either whole or absent. Only the towns' dots read it: the one
+ * `marker.setOpacity` is in effect 2c, and the stop squares (effect 3)
+ * and the roadside diamonds (effect 4) are never faded.
+ *
+ * To change it: the test "fades the dots of the other days' towns on the
+ * map while one is open and draws no name for them, never the day's own
+ * or its ends, and names a stop's square" in
+ * src/components/__tests__/PlanWorkspace.days.ssr.test.tsx pins the
+ * value to 0.25 to 0.5 and pins the `marker.setOpacity` and
+ * `marker.setLabel` lines of effect 2c to the two rules above, so a
+ * value outside that range, or a second place that sets a marker's
+ * opacity, fails it. Then the screenshot above, in daylight on a phone,
+ * not on a desk: the faint dot must still be found.
  */
 export const OFF_DAY_OPACITY = 0.35;
 
@@ -394,13 +452,56 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
  * read as a "1" badge with no name). The number is in the icon, since a
  * marker has one label and the name is it. Must be called inside effects
  * where google.maps is guaranteed loaded.
+ *
+ * Every number below is in the SVG's own pixels: scaledSize is 64 by 64,
+ * the same as the viewBox, so nothing is scaled and one unit is one
+ * screen pixel. They are one set with endpointIcon's, and they centre
+ * two things, the name and the number, on the square:
+ *   - 64 by 64, the canvas: endpointIcon's, tall enough to hold a name
+ *     30 px above the mark. The label is not clipped to it; the canvas
+ *     only says where the label's centre is.
+ *   - The square at x 22, y 30, 20 by 20: its centre is (32, 40). 32 is
+ *     the canvas's middle; 40 is where endpointIcon's dot sits, so a
+ *     stop's name stands the same height above its mark as the ends'.
+ *     20 holds two digits of 12 px bold (about 14 px wide) with room, and
+ *     MAX_TRIP_STOPS (7, in PlanWorkspace.tsx) keeps the number to one.
+ *   - anchor (32, 40): the point of the icon placed on the stop's
+ *     latitude and longitude, the square's centre, so the square sits on
+ *     its town at every zoom and never shifts (rule 6: nothing moves).
+ *   - labelOrigin (32, 10): where the marker's label (the town's name,
+ *     `endpointLabel`) is centred, 30 px above the square's centre, the
+ *     endpoints' distance, and above a roadside diamond on the same point
+ *     (a diamond's canvas reaches 22 px above its point).
+ *   - The number at x 32 with text-anchor middle: centred on the square
+ *     horizontally. Its baseline y 44.5: the digits of 12 px bold
+ *     system-ui are about 8.5 px tall, so their middle is at about 40.25,
+ *     the square's centre to a quarter pixel. A larger font needs its
+ *     baseline lower by half the digits' growth to stay centred.
+ *   - #f0f6fc 2 px stroke around the route colour, the number in #0d1117
+ *     (the page's background): the sheet's own pair, so the square reads
+ *     as the page's mark and the number as text on it.
+ * Moves with it: endpointIcon's canvas, anchor and labelOrigin (a
+ * different canvas here puts a stop's name at a different height from
+ * the ends'), and STRIP_MARGIN_PX.top in fitPaddingPx, sized for a name
+ * 30 px above a mark. Held by the test "fades the dots of the other
+ * days' towns on the map while one is open and draws no name for them,
+ * never the day's own or its ends, and names a stop's square" in
+ * src/components/__tests__/PlanWorkspace.days.ssr.test.tsx, which pins
+ * that the number is a <text> in this SVG and that effect 3 passes the
+ * town's name as the label; the coordinates themselves are not pinned,
+ * so a change here is checked by a screenshot with a stop added: the
+ * name centred over the square, the number centred in it, the name at
+ * the same height as "Amarillo" over the start's dot.
  */
 function tripStopIcon(fill: string, n: number): google.maps.Icon {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect x="22" y="30" width="20" height="20" fill="${fill}" stroke="#f0f6fc" stroke-width="2"/><text x="32" y="44.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#0d1117">${n}</text></svg>`;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    // The square's centre, on the stop's point.
     anchor: new google.maps.Point(32, 40),
+    // One unit per pixel: the viewBox's size, so the numbers above hold.
     scaledSize: new google.maps.Size(64, 64),
+    // The name's centre, 30 px above the square's, as over the endpoints.
     labelOrigin: new google.maps.Point(32, 10),
   };
 }

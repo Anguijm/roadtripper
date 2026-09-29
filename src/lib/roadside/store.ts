@@ -23,6 +23,44 @@ import { MAP_THRESHOLD, RoadsideSurvivorSchema, type RoadsideSurvivor } from "./
  * the worktree), and the main checkout is what stands before `/.git/`.
  * Pure but for the one small file it reads; anything else (no `.git`, a
  * `.git` directory, a line that is not a worktree's) is null.
+ *
+ * Why read the file rather than ask git. This runs on the plan page at
+ * request time (resolveStorePath, once per plan render, a stat and a
+ * read of a few bytes), and a child process per request, or a git binary
+ * in the deploy image, is a cost and a dependency the one lookup does not
+ * earn. The file's format is the one `git worktree add` has written since
+ * worktrees existed (gitrepository-layout: a `.git` file holds "gitdir:
+ * <path>"), and a linked worktree's gitdir is always under the main
+ * checkout's `.git/worktrees/`, which is the only fact used. The trade is
+ * that this is a reading of git's layout, not git's own answer: it does
+ * not honour GIT_DIR or GIT_COMMON_DIR; a main checkout that was moved
+ * leaves the gitdir line dangling, and resolveStorePath's existsSync is
+ * what catches that (no store, not a throw); and a submodule's `.git`
+ * file ("gitdir: ../.git/modules/<name>") or any other pointer is null on
+ * purpose, since only a worktree has a main checkout with a store beside
+ * its atlas. The file is trusted as far as naming a directory to look in
+ * for a data file, never executed or written; the worst a crafted one
+ * does is make the store not found.
+ *
+ * The regex takes either separator, `[\\/]`, because `resolve` gives
+ * backslashes on Windows and forward slashes elsewhere, and git itself
+ * writes the line with forward slashes on both; one pattern for every
+ * platform, not one that depends on resolve's normalisation. The
+ * captured `<main>` keeps whatever separators it has and `join` in
+ * resolveStorePath normalises them for the platform. `\s*$` on the first
+ * regex trims a trailing newline or CRLF; a path with spaces is kept
+ * whole, since git writes the line unquoted; a file with no `gitdir:`
+ * line, or one that is not text, is null through the same `catch`.
+ *
+ * Moves with it: resolveStorePath (its one caller), docs/roadside-store.md
+ * (which says where the app looks), and the tests "finds the main
+ * checkout's store from a linked worktree, and lets the worktree's own
+ * file and the explicit path win" and "names no store from a plain
+ * checkout, or with no .git at all, and never throws" in
+ * src/lib/roadside/__tests__/store.test.ts, which lay out a main checkout
+ * and a worktree under tmpdir as git does (an absolute and a relative
+ * gitdir line, a `.git` directory, no `.git`, a pointer elsewhere, a file
+ * that is not a pointer). A change to either regex goes with a case there.
  */
 export function mainWorktreeDir(cwd: string): string | null {
   const dotGit = join(cwd, ".git");
@@ -39,6 +77,20 @@ export function mainWorktreeDir(cwd: string): string | null {
 }
 
 /**
+ * Which of the places the store may be it was found in, in the words the
+ * log says it in. The log never says the path (council round 1 on #87):
+ * a directory layout belongs to the machine, not to a log line read in
+ * any environment. A dev who needs the path has ROADSIDE_STORE_PATH to
+ * set and resolveStorePath() to call.
+ */
+export type StoreSource = "ROADSIDE_STORE_PATH" | "beside the atlas" | "in the standalone output" | "in the main checkout";
+
+export interface StoreLocation {
+  path: string;
+  source: StoreSource;
+}
+
+/**
  * Where the store is, in order: ROADSIDE_STORE_PATH (a volume on the
  * deployed app), beside the atlas in the working directory, under Next's
  * standalone output when the build traced it in, and, when the working
@@ -51,16 +103,22 @@ export function mainWorktreeDir(cwd: string): string | null {
  * server the runner started there logged "no store found" and drew no
  * roadside place under the days. A deploy has no `.git`, so nothing
  * changes there. `cwd` and `explicit` are parameters for the tests only.
+ * The first that exists wins, with the words for where it was.
  */
-export function resolveStorePath(cwd: string = process.cwd(), explicit: string | undefined = process.env.ROADSIDE_STORE_PATH): string | null {
+export function resolveStore(cwd: string = process.cwd(), explicit: string | undefined = process.env.ROADSIDE_STORE_PATH): StoreLocation | null {
   const main = mainWorktreeDir(cwd);
-  const candidates = [
-    ...(explicit ? [explicit] : []),
-    join(cwd, "data", "roadside.sqlite"),
-    join(cwd, ".next", "standalone", "data", "roadside.sqlite"),
-    ...(main ? [join(main, "data", "roadside.sqlite")] : []),
+  const candidates: StoreLocation[] = [
+    ...(explicit ? [{ path: explicit, source: "ROADSIDE_STORE_PATH" as const }] : []),
+    { path: join(cwd, "data", "roadside.sqlite"), source: "beside the atlas" },
+    { path: join(cwd, ".next", "standalone", "data", "roadside.sqlite"), source: "in the standalone output" },
+    ...(main ? [{ path: join(main, "data", "roadside.sqlite"), source: "in the main checkout" as const }] : []),
   ];
-  return candidates.find((p) => existsSync(p)) ?? null;
+  return candidates.find((c) => existsSync(c.path)) ?? null;
+}
+
+/** The store's path alone, for whoever opens it; null when it is nowhere. */
+export function resolveStorePath(cwd: string = process.cwd(), explicit: string | undefined = process.env.ROADSIDE_STORE_PATH): string | null {
+  return resolveStore(cwd, explicit)?.path ?? null;
 }
 
 /**
@@ -124,15 +182,19 @@ let saidPath = false;
 /** The survivors along a planned route, or none if the store is missing or the route cannot be read. */
 export function roadsideForRoute(encodedPolyline: string): RoadsideMarker[] {
   try {
-    const path = resolveStorePath();
-    const db = roadsideStore(path);
-    if (db && !saidPath) {
+    const found = resolveStore();
+    const db = roadsideStore(found?.path ?? null);
+    if (db && found && !saidPath) {
       // Once per process, the other half of the warning below: a capture
       // with no diamonds can then be read against the log (Gauntlet U3,
       // round 4: three rounds of captures drew none, and the log's one
-      // line about it was the "no store found" warning nobody read).
+      // line about it was the "no store found" warning nobody read). It
+      // says which of the four places the store was found in, in words,
+      // and never the path, in every environment (council round 1 on
+      // #87): the path is the machine's directory layout, and a dev who
+      // needs it has ROADSIDE_STORE_PATH and resolveStorePath().
       saidPath = true;
-      console.info(`[roadside] store: ${path}`);
+      console.info(`[roadside] store: ${found.source}`);
     }
     if (!db) {
       // Once per process, not once per plan: a deployment without the file

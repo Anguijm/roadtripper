@@ -1,9 +1,9 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { roadsideStore, survivorsAlongRoute, closeRoadsideStores, resolveStorePath, mainWorktreeDir } from "../store";
+import { roadsideStore, survivorsAlongRoute, closeRoadsideStores, resolveStorePath, resolveStore, roadsideForRoute, mainWorktreeDir } from "../store";
 
 /** A road due south from 35,-101 for about 111 km, a point every 0.01 degrees. */
 const route = Array.from({ length: 101 }, (_, i) => ({ lat: 35 - i / 100, lng: -101 }));
@@ -73,6 +73,7 @@ describe("where the store is", () => {
   it("finds the main checkout's store from a linked worktree, and lets the worktree's own file and the explicit path win", () => {
     expect(mainWorktreeDir(wt)).toBe(main);
     expect(resolveStorePath(wt, undefined)).toBe(join(main, "data", "roadside.sqlite"));
+    expect(resolveStore(wt, undefined)).toEqual({ path: join(main, "data", "roadside.sqlite"), source: "in the main checkout" });
     // A relative gitdir line resolves against the worktree.
     const rel = join(root, "rel");
     mkdirSync(rel, { recursive: true });
@@ -80,11 +81,38 @@ describe("where the store is", () => {
     expect(mainWorktreeDir(rel)).toBe(main);
     // The explicit path wins when it is there, and is skipped when it is not.
     expect(resolveStorePath(wt, join(main, "data", "roadside.sqlite"))).toBe(join(main, "data", "roadside.sqlite"));
+    expect(resolveStore(wt, join(main, "data", "roadside.sqlite"))?.source).toBe("ROADSIDE_STORE_PATH");
     expect(resolveStorePath(wt, join(root, "nope.sqlite"))).toBe(join(main, "data", "roadside.sqlite"));
     // The worktree's own file wins over the main checkout's.
     mkdirSync(join(wt, "data"), { recursive: true });
     writeFileSync(join(wt, "data", "roadside.sqlite"), "");
     expect(resolveStorePath(wt, undefined)).toBe(join(wt, "data", "roadside.sqlite"));
+    expect(resolveStore(wt, undefined)?.source).toBe("beside the atlas");
+  });
+
+  it("says where it found the store in words, once, and never the path", () => {
+    // Council round 1 on #87: the log line named the absolute path, the
+    // machine's directory layout, in every environment. It names the
+    // place instead; the fixture store above stands in for a volume.
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const before = process.env.ROADSIDE_STORE_PATH;
+    process.env.ROADSIDE_STORE_PATH = path;
+    try {
+      // Google's example polyline, three points in California: nothing in
+      // the fixture's tiles, so the answer is empty and the log is the point.
+      expect(roadsideForRoute("_p~iF~ps|U_ulLnnqC")).toEqual([]);
+      roadsideForRoute("_p~iF~ps|U_ulLnnqC");
+      expect(info).toHaveBeenCalledTimes(1);
+      expect(info).toHaveBeenCalledWith("[roadside] store: ROADSIDE_STORE_PATH");
+      const line = String(info.mock.calls[0][0]);
+      expect(line).not.toContain(path);
+      expect(line).not.toContain(dir);
+      expect(line).not.toMatch(/[\\/]/);
+    } finally {
+      if (before === undefined) delete process.env.ROADSIDE_STORE_PATH;
+      else process.env.ROADSIDE_STORE_PATH = before;
+      info.mockRestore();
+    }
   });
 
   it("names no store from a plain checkout, or with no .git at all, and never throws", () => {
@@ -92,11 +120,16 @@ describe("where the store is", () => {
     // its own data/ is where it looks.
     expect(mainWorktreeDir(main)).toBeNull();
     expect(resolveStorePath(main, undefined)).toBe(join(main, "data", "roadside.sqlite"));
-    // A deploy: no `.git`, no store, null.
+    // A deploy: no `.git`, no store, null; with the standalone output's
+    // copy, that one, said as such.
     const bare = join(root, "bare");
     mkdirSync(bare, { recursive: true });
     expect(mainWorktreeDir(bare)).toBeNull();
     expect(resolveStorePath(bare, undefined)).toBeNull();
+    expect(resolveStore(bare, undefined)).toBeNull();
+    mkdirSync(join(bare, ".next", "standalone", "data"), { recursive: true });
+    writeFileSync(join(bare, ".next", "standalone", "data", "roadside.sqlite"), "");
+    expect(resolveStore(bare, undefined)).toEqual({ path: join(bare, ".next", "standalone", "data", "roadside.sqlite"), source: "in the standalone output" });
     // A `.git` file that is not a worktree's, and one that names no gitdir.
     const odd = join(root, "odd");
     mkdirSync(odd, { recursive: true });

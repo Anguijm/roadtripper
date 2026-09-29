@@ -458,6 +458,18 @@ export default function PlanWorkspace({
   const [panelCityId, setPanelCityId] = useState<string | null>(initialPanelCityId ?? null);
   // The arrival count's "today": the server's day for the first paint,
   // the browser's own clock once mounted (the person's day, not UTC's).
+  // No hydration mismatch here (council round 1 on #87, item 7, checked):
+  // the first client render uses the `today` prop the server computed
+  // (src/app/plan/page.tsx, `today={localTodayIso()}`), which travels in
+  // the RSC payload and so is the same string on both sides, and nothing
+  // on this component's render path calls the clock: the one
+  // `localTodayIso()` in this file is in the effect below, which runs
+  // after hydration, and the days' "today" (`fitsTodayLine`,
+  // `townsFitHeading` in src/lib/plan/words.ts) is the word for day 1,
+  // not a date. A viewer whose day differs from the server's sees the
+  // count change once after mount by a state update, a re-render and not
+  // a mismatch. Do not move `localTodayIso()` into the initial state or
+  // the JSX: that is the mismatch this comment says there is not.
   const [sheetToday, setSheetToday] = useState<string | undefined>(today);
   useEffect(() => {
     setSheetToday(localTodayIso());
@@ -809,6 +821,20 @@ export default function PlanWorkspace({
     const leg = days[openDay].legIndex;
     return new Set([
       ...cityIdsByDay[openDay],
+      // The day's two ends that are stops: the one its stretch starts
+      // from (stops[leg - 1], when the stretch is not the first; a
+      // stretch is leg 0 from the start, leg i after stop i - 1) and the
+      // one it ends at (stops[leg], when the stretch is not the last).
+      // They are in the focus because a stop's town can still have its
+      // candidate dot on the map: `liveCandidateMarkers` is the last set
+      // a refresh answered with, so while the refresh past a new stop is
+      // in flight or has failed the town is still drawn as a candidate,
+      // and `cityIdsByDay` leaves stops out (a stop is drawn as its day's
+      // end, never twice). Without them a framed day's own start or end
+      // would fade as another day's town, dot and name. The slice is one
+      // leg's neighbours: `leg - 1` clamped at 0 for the first stretch,
+      // `leg + 1` past the last stop is empty. The stop's square (effect
+      // 3 in RouteMap.tsx) is never faded; this is for its town's dot.
       ...tripStops.slice(Math.max(0, leg - 1), leg + 1).map((s) => s.cityId),
     ]);
   }, [openDay, cityIdsByDay, days, tripStops]);

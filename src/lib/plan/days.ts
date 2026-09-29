@@ -207,6 +207,28 @@ export function daysSpannedBy(minutes: number | null, budgetMinutesPerDay: numbe
  * nearest town on the road, or in hours with none near" pins 30 and the
  * line at 29 and 31 km, and on the page a trip over the budget reads
  * "Day 1 · Amarillo to near Snyder · 4 h".
+ *
+ * To change it: first the test "names where a cut day ends by the
+ * nearest town on the road, or in hours with none near" in
+ * src/lib/plan/__tests__/days.test.ts, which pins 30 and probes the
+ * line at 29 and 31 km from Snyder; a new value needs those two probes
+ * moved to either side of it, and the pin changed with it. Then the
+ * page's fixtures, whose headings come from `tripDays` over that file's
+ * towns and so move with this value:
+ * src/components/__tests__/PlanWorkspace.days.ssr.test.tsx expects
+ * "Two days, with a night near Snyder", "Day 2 · near Snyder to Austin ·
+ * 3 h 50 min" and "Day 3 · near Llano to Austin · 30 min" where a town
+ * sits within 30 km of a cut, and "Day 2 · 4 h down the road from
+ * Lubbock" where none does. Raising it far enough turns an "hours"
+ * heading into "near X" and the shape line's "a night on the road" into
+ * a town; lowering it under 29 turns "near Snyder" into hours. Run that
+ * file after a change and read which flipped rather than expecting a
+ * particular one. src/components/__tests__/glossary.ssr.test.tsx builds
+ * its `dayHeadingLine` cases from a TripDay by hand, so it does not move.
+ * Nothing in CSS, the store or the routing reads it: `cutEndName` is its
+ * one reader, and its `nearKm` parameter is how a test tries another
+ * value without changing this one. Which town may name a cut at all (on
+ * the road, not hours off it) is ON_ROAD_KM, a separate threshold.
  */
 export const NEAR_CUT_KM = 30;
 

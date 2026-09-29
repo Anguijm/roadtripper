@@ -186,3 +186,92 @@ this is the documented way to stop it.
   the road", "Fort Worth fits in day 2" in the title and Fort Worth's
   row under "Day 2 · 4 h down the road from Lubbock" beneath "Towns that
   fit in day 2"; the day-tap screenshot as round 5's.
+
+## Council round 1 on #87
+
+Eight items, answered on the branch. The six comments name the tests
+that hold each value; each name was checked against the test file
+before the commit, so none is invented.
+
+1. `PLAN_HEADER_PX` (src/components/RouteMap.tsx). The comment now says
+   what the value is not, a number the app reads (the fit measures the
+   map's box with `getBoundingClientRect` in effects 1a and 1c), and
+   what to change with it: the header's classes in
+   src/app/plan/page.tsx, this number and the page SSR test "keeps the
+   masthead at the height the fit at rest counts on" in
+   src/app/plan/__tests__/page.ssr.test.tsx together, then the fit test
+   "fits the road into the strip of map above the sheet at rest, on a
+   phone" in src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx,
+   which takes the strip from this and the rest snap (`sheetTopDvh(1)`,
+   from SHEET_SNAPS[1]); the strip's floor STRIP_MIN_PX and what a taller
+   masthead does to every fit.
+2. `OFF_DAY_OPACITY`. The bounds, 0.25 to 0.5 as the days SSR test's
+   "fades the dots..." case pins them, and why: below, the dot is the
+   land's colour and the town reads as gone; above, it reads as the
+   day's own. A faded town's name is not drawn at all, so no
+   half-strength text is ever measured for contrast; only effect 2c's
+   `marker.setOpacity` reads the value, and the stop squares and the
+   diamonds never fade.
+3. `tripStopIcon`. Every number in the SVG and the icon (the 64 px
+   canvas, the square at 22 and 30 by 20, anchor (32, 40), labelOrigin
+   (32, 10), the text at x 32 on baseline 44.5, the colours) with how
+   each centres the name over the square and the number in it, what
+   moves with it (endpointIcon's canvas and origins, STRIP_MARGIN_PX.top),
+   and that the coordinates are not pinned by a test, so the check is a
+   screenshot with a stop added.
+4. `focusCandidateIds` (src/components/PlanWorkspace.tsx). An inline
+   comment on the slice: the day's two ends that are stops are in the
+   focus because a stop's town can still be drawn as a candidate dot
+   while the refresh past it is in flight or has failed
+   (`liveCandidateMarkers` is the last set that answered) and
+   `cityIdsByDay` leaves stops out; without them a framed day's own
+   start or end would fade as another day's town, dot and name.
+5. `NEAR_CUT_KM` (src/lib/plan/days.ts). What to update: the probes at
+   29 and 31 km and the pin in the days test "names where a cut day
+   ends by the nearest town on the road, or in hours with none near",
+   then the days SSR test's headings, which come from `tripDays` over
+   its fixtures and so move with the value, and which way each flips;
+   the glossary test builds its headings by hand and does not move;
+   `cutEndName` is the one reader and ON_ROAD_KM is a separate
+   threshold.
+6. `mainWorktreeDir` (src/lib/roadside/store.ts). Why the `.git` file is
+   read rather than git asked (a request-time lookup; no child process
+   per plan render and no git binary in the deploy), the trade (no
+   GIT_DIR or GIT_COMMON_DIR, a moved main checkout leaves a dangling
+   line that existsSync catches, a submodule's pointer is null on
+   purpose, the file is trusted only as a directory to look in, never
+   run), the `[\\/]` regex (resolve gives backslashes on Windows, git
+   writes forward slashes on both, so one pattern for every platform)
+   and the cases the store test lays out.
+7. Hydration of `today`: checked, no mismatch, no change. The plan page
+   computes `today={localTodayIso()}` on the server
+   (src/app/plan/page.tsx, line 280) and PlanWorkspace seeds
+   `sheetToday` from that prop (src/components/PlanWorkspace.tsx, line
+   473), so the server render and the first client render carry the
+   same string; the browser's clock is read only in the `useEffect`
+   after it (line 475), a state update after hydration. Nothing else on
+   the render path calls the clock: a grep for `new Date`, `Date.now`,
+   `todayIso` and `localTodayIso` outside tests in src/components,
+   src/lib/plan and src/app/plan finds that effect, the page, the pure
+   date maths in deadline.ts and types.ts, TripCard's formatting of a
+   saved trip's date and the server-side rate limiter. The days'
+   "today" (`fitsTodayLine`, `townsFitHeading` in src/lib/plan/words.ts)
+   is the word for day 1, not a date. A viewer whose day differs from
+   the server's sees the count change once after mount; that is a
+   re-render, not a hydration warning, and the date itself is always
+   shown. Written at the line as a comment; no test added, since no
+   behaviour changed.
+8. The store's log line. `resolveStore` returns the path with which of
+   the four places it was found in, and `roadsideForRoute` logs the
+   words ("[roadside] store: ROADSIDE_STORE_PATH", "beside the atlas",
+   "in the standalone output", "in the main checkout") and never the
+   path, in every environment; `resolveStorePath` stays for whoever
+   opens the file. store.test.ts did not assert on the message; it now
+   does: the source words for each place, and one call of
+   `roadsideForRoute` against the fixture store with a spy on
+   console.info, one line, the words, no path, no separator.
+   docs/roadside-store.md says the same.
+
+Checks: `bunx vitest run` 51 files, 525 tests, all green; `bun run
+type-check` clean; `bun run lint` 0 errors, 9 warnings, all on lines
+not touched here. Weakest part unchanged: item 7 found no mismatch.
