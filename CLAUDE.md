@@ -78,7 +78,8 @@ src/
     RecommendationList.tsx    — persona-ranked stop cards
     Itinerary.tsx             — ordered trip stop list
     NeighborhoodPanel.tsx     — per-stop neighborhood drill-down
-    PersonaSelector.tsx
+    MoodChips.tsx             — the mood chips, one component for every screen (U5)
+    TodayMoodChips.tsx        — the today results' wiring for them (the URL)
   lib/
     firebaseAdmin.ts          — server-only Firestore client
     urban-explorer/

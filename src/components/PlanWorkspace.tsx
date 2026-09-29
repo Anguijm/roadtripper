@@ -16,7 +16,7 @@ import RouteMap, {
   type TripStopMarker,
   type MapFit,
 } from "@/components/RouteMap";
-import PersonaSelector from "@/components/PersonaSelector";
+import MoodChips from "@/components/MoodChips";
 import RecommendationList, {
   RecommendationNotices,
   type AddCityPayload,
@@ -1328,15 +1328,9 @@ export default function PlanWorkspace({
               heading, so the roadside list U1 put first now lives inside
               its day. Every button here keeps the 44 px target. */}
           <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
-            {/* The glossary's words for "persona" (quality bar, rule 1),
-                said once above the chips. */}
-            <div className="space-y-2">
-              <p className="text-base text-[#b0b9c2]">I&apos;m in the mood for</p>
-              <PersonaSelector
-                activePersonaId={activePersonaId}
-                onChange={handlePersonaChange}
-              />
-            </div>
+            {/* The one mood component (Gauntlet U5): its label, its chips, its
+                two rows. Only the tap is the sheet's. */}
+            <MoodChips activeId={activePersonaId} onChange={handlePersonaChange} />
             {/* Two sentences, not three labelled stats: the glossary's
                 replacement for "budget left (as a stat)" is "4 h of driving
                 left today" (quality bar, rule 1). */}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
 import DriveBudgetSelector from "./DriveBudgetSelector";
-import PersonaSelector from "./PersonaSelector";
+import MoodChips from "./MoodChips";
 import { useLocatedOrigin } from "./useLocatedOrigin";
 import { totalDays, totalBudgetMinutes } from "@/lib/plan/types";
 import type { PersonaId } from "@/lib/personas/types";
@@ -288,12 +288,9 @@ export default function RouteInput({
                 )}
               </p>
             </div>
-            <div className="flex flex-col gap-1">
-              {/* The glossary's words for "persona" (quality bar, rule 1);
-                  the chips fill the row three then two, none alone. */}
-              <p className="text-base text-[#b0b9c2]">{"I'm in the mood for"}</p>
-              <PersonaSelector activePersonaId={persona} onChange={setPersona} fill />
-            </div>
+            {/* The one mood component (Gauntlet U5): its label, its chips
+                three then two, none alone. Only the tap is the form's. */}
+            <MoodChips activeId={persona} onChange={setPersona} />
           </div>
         )}
 

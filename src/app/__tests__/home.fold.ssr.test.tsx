@@ -42,6 +42,7 @@ describe("the home's fold, server-rendered", () => {
     expect(html).not.toContain('aria-haspopup="dialog"');
     expect(html).not.toContain("Pick the dates");
     expect(html).not.toContain('role="radiogroup"');
+    expect(html).not.toContain("data-mood-chips");
     expect(html).not.toContain(MORE_OPEN_LABEL + "</button>");
     // Between the title and the button: the example line, From, To, the
     // hours; the fold comes after the button and its reason.
@@ -72,6 +73,8 @@ describe("the home's fold, server-rendered", () => {
       expect(html, JSON.stringify(params)).not.toContain("Trip dates");
       expect(html, JSON.stringify(params)).toContain('role="radiogroup"');
       expect(html, JSON.stringify(params)).toContain("I'm in the mood for");
+      // The one mood component (U5), found by the runner's attribute.
+      expect(html.match(/data-mood-chips/g), JSON.stringify(params)).toHaveLength(1);
       // The five chips share the row, three then two, none alone on a row
       // (the round-1 critic saw the fifth wrap alone and cut).
       const chips = html.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
