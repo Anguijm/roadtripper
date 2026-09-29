@@ -56,13 +56,23 @@ export interface MoodConfig {
   id: MoodId;
   /** The chip's one short word, sentence case (quality bar, rule 1). */
   label: string;
-  /**
-   * The chip's glyph, so the chosen one is not marked by colour alone.
-   * Provisional: the blind critic judges these on a 390 px screen in the
-   * interface round, and a glyph that does not render in the body face is
-   * that round's finding, not this module's.
+  /*
+   * There is deliberately no glyph here. U6 round 2: the eight chips
+   * carried geometric characters (▲ ■ ● ◇ ★ ◆ ◗ ◐) and the critic failed
+   * them on rule 2. They rendered at wildly different sizes in the body
+   * face — Food's and Sports' were a fraction of the label and unreadable
+   * at arm's length — none of them depicted its mood, Museums' hollow ◇
+   * and Machines' solid ◆ differed only by fill, which is the signal this
+   * app uses everywhere for "chosen", and the two half-circles read as
+   * carets promising an expand that is not there.
+   *
+   * The eight labels are one plain word each and stand on their own. The
+   * chosen chip is marked by its fill, its weight and `aria-pressed`, none
+   * of which was ever the glyph's job, so nothing is lost by its going.
+   * Bringing icons back means one drawn set at one size, each shape
+   * depicting its mood, no two differing only by fill — not characters
+   * picked out of a font.
    */
-  glyph: string;
   /** The tags this mood rolls up. A place's mood score is its best of these. */
   tags: readonly RoadsideTag[];
   /**
@@ -80,56 +90,48 @@ export const MOOD_CONFIG: Readonly<Record<MoodId, MoodConfig>> = {
   outdoors: {
     id: "outdoors",
     label: "Outdoors",
-    glyph: "▲",
     tags: ["big_view", "waterfall", "rock_and_cave", "garden"],
     accentColor: "#7ee787",
   },
   history: {
     id: "history",
     label: "History",
-    glyph: "■",
     tags: ["old_building", "war_memorial", "pioneer", "native_american"],
     accentColor: "#d29922",
   },
   art: {
     id: "art",
     label: "Art",
-    glyph: "●",
     tags: ["public_art"],
     accentColor: "#bc8cff",
   },
   museums: {
     id: "museums",
     label: "Museums",
-    glyph: "◇",
     tags: ["museum", "science_and_space"],
     accentColor: "#79c0ff",
   },
   oddities: {
     id: "oddities",
     label: "Oddities",
-    glyph: "★",
     tags: ["roadside_oddity", "giant_thing"],
     accentColor: "#ffa657",
   },
   machines: {
     id: "machines",
     label: "Machines",
-    glyph: "◆",
     tags: ["trains_and_industry", "bridge_or_tower", "cars_and_racing"],
     accentColor: "#a5d6ff",
   },
   food: {
     id: "food",
     label: "Food",
-    glyph: "◗",
     tags: ["famous_food"],
     accentColor: "#f0883e",
   },
   sports: {
     id: "sports",
     label: "Sports",
-    glyph: "◐",
     tags: ["sports_place"],
     accentColor: "#56d4dd",
   },
@@ -308,13 +310,25 @@ export const SORT_MODES = ["best", "along"] as const;
 export type SortMode = (typeof SORT_MODES)[number];
 
 /**
+ * The lead-in over the sort control, so the two words after it finish a
+ * sentence a person would say: "Show me best first", "Show me along the
+ * road" (quality bar, rule 1).
+ *
+ * U6 round 1: the critic read the control as two more mood chips, because
+ * it sat in the chip grid with no lead-in and nothing to say what it was
+ * for. The words are half the fix; the shape is the other half.
+ */
+export const SORT_LEAD = "Show me";
+
+/**
  * The words on the sort control. "Along the road" rather than "by
  * distance": inside a day the two are the same thing, and the first is
- * what a person in a car would say (quality bar, rule 1).
+ * what a person in a car would say (quality bar, rule 1). Lower case
+ * because each one continues `SORT_LEAD` rather than starting a label.
  */
 export const SORT_LABELS: Readonly<Record<SortMode, string>> = {
-  best: "Best match",
-  along: "Along the road",
+  best: "best first",
+  along: "along the road",
 };
 
 /**
@@ -386,3 +400,40 @@ export function tagQuestionsDocument(): {
 export function tagQuestionsJson(): string {
   return `${JSON.stringify(tagQuestionsDocument(), null, 1)}\n`;
 }
+
+/**
+ * The chosen moods from a URL parameter, e.g. `?moods=food,outdoors`.
+ *
+ * Everything unreadable is dropped rather than defaulted: an unknown word,
+ * a repeat, or more than `MAX_MOODS` of them. A link someone edited by
+ * hand, or one made before a mood was renamed, then lands on the screen at
+ * rest — which is a real state the screens already have — instead of
+ * throwing or silently choosing a mood the person did not ask for.
+ *
+ * Order is kept, because `toggleMood` drops the one chosen longest ago and
+ * that has to mean the same thing after a reload as before it.
+ */
+export function parseMoods(raw: unknown): MoodId[] {
+  // A repeated query parameter (`?moods=food&moods=sports`) reaches a page
+  // as `string[]`, which is what Next types `searchParams` values as. It
+  // used to read as nothing at all, which threw away a choice the link
+  // plainly made. Each part is split on commas too, so the two spellings
+  // of the same link agree. Council round 2 on #94.
+  const parts: string[] = Array.isArray(raw)
+    ? raw.flatMap((v) => (typeof v === "string" ? v.split(",") : []))
+    : typeof raw === "string"
+      ? raw.split(",")
+      : [];
+  const known = new Set<string>(MOODS);
+  const out: MoodId[] = [];
+  for (const part of parts) {
+    const id = part.trim();
+    if (!known.has(id) || out.includes(id as MoodId)) continue;
+    out.push(id as MoodId);
+    if (out.length === MAX_MOODS) break;
+  }
+  return out;
+}
+
+/** The URL parameter for the chosen moods, one name for every screen that writes it. */
+export const MOODS_PARAM = "moods";

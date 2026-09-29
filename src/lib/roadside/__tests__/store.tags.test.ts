@@ -23,6 +23,8 @@ const ins = db.prepare("INSERT INTO roadside_stop (id, name, lat, lng, kind, p) 
 ins.run("osm:node:1", "The stadium", 34.5, -101 + 0.05, "attraction", 0.6);
 ins.run("osm:node:4", "The diner", 34.775, -101, "attraction", 0.5);
 ins.run("osm:node:7", "Never tagged", 34.9, -101, "attraction", 0.7);
+// A row the schema must refuse: a name is `z.string().min(1)`.
+ins.run("osm:node:8", "", 34.8, -101, "attraction", 0.8);
 const tag = db.prepare("INSERT INTO roadside_tag (stop_id, tag, p, scored_at) VALUES (?, ?, ?, 't')");
 tag.run("osm:node:1", "sports_place", 0.99);
 tag.run("osm:node:1", "famous_food", 0.02);
@@ -96,6 +98,21 @@ describe("the stops the plan page reads carry their tags", () => {
     const diner = out.get("osm:node:4")!;
     expect(rankFor(diner.scores, diner.p, ["food"])).toBeGreaterThan(rankFor(stadium.scores, stadium.p, ["food"]));
     expect(rankFor(stadium.scores, stadium.p, ["sports"])).toBeGreaterThan(rankFor(diner.scores, diner.p, ["sports"]));
+  });
+
+  it("never lets a stop without a name reach a marker, so the comparator cannot meet one", () => {
+    // `RoadsideSurvivorSchema` has `name: z.string().min(1)` and
+    // `survivorsAlongRoute` skips a row the schema refuses rather than
+    // passing it on. That is why `orderRoadside`'s `a.name.localeCompare`
+    // needs no null guard: schema drift makes the store return *fewer*
+    // stops, never malformed ones. If this test ever fails, that argument
+    // has stopped being true and the comparator needs the guard.
+    const out = survivorsAlongRoute(roadsideStore(path)!, route);
+    expect(out.map((m) => m.id)).not.toContain("osm:node:8");
+    for (const m of out) {
+      expect(m.name.length, m.id).toBeGreaterThan(0);
+      expect(Number.isFinite(m.alongKm), m.id).toBe(true);
+    }
   });
 
   it("asks for nothing when there are no stops to ask about", () => {

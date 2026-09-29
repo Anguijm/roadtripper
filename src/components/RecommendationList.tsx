@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { PERSONAS } from "@/lib/personas";
-import type { PersonaId, RankedWaypoint } from "@/lib/personas/types";
-import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
+import type { PersonaConfig, RankedWaypoint } from "@/lib/personas/types";
+import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDrive } from "@/lib/today/presets";
 import { kindWord } from "@/lib/plan/words";
 import Figures from "@/components/Figures";
@@ -17,7 +16,14 @@ export interface AddCityPayload {
 
 interface RecommendationListProps {
   fetchResult: WaypointFetchResult;
-  activePersonaId: PersonaId;
+  /**
+   * The scoring profile the chosen moods make (U6), not an id: a mood's
+   * profile is built by `waypointProfileForMoods`, and two moods do not
+   * have one id between them.
+   */
+  moodProfile: PersonaConfig;
+  /** The chosen moods as one string, for the remount that announces a reorder. */
+  moodKey: string;
   highlightedCityId?: string | null;
   onCityHover?: (cityId: string | null) => void;
   /** Map of cityId → {lat,lng} so the Add button can build a TripStop */
@@ -69,9 +75,25 @@ interface RecommendationListProps {
  * said once, beside them, not once per day and not in a tooltip). Nothing
  * when there are no towns at all: the sheet's title already says so.
  */
-export function RecommendationNotices({ fetchResult, activePersonaId, atCap = false }: Pick<RecommendationListProps, "fetchResult" | "activePersonaId" | "atCap">) {
-  const groups = useMemo(() => buildRankedGroups(fetchResult, activePersonaId), [fetchResult, activePersonaId]);
-  if (fetchResult.cities.length === 0) return null;
+export function RecommendationNotices({ fetchResult, moodProfile, atCap = false }: Pick<RecommendationListProps, "fetchResult" | "moodProfile" | "moodKey" | "atCap">) {
+  const groups = useMemo(() => buildRankedGroupsWith(fetchResult, moodProfile), [fetchResult, moodProfile]);
+  if (fetchResult.cities.length === 0) {
+    // A degraded read that came back with no towns at all used to return
+    // null, so a failure looked exactly like a route with nothing near it:
+    // the screen said nothing and the person had no way to know a reload
+    // would help. Same lesson as the missing `roadside_tag` table in #93 —
+    // a silent empty is a worse failure than a loud one. A *fresh* read
+    // with no towns is not a failure and still says nothing here; the
+    // sheet's own day lines already tell that story.
+    if (fetchResult.status !== "degraded") return null;
+    return (
+      <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
+        <p className="text-base text-[#d29922]">
+          The towns along this road did not load. Reload to try again.
+        </p>
+      </div>
+    );
+  }
   if (!groups.some((g) => g.rows.length > 0)) {
     return (
       <div className="p-4 border border-[#30363d] bg-[#161b22]">
@@ -140,7 +162,8 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
  */
 export default function RecommendationList({
   fetchResult,
-  activePersonaId,
+  moodProfile,
+  moodKey,
   highlightedCityId,
   onCityHover,
   cityCoords,
@@ -156,13 +179,12 @@ export default function RecommendationList({
   keepEmpty = false,
   detail = null,
 }: RecommendationListProps) {
-  const persona = PERSONAS[activePersonaId];
-  const accent = persona.accentColor;
+  const accent = moodProfile.accentColor;
 
   const groups = useMemo(() => {
-    const all = buildRankedGroups(fetchResult, activePersonaId);
+    const all = buildRankedGroupsWith(fetchResult, moodProfile);
     return cityIds ? all.filter((g) => cityIds.has(g.cityId)) : all;
-  }, [fetchResult, activePersonaId, cityIds]);
+  }, [fetchResult, moodProfile, cityIds]);
 
   const hasRows = groups.some((g) => g.rows.length > 0);
 
@@ -177,14 +199,14 @@ export default function RecommendationList({
   // (a day's slice of the towns says nothing; the sheet does, once), or
   // keeps a town's row without its places.
   if (!hasRows && !keepEmpty) {
-    return notices ? <RecommendationNotices fetchResult={fetchResult} activePersonaId={activePersonaId} atCap={atCap} /> : null;
+    return notices ? <RecommendationNotices fetchResult={fetchResult} moodProfile={moodProfile} moodKey={moodKey} atCap={atCap} /> : null;
   }
 
   return (
     <div className="flex flex-col">
       {/* Why every "Stop here" is off, said once beside them rather than
           in a tooltip (quality bar, rule 3). */}
-      {notices && <RecommendationNotices fetchResult={fetchResult} activePersonaId={activePersonaId} atCap={atCap} />}
+      {notices && <RecommendationNotices fetchResult={fetchResult} moodProfile={moodProfile} moodKey={moodKey} atCap={atCap} />}
 
       {groups.map((group) => {
         const { cityId, cityName, rows, detourMinutes } = group;

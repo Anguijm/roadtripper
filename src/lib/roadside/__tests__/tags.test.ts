@@ -14,6 +14,9 @@ import {
   GENERAL_WEIGHT,
   SORT_MODES,
   SORT_LABELS,
+  SORT_LEAD,
+  parseMoods,
+  MOODS_PARAM,
   moodScore,
   rankFor,
   toggleMood,
@@ -80,15 +83,16 @@ describe("the vocabulary the operator approved", () => {
   it("labels the chips in plain words with no glossary word and no invented shorthand", () => {
     const never = /candidates|persona|waypoint|neighborhood|primary|recompute|budget left/i;
     for (const mood of MOODS) {
-      const { label, glyph } = MOOD_CONFIG[mood];
+      const { label } = MOOD_CONFIG[mood];
       expect(label, mood).not.toMatch(never);
       // Sentence case: a capital then lower case, one word.
       expect(label, mood).toMatch(/^[A-Z][a-z]+$/);
-      expect(glyph.length, mood).toBeGreaterThan(0);
     }
-    // Every chip is told apart by its word and its glyph, not by colour alone.
+    // Every chip is told apart by its word. There is no glyph: U6 round 2
+    // failed the eight geometric characters on rule 2, and the word is
+    // what carries a chip's identity now.
     expect(new Set(MOODS.map((m) => MOOD_CONFIG[m].label)).size).toBe(8);
-    expect(new Set(MOODS.map((m) => MOOD_CONFIG[m].glyph)).size).toBe(8);
+    expect(MOODS.every((m) => !("glyph" in MOOD_CONFIG[m]))).toBe(true);
   });
 
   it("fills a chosen chip with something the body colour can be read on", () => {
@@ -99,10 +103,17 @@ describe("the vocabulary the operator approved", () => {
     }
   });
 
-  it("names the two ways the list can be ordered", () => {
+  it("names the two ways the list can be ordered, as the end of a sentence", () => {
+    // U6 round 1: the critic read the control as two more mood chips, in
+    // part because its words were labels standing alone. Each now finishes
+    // SORT_LEAD, so the screen says a sentence a person would say (rule 1).
     expect(SORT_MODES).toEqual(["best", "along"]);
-    expect(SORT_LABELS.best).toBe("Best match");
-    expect(SORT_LABELS.along).toBe("Along the road");
+    expect(SORT_LEAD).toBe("Show me");
+    expect(SORT_LABELS.best).toBe("best first");
+    expect(SORT_LABELS.along).toBe("along the road");
+    for (const m of SORT_MODES) {
+      expect(`${SORT_LEAD} ${SORT_LABELS[m]}`, m).toMatch(/^Show me [a-z]/);
+    }
   });
 });
 
@@ -383,5 +394,70 @@ describe("the file the tagging bench reads", () => {
     // Every tag rolls up into exactly one mood, which is what lets the
     // bench's per-tag score become a mood score without a second table.
     expect(Object.values(doc.moods).flat().sort()).toEqual([...ROADSIDE_TAGS].sort());
+  });
+});
+
+
+describe("the moods a link carries", () => {
+  it("reads the ones it knows, in the order they were given", () => {
+    expect(parseMoods("food")).toEqual(["food"]);
+    expect(parseMoods("food,outdoors")).toEqual(["food", "outdoors"]);
+    // Order is kept because toggleMood drops the one chosen longest ago,
+    // and that has to mean the same after a reload as before it.
+    expect(parseMoods("outdoors,food")).toEqual(["outdoors", "food"]);
+    expect(parseMoods(" food , outdoors ")).toEqual(["food", "outdoors"]);
+  });
+
+  it("drops anything it cannot read rather than choosing a mood nobody asked for", () => {
+    for (const raw of ["", ",", ",,,", "banana", "FOOD", "food;outdoors", "  "]) {
+      expect(parseMoods(raw), JSON.stringify(raw)).toEqual([]);
+    }
+    for (const raw of [undefined, null, 0, 42, [], {}, true, [1, 2], [null]]) {
+      expect(parseMoods(raw), JSON.stringify(raw)).toEqual([]);
+    }
+  });
+
+  it("reads a repeated parameter, which is how a link can spell it", () => {
+    // `?moods=food&moods=sports` reaches a page as `string[]`, which is
+    // what Next types a searchParams value as. It read as nothing at all
+    // until council round 2 on #94, throwing away a choice the link plainly
+    // made. Both spellings of the same link now agree.
+    expect(parseMoods(["food", "sports"])).toEqual(["food", "sports"]);
+    expect(parseMoods("food,sports")).toEqual(["food", "sports"]);
+    expect(parseMoods(["food,sports"])).toEqual(["food", "sports"]);
+    expect(parseMoods(["food"])).toEqual(["food"]);
+    // The cap and the de-duplication hold across the parts, not within one.
+    expect(parseMoods(["food", "sports", "museums"])).toEqual(["food", "sports"]);
+    expect(parseMoods(["food", "food"])).toEqual(["food"]);
+    // A mixed array drops what it cannot read and keeps what it can.
+    expect(parseMoods(["banana", "food"])).toEqual(["food"]);
+    expect(parseMoods([null, "food", 7])).toEqual(["food"]);
+  });
+
+  it("never returns more than the screen can show, whatever the link says", () => {
+    expect(parseMoods("food,outdoors,museums")).toEqual(["food", "outdoors"]);
+    expect(parseMoods(MOODS.join(","))).toHaveLength(MAX_MOODS);
+    // A repeat is not a second choice.
+    expect(parseMoods("food,food")).toEqual(["food"]);
+    expect(parseMoods("food,food,outdoors")).toEqual(["food", "outdoors"]);
+  });
+
+  it("is not hurt by an outsized or hostile parameter", () => {
+    // The parameter comes off a URL anyone can edit. It is read, not
+    // trusted: nothing here indexes by it, and the result is a list of
+    // known ids or nothing at all.
+    expect(parseMoods("x".repeat(100_000))).toEqual([]);
+    expect(parseMoods(Array(50_000).fill("banana").join(","))).toEqual([]);
+    expect(parseMoods("<script>alert(1)</script>")).toEqual([]);
+    expect(parseMoods("__proto__,constructor")).toEqual([]);
+    expect(parseMoods("food," + "x".repeat(100_000))).toEqual(["food"]);
+    // Whatever comes back is always a real mood the vocabulary knows.
+    for (const raw of ["food,banana", "banana,food", "__proto__,food"]) {
+      for (const m of parseMoods(raw)) expect(MOODS, raw).toContain(m);
+    }
+  });
+
+  it("names the parameter once, for every screen that writes it", () => {
+    expect(MOODS_PARAM).toBe("moods");
   });
 });

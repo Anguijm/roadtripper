@@ -14,10 +14,16 @@ function resumeUrl(trip: SavedTrip): string {
     toLat: trip.toLat.toString(),
     toLng: trip.toLng.toString(),
     budget: trip.budgetHours.toString(),
-    persona: trip.personaId,
     fromName: trip.fromName,
     toName: trip.toName,
   });
+  // The moods a trip was saved with (U6). A trip saved before U6 carries a
+  // persona instead; it is passed through under its old name so an old
+  // card still reopens the plan it made, and the plan page ignores a
+  // parameter it no longer reads rather than failing on it.
+  if (trip.moods && trip.moods.length > 0) p.set("moods", trip.moods.join(","));
+  else if (trip.personaId) p.set("persona", trip.personaId);
+
   if (trip.dateMode === "arrival" && trip.endDate) {
     // A deadline, not a range: the start date is re-derived from the route
     // on open, so a trip saved with fewer stops does not keep a stale one.

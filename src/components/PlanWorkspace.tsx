@@ -24,8 +24,19 @@ import RecommendationList, {
 import NeighborhoodPanel from "@/components/NeighborhoodPanel";
 import Figures from "@/components/Figures";
 import { panelCityFor, nextPanelCityId } from "@/lib/plan/panel-city";
-import { PERSONAS } from "@/lib/personas";
-import type { PersonaId } from "@/lib/personas/types";
+import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
+import { orderRoadside } from "@/lib/roadside/order";
+import {
+  toggleMood,
+  parseMoods,
+  MOOD_CONFIG,
+  SORT_LABELS,
+  MOODS_PARAM,
+  SORT_MODES,
+  type MoodId,
+  type SortMode,
+} from "@/lib/roadside/tags";
+import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
@@ -53,7 +64,8 @@ interface PlanWorkspaceProps {
   };
   candidateMarkers: CandidateMarker[];
   waypointFetch: WaypointFetchResult;
-  initialPersonaId: PersonaId;
+  /** The moods the link arrived with, oldest first; empty is the sheet at rest. */
+  initialMoods: readonly MoodId[];
   budgetHours: number;
   initialDistanceMeters: number;
   initialDurationSeconds: number;
@@ -370,7 +382,7 @@ export default function PlanWorkspace({
   bounds,
   candidateMarkers,
   waypointFetch,
-  initialPersonaId,
+  initialMoods,
   budgetHours,
   initialDistanceMeters,
   initialDurationSeconds,
@@ -399,9 +411,36 @@ export default function PlanWorkspace({
   type SaveState = "idle" | "saved" | "error";
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveAnnouncement, setSaveAnnouncement] = useState("");
+  /**
+   * What a mood tap or an order tap changed, for a screen reader (U6).
+   *
+   * The chips and the order control both reorder a list that is further
+   * down the sheet than the control that reordered it, so the one thing a
+   * tap actually does is the one thing a person using a screen reader
+   * cannot see it do. `aria-pressed` says the chip is on; it does not say
+   * the list underneath moved.
+   *
+   * Polite and set only on a tap, never on the first render, so it does
+   * not read the sheet's whole state on arrival. Council round 1 on #94
+   * asked for it for the order; it is worth as much for the moods, and
+   * they share one region so two taps in a row cannot talk over each
+   * other.
+   */
+  const [listAnnouncement, setListAnnouncement] = useState("");
 
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
-  const [activePersonaId, setActivePersonaId] = useState<PersonaId>(initialPersonaId);
+  const [chosenMoods, setChosenMoods] = useState<readonly MoodId[]>(initialMoods);
+  // The server's moods, as one string, so the effect below has something
+  // stable to watch: `initialMoods` is an array prop and gets a new
+  // identity on every render.
+  const initialMoodKey = initialMoods.join(",");
+  // How the day's places are ordered. "best" is the chosen moods through
+  // rankFor; "along" is the order they come up on the road. Not in the URL:
+  // it is how you are reading the list right now, not part of the trip.
+  const [sortMode, setSortMode] = useState<SortMode>(SORT_MODES[0]);
+  // The shape scoreWaypoint takes, rebuilt only when the moods change.
+  const moodProfile = useMemo(() => waypointProfileForMoods(chosenMoods), [chosenMoods]);
+  const moodKey = chosenMoods.join(",");
   const [highlightedCityId, setHighlightedCityId] = useState<string | null>(null);
 
   // In arrival mode, startDate is re-derived after each recompute as stops are
@@ -559,7 +598,10 @@ export default function PlanWorkspace({
     sheetRef.current.style.setProperty("--sheet-y", `${SHEET_SNAPS[sheetSnap]}%`);
   }, [sheetSnap]);
 
-  const accent = PERSONAS[activePersonaId].accentColor;
+  // The route line's colour. The first mood chosen, so that adding a
+  // second never repaints the road the first one painted; with none
+  // chosen it is the default the sheet has always opened with.
+  const accent = moodProfile.accentColor;
 
   // Derived live values — fall back to the server-rendered initials.
   // `bounds` (initial corridor) is the only camera input — recomputes
@@ -763,10 +805,15 @@ export default function PlanWorkspace({
         const townIds = new Set(d.towns.map((t) => t.id));
         if (d.endStopId) townIds.add(d.endStopId);
         const underTowns = sheetFetch.waypoints.filter((w) => townIds.has(w.cityId)).map((w) => w.name);
-        const strongestFirst = [...d.roadside].sort((a, b) => b.p - a.p || a.alongKm - b.alongKm || a.name.localeCompare(b.name, "en"));
-        return uniqueByName(strongestFirst, underTowns);
+        // "Best match" is the chosen moods through rankFor, which with
+        // nothing chosen is the general score the list always used, so the
+        // sheet at rest is ordered exactly as it was before U6. "Along the
+        // road" is the order they come up while driving. Both fall back to
+        // the same tie-breaks, so the order is total either way and never
+        // depends on what the database happened to return.
+        return uniqueByName(orderRoadside(d.roadside, chosenMoods, sortMode), underTowns);
       }),
-    [days, sheetFetch.waypoints]
+    [days, sheetFetch.waypoints, chosenMoods, sortMode]
   );
   // A day's towns that fit (the next day's, all of them), the stops among
   // them left out: a stop is drawn as its day's end, never twice.
@@ -879,14 +926,64 @@ export default function PlanWorkspace({
   );
 
   // ── Persona / hover handlers ───────────────────────────────────────────
-  const handlePersonaChange = useCallback((next: PersonaId) => {
-    setActivePersonaId(next);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("persona", next);
-      window.history.replaceState(null, "", url.toString());
-    }
+  /**
+   * Take the server's moods when *they* change (Gauntlet U6; council round
+   * 2 on #94).
+   *
+   * `chosenMoods` starts from `initialMoods` and is the user's from then
+   * on, because a tap writes the URL with `history.replaceState` and never
+   * re-runs the Server Component — that is the invariant that stops a chip
+   * re-billing the Routes API. The cost of it is that a render which
+   * *does* bring different moods from the server, such as the browser's
+   * back or forward landing on a URL with another set, would otherwise
+   * leave the chips showing the old ones.
+   *
+   * Watching the joined string rather than the array means this fires only
+   * when the server actually sends something different. A tap cannot
+   * trigger it: a tap changes the URL, not the props.
+   */
+  useEffect(() => {
+    setChosenMoods(parseMoods(initialMoodKey));
+  }, [initialMoodKey]);
+
+  /**
+   * Whether a tap has changed the moods yet.
+   *
+   * The effect below writes the URL and speaks; neither should happen on
+   * the first render, when the moods came from the server and the URL
+   * already says so. A ref and not state: nothing renders differently
+   * because of it.
+   */
+  const moodsTappedRef = useRef(false);
+
+  const handleMoodToggle = useCallback((mood: MoodId) => {
+    // A functional update, so two taps in one tick cannot both read the
+    // same `chosenMoods` and the second silently undo the first; and
+    // nothing but the state change happens in here, because an updater
+    // must be pure — React runs it twice in Strict Mode and may discard a
+    // render and re-run it. The URL and the announcement are the effect's,
+    // which is the one place that sees the value React settled on.
+    // Council rounds 1 and 6 on #94, from opposite directions.
+    moodsTappedRef.current = true;
+    setChosenMoods((curr) => toggleMood(curr, mood));
   }, []);
+
+  useEffect(() => {
+    if (!moodsTappedRef.current) return;
+    setListAnnouncement(
+      chosenMoods.length === 0
+        ? "No mood chosen. The places are back in their usual order."
+        : `In the mood for ${chosenMoods.map((m) => MOOD_CONFIG[m].label.toLowerCase()).join(" and ")}. The places are reordered.`
+    );
+    if (typeof window === "undefined") return;
+    // history.replaceState, never router.replace: /plan is force-dynamic
+    // and a route change re-invokes the Server Component, which re-bills
+    // the Routes API (architecture invariant).
+    const url = new URL(window.location.href);
+    if (chosenMoods.length === 0) url.searchParams.delete(MOODS_PARAM);
+    else url.searchParams.set(MOODS_PARAM, chosenMoods.join(","));
+    window.history.replaceState(null, "", url.toString());
+  }, [chosenMoods]);
 
   // ── Trip add/remove ────────────────────────────────────────────────────
   const handleAddCity = useCallback((city: AddCityPayload) => {
@@ -1154,7 +1251,7 @@ export default function PlanWorkspace({
   // Reset "Saved ✓" when the user changes the trip after a successful save.
   useEffect(() => {
     setSaveState((s) => (s === "saved" ? "idle" : s));
-  }, [tripStops, activePersonaId]);
+  }, [tripStops, moodKey]);
 
   const handleSave = useCallback(() => {
     const input: SaveTripInput = {
@@ -1168,7 +1265,7 @@ export default function PlanWorkspace({
       startDate: effectiveStartDate,
       endDate,
       dateMode: dateMode === "arrival" ? "arrival" : undefined,
-      personaId: activePersonaId,
+      moods: [...chosenMoods],
       stops: tripStops.map((s) => ({
         cityId: s.cityId,
         cityName: s.cityName,
@@ -1192,7 +1289,7 @@ export default function PlanWorkspace({
         ? `Can't save: ${MAX_SAVED_TRIPS} saved trips is the limit. Delete one first.`
         : "Can't save: the trip didn't validate."
     );
-  }, [fromName, toName, origin, destination, budgetHours, effectiveStartDate, endDate, activePersonaId, tripStops]);
+  }, [fromName, toName, origin, destination, budgetHours, effectiveStartDate, endDate, chosenMoods, tripStops]);
 
   const handleRetry = useCallback(() => {
     // Force a fresh recompute by bumping the request id; the effect's
@@ -1232,7 +1329,8 @@ export default function PlanWorkspace({
             loadState={effectiveNeighborhoods[panelCityId]}
             waypoints={panelCityWaypoints}
             failures={effectiveWaypointFetch.status === "degraded" ? effectiveWaypointFetch.failures : []}
-            personaId={activePersonaId}
+            persona={moodProfile}
+            moodKey={moodKey}
           />
         )}
       </div>
@@ -1272,6 +1370,7 @@ export default function PlanWorkspace({
       <div aria-live="polite" className="sr-only">{candidatePoolAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{sheetAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{saveAnnouncement}</div>
+      <div aria-live="polite" className="sr-only">{listAnnouncement}</div>
       <div aria-live="polite" className="sr-only">{startDateAnnouncement}</div>
 
       {/* Side panel / mobile bottom sheet */}
@@ -1330,7 +1429,7 @@ export default function PlanWorkspace({
           <div className="px-1 pt-1 pb-3 border-b border-[#30363d] space-y-3 font-sans">
             {/* The one mood component (Gauntlet U5): its label, its chips, its
                 two rows. Only the tap is the sheet's. */}
-            <MoodChips activeId={activePersonaId} onChange={handlePersonaChange} />
+            <MoodChips chosen={chosenMoods} onToggle={handleMoodToggle} />
             {/* Two sentences, not three labelled stats: the glossary's
                 replacement for "budget left (as a stat)" is "4 h of driving
                 left today" (quality bar, rule 1). */}
@@ -1499,7 +1598,7 @@ export default function PlanWorkspace({
           {/* The notes over the towns, once above the days rather than
               once per day: why every "Stop here" is off, that some places
               did not load, or that nothing is written up yet. */}
-          <RecommendationNotices fetchResult={effectiveWaypointFetch} activePersonaId={activePersonaId} atCap={atCap} />
+          <RecommendationNotices fetchResult={effectiveWaypointFetch} moodProfile={moodProfile} moodKey={moodKey} atCap={atCap} />
 
           {/* The trip told as days (Gauntlet U3; quality bar, rule 5): a
               heading per day, a sentence with its figures in the mono face
@@ -1520,6 +1619,36 @@ export default function PlanWorkspace({
               days are the trip: there is no itinerary above them. Council
               ISC-S7-PROD-2: the brief highlight on each successful refresh
               proves the towns actually updated. */}
+          {/* How the places are ordered (Gauntlet U6, round 2). Directly
+              above the days, because the days are the lists it orders; it
+              was under the chips in round 1 and the critic read it as two
+              more moods (rule 3).
+
+              Once for the sheet rather than once per day, and that is a
+              constraint rather than a preference: `ROADSIDE_LIST_PX` is
+              the height of a day's list from its heading through "Show
+              all", and the rest snap was sized so that whole block fits
+              the scroll box once scrolled to, with one pixel to spare. A
+              44 px control inside each day's list would cost that, which
+              is a U1 decision and not this component's to spend.
+
+              Hidden when no day has a place: a control that orders an
+              empty list is the machinery rule 3 and rule 6 keep off the
+              screen. The test "shows nothing and says nothing when no
+              pulled corridor is near the route" is what caught it, and
+              its name is the rule. Its label also avoids the heading's
+              own words, since two tests find that phrase by position. */}
+          {roadsideByDay.some((d) => d.length > 0) && (
+            <SortControl
+              mode={sortMode}
+              onChange={(next) => {
+                setSortMode(next);
+                setListAnnouncement(`The places are ordered ${SORT_LABELS[next]}.`);
+              }}
+              label="Order the day's places"
+            />
+          )}
+
           <div
             className={
               highlightRefresh
@@ -1542,7 +1671,8 @@ export default function PlanWorkspace({
               const townIds = cityIdsByDay[day.index];
               const heading = dayHeadings[day.index];
               const townProps = {
-                activePersonaId,
+                moodProfile,
+                moodKey,
                 highlightedCityId,
                 onCityHover: setHighlightedCityId,
                 cityCoords,

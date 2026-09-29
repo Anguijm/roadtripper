@@ -8,7 +8,7 @@ import DriveBudgetSelector from "./DriveBudgetSelector";
 import MoodChips from "./MoodChips";
 import { useLocatedOrigin } from "./useLocatedOrigin";
 import { totalDays, totalBudgetMinutes } from "@/lib/plan/types";
-import type { PersonaId } from "@/lib/personas/types";
+import { toggleMood, MOODS_PARAM, type MoodId } from "@/lib/roadside/tags";
 
 interface RouteInputProps {
   initialFrom?: CitySelection;
@@ -115,7 +115,8 @@ export default function RouteInput({
   const [dateMode, setDateMode] = useState<"range" | "arrival">(initialDateMode);
   // The mood is asked under the fold and is optional: null until a chip is
   // tapped, and then the one thing the query gains.
-  const [persona, setPersona] = useState<PersonaId | null>(null);
+  // Empty is "nothing chosen yet": the home's fold, where a mood is optional (Gauntlet U4).
+  const [moods, setMoods] = useState<readonly MoodId[]>([]);
   const [moreOpen, setMoreOpen] = useState(
     initialMoreOpen ?? (initialDateMode === "arrival" || initialStartDate !== "" || initialEndDate !== "")
   );
@@ -173,7 +174,7 @@ export default function RouteInput({
       params.set("startDate", startDate);
       params.set("endDate", endDate);
     }
-    if (persona) params.set("persona", persona);
+    if (moods.length > 0) params.set(MOODS_PARAM, moods.join(","));
     router.push(`/plan?${params.toString()}`);
   }
 
@@ -290,7 +291,7 @@ export default function RouteInput({
             </div>
             {/* The one mood component (Gauntlet U5): its label, its chips
                 three then two, none alone. Only the tap is the form's. */}
-            <MoodChips activeId={persona} onChange={setPersona} />
+            <MoodChips chosen={moods} onToggle={(m) => setMoods((prev) => toggleMood(prev, m))} />
           </div>
         )}
 

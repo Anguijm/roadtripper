@@ -50,7 +50,7 @@ const base = {
   encodedPolyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
   candidateMarkers: [],
   waypointFetch: { status: "fresh" as const, cities: [], waypoints: [], neighborhoods: {} },
-  initialPersonaId: "culture" as const,
+  initialMoods: [] as const,
   budgetHours: 4,
   initialDistanceMeters: 800_000,
   initialDurationSeconds: 29_000,
@@ -460,8 +460,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(text).toContain("★ The pick");
     // The mood chips: named in the glossary's words, wrapping rather than
     // scrolling sideways (round-1 critic: the strip clipped the last chip).
-    expect(html).toContain('aria-label="I&#x27;m in the mood for"');
-    expect(html).toMatch(/role="radiogroup"[^>]*class="[^"]*flex-wrap/);
+    expect(html).toContain('aria-label="I&#x27;m in the mood for, choose up to 2"');
+    // A group, not a radiogroup: two moods may be on at once (U6).
+    expect(html).toMatch(/role="group"[^>]*class="[^"]*flex-wrap/);
     expect(html).not.toContain("overflow-x-auto");
   });
 

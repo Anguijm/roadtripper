@@ -1,5 +1,6 @@
 // Isomorphic — safe for both client and server. No server-only imports.
 import { z } from "zod/v4";
+import { MAX_MOODS } from "@/lib/roadside/tags";
 
 export const SavedTripStopSchema = z.object({
   // 200-char sanity limit: well within Firestore field limits; prevents abuse.
@@ -27,7 +28,31 @@ export const SaveTripInputSchema = z.object({
   // means a plain range, which opens exactly as it always did.
   dateMode: z.enum(["range", "arrival"]).optional(),
   // 100 chars is well above any current personaId length; prevents outsized Firestore writes.
-  personaId: z.string().min(1).max(100),
+  //
+  // Optional since U6, when the screens stopped choosing a persona and
+  // started choosing moods. Every trip saved before that has one and still
+  // parses; trips saved after it carry `moods` instead. Nothing displays
+  // either — they build the resume link.
+  personaId: z.string().min(1).max(100).optional(),
+  /**
+   * The chosen moods, oldest first (U6).
+   *
+   * `MAX_MOODS` rather than a literal 2: the screen's limit and what the
+   * store will accept have to move together, and `MAX_MOODS` is where that
+   * number is decided (`src/lib/roadside/tags.ts`, which also names the
+   * chip component and the tests that pin its layout).
+   *
+   * 40 characters is well over the longest id the vocabulary has
+   * ("trains_and_industry" is 19, and these are mood ids, shorter still);
+   * it is a ceiling against an outsized Firestore write, in the same
+   * spirit as the 100 on `personaId`, not a length anything is expected
+   * to approach.
+   *
+   * Plain strings rather than the enum: a trip saved with a mood that is
+   * later renamed must still load its route and its stops, and
+   * `parseMoods` drops the unknown one when the link is opened.
+   */
+  moods: z.array(z.string().min(1).max(40)).max(MAX_MOODS).optional(),
   // Max 7 stops — matches MAX_TRIP_STOPS in PlanWorkspace; Routes API waypoint cap.
   stops: z.array(SavedTripStopSchema).max(7),
 });

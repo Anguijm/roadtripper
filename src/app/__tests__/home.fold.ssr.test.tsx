@@ -41,7 +41,7 @@ describe("the home's fold, server-rendered", () => {
     // Closed, the dates control and the chips are not in the markup.
     expect(html).not.toContain('aria-haspopup="dialog"');
     expect(html).not.toContain("Pick the dates");
-    expect(html).not.toContain('role="radiogroup"');
+    expect(html).not.toContain('role="group"');
     expect(html).not.toContain("data-mood-chips");
     expect(html).not.toContain(MORE_OPEN_LABEL + "</button>");
     // Between the title and the button: the example line, From, To, the
@@ -71,14 +71,17 @@ describe("the home's fold, server-rendered", () => {
       // button inside 844 px with the chips whole).
       expect(html, JSON.stringify(params)).toMatch(/aria-haspopup="dialog"[^>]*>(?:Pick the dates|Pick the arrival date|Arrive by <span|Starts <span|Ends <span|<span class="num">)/);
       expect(html, JSON.stringify(params)).not.toContain("Trip dates");
-      expect(html, JSON.stringify(params)).toContain('role="radiogroup"');
+      expect(html, JSON.stringify(params)).toContain('role="group"');
       expect(html, JSON.stringify(params)).toContain("I'm in the mood for");
       // The one mood component (U5), found by the runner's attribute.
       expect(html.match(/data-mood-chips/g), JSON.stringify(params)).toHaveLength(1);
-      // The five chips share the row, three then two, none alone on a row
-      // (the round-1 critic saw the fifth wrap alone and cut).
-      const chips = html.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
-      expect(chips, JSON.stringify(params)).toHaveLength(5);
+      // The eight chips share the row three at a time, so they wrap three,
+      // three, two and none is alone on a row (the round-1 critic saw the
+      // fifth wrap alone and cut). `basis-[30%]` is the chip class; the
+      // fold's hour and date buttons are aria-pressed too, so the count is
+      // taken from that rather than from the attribute alone.
+      const chips = (html.match(/<button[^>]*aria-pressed="[^"]*"[^>]*>/g) ?? []).filter((c) => c.includes("basis-[30%]"));
+      expect(chips, JSON.stringify(params)).toHaveLength(8);
       for (const chip of chips) expect(chip).toMatch(/class="[^"]*\bgrow\b[^"]*\bbasis-\[30%\]/);
     }
     // A handed-in deadline shows in the fold; a bad date opens the fold with nothing picked.

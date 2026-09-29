@@ -81,7 +81,7 @@ const base = {
     ],
     neighborhoods: {},
   },
-  initialPersonaId: "culture" as const,
+  initialMoods: [] as const,
   budgetHours: 4,
   initialDistanceMeters: 556_000,
   initialDurationSeconds: 7 * 3600 + 50 * 60,
