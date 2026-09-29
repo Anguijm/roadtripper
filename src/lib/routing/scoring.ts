@@ -175,7 +175,22 @@ export function buildRankedGroups(
   fetchResult: WaypointFetchResult,
   personaId: unknown
 ): RankedCityGroup[] {
-  const persona = getPersona(personaId);
+  return buildRankedGroupsWith(fetchResult, getPersona(personaId));
+}
+
+/**
+ * The same, given a scoring profile rather than a persona id.
+ *
+ * The screens choose moods now, not personas, and a mood's profile is
+ * built by `waypointProfileForMoods` rather than looked up by id. The
+ * id-taking form above stays because the server's first render and the
+ * health page still pass one, and because a profile is not something a URL
+ * can carry.
+ */
+export function buildRankedGroupsWith(
+  fetchResult: WaypointFetchResult,
+  persona: PersonaConfig
+): RankedCityGroup[] {
 
   // Pre-group waypoints by cityId in a single pass. O(W) instead of
   // O(C*W) — addresses simplify efficiency finding #2.

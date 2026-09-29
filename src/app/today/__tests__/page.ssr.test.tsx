@@ -59,14 +59,14 @@ describe("the today screen, server-rendered", () => {
   it("mounts the one mood component on the results with the URL's mood checked: its render found byte for byte, once", async () => {
     // Gauntlet U5: TodayMoodChips is the results' wiring (a tap changes
     // the URL); the markup is MoodChips', the same as on every screen.
-    const html = await render({ lat: "35.2073", lng: "-101.8338", hours: "5", persona: "nerd" });
-    const chips = renderToString(<MoodChips activeId="nerd" onChange={() => {}} />);
-    expect(chips).toContain('aria-checked="true"');
+    const html = await render({ lat: "35.2073", lng: "-101.8338", hours: "5", moods: "museums" });
+    const chips = renderToString(<MoodChips chosen={["museums"]} onToggle={() => {}} />);
+    expect(chips).toContain('aria-pressed="true"');
     expect(html).toContain(chips);
     expect(html.match(/data-mood-chips/g)).toHaveLength(1);
     // The start screen, before a point, mounts it too.
     const start = await render({});
-    expect(start).toContain(renderToString(<MoodChips activeId="culture" onChange={() => {}} />));
+    expect(start).toContain(renderToString(<MoodChips chosen={[]} onToggle={() => {}} />));
     expect(start.match(/data-mood-chips/g)).toHaveLength(1);
   });
 

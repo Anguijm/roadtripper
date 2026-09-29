@@ -27,7 +27,19 @@ export const SaveTripInputSchema = z.object({
   // means a plain range, which opens exactly as it always did.
   dateMode: z.enum(["range", "arrival"]).optional(),
   // 100 chars is well above any current personaId length; prevents outsized Firestore writes.
-  personaId: z.string().min(1).max(100),
+  //
+  // Optional since U6, when the screens stopped choosing a persona and
+  // started choosing moods. Every trip saved before that has one and still
+  // parses; trips saved after it carry `moods` instead. Nothing displays
+  // either — they build the resume link.
+  personaId: z.string().min(1).max(100).optional(),
+  /**
+   * The chosen moods, oldest first, at most `MAX_MOODS` of them (U6).
+   * Plain strings rather than the enum: a trip saved with a mood that is
+   * later renamed must still load its route and its stops, and
+   * `parseMoods` drops the unknown one when the link is opened.
+   */
+  moods: z.array(z.string().min(1).max(40)).max(2).optional(),
   // Max 7 stops — matches MAX_TRIP_STOPS in PlanWorkspace; Routes API waypoint cap.
   stops: z.array(SavedTripStopSchema).max(7),
 });

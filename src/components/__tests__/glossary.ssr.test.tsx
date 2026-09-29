@@ -33,11 +33,12 @@ import RouteInput, { planReason } from "@/components/RouteInput";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import RecommendationList from "@/components/RecommendationList";
 import TodayStart from "@/components/TodayStart";
-import MoodChips, { MOOD_LABEL } from "@/components/MoodChips";
+import MoodChips, { MOOD_LABEL, MOOD_GROUP_LABEL } from "@/components/MoodChips";
+import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
 import TripsPage from "@/app/trips/page";
 import PlanLoading from "@/app/plan/loading";
 import PlanError from "@/app/plan/error";
-import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
+import { MOODS, MOOD_CONFIG } from "@/lib/roadside/tags";
 import { fitsTodayLine, kindWord, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
@@ -82,7 +83,7 @@ const NAMES = [
   "National Ranching Heritage Center",
   "The Big Texan Steak Ranch",
   "Helium Monument",
-  ...PERSONA_ORDER.map((id) => PERSONAS[id].label),
+  ...MOODS.map((m) => MOOD_CONFIG[m].label),
 ];
 
 const plan = {
@@ -99,7 +100,7 @@ const plan = {
     ],
     neighborhoods: {},
   },
-  initialPersonaId: "culture" as const,
+  initialMoods: ["museums"] as const,
   budgetHours: 4,
   initialDistanceMeters: 800_000,
   initialDurationSeconds: 29_000,
@@ -159,7 +160,7 @@ function textWithAncestors(html: string): { text: string; classes: string[] }[] 
 const screens = () => {
   const home = renderToString(<RouteInput />);
   const sheet = renderToString(<PlanWorkspace {...plan} roadsideStops={roadsideStops} initialSelectedRoadsideId="osm:way:1" />);
-  const today = renderToString(<TodayStart initialHours={5} initialPersonaId="culture" />);
+  const today = renderToString(<TodayStart initialHours={5} initialMoods={["museums"]} />);
   const trips = renderToString(<TripsPage />);
   // The sheet with two stops on it and their legs: each day's heading
   // carries the leg's drive, and Lubbock's row its "✓ Added".
@@ -359,24 +360,30 @@ describe("the words on the screens, against the glossary", () => {
     expect(half).not.toContain("to ?");
   });
 
-  it("fits the mood chips: five short words with their glyphs, wrapping and never scrolling sideways, 48 px tall like the hour buttons", () => {
-    expect(PERSONA_ORDER.map((id) => PERSONAS[id].label)).toEqual(["Culture", "Food", "Nerd", "Gear", "Outdoors"]);
-    for (const id of PERSONA_ORDER) expect(PERSONAS[id].label.length).toBeLessThanOrEqual(8);
+  it("fits the mood chips: eight short words with their glyphs, wrapping and never scrolling sideways, 48 px tall like the hour buttons", () => {
+    expect(MOODS.map((m) => MOOD_CONFIG[m].label)).toEqual(["Outdoors", "History", "Art", "Museums", "Oddities", "Machines", "Food", "Sports"]);
+    for (const m of MOODS) expect(MOOD_CONFIG[m].label.length).toBeLessThanOrEqual(8);
     const { home, sheet, today } = screens();
     // The home's chips sit under its fold (U4); open, they are the same.
     const fold = renderToString(<RouteInput initialMoreOpen />);
     for (const [name, html] of Object.entries({ fold, sheet, today })) {
-      expect(html, name).toContain('aria-label="I&#x27;m in the mood for"');
-      expect(html, name).toMatch(/role="radiogroup"[^>]*class="[^"]*flex-wrap/);
+      expect(html, name).toContain(`aria-label="${MOOD_GROUP_LABEL.replace(/'/g, "&#x27;")}"`);
+      // A group, not a radiogroup: two moods may be on at once (U6).
+      expect(html, name).toMatch(/role="group"[^>]*class="[^"]*flex-wrap/);
       expect(html, name).not.toContain("overflow-x");
       expect(visible(html), name).toContain("I'm in the mood for");
       // Every chip a few pixels over rule 7's 44 (the round-1 critic
       // measured 43): the same for every hour button on the two forms.
-      const chips = html.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
-      expect(chips, name).toHaveLength(5);
+      // `basis-[30%]` is the chip class and nothing else on these screens
+      // carries it; the fold's hour and date buttons are aria-pressed too.
+      const chips = (html.match(/<button[^>]*aria-pressed="[^"]*"[^>]*>/g) ?? []).filter((c) => c.includes("basis-[30%]"));
+      expect(chips, name).toHaveLength(MOODS.length);
       for (const chip of chips) {
         expect(chip, name).toMatch(/class="[^"]*\bmin-h-\[48px\]/);
-        // Three then two, never one alone (U4 round 1; U5 on every screen).
+        // Three to a row, so eight wrap three, three, two and none is ever
+        // alone (U4 round 1; U5 on every screen; U6 took it from five to
+        // eight). Seven would leave one alone, which is why the count is
+        // asserted just above rather than left to the layout.
         expect(chip, name).toMatch(/class="[^"]*\bgrow\b[^"]*\bbasis-\[30%\]/);
       }
     }
@@ -396,11 +403,11 @@ describe("the words on the screens, against the glossary", () => {
     // in src/app/today/__tests__/page.ssr.test.tsx.
     const { sheet, today } = screens();
     const fold = renderToString(<RouteInput initialMoreOpen />);
-    const chosen = renderToString(<MoodChips activeId="culture" onChange={() => {}} />);
-    const none = renderToString(<MoodChips activeId={null} onChange={() => {}} />);
+    const chosen = renderToString(<MoodChips chosen={["museums"]} onToggle={() => {}} />);
+    const none = renderToString(<MoodChips chosen={[]} onToggle={() => {}} />);
     expect(chosen).toMatch(/^<div data-mood-chips="true"/);
-    expect(chosen).toContain('aria-checked="true"');
-    expect(none).not.toContain('aria-checked="true"');
+    expect(chosen).toContain('aria-pressed="true"');
+    expect(none).not.toContain('aria-pressed="true"');
     for (const [name, html, expected] of [["sheet", sheet, chosen], ["today", today, chosen], ["fold", fold, none]] as const) {
       expect(html, name).toContain(expected);
       expect(html.match(/data-mood-chips/g), name).toHaveLength(1);
@@ -434,7 +441,8 @@ describe("the words on the screens, against the glossary", () => {
     const full = renderToString(
       <RecommendationList
         fetchResult={plan.waypointFetch}
-        activePersonaId="culture"
+        moodProfile={waypointProfileForMoods(["museums"])}
+        moodKey="museums"
         cityCoords={new Map([["lubbock", { lat: 33.5779, lng: -101.8552 }]])}
         addedCityIds={new Set()}
         onAddCity={() => {}}

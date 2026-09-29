@@ -34,7 +34,7 @@ vi.mock("@/app/plan/actions", () => ({
 
 import PlanPage from "@/app/plan/page";
 import { PLAN_HEADER_PX } from "@/components/RouteMap";
-import { DEFAULT_PERSONA_ID, PERSONAS, type PersonaId } from "@/lib/personas";
+import { MOOD_CONFIG, type MoodId } from "@/lib/roadside/tags";
 
 const BASE = {
   fromName: "Amarillo", fromLat: "35.2073", fromLng: "-101.8338",
@@ -91,26 +91,51 @@ describe("the plan page knows the deadline", () => {
   });
 });
 
-describe("the plan page reads the mood from the URL", () => {
-  /** The chip for `id`, checked or not; its glyph and label sit in spans the render strips. */
-  const chip = (id: PersonaId, checked: boolean) =>
-    new RegExp(`<button type="button" role="radio" aria-checked="${checked}"[^>]*>${PERSONAS[id].glyph}${PERSONAS[id].label}</button>`);
+describe("the plan page reads the moods from the URL", () => {
+  /** The chip for `id`, pressed or not; its label sits in a span the render strips. */
+  const chip = (id: MoodId, pressed: boolean) =>
+    new RegExp(`<button type="button" aria-pressed="${pressed}"[^>]*>${MOOD_CONFIG[id].label}</button>`);
 
-  it("takes a known persona id as the checked chip, and the default for an arbitrary string or none, not an error", async () => {
-    // The home sends persona only when a chip was tapped (Gauntlet U4). The
-    // page reads it through parsePersonaId, PersonaIdSchema's enum with the
-    // default for anything else, so a link with a made-up mood still plans,
-    // the same as a link with none.
-    expect(DEFAULT_PERSONA_ID).not.toBe("nerd");
-    const known = await render({ persona: "nerd" });
-    expect(known).toMatch(chip("nerd", true));
-    expect(known).toMatch(chip(DEFAULT_PERSONA_ID, false));
-    for (const persona of ["banana", "NERD", "nerd,culture", ""]) {
-      const html = await render({ persona });
-      expect(html, JSON.stringify(persona)).not.toContain("Something is off with this link");
-      expect(html, JSON.stringify(persona)).toMatch(chip(DEFAULT_PERSONA_ID, true));
-      expect(html, JSON.stringify(persona)).toMatch(chip("nerd", false));
+  it("takes the known moods as the pressed chips, and presses none for an arbitrary string, not an error", async () => {
+    // The home sends `moods` only when a chip was tapped (Gauntlet U4, U6).
+    // The page reads it through parseMoods, which drops anything it cannot
+    // read rather than defaulting, so a link with a made-up mood plans the
+    // same as a link with none — which is the sheet at rest, a real state.
+    const known = await render({ moods: "museums" });
+    expect(known).toMatch(chip("museums", true));
+    expect(known).toMatch(chip("food", false));
+
+    // Two at a time is the point of U6.
+    const two = await render({ moods: "museums,food" });
+    expect(two).toMatch(chip("museums", true));
+    expect(two).toMatch(chip("food", true));
+
+    for (const moods of ["banana", "MUSEUMS", "", ","]) {
+      const html = await render({ moods });
+      expect(html, JSON.stringify(moods)).not.toContain("Something is off with this link");
+      expect(html, JSON.stringify(moods)).not.toContain('aria-pressed="true"');
     }
-    expect(await render({})).toMatch(chip(DEFAULT_PERSONA_ID, true));
+    expect(await render({})).not.toContain('aria-pressed="true"');
+  });
+
+  it("drops a repeat and never presses more than two, however the link was built", async () => {
+    const repeat = await render({ moods: "food,food" });
+    expect(repeat.match(/aria-pressed="true"/g)).toHaveLength(1);
+    // A link carrying three is not an error; the first two win, so the one
+    // dropped is the same one `toggleMood` would have dropped.
+    const three = await render({ moods: "museums,food,outdoors" });
+    expect(three.match(/aria-pressed="true"/g)).toHaveLength(2);
+    expect(three).toMatch(chip("museums", true));
+    expect(three).toMatch(chip("food", true));
+    expect(three).toMatch(chip("outdoors", false));
+  });
+
+  it("still plans when a link built before U6 carries a persona", async () => {
+    // Trips saved before U6 link with `?persona=nerd`. The page no longer
+    // reads that parameter; it must plan as the sheet at rest rather than
+    // fail on a word it does not know.
+    const old = await render({ persona: "nerd" });
+    expect(old).not.toContain("Something is off with this link");
+    expect(old).not.toContain('aria-pressed="true"');
   });
 });

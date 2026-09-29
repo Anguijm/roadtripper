@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import { localizedText } from "@/lib/urban-explorer/cityAtlas";
 import type { NeighborhoodLite } from "@/lib/urban-explorer/types";
 import { scoreNeighborhood } from "@/lib/routing/scoring";
-import { getPersona } from "@/lib/personas";
+import type { PersonaConfig } from "@/lib/personas/types";
 import type {
   LiteWaypoint,
   NeighborhoodLoadState,
@@ -29,7 +29,10 @@ interface NeighborhoodPanelProps {
   loadState: NeighborhoodLoadState;
   waypoints: LiteWaypoint[];
   failures: WaypointFetchFailure[];
-  personaId: string | null;
+  /** The scoring profile the chosen moods make (U6), built by `waypointProfileForMoods`. */
+  persona: PersonaConfig;
+  /** The chosen moods as one string; the reorder line remounts on it. */
+  moodKey: string;
 }
 
 /**
@@ -45,11 +48,9 @@ export default function NeighborhoodPanel({
   loadState,
   waypoints,
   failures,
-  personaId,
+  persona,
+  moodKey,
 }: NeighborhoodPanelProps) {
-  // getPersona always returns a valid config — it falls back to the default
-  // persona for any null / unrecognised id, so no crash path exists here.
-  const persona = useMemo(() => getPersona(personaId), [personaId]);
 
   const hasNeighborhoodFailure =
     loadState.kind === "failed" ||
@@ -140,10 +141,10 @@ export default function NeighborhoodPanel({
     return (
       <div className="border border-[#30363d] bg-[#0d1117] mt-2">
         {/* aria-live regions don't announce initial content — only changes.
-            Keying the span on personaId causes a remount on persona switch,
+            Keying the span on the chosen moods causes a remount on a mood switch,
             which is treated as a new insertion and announced. */}
         <div aria-live="polite" className="sr-only">
-          <span key={personaId ?? ""}>{sorted.length > 0 ? "The parts of town are reordered for this mood." : ""}</span>
+          <span key={moodKey}>{sorted.length > 0 ? "The parts of town are reordered for this mood." : ""}</span>
         </div>
         <PanelHeader cityName={cityName} />
         <div className="divide-y divide-[#30363d]">
@@ -175,7 +176,7 @@ export default function NeighborhoodPanel({
   return (
     <div className="border border-[#30363d] bg-[#0d1117] mt-2">
       <div aria-live="polite" className="sr-only">
-        <span key={personaId ?? ""}>{sorted.length > 0 ? "The parts of town are reordered for this mood." : ""}</span>
+        <span key={moodKey}>{sorted.length > 0 ? "The parts of town are reordered for this mood." : ""}</span>
       </div>
       <PanelHeader cityName={cityName} />
       <div className="divide-y divide-[#30363d]">

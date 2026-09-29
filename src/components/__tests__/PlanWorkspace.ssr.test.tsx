@@ -43,7 +43,7 @@ describe("PlanWorkspace server rendering", () => {
             ],
             neighborhoods: {},
           }}
-          initialPersonaId="culture"
+          initialMoods={[]}
           budgetHours={4}
           initialDistanceMeters={4469715}
           initialDurationSeconds={148384}
@@ -68,7 +68,7 @@ describe("PlanWorkspace server rendering", () => {
           encodedPolyline=""
           candidateMarkers={[]}
           waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }}
-          initialPersonaId="culture"
+          initialMoods={[]}
           budgetHours={4}
           initialDistanceMeters={0}
           initialDurationSeconds={0}
@@ -106,7 +106,7 @@ describe("PlanWorkspace server rendering", () => {
             neighborhoods: {},
             failures: [{ kind: "waypoints", cityId: "philadelphia", reason: "atlas read failed" }],
           }}
-          initialPersonaId="culture"
+          initialMoods={[]}
           budgetHours={4}
           initialDistanceMeters={4469715}
           initialDurationSeconds={148384}

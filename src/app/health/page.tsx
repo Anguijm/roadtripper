@@ -86,7 +86,7 @@ export default function HealthPage() {
           ],
           neighborhoods: {},
         }}
-        initialPersonaId="culture"
+        initialMoods={[]}
         budgetHours={4}
         initialDistanceMeters={4469715}
         initialDurationSeconds={148384}

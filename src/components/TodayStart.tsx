@@ -7,11 +7,12 @@ import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
 import MoodChips from "./MoodChips";
 import { useLocatedOrigin } from "./useLocatedOrigin";
 import { HOURS_PRESETS, type HoursPreset } from "@/lib/today/presets";
-import type { PersonaId } from "@/lib/personas/types";
+import { toggleMood, MOODS_PARAM, type MoodId } from "@/lib/roadside/tags";
 
 interface TodayStartProps {
   initialHours: HoursPreset;
-  initialPersonaId: PersonaId;
+  /** The moods the link arrived with, oldest first; empty is the screen at rest. */
+  initialMoods: readonly MoodId[];
   /** Extra URL parameters to keep through Go: the deadline and its destination. */
   carry?: Record<string, string>;
   /** "Arrive in Austin by Oct 14, 6 days left", when the link carried one. */
@@ -24,12 +25,12 @@ interface TodayStartProps {
  * that it is one tap, or a typed city. Go sends the answer to the
  * server-rendered results, which read only the atlas.
  */
-export default function TodayStart({ initialHours, initialPersonaId, carry, deadlineText }: TodayStartProps) {
+export default function TodayStart({ initialHours, initialMoods, carry, deadlineText }: TodayStartProps) {
   const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
   const [origin, setOrigin] = useState<CitySelection | null>(null);
   const [hours, setHours] = useState<HoursPreset>(initialHours);
-  const [persona, setPersona] = useState<PersonaId>(initialPersonaId);
+  const [moods, setMoods] = useState<readonly MoodId[]>(initialMoods);
   const [submitting, setSubmitting] = useState(false);
   const located = useLocatedOrigin(setOrigin);
 
@@ -51,9 +52,11 @@ export default function TodayStart({ initialHours, initialPersonaId, carry, dead
       lat: origin.lat.toString(),
       lng: origin.lng.toString(),
       hours: hours.toString(),
-      persona,
       name: origin.name,
     });
+    // Left out entirely when nothing is chosen, so the link for the screen
+    // at rest carries no empty parameter.
+    if (moods.length > 0) params.set(MOODS_PARAM, moods.join(","));
     router.push(`/today?${params.toString()}`);
   }
 
@@ -125,7 +128,7 @@ export default function TodayStart({ initialHours, initialPersonaId, carry, dead
 
         {/* The one mood component (Gauntlet U5): its label, its chips, its
             two rows. Only the tap is the form's. */}
-        <MoodChips activeId={persona} onChange={setPersona} />
+        <MoodChips chosen={moods} onToggle={(m) => setMoods((prev) => toggleMood(prev, m))} />
 
         {/* The one obvious action (quality bar, rule 3): the button keeps
             its verb, and when it cannot be pressed the reason is the line

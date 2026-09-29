@@ -14,6 +14,7 @@ import {
   GENERAL_WEIGHT,
   SORT_MODES,
   SORT_LABELS,
+  SORT_LEAD,
   moodScore,
   rankFor,
   toggleMood,
@@ -80,15 +81,16 @@ describe("the vocabulary the operator approved", () => {
   it("labels the chips in plain words with no glossary word and no invented shorthand", () => {
     const never = /candidates|persona|waypoint|neighborhood|primary|recompute|budget left/i;
     for (const mood of MOODS) {
-      const { label, glyph } = MOOD_CONFIG[mood];
+      const { label } = MOOD_CONFIG[mood];
       expect(label, mood).not.toMatch(never);
       // Sentence case: a capital then lower case, one word.
       expect(label, mood).toMatch(/^[A-Z][a-z]+$/);
-      expect(glyph.length, mood).toBeGreaterThan(0);
     }
-    // Every chip is told apart by its word and its glyph, not by colour alone.
+    // Every chip is told apart by its word. There is no glyph: U6 round 2
+    // failed the eight geometric characters on rule 2, and the word is
+    // what carries a chip's identity now.
     expect(new Set(MOODS.map((m) => MOOD_CONFIG[m].label)).size).toBe(8);
-    expect(new Set(MOODS.map((m) => MOOD_CONFIG[m].glyph)).size).toBe(8);
+    expect(MOODS.every((m) => !("glyph" in MOOD_CONFIG[m]))).toBe(true);
   });
 
   it("fills a chosen chip with something the body colour can be read on", () => {
@@ -99,10 +101,17 @@ describe("the vocabulary the operator approved", () => {
     }
   });
 
-  it("names the two ways the list can be ordered", () => {
+  it("names the two ways the list can be ordered, as the end of a sentence", () => {
+    // U6 round 1: the critic read the control as two more mood chips, in
+    // part because its words were labels standing alone. Each now finishes
+    // SORT_LEAD, so the screen says a sentence a person would say (rule 1).
     expect(SORT_MODES).toEqual(["best", "along"]);
-    expect(SORT_LABELS.best).toBe("Best match");
-    expect(SORT_LABELS.along).toBe("Along the road");
+    expect(SORT_LEAD).toBe("Show me");
+    expect(SORT_LABELS.best).toBe("best first");
+    expect(SORT_LABELS.along).toBe("along the road");
+    for (const m of SORT_MODES) {
+      expect(`${SORT_LEAD} ${SORT_LABELS[m]}`, m).toMatch(/^Show me [a-z]/);
+    }
   });
 });
 

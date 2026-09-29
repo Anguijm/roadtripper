@@ -3,6 +3,10 @@ import { renderToString } from "react-dom/server";
 import React from "react";
 import RecommendationList from "@/components/RecommendationList";
 import type { WaypointFetchResult } from "@/lib/routing/scoring";
+import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
+
+/** The profile "Museums" makes, standing in for the old "nerd" persona. */
+const PROFILE = waypointProfileForMoods(["museums"]);
 
 const result: WaypointFetchResult = {
   status: "fresh",
@@ -22,7 +26,8 @@ describe("the candidate list shows the reason under every stop", () => {
     const html = renderToString(
       <RecommendationList
         fetchResult={result}
-        activePersonaId="nerd"
+        moodProfile={PROFILE}
+        moodKey="museums"
         cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
         addedCityIds={new Set()}
         onAddCity={() => {}}
@@ -45,7 +50,8 @@ describe("the candidate list shows the reason under every stop", () => {
     const html = renderToString(
       <RecommendationList
         fetchResult={result}
-        activePersonaId="nerd"
+        moodProfile={PROFILE}
+        moodKey="museums"
         cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
         addedCityIds={new Set()}
         onAddCity={() => {}}
@@ -67,7 +73,8 @@ describe("the candidate list shows the reason under every stop", () => {
       renderToString(
         <RecommendationList
           fetchResult={result}
-          activePersonaId="nerd"
+          moodProfile={PROFILE}
+        moodKey="museums"
           cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
           addedCityIds={new Set()}
           onAddCity={() => {}}
@@ -133,7 +140,8 @@ describe("the candidate list shows the reason under every stop", () => {
     const html = renderToString(
       <RecommendationList
         fetchResult={result}
-        activePersonaId="nerd"
+        moodProfile={PROFILE}
+        moodKey="museums"
         cityCoords={new Map()}
         addedCityIds={new Set()}
         onAddCity={() => {}}
@@ -145,7 +153,8 @@ describe("the candidate list shows the reason under every stop", () => {
 });
 
 const baseProps = {
-  activePersonaId: "nerd" as const,
+  moodProfile: PROFILE,
+  moodKey: "museums",
   cityCoords: new Map<string, { lat: number; lng: number }>(),
   addedCityIds: new Set<string>(),
   onAddCity: () => {},

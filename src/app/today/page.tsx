@@ -5,8 +5,9 @@ import TodayMoodChips from "@/components/TodayMoodChips";
 import { planToday } from "@/lib/today/plan";
 import { hoursFrom, formatDrive, pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
-import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
-import { parsePersonaId } from "@/lib/personas";
+import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
+import { parseMoods, MOODS_PARAM } from "@/lib/roadside/tags";
+import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
 import { kindWord } from "@/lib/plan/words";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
@@ -19,7 +20,7 @@ interface TodaySearchParams {
   lat?: string;
   lng?: string;
   hours?: string;
-  persona?: string;
+  moods?: string;
   name?: string;
   /** The trip's deadline and where it is for, when there is one. */
   arriveBy?: string;
@@ -80,7 +81,7 @@ export default async function TodayPage({
   searchParams: Promise<TodaySearchParams>;
 }) {
   const params = await searchParams;
-  const personaId = parsePersonaId(params.persona);
+  const chosenMoods = parseMoods(params.moods);
   const hours = hoursFrom(params.hours);
   const deadline = deadlineFrom(params);
   const deadlineText = deadline
@@ -102,7 +103,7 @@ export default async function TodayPage({
           <h1 className="text-2xl text-[#f0f6fc] mb-2">What is in range today?</h1>
           <p className="text-base text-[#8b949e]">No destination needed. Where you are, how long you have, what you like.</p>
         </div>
-        <TodayStart initialHours={hours} initialPersonaId={personaId} carry={carry} deadlineText={deadlineText} />
+        <TodayStart initialHours={hours} initialMoods={chosenMoods} carry={carry} deadlineText={deadlineText} />
       </Shell>
     );
   }
@@ -165,7 +166,7 @@ export default async function TodayPage({
   // The city list is still the answer; the spots are not, so the page says
   // so rather than showing "nothing here yet" for a city whose read failed.
   const spotsDegraded = fetchResult.status === "degraded";
-  const groups = buildRankedGroups(fetchResult, personaId);
+  const groups = buildRankedGroupsWith(fetchResult, waypointProfileForMoods(chosenMoods));
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
   const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
 
@@ -244,7 +245,7 @@ export default async function TodayPage({
       {/* The one mood component (Gauntlet U5) behind the results' wiring:
           a tap changes the URL's mood. */}
       <div className="mb-5">
-        <TodayMoodChips activeId={personaId} />
+        <TodayMoodChips chosen={chosenMoods} />
       </div>
 
       {total === 0 ? (
@@ -318,7 +319,7 @@ export default async function TodayPage({
 
       <p className="mt-5 text-base text-[#8b949e]">
         {shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
-        <Link href={`/today?${new URLSearchParams({ hours: String(hours), persona: personaId, ...(carry ?? {}) }).toString()}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
+        <Link href={`/today?${new URLSearchParams({ hours: String(hours), ...(chosenMoods.length > 0 ? { [MOODS_PARAM]: chosenMoods.join(",") } : {}), ...(carry ?? {}) }).toString()}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
           Change where or how long
         </Link>
       </p>

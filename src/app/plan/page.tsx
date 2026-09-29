@@ -12,7 +12,7 @@ import {
   InvalidRouteParamsError,
 } from "@/lib/routing/validation";
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
-import { parsePersonaId } from "@/lib/personas";
+import { parseMoods } from "@/lib/roadside/tags";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
 import Figures from "@/components/Figures";
@@ -28,7 +28,7 @@ interface PlanSearchParams {
   toLat?: string;
   toLng?: string;
   budget?: string;
-  persona?: string;
+  moods?: string;
   startDate?: string;
   endDate?: string;
   dateMode?: string;
@@ -106,14 +106,15 @@ export default async function PlanPage({
   const { origin, destination, budgetHours } = validated;
   const fromName = params.fromName ?? "Start";
   const toName = params.toName ?? "End";
-  // The mood, through PersonaIdSchema (src/lib/personas/types.ts), a zod
-  // enum of the five ids: parsePersonaId (src/lib/personas/index.ts) takes
-  // a known id and gives DEFAULT_PERSONA_ID for anything else, an arbitrary
-  // string the same as none, with no error screen. The home has sent
-  // persona since Gauntlet U4, only when a chip was tapped; this page has
-  // read it this way since the persona system (Session 5). The invalid
-  // case is pinned in src/app/plan/__tests__/page.ssr.test.tsx.
-  const activePersonaId = parsePersonaId(params.persona);
+  // The chosen moods, through parseMoods (src/lib/roadside/tags.ts): a
+  // comma-separated list, everything unreadable dropped rather than
+  // defaulted, at most MAX_MOODS of them. An arbitrary string reads as
+  // none, which is the sheet at rest, with no error screen. The home has
+  // sent this since U6, only when a chip was tapped; before U6 it sent
+  // `persona`, and an old saved trip still links that way — the parameter
+  // is simply not read any more, which is why an unknown one cannot fail.
+  // The invalid case is pinned in src/app/plan/__tests__/page.ssr.test.tsx.
+  const chosenMoods = parseMoods(params.moods);
 
   // Parse and validate date params. Three modes:
   //   arrival — endDate only; startDate derived after route computation
@@ -275,7 +276,7 @@ export default async function PlanPage({
           bounds={route.bounds}
           candidateMarkers={candidateMarkers}
           waypointFetch={waypointFetch}
-          initialPersonaId={activePersonaId}
+          initialMoods={chosenMoods}
           budgetHours={budgetHours}
           initialDistanceMeters={route.totalDistanceMeters}
           initialDurationSeconds={route.totalDurationSeconds}
