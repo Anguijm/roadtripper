@@ -130,3 +130,11 @@ runner's.
    `@/lib/urban-explorer/types` (erased at compile); nothing server-only,
    no `node:` module, no sqlite, no `process.env` (grep over the directory).
    `MoodChips.tsx` pulls no server code into the client bundle through it.
+
+## Council round 2 on #90 (the cap is three; this is the last push)
+
+1. The null guard on `useSearchParams()` in `TodayMoodChips.tsx`: cannot
+   happen, said at the line. The hook is typed non-null in this Next, the
+   today page is `force-dynamic` so no static prerender runs, and the read
+   is inside the tap handler. The line is unchanged from `TodayPersonaBar`.
+   No guard added; a guard on a non-null type hides a type change.

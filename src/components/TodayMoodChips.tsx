@@ -13,6 +13,14 @@ import type { PersonaId } from "@/lib/personas/types";
  */
 export default function TodayMoodChips({ activeId }: { activeId: PersonaId }) {
   const router = useRouter();
+  // Never null here, on three counts (council round 2 on #90 asked for a
+  // guard): next/navigation types useSearchParams() as ReadonlyURLSearchParams
+  // in this Next; src/app/today/page.tsx is `force-dynamic`, so the page is
+  // never statically prerendered, which is the one case the pages router
+  // returned null for; and the only read of it below runs inside the tap
+  // handler, after mount. The same line stood in TodayPersonaBar since the
+  // today screen was built. A guard would hide a type change rather than
+  // handle a state.
   const searchParams = useSearchParams();
   return (
     <MoodChips
