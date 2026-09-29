@@ -275,3 +275,111 @@ before the commit, so none is invented.
 Checks: `bunx vitest run` 51 files, 525 tests, all green; `bun run
 type-check` clean; `bun run lint` 0 errors, 9 warnings, all on lines
 not touched here. Weakest part unchanged: item 7 found no mismatch.
+
+## Council round 2 on #87: the hydration check
+
+The item: verify the production build locally and confirm no React
+hydration warning is printed in the browser console under simulated
+system timezone offsets (src/components/PlanWorkspace.tsx). Evidence
+only, taken 2026-09-29 00:22 UTC; nothing in src changed.
+
+The build. `bunx next build` (Turbopack) does not compile in this
+worktree: "Symlink [project]/node_modules is invalid, it points out of
+the filesystem root" (node_modules here is a symlink to the main
+checkout's, the reason the Gauntlet runner uses `--webpack`).
+`bunx next build --webpack` compiled: "Compiled successfully in 6.9s",
+TypeScript finished clean, six routes (ƒ /, ○ /_not-found, ƒ /health,
+ƒ /plan, ƒ /today, ○ /trips). `bun run build` was not used: its fetch
+step hashes data/roadside.sqlite against the checksum in git, and the
+main checkout's store (e355fd9f...) is not the published one
+(3dcdebf3...), so it would have downloaded the published store. The
+store was symlinked from the main checkout for the run (the server in
+fact read it through ROADSIDE_STORE_PATH in .env.local, which names the
+same file; the log line was "[roadside] store: ROADSIDE_STORE_PATH")
+and the symlink was removed after.
+
+The zones. Server: `TZ=Pacific/Kiritimati PORT=3133 bun run start`
+(UTC+14; /health answered 200 within a second). Browser: headless
+Chrome driven over CDP (debugging ports 9376 and 9377), with
+`Emulation.setTimezoneOverride` sent before every navigation and a
+390x844 phone emulated. Pacific/Honolulu (UTC-10, twenty-four hours
+behind the server) was the far zone and Pacific/Kiritimati, the
+server's own zone, the control. At the time of the check the server's
+day was 2026-09-29 and Honolulu's was 2026-09-28; each page confirmed
+its zone from inside (`Intl.DateTimeFormat().resolvedOptions().timeZone`
+gave the zone asked for, `new Date()` gave 14:23 on the 28th in
+Honolulu and 14:23 on the 29th in Kiritimati).
+
+The server's HTML by curl, the arrival URL: `<p data-arrival>` reads
+"Arrive in Austin by October 14, fifteen days from now"; the day lines
+begin "Day 1" and "Day 2"; the shape is "Two days, with a night on the
+road". Without dateMode and endDate: no data-arrival element and no
+"Arrive" anywhere in the page.
+
+The four loads. URL A is
+/plan?fromName=Amarillo&fromLat=35.2073&fromLng=-101.8338&toName=Austin&toLat=30.2672&toLng=-97.7431&budget=4&dateMode=arrival&endDate=2026-10-14
+and URL B the same without dateMode and endDate. Each was read from
+the DOM 15 s after navigation; every Runtime.consoleAPICalled,
+Runtime.exceptionThrown and Log.entryAdded event was collected from
+the navigation on.
+
+1. Honolulu, A. Deadline line (data-arrival): "Arrive in Austin by
+   October 14, sixteen days from now". Days: "Day 1 · 4 h down the road
+   from Amarillo" (towns heading "Towns that fit today"), "Day 2 · on
+   to Austin · 3 h 41 min". Console messages: 1. Hydration-shaped:
+   none.
+2. Honolulu, B. No deadline line (no data-arrival element, no line
+   containing "Arrive"). Days as in 1. Console messages: 1.
+   Hydration-shaped: none.
+3. Kiritimati, A (control). Deadline line: "Arrive in Austin by
+   October 14, fifteen days from now". Days as in 1. Console messages:
+   1. Hydration-shaped: none.
+4. Kiritimati, B (control). No deadline line. Days as in 1. Console
+   messages: 1. Hydration-shaped: none.
+
+The one console message, the same in all four loads, is a warning from
+the Maps JavaScript API and not from React: "As of February 21st, 2024,
+google.maps.Marker is deprecated. Please use
+google.maps.marker.AdvancedMarkerElement instead. At this time,
+google.maps.Marker is not scheduled to be discontinued, but
+google.maps.marker.AdvancedMarkerElement is recommended over
+google.maps.Marker. While google.maps.Marker will continue to receive
+bug fixes for any major regressions, existing bugs in google.maps.Marker
+will not be addressed. At least 12 months notice will be given before
+support is discontinued. Please see
+https://developers.google.com/maps/deprecations for additional details
+and
+https://developers.google.com/maps/documentation/javascript/advanced-markers/migration
+for the migration guide." No Runtime.exceptionThrown and no
+Log.entryAdded in any load. Nothing in any load contains "hydrat",
+"did not match", "Text content does not match", "Warning:", "Error",
+or a minified React error number (418, 423, 425, the production forms
+of a hydration mismatch).
+
+What it shows. In the far zone the deadline line moves from the
+server's "fifteen days from now" (the HTML) to the person's "sixteen
+days from now" (the DOM after mount) with no message printed: the
+re-render item 7 of round 1 describes, `sheetToday` seeded from the
+server's `today` and the browser's clock read in the effect after
+hydration. In the control the two agree and the line does not move.
+Without an arrival deadline nothing on the sheet depends on the day
+and the two zones render the same page. No hydration warning in the
+far-zone loads or the control; nothing to fix.
+
+Command lines: `rm -rf .next`;
+`ln -s /home/johnanguiano/projects/roadtripper/data/roadside.sqlite data/roadside.sqlite`;
+`bunx next build` (failed as above); `bunx next build --webpack`;
+`TZ=Pacific/Kiritimati PORT=3133 bun run start`; `curl -s "$A"` and
+`curl -s "$B"` for the server's HTML;
+`node hydra.mjs Pacific/Honolulu 9376 hydra-honolulu.json "$A" "$B"`;
+`node hydra.mjs Pacific/Kiritimati 9377 hydra-kiritimati.json "$A" "$B"`
+(hydra.mjs: spawn headless google-chrome with --remote-debugging-port,
+Page.enable, Runtime.enable, Log.enable,
+Emulation.setDeviceMetricsOverride 390x844 mobile,
+Emulation.setTimezoneOverride, Page.navigate, 15 s, Runtime.evaluate
+reading [data-arrival], [data-day] [data-day-line], [data-towns-heading]
+and [data-trip-shape]); the server stopped by its pid, the two Chromes
+by theirs. The logs and the two JSON captures are in the session's
+scratchpad (u3/prod-build.log, prod-build-turbopack-failed.log,
+prod-start.log, ssr-A.html, ssr-B.html, hydra-honolulu.json,
+hydra-kiritimati.json); this section carries the words.
