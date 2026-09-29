@@ -132,3 +132,49 @@ Two builder/critic rounds, approved in the second.
 - Routed on by name: the chips as one row to U5; the plan sheet's town row, which the
   critic saw overlapping its buttons on the plan page reached from the home, was U3's
   and is redrawn there.
+
+## U5, the mood chips (2026-09-29)
+
+One builder/critic round, approved.
+
+- What U2 and U4 had left: the chips were two implementations (the plan sheet's and
+  the today screen's) and U4 had added a third arrangement for the home's fold. Now one
+  component, `MoodChips.tsx`, mounts on all three screens with the same markup: a root
+  the runner can find, the label "I'm in the mood for" once, a radiogroup of five chips
+  with a glyph and a word, the chosen one filled. The today screen keeps its own thin
+  wiring for the URL.
+- The spec said one row. At 16 px the five words measure 501 px against the 358 px a
+  phone gives, so one row would have meant smaller type, shorter words or a sideways
+  scroll, each against the bar. The row wraps three then two on every screen, every
+  chip whole and 48 px tall; the ship rule in `round-1.md` says so, and the critic
+  judged it under rules 2 and 7.
+- Tests: the component with four moods and with five; the screens' tests moved to the
+  one component; three mutations recorded (root attribute renamed, label dropped, one
+  screen offering four moods), each failing by name.
+- Council on the code: two rounds. Round one, two comments and a check that the
+  personas module pulls nothing server-only into the client (it imports zod and one
+  type). Round two, one item: a null guard on the search params in the today screen's
+  wiring, answered at the line rather than added: the hook is typed non-null in this
+  Next, the today page is forced dynamic so it is never prerendered, and the read runs
+  inside the tap handler; the line is unchanged from the component it replaced. The
+  last push carried the skip marker so no third round ran on a comment. Merged as #90.
+
+## Round 1, closed (2026-09-29)
+
+Five components in one day, each through the same loop: a spec, a builder that never
+graded itself, a runner's phone screenshots, a blind critic against the bar, then the
+council on the code, then the operator with the screenshots, then the live site.
+
+- Critic rounds: U1 six then a fix round after the operator's decision; U2 three; U3
+  six; U4 two; U5 one. The two that ran to six were the two where the builder had a
+  wrong reading to close the distance on (U1's spreading of diamonds, U3's cut of a
+  long stretch), and both were caught by the critic every round for the right rule.
+- Council rounds: U1 three; U2 three and one on a lockfile push; U3 three to the cap,
+  with one real bug in the last; U4 two; U5 two. Items were mostly comments and
+  guards; the two real bugs found (U3's stale route answer on an emptied trip; #85's
+  lockfile) were both caught by a test written to answer the council rather than by
+  the council's own reading.
+- Left for the operator: the jsdom decision (the screens are proven by SSR strings and
+  the runner's measurements, never by a DOM in the test runner); a map-first today
+  screen; U6, "Add as a stop" from the roadside card (U1's residual); and the council's
+  deferred follow-ups, listed on each PR.
