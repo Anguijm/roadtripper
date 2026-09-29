@@ -36,6 +36,7 @@ import RouteMap, {
   FIT_MARGIN_PX,
   STRIP_MARGIN_PX,
   STRIP_MIN_PX,
+  PLAN_HEADER_PX,
   MAP_CONTROL_SIZE_PX,
 } from "@/components/RouteMap";
 import { townsAlong, roadsideAnchor } from "@/lib/roadside/anchor";
@@ -132,7 +133,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
   });
 
   it("shows the ten strongest first, then a control that says how many there are in all", () => {
-    const html = render({ roadsideStops: fourteen });
+    // A drive within the budget, so the road is one day and one list
+    // (since U3 a day over the budget is cut, and the list with it).
+    const html = render({ roadsideStops: fourteen, initialDurationSeconds: 4 * 3600 });
     expect(html).toContain("14 places worth pulling over for");
     const ids = rowIds(html);
     expect(ids).toHaveLength(ROADSIDE_SHOWN_FIRST);
@@ -145,44 +148,44 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toContain("data-roadside-show-all");
   });
 
-  it("is first in the sheet, before the numbers, the mood chips and the towns, so the sheet opens on it and no town header can sit over it", () => {
-    // Round 3 had it after two town sections, about 1750 px below the
-    // fold, and the scrolled capture began with a town's sticky header
-    // over a half-clipped row. A sticky header stays inside its own
-    // section, so with the towns below the list it cannot reach the rows.
-    // Round 5 had it under the header (the chips on two rows and the two
-    // sentences, about 170 px), and the rest capture showed seven rows
-    // and no "Show all": the box holds the section or the header, not
-    // both. The section is first.
+  it("sits inside its day, after that day's towns, with the sheet's title above everything and the numbers and the mood before the days", () => {
+    // U1 put the list first in the box (rounds 3 to 6: under the header
+    // it showed seven rows and no "Show all"; after the towns a sticky
+    // town header sat over a half-clipped row). Since U3 the sheet is told
+    // as days, and each day holds its towns and then its places: a town's
+    // sticky header stays inside its own section, above the rows, never
+    // over them. The list is inside the day's section, after the towns.
     const html = render({ roadsideStops: fourteen, ...withTown });
+    const day = html.indexOf('<section data-day="1"');
     const section = html.indexOf('<section data-roadside="true"');
-    expect(section).toBeGreaterThan(0);
-    expect(section).toBeLessThan(html.indexOf("on the road"));
-    expect(section).toBeLessThan(html.indexOf("of driving left today"));
-    expect(section).toBeLessThan(html.indexOf("I&#x27;m in the mood for"));
-    // The one line above the section is the sheet's title on the handle
-    // row (U2, round 2: the sentence over the towns is the first thing
-    // seen), which is not in the scroll box and costs it nothing.
-    expect(html.indexOf("Lubbock fits today")).toBeLessThan(section);
+    expect(day).toBeGreaterThan(0);
+    expect(section).toBeGreaterThan(day);
+    expect(html.indexOf("sticky top-0")).toBeGreaterThan(day);
+    expect(html.indexOf("sticky top-0")).toBeLessThan(section);
+    expect(html.indexOf("What&#x27;s in Lubbock")).toBeLessThan(section);
+    // The trip's numbers and the mood come before the days.
+    expect(html.indexOf("on the road")).toBeLessThan(day);
+    expect(html.indexOf("of driving left today")).toBeLessThan(day);
+    expect(html.indexOf("I&#x27;m in the mood for")).toBeLessThan(day);
+    // The sheet's title on the handle row is above everything (U2, round
+    // 2: the sentence over the towns is the first thing seen), not in the
+    // scroll box, so it costs the box nothing.
     expect(html.indexOf("Lubbock fits today")).toBeLessThan(html.indexOf("plan-sheet-scroll"));
-    expect(section).toBeLessThan(html.indexOf("sticky top-0"));
-    // The tenth row and the control come before the first town too.
-    expect(html.indexOf("data-roadside-show-all")).toBeLessThan(html.indexOf("What&#x27;s in Lubbock"));
+    expect(html.indexOf("Lubbock fits today")).toBeLessThan(day);
     // The Save button stays last.
-    expect(html.indexOf("Save trip")).toBeGreaterThan(html.indexOf("What&#x27;s in Lubbock"));
+    expect(html.indexOf("Save trip")).toBeGreaterThan(html.indexOf("data-roadside-show-all"));
   });
 
-  it("holds the heading, ten rows and the control in the sheet's scroll box at rest on a 390 by 844 phone", () => {
+  it("keeps the sheet's geometry: the box is the visible part, at rest it holds a day's list of ten and the control, and the map is told where the edge is", () => {
     // Round 3's list capture had six rows cut off and no control: the
     // scroll box was the whole 92 dvh sheet (731 px) with 382 px of it on
     // screen at the half snap, so the section could neither reach the top
-    // nor show ten rows. The box is now the visible part, and the rest
-    // snap leaves room for the list: the box's own padding above the
-    // section (which is first in it, round 6) and the section through
-    // "Show all" fit the box, 520 of its 537 px, with at least 16 to
-    // spare so the control is whole on the first screen. Round 6 had 532:
-    // 8 px above the heading and 4 under it, and the control's bottom edge
-    // 5 px from the fold (round 7 took the twelve).
+    // nor show ten rows. The box is the visible part, and the rest snap
+    // was sized so a list of ten and "Show all" fit it, 520 of its 537 px
+    // with the box's padding. Since U3 the list sits inside its day under
+    // the day's towns, so it is reached by a scroll, not on the first
+    // screen; the snap and the box keep their size, so a day's list still
+    // fits the box whole once scrolled to.
     expect(SHEET_BOX_PADDING_PX + ROADSIDE_LIST_PX).toBeLessThanOrEqual(sheetScrollBoxPx(844, 1) - 16);
     expect(SHEET_BOX_PADDING_PX).toBe(8);
     // At the old half snap, 45 percent hidden, it could not have fit.
@@ -198,8 +201,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const html = render({ roadsideStops: fourteen });
     expect(html).toContain("--sheet-y:25%");
     expect(html).toMatch(/class="plan-sheet-scroll [^"]*overflow-y-auto p-2 /);
-    // Nothing between the box's top and the section: it is the box's first child.
-    expect(html).toMatch(/class="plan-sheet-scroll [^"]*"><section data-roadside="true"/);
+    // The list is inside its day's section (U3), right under the heading
+    // here since no town fits in this fixture.
+    expect(html).toMatch(/<section data-day="1"[^>]*><h2 [^>]*><button[^>]*>[\s\S]*?<\/h2><section data-roadside="true"/);
     const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
     // The visible part of the sheet is a column of the handle row and the
     // box (U2, round 2, when the sheet's title joined the handle row): the
@@ -226,10 +230,18 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // Austin's at 549, the whole road under the sheet and Kansas in the
     // strip. That is the fit padded for the whole map. Padded by the
     // sheet's share of it, the fit frames the road in the strip.
-    const phone = { mapTopPx: 45, mapHeightPx: 799, viewportHeightPx: 844, sheetTopDvh: sheetTopDvh(1), phone: true };
+    //
+    // The map's top is the masthead's bottom, and this test used to put
+    // it at round 4's 45 while U2 had made the masthead 69 (73 with a
+    // deadline line); the fit reads the real box, so the road fell to
+    // zoom 4 and the strip showed a third of the country while this test
+    // passed (Gauntlet U3). The strip is now taken from PLAN_HEADER_PX,
+    // which the page's SSR test pins to the masthead's classes.
+    const mapTop = PLAN_HEADER_PX;
+    const phone = { mapTopPx: mapTop, mapHeightPx: 844 - mapTop, viewportHeightPx: 844, sheetTopDvh: sheetTopDvh(1), phone: true };
     const pad = fitPaddingPx(phone);
-    const strip = (844 * sheetTopDvh(1)) / 100 - 45;
-    expect(strip).toBeCloseTo(216.6, 0);
+    const strip = (844 * sheetTopDvh(1)) / 100 - mapTop;
+    expect(strip).toBeCloseTo(212.6, 0);
     // The strip is one function, read by the fit.
     expect(stripHeightPx(phone)).toBeCloseTo(strip, 5);
     expect(stripHeightPx({ ...phone, phone: false })).toBeUndefined();
@@ -239,16 +251,25 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // At 6 the road is 267 px tall (the capture's 268 is the dots' rounded
     // centres) and cannot.
     const innerW = 390 - pad.left - pad.right;
-    const innerH = 799 - pad.top - pad.bottom;
+    const innerH = phone.mapHeightPx - pad.top - pad.bottom;
     const size = (z: number) => {
       const a = mercatorPx(base.origin.lat, base.origin.lng, z);
       const b = mercatorPx(base.destination.lat, base.destination.lng, z);
       return { w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
     };
-    const fits = (z: number) => size(z).w <= innerW && size(z).h <= innerH;
-    const zoom = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3].find(fits);
+    const fitsAt = (inner: { w: number; h: number }) => (z: number) => size(z).w <= inner.w && size(z).h <= inner.h;
+    const zoom = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3].find(fitsAt({ w: innerW, h: innerH }));
     expect(zoom).toBe(5);
     expect(Math.round(size(6).h)).toBe(267);
+    // With U2's 73 px masthead the same arithmetic gives zoom 4, the
+    // country: the strip is 189, the inner area 117, and the road is 134
+    // tall at zoom 5. That is what the round-1 screenshot of U3 must not
+    // show, and why the masthead has no vertical padding.
+    const tall = { ...phone, mapTopPx: 73, mapHeightPx: 844 - 73 };
+    const tallPad = fitPaddingPx(tall);
+    const tallInner = { w: 390 - tallPad.left - tallPad.right, h: tall.mapHeightPx - tallPad.top - tallPad.bottom };
+    expect(tallInner.h).toBe(117);
+    expect([12, 11, 10, 9, 8, 7, 6, 5, 4, 3].find(fitsAt(tallInner))).toBe(4);
     // Centred in that area, every point of the road from the start's dot
     // to the end's sits above the sheet's edge, with the start's name
     // (30 px above its dot) inside the map and room under the end for its
@@ -261,14 +282,31 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // padding fails on the frame first: the sheet's share of the map plus
     // the margins; the start's name above, a name's width and a diamond's
     // canvas beside, the end's diamond below.
-    expect(pad).toEqual({ ...STRIP_MARGIN_PX, bottom: Math.round(799 - strip) + STRIP_MARGIN_PX.bottom });
+    expect(pad).toEqual({ ...STRIP_MARGIN_PX, bottom: Math.round(phone.mapHeightPx - strip) + STRIP_MARGIN_PX.bottom });
     expect(innerW).toBe(310);
-    expect(innerH).toBe(145);
+    expect(innerH).toBe(141);
+    // The map takes fractional zooms (Gauntlet U3, round 5), so the fit
+    // lands where the road fills the inner area rather than on the whole
+    // zoom below it: here between 5 and 6, with the road's height the
+    // area's 141 px, not zoom 5's 134; and a framed day 145 px tall at
+    // zoom 7 keeps 141 rather than dropping to 72 at zoom 6 and sitting
+    // small in the strip with the next day's road running on under the
+    // sheet. The option is on the map's source; the zoom is the
+    // projection's own arithmetic (a zoom step doubles the size).
+    const map = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
+    expect(map).toMatch(/^\s*isFractionalZoomEnabled\s*$/m);
+    const fractional = Math.min(5 + Math.log2(innerW / size(5).w), 5 + Math.log2(innerH / size(5).h));
+    expect(fractional).toBeGreaterThan(5);
+    expect(fractional).toBeLessThan(6);
+    const at = size(fractional);
+    expect(Math.max(at.w / innerW, at.h / innerH)).toBeCloseTo(1, 6);
+    expect(Math.round(at.h)).toBe(innerH);
+    expect(PLAN_HEADER_PX).toBe(49);
     expect(STRIP_MARGIN_PX).toEqual({ top: 40, right: 40, bottom: 32, left: 40 });
     // A strip too short to frame a road falls back; so does a desktop, or
     // a map with no sheet: the margins as before.
     expect(STRIP_MIN_PX).toBe(140);
-    expect(fitPaddingPx({ ...phone, viewportHeightPx: 390, mapTopPx: 45 })).toEqual(FIT_MARGIN_PX);
+    expect(fitPaddingPx({ ...phone, viewportHeightPx: 390 })).toEqual(FIT_MARGIN_PX);
     expect(fitPaddingPx({ ...phone, phone: false })).toEqual(FIT_MARGIN_PX);
     expect(fitPaddingPx({ ...phone, sheetTopDvh: undefined })).toEqual(FIT_MARGIN_PX);
     expect(FIT_MARGIN_PX).toEqual({ top: 60, right: 60, bottom: 120, left: 60 });
@@ -303,10 +341,11 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).toMatch(/<a href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=35\.19381,-101\.75510"[^>]*>Open in Maps<\/a>/);
     expect(html).not.toContain("×");
     // Above the list: the card comes before the heading and the first row,
-    // and, the section being first in the sheet, before the numbers.
+    // inside the day the stop belongs to (U3), which is after the numbers.
     expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("places worth pulling over for"));
     expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("data-roadside-stop="));
-    expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("on the road"));
+    expect(html.indexOf("data-roadside-card")).toBeGreaterThan(html.indexOf('<section data-day="1"'));
+    expect(html.indexOf("data-roadside-card")).toBeGreaterThan(html.indexOf("on the road"));
     // The tapped row is marked as the open one.
     expect(html).toMatch(/data-roadside-stop="osm:way:1"><button[^>]*aria-expanded="true"/);
   });
@@ -481,6 +520,15 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(existsSync(new URL("../../lib/roadside/spread.ts", import.meta.url))).toBe(false);
     expect(src).toContain('map.addListener("zoom_changed", apply)');
     expect(src).not.toContain('addListener("idle"');
+    // The end of the trip draws above a diamond on the same point (U3,
+    // round 6: at the rest zoom a diamond sat over Austin's dot and its
+    // name): the start, the end and the stops are drawn as elements
+    // (`optimized: false`), above a diamond Google draws on a canvas and,
+    // by zIndex, above one it draws as an element. The diamonds are as
+    // they were, on their points.
+    expect(src.match(/zIndex: 1800,\s*clickable: false,\s*optimized: false,/g)).toHaveLength(2);
+    expect(src).toMatch(/zIndex: 2000,\s*optimized: false,/);
+    expect(src).toMatch(/zIndex: active \? 1600 : 1500, icon: active \? roadsideMarkerIcon\(true\) : icon, visible: false/);
   });
 
   it("closes the card on a sideways swipe, not on a scroll or a tap", () => {

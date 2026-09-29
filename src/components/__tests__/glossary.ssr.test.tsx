@@ -8,10 +8,11 @@ import React from "react";
  * on the server, as /health renders them: the home form (RouteInput), the
  * plan sheet (PlanWorkspace, with a town, two places and two roadside
  * stops, the fixtures of PlanWorkspace.roadside.ssr.test.tsx), the today
- * form (TodayStart), the trips page with nothing saved, and the itinerary
- * with two stops, which the sheet only draws once a stop is added, and the
- * plan screen's loading and error states (round 3: the two states of the
- * screen no round had read, letter-spaced capitals at 12 px). The
+ * form (TodayStart), the trips page with nothing saved, the sheet with a
+ * stop on it (Gauntlet U3: the days are the trip, and there is no
+ * itinerary component any more), and the plan screen's loading and error
+ * states (round 3: the two states of the screen no round had read,
+ * letter-spaced capitals at 12 px). The
  * markup is walked three ways: the text with every tag gone, for the
  * glossary's never phrases; every text node on its own, for a minutes count
  * standing as a label; and the tags with their ancestors, for a name cut
@@ -31,13 +32,12 @@ vi.mock("@/app/plan/actions", () => ({
 import RouteInput, { planReason } from "@/components/RouteInput";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import RecommendationList from "@/components/RecommendationList";
-import Itinerary from "@/components/Itinerary";
 import TodayStart from "@/components/TodayStart";
 import TripsPage from "@/app/trips/page";
 import PlanLoading from "@/app/plan/loading";
 import PlanError from "@/app/plan/error";
 import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
-import { fitsTodayLine, kindWord } from "@/lib/plan/words";
+import { fitsTodayLine, kindWord, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 
 /**
@@ -160,8 +160,20 @@ const screens = () => {
   const sheet = renderToString(<PlanWorkspace {...plan} roadsideStops={roadsideStops} initialSelectedRoadsideId="osm:way:1" />);
   const today = renderToString(<TodayStart initialHours={5} initialPersonaId="culture" />);
   const trips = renderToString(<TripsPage />);
+  // The sheet with two stops on it and their legs: each day's heading
+  // carries the leg's drive, and Lubbock's row its "✓ Added".
   const itinerary = renderToString(
-    <Itinerary fromName="Amarillo" toName="Austin" stops={tripStops} legDurations={[7_500, 6_000]} finalLegSeconds={12_000} onRemoveStop={() => {}} onStopClick={() => {}} accent="#bc8cff" />
+    <PlanWorkspace
+      {...plan}
+      initialTrip={{
+        stops: tripStops,
+        legs: [
+          { originCityId: "__origin__", destinationCityId: "lubbock", durationSeconds: 7_500, distanceMeters: 180_000 },
+          { originCityId: "lubbock", destinationCityId: "abilene", durationSeconds: 6_000, distanceMeters: 260_000 },
+        ],
+        directMinutesToDestination: 200,
+      }}
+    />
   );
   const loading = renderToString(<PlanLoading />);
   const planError = renderToString(<PlanError error={Object.assign(new Error("boom"), { digest: "a1b2c3" })} />);
@@ -173,7 +185,7 @@ describe("the words on the screens, against the glossary", () => {
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY = "test-key-not-a-real-key";
   });
 
-  it("carries no phrase from the glossary's never column on the home form, the plan sheet, the today form, the trips page, the itinerary, or the plan screen loading or failed", () => {
+  it("carries no phrase from the glossary's never column on the home form, the plan sheet, the today form, the trips page, the sheet with stops, or the plan screen loading or failed", () => {
     for (const [name, html] of Object.entries(screens())) {
       const text = visible(html);
       for (const never of NEVER) {
@@ -200,11 +212,57 @@ describe("the words on the screens, against the glossary", () => {
     expect(fitsTodayLine(["Lubbock"], "Austin")).toBe("Lubbock fits today");
     expect(fitsTodayLine(["Lubbock", "Abilene", "Sweetwater", "Snyder"], "Austin")).toBe("Lubbock, Abilene and 2 more fit today");
     expect(fitsTodayLine([], "Austin")).toBe("Nothing fits today; drive on to Austin");
-    expect(fitsTodayLine(["Abilene"], "Austin", "Lubbock")).toBe("Abilene fits today after Lubbock");
-    expect(fitsTodayLine([], "Austin", "Lubbock")).toBe("Nothing fits today after Lubbock; drive on to Austin");
+    // After a stop the towns are the next day's, and the sentence says
+    // which (U3, round 3: "fits today after Lubbock" stood over a list
+    // that put the town in day 2). Day 1 is "today".
+    expect(fitsTodayLine(["Abilene"], "Austin", 2)).toBe("Abilene fits in day 2");
+    expect(fitsTodayLine(["Abilene", "Sweetwater"], "Austin", 3)).toBe("Abilene and Sweetwater fit in day 3");
+    expect(fitsTodayLine([], "Austin", 2)).toBe("Nothing fits in day 2; drive on to Austin");
+    expect(fitsTodayLine(["Lubbock"], "Austin", 1)).toBe("Lubbock fits today");
     // A kind of place in sentence case, never an identifier.
     expect(kindWord("hidden_gem")).toBe("Hidden gem");
     expect(text).not.toMatch(/hidden_gem|HIDDEN GEM/);
+    // A day's heading (U3): the day's number, its ends, its drive. A day
+    // cut where the budget runs out is named by where (round 5: "Days 1
+    // and 2 · Amarillo to Austin" never said where day 1 ended), a town
+    // near the cut, or said in hours with none near (round 6: "mile 319"
+    // was a number a person in a car would not say), and no heading is
+    // "over" anything.
+    const day = { index: 0, fromKind: "start" as const, fromName: "Amarillo", endKind: "stop" as const, toName: "Lubbock", minutes: 200 };
+    expect(dayHeadingLine(day)).toBe("Day 1 · Amarillo to Lubbock · 3 h 20 min");
+    expect(dayHeadingLine({ index: 1, fromKind: "stop", fromName: "Lubbock", endKind: "near", toName: "near Llano", minutes: 240 })).toBe("Day 2 · Lubbock to near Llano · 4 h");
+    expect(dayHeadingLine({ index: 2, fromKind: "near", fromName: "near Llano", endKind: "end", toName: "Austin", minutes: 30 })).toBe("Day 3 · near Llano to Austin · 30 min");
+    expect(dayHeadingLine({ index: 1, fromKind: "stop", fromName: "Lubbock", endKind: "hours", toName: "on the road", minutes: 240 })).toBe("Day 2 · 4 h down the road from Lubbock");
+    expect(dayHeadingLine({ index: 0, fromKind: "start", fromName: "Amarillo", endKind: "hours", toName: "on the road", minutes: 240 })).toBe("Day 1 · 4 h down the road from Amarillo");
+    expect(dayHeadingLine({ index: 1, fromKind: "hours", fromName: "on the road", endKind: "hours", toName: "on the road", minutes: 240 })).toBe("Day 2 · another 4 h down the road");
+    expect(dayHeadingLine({ index: 2, fromKind: "hours", fromName: "on the road", endKind: "end", toName: "Austin", minutes: 30 })).toBe("Day 3 · on to Austin · 30 min");
+    expect(dayHeadingLine({ index: 2, fromKind: "hours", fromName: "on the road", endKind: "near", toName: "near Austin", minutes: 240 })).toBe("Day 3 · on to near Austin · 4 h");
+    expect(dayHeadingLine({ index: 2, fromKind: "hours", fromName: "on the road", endKind: "end", toName: "Austin", minutes: null })).toBe("Day 3 · on to Austin");
+    expect(dayHeadingLine({ ...day, minutes: null })).toBe("Day 1 · Amarillo to Lubbock");
+    // The trip's shape in one line, for two days or more: the count in
+    // words, where each night is (in a stop's town, near a cut's town, or
+    // on the road for a cut with none near, those counted last); none
+    // for one day.
+    const stop = (toName: string) => ({ toName, endKind: "stop" as const });
+    const onRoad = { toName: "on the road", endKind: "hours" as const };
+    const end = { toName: "Austin", endKind: "end" as const };
+    expect(tripShapeLine([stop("Lubbock"), { toName: "near Llano", endKind: "near" }, end])).toBe("Three days, with nights in Lubbock and near Llano");
+    expect(tripShapeLine([{ toName: "near Snyder", endKind: "near" }, end])).toBe("Two days, with a night near Snyder");
+    expect(tripShapeLine([onRoad, end])).toBe("Two days, with a night on the road");
+    expect(tripShapeLine([onRoad, onRoad, end])).toBe("Three days, with two nights on the road");
+    expect(tripShapeLine([stop("Lubbock"), onRoad, end])).toBe("Three days, with a night in Lubbock and one on the road");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), onRoad, end])).toBe("Four days, with nights in Lubbock and Abilene, and one on the road");
+    expect(tripShapeLine([onRoad, onRoad, { toName: "near Austin", endKind: "near" }, end])).toBe("Four days, with a night near Austin and two on the road");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), end])).toBe("Three days, with nights in Lubbock and Abilene");
+    expect(tripShapeLine([stop("Lubbock"), stop("Abilene"), stop("Brady"), end])).toBe("Four days, with nights in Lubbock, Abilene and Brady");
+    expect(tripShapeLine([end])).toBeNull();
+    expect(tripShapeLine([])).toBeNull();
+    // The label over a day's towns, the glossary's own words for what the
+    // planner calls candidates (round 6).
+    expect(townsFitHeading()).toBe("Towns that fit today");
+    expect(townsFitHeading(1)).toBe("Towns that fit today");
+    expect(townsFitHeading(2)).toBe("Towns that fit in day 2");
+    expect(text).toContain("Towns that fit today");
   });
 
   it("puts that sentence first: the sheet's title on the handle row, above the roadside heading, reachable by a screen reader", () => {
@@ -247,19 +305,23 @@ describe("the words on the screens, against the glossary", () => {
     }
   });
 
-  it("sets no heading, label or button in letter-spaced capitals, nothing under 16 px, and keeps the mono face for numbers", () => {
+  it("sets no heading, label or button in letter-spaced capitals, nothing under 16 px, and keeps the mono face for figures alone", () => {
     for (const [name, html] of Object.entries(screens())) {
       expect(html, `${name}: an uppercase class`).not.toMatch(/class="[^"]*\buppercase\b/);
       expect(html, `${name}: a tracking class`).not.toMatch(/class="[^"]*\btracking-/);
       expect(html, `${name}: font-mono on text`).not.toMatch(/class="[^"]*\bfont-mono\b/);
-      // Nothing on these screens is smaller than 16 px, the itinerary's
-      // stop numbers and dots included.
+      // Nothing on these screens is smaller than 16 px.
       expect(html, `${name}: text under 16 px`).not.toMatch(/class="[^"]*\btext-(?:xs|sm|\[1[0-5]px\])\b/);
     }
-    // The numbers carry the mono face: the sheet's distance and drive.
+    // The figures carry the mono face and the words around them do not
+    // (U3, round 2: "8 h 3 min" set whole in mono came out wide-spaced
+    // inside the sentence): the sheet's distance and drive, the town
+    // row's drive, and a day's heading.
     const { sheet, itinerary, loading, planError } = screens();
-    expect(clean(sheet)).toMatch(/class="num">497 mi</);
-    expect(clean(sheet)).toMatch(/class="num">8 h 3 min</);
+    expect(clean(sheet)).toContain('<span class="num">497</span> mi · <span class="num">8</span> h <span class="num">3</span> min on the road');
+    expect(clean(sheet)).toContain('· <span class="num">2</span> h <span class="num">5</span> min away');
+    expect(clean(sheet)).not.toMatch(/class="num">[^<]*[a-z]/);
+    expect(clean(itinerary)).not.toMatch(/class="num">[^<]*[a-z]/);
     // The plan screen's loading and error states: a sentence each, the
     // error's code the one thing in the mono face, and one action.
     expect(visible(loading)).toContain("Planning the route");
@@ -268,10 +330,15 @@ describe("the words on the screens, against the glossary", () => {
     expect(clean(planError)).toContain('Error code <span class="num">a1b2c3</span>');
     expect(planError).toMatch(/<a [^>]*href="\/"[^>]*>Back to the start<\/a>/);
     expect(visible(planError)).not.toMatch(/error ref|something went wrong/i);
-    // The itinerary's legs are phrases with the number in the mono face,
-    // and its stop number is a 16 px digit in a 24 px badge.
-    expect(clean(itinerary)).toContain('<span class="num">2 h 5 min</span> of driving');
-    expect(itinerary).toMatch(/class="inline-flex items-center justify-center w-6 h-6 text-base num shrink-0"[^>]*>1</);
+    // The days' headings carry the legs' drives, the figures alone in mono.
+    expect(clean(itinerary)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">2</span> h <span class="num">5</span> min');
+    expect(clean(itinerary)).toContain('Day <span class="num">2</span> · Lubbock to Abilene · <span class="num">1</span> h <span class="num">40</span> min');
+    expect(visible(itinerary)).toContain("Day 3 · Abilene to Austin · 3 h 20 min");
+    expect(visible(itinerary)).toContain("✓ Added");
+    // Two stops: the towns that fit are day 3's, and the title says so.
+    expect(visible(itinerary)).toContain("Lubbock fits in day 3");
+    expect(visible(itinerary)).not.toContain("fits today");
+    expect(visible(itinerary)).not.toMatch(/\d+ stops? ·|Your trip|Route locked/);
   });
 
   it("sets the date button's words in the body face and only a chosen date in the mono face", () => {

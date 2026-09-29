@@ -84,8 +84,49 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(closed).toContain("+ Stop here");   // still not added
     const open = render("amarillo").replace(/<!-- -->/g, "");
     expect(open).toMatch(/aria-pressed="true"[^>]*>What&#x27;s in Amarillo<\/button>/);
-    // the header is tall enough to hold the 44 px hit areas without them reaching the rows
-    expect(open).toMatch(/<h3[^>]*min-h-\[44px\]/);
+    // The town's header is two rows (Gauntlet U3, round 2: the drive ran
+    // under the buttons and the buttons were 30 px on the screen): the
+    // name with its drive, the figures in the mono face, then the two
+    // buttons on a row of their own, each 44 px tall and sharing the
+    // width, with no invisible hit area.
+    expect(open).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="num">20<\/span> min away<\/span><\/h3><div class="mt-1 flex gap-2"><button/);
+    expect(open).toMatch(/<button[^>]*class="flex-1 min-h-\[44px\] [^"]*"[^>]*>What&#x27;s in Amarillo<\/button>/);
+    expect(open).toMatch(/<button[^>]*class="flex-1 min-h-\[44px\] [^"]*"[^>]*>\+ Stop here<\/button>/);
+    expect(open).not.toContain("before:");
+  });
+
+  it("keeps a town's row with no place written up only when asked, and draws the answer under its own town", () => {
+    // A stop is its day's end and has a row whatever the atlas holds
+    // (Gauntlet U3, round 2); a town that merely fits with nothing to
+    // show draws nothing, as before.
+    const bare: WaypointFetchResult = { ...result, waypoints: [] };
+    const props = { ...baseProps, fetchResult: bare, addedCityIds: new Set(["amarillo"]), onCityPreview: () => {} };
+    expect(renderToString(<RecommendationList {...props} notices={false} />)).toBe("");
+    const kept = renderToString(<RecommendationList {...props} notices={false} keepEmpty />).replace(/<!-- -->/g, "").replace(/&#x27;/g, "'");
+    expect(kept).toContain("What's in Amarillo");
+    expect(kept).toContain("✓ Added");
+    expect(kept).toContain("Nothing written up for Amarillo yet.");
+    // The answer to "What's in Amarillo" sits under Amarillo's rows, and
+    // under no other town.
+    const withDetail = renderToString(
+      <RecommendationList {...baseProps} fetchResult={result} detail={{ cityId: "amarillo", node: <p data-answer>Its parts of town</p> }} />
+    );
+    expect(withDetail.indexOf("data-answer")).toBeGreaterThan(withDetail.indexOf("A bare name"));
+    expect(renderToString(<RecommendationList {...baseProps} fetchResult={result} detail={{ cityId: "lubbock", node: <p data-answer /> }} />)).not.toContain("data-answer");
+  });
+
+  it("drops the drive from a stop's row: the day's heading above it says the drive the route measured", () => {
+    // Gauntlet U3, round 3: "Lubbock · 1 h 40 min away" sat under "Day 1 ·
+    // Amarillo to Lubbock · 1 h 43 min", two figures for one drive. A town
+    // that fits keeps its drive, the only figure for it on the sheet.
+    const render = (added: string[]) =>
+      renderToString(<RecommendationList {...baseProps} fetchResult={result} addedCityIds={new Set(added)} />).replace(/<!-- -->/g, "");
+    const fits = render([]);
+    expect(fits).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="num">20<\/span> min away<\/span><\/h3>/);
+    const stop = render(["amarillo"]);
+    expect(stop).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<\/h3>/);
+    expect(stop).not.toContain("away");
+    expect(stop).toContain("✓ Added");
   });
 
   it("shows no preview button when the parent does not offer one", () => {

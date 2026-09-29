@@ -33,6 +33,20 @@ export function todayIso(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+/**
+ * Today as YYYY-MM-DD in the running clock's own zone: the day the person
+ * would name. The plan sheet's arrival count is from here (Gauntlet U3,
+ * round 2): the UTC day said "sixteen days from now" on an evening in
+ * Japan where it was already the 29th and fifteen. The page passes the
+ * server's local day for the first paint and the sheet re-reads the
+ * browser's once mounted; the date itself is always shown, so the count
+ * is a convenience and the date is the truth.
+ */
+export function localTodayIso(now: Date = new Date()): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+}
+
 /** Milliseconds in a day. Both dates are pinned to UTC midnight, so the
  *  difference is an exact multiple of this except for leap seconds, which
  *  JavaScript's Date does not have; the round() is belt and braces. Local
@@ -65,4 +79,38 @@ export function daysLeftPhrase(days: number): string {
 /** The one line every screen uses: "Arrive in Austin by Oct 14, 6 days left". */
 export function deadlineLine(opts: { toName: string; endDate: string; today: string }): string {
   return `Arrive in ${opts.toName} by ${formatDeadline(opts.endDate)}, ${daysLeftPhrase(daysUntil(opts.endDate, opts.today))}`;
+}
+
+// ── The plan sheet's arrival sentence (Gauntlet U3) ─────────────────────
+
+const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "October 14", and with the year when it is not this year: "January 5, 2027". */
+export function longDate(iso: string, today: string): string {
+  const [y, m, d] = iso.split("-");
+  const date = `${LONG_MONTHS[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`;
+  return y === today.slice(0, 4) ? date : `${date}, ${y}`;
+}
+
+const COUNT_WORDS = [
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
+];
+
+/** A count as a person says it: words up to twenty, digits past that. */
+export function countWord(n: number): string {
+  return COUNT_WORDS[n] ?? String(n);
+}
+
+/** "six days from now", "tomorrow", "today", "yesterday", "three days ago", "25 days from now". */
+export function daysFromNowPhrase(days: number): string {
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days === -1) return "yesterday";
+  return days > 0 ? `${countWord(days)} days from now` : `${countWord(-days)} days ago`;
+}
+
+/** The plan sheet's deadline: "Arrive in Austin by October 14, six days from now". */
+export function arrivalSentence(opts: { toName: string; endDate: string; today: string }): string {
+  return `Arrive in ${opts.toName} by ${longDate(opts.endDate, opts.today)}, ${daysFromNowPhrase(daysUntil(opts.endDate, opts.today))}`;
 }

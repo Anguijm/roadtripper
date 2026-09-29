@@ -14,7 +14,8 @@ import {
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parsePersonaId } from "@/lib/personas";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
-import { formatDeadline } from "@/lib/plan/deadline";
+import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
+import Figures from "@/components/Figures";
 import { roadsideForRoute } from "@/lib/roadside/store";
 
 interface PlanSearchParams {
@@ -235,8 +236,13 @@ export default async function PlanPage({
     <div className="flex flex-col h-screen">
       {/* The masthead in sentence case, the body face, 16 px: "Roadtripper",
           "Amarillo to Austin" (quality bar, rules 1 and 2). The names wrap;
-          nothing is cut with an ellipsis. */}
-      <header className="flex items-center justify-between gap-4 px-4 py-3 bg-[#161b22] border-b border-[#30363d]">
+          nothing is cut with an ellipsis. No vertical padding: the link's
+          44 px is the row, so on a phone the masthead is 45 px, 49 with a
+          second line on the right, and the map's strip above the sheet at
+          rest keeps the room the fit needs (PLAN_HEADER_PX in RouteMap.tsx;
+          Gauntlet U3). The arrival deadline is a sentence on the sheet, not
+          here, for the same reason. */}
+      <header className="flex items-center justify-between gap-4 px-4 bg-[#161b22] border-b border-[#30363d]">
         <Link
           href="/"
           className="min-h-[44px] flex items-center shrink-0 text-base text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors"
@@ -245,11 +251,10 @@ export default async function PlanPage({
         </Link>
         <div className="min-w-0 text-base text-[#8b949e] text-right">
           <div className="break-words">{fromName} to {toName}</div>
-          {/* The deadline, on the one line every screen shares. */}
-          {isArrivalMode && endDate ? (
-            <div className="text-[#f0f6fc]">Arrive by <span className="num">{formatDeadline(endDate)}</span></div>
-          ) : startDate && endDate ? (
-            <div><span className="num">{formatDeadline(startDate)}</span> to <span className="num">{formatDeadline(endDate)}</span></div>
+          {/* A range's dates, the figures in the mono face and the months
+              in the body face; an arrival date is the sheet's sentence. */}
+          {!isArrivalMode && startDate && endDate ? (
+            <div><Figures text={`${formatDeadline(startDate)} to ${formatDeadline(endDate)}`} /></div>
           ) : null}
         </div>
       </header>
@@ -272,6 +277,7 @@ export default async function PlanPage({
           startDate={startDate}
           endDate={endDate}
           dateMode={isArrivalMode ? "arrival" : undefined}
+          today={localTodayIso()}
           initialCandidateFetchFailed={candidateFetchFailed}
         />
       ) : (

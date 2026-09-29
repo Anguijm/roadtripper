@@ -150,6 +150,122 @@ export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: 40, bottom: 32, lef
  * 844 with the sheet at rest shows both pins and the road above the sheet.
  */
 export const STRIP_MIN_PX = 140;
+/**
+ * The plan page's masthead on a phone, in px, which is where the map's top
+ * edge sits: the 44 px "Roadtripper" link, no vertical padding, and the
+ * 1 px border; 49 when the right-hand column has two lines ("Amarillo to
+ * Austin" and a range's dates, or a long pair of names wrapping). Why it
+ * is pinned (Gauntlet U3): U1 round 5 framed the road for a 45 px masthead
+ * (a 217 px strip above the sheet at rest on a 390 by 844 phone, 145 px
+ * inside the strip's margins, and the Amarillo to Austin road is 134 px
+ * tall at zoom 5). U2 rebuilt the masthead with `py-3` around the 44 px
+ * link: 69 px, 73 with the deadline line, so the strip fell to 189 and the
+ * inner area to 117; fitBounds takes whole zooms on a raster map, so the
+ * fit dropped to zoom 4 and the strip showed a third of the country. Moves
+ * with it: the header's classes in src/app/plan/page.tsx (the page SSR
+ * test pins them to this number) and the fit test "fits the road into the
+ * strip of map above the sheet at rest, on a phone", which takes the strip
+ * from it. Check: a screenshot at 390 by 844 with the sheet at rest shows
+ * the road from end to end above the sheet, and Texas, not the country.
+ *
+ * What it is not: a value the app reads. The fit measures the map's real
+ * box (`map.getDiv().getBoundingClientRect()` in effects 1a and 1c
+ * below), so changing this number alone changes nothing on screen. It is
+ * the masthead's height as the fit arithmetic was done for it, and the
+ * two tests are what tie the masthead to it; without them the page can
+ * grow a taller masthead while a fit test keeps proving a strip the
+ * screen no longer has, which is exactly what happened before U3.
+ *
+ * To change it, change three things together and run both tests:
+ *   1. The header's classes in src/app/plan/page.tsx, which are what make
+ *      the masthead 45 px, or 49 with a second line on the right.
+ *   2. This number, and the test "keeps the masthead at the height the
+ *      fit at rest counts on: a 44 px link, no vertical padding, one
+ *      border" in src/app/plan/__tests__/page.ssr.test.tsx, which asserts
+ *      44 + 1 + 4 and forbids vertical padding or a fixed height on the
+ *      header; it fails on a change to either side alone.
+ *   3. The test "fits the road into the strip of map above the sheet at
+ *      rest, on a phone" in
+ *      src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx, which
+ *      takes the map's top from this value and the sheet's top from the
+ *      rest snap (`sheetTopDvh(1)`, from SHEET_SNAPS[1] in
+ *      src/components/PlanWorkspace.tsx: 31 dvh, so a 212.6 px strip on
+ *      a 390 by 844 phone) and proves the Amarillo to Austin road fits
+ *      that strip at a zoom above 5, and that a 73 px masthead drops it
+ *      to 4. A taller masthead needs a lower rest snap to keep the strip,
+ *      and a strip under STRIP_MIN_PX (140) makes fitPaddingPx give up on
+ *      the strip and pad for the whole map, so the road goes under the
+ *      sheet: the strip is this number and the rest snap together, and
+ *      every fit (the mount's and a day's frame) goes through the same
+ *      padding, so a wrong strip moves them all.
+ * Then the screenshot above. Nothing in CSS reads it.
+ */
+export const PLAN_HEADER_PX = 49;
+
+/** A camera request from the sheet: a day's stretch, or the whole trip again. A new key is a new fit. */
+export interface MapFit {
+  key: string;
+  bounds: { northeast: google.maps.LatLngLiteral; southwest: google.maps.LatLngLiteral };
+}
+
+/**
+ * How faded a town outside the open day's dot is drawn (Gauntlet U3,
+ * round 3). 0.35 keeps the dot readable as a place that is there while
+ * the day's own towns, at 1, are what the eye reads; hidden, a town would
+ * look absent. Its name is not drawn at all while a day is framed (round
+ * 4: faded, Fort Worth's name still sat at the map's right edge cut to
+ * "For", and a name cut short fails rule 2 whatever its strength); the
+ * whole trip restores every name. Nothing moves (rule 6). Check:
+ * `candidateOpacity` and `candidateLabelShown` below and their test; a
+ * screenshot with Day 1 open shows Fort Worth's dot faint with no name,
+ * Plainview's dot and name as they were.
+ *
+ * Its bounds, and what it does to reading the map. The faded mark is the
+ * town's dot alone (`candidateMarkerIcon`: the route colour at
+ * fill-opacity 0.9 inside a 2 px #0d1117 stroke, 12 px across) over the
+ * basemap's #1c2128 land and #3d444d roads (DARK_MAP_STYLES), so the
+ * marker's opacity multiplies an already dim mark. At 0.35 the dot is a
+ * tint a person finds when looking for it and passes over when not.
+ * Below about 0.25 it is the land's colour on a phone in daylight and
+ * the town reads as gone, which this rule exists to avoid; above 0.5 it
+ * reads as one of the day's own and the frame stops saying which towns
+ * are the day's. The names' contrast is not a function of this value: a
+ * faded town has no name drawn at all (`candidateLabelShown`), so there
+ * is no half-strength 11 px text to fail contrast, and the #f0f6fc label
+ * is either whole or absent. Only the towns' dots read it: the one
+ * `marker.setOpacity` is in effect 2c, and the stop squares (effect 3)
+ * and the roadside diamonds (effect 4) are never faded.
+ *
+ * To change it: the test "fades the dots of the other days' towns on the
+ * map while one is open and draws no name for them, never the day's own
+ * or its ends, and names a stop's square" in
+ * src/components/__tests__/PlanWorkspace.days.ssr.test.tsx pins the
+ * value to 0.25 to 0.5 and pins the `marker.setOpacity` and
+ * `marker.setLabel` lines of effect 2c to the two rules above, so a
+ * value outside that range, or a second place that sets a marker's
+ * opacity, fails it. Then the screenshot above, in daylight on a phone,
+ * not on a desk: the faint dot must still be found.
+ */
+export const OFF_DAY_OPACITY = 0.35;
+
+/**
+ * A town's strength on the map: full with no day open (`focus` null), or
+ * when the town is in the open day; faded otherwise. Pure, so a test can
+ * prove the rule without a map.
+ */
+export function candidateOpacity(id: string, focus: ReadonlySet<string> | null | undefined): number {
+  return !focus || focus.has(id) ? 1 : OFF_DAY_OPACITY;
+}
+
+/** Whether a town's name is drawn: only at full strength, so no off-day name can sit cut at the map's edge. */
+export function candidateLabelShown(id: string, focus: ReadonlySet<string> | null | undefined): boolean {
+  return candidateOpacity(id, focus) === 1;
+}
+
+/** The town's name above its dot, the app's one label style (the basemap's town names are off). */
+function candidateLabel(name: string): google.maps.MarkerLabel {
+  return { text: name, color: "#f0f6fc", fontSize: "11px", fontWeight: "500", className: "rt-candidate-label" };
+}
 
 /**
  * The strip: how much of the map is on screen from its top edge, on a
@@ -249,6 +365,20 @@ interface RouteMapProps {
    * (fitPaddingPx). Not given, or wider than a phone: the desktop's margins.
    */
   phoneSheetTopDvh?: number;
+  /**
+   * A day's stretch of road to frame, or the whole trip again (Gauntlet
+   * U3): the sheet asks by handing a new key; the same key twice is one
+   * fit. Null asks nothing, so a recompute that closes the open day never
+   * moves the camera.
+   */
+  fitTo?: MapFit | null;
+  /**
+   * The towns to draw at full strength while a day is open on the map
+   * (Gauntlet U3, rounds 3 and 4): that day's towns and its ends; every
+   * other town's dot is faded by OFF_DAY_OPACITY and its name not drawn.
+   * Null: every town as it is.
+   */
+  focusCandidateIds?: ReadonlySet<string> | null;
 }
 
 const NYC: google.maps.LatLngLiteral = { lat: 40.7128, lng: -74.006 };
@@ -315,6 +445,67 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
   return { text: name, color: "#f0f6fc", fontSize: "11px", fontWeight: "500", className: "rt-candidate-label" };
 }
 
+/**
+ * A stop's square with its number drawn in it, on the same 64 px canvas
+ * as the endpoints so the town's name sits 30 px above the square in the
+ * map's one label style (Gauntlet U3, round 5: the end of a framed day
+ * read as a "1" badge with no name). The number is in the icon, since a
+ * marker has one label and the name is it. Must be called inside effects
+ * where google.maps is guaranteed loaded.
+ *
+ * Every number below is in the SVG's own pixels: scaledSize is 64 by 64,
+ * the same as the viewBox, so nothing is scaled and one unit is one
+ * screen pixel. They are one set with endpointIcon's, and they centre
+ * two things, the name and the number, on the square:
+ *   - 64 by 64, the canvas: endpointIcon's, tall enough to hold a name
+ *     30 px above the mark. The label is not clipped to it; the canvas
+ *     only says where the label's centre is.
+ *   - The square at x 22, y 30, 20 by 20: its centre is (32, 40). 32 is
+ *     the canvas's middle; 40 is where endpointIcon's dot sits, so a
+ *     stop's name stands the same height above its mark as the ends'.
+ *     20 holds two digits of 12 px bold (about 14 px wide) with room, and
+ *     MAX_TRIP_STOPS (7, in PlanWorkspace.tsx) keeps the number to one.
+ *   - anchor (32, 40): the point of the icon placed on the stop's
+ *     latitude and longitude, the square's centre, so the square sits on
+ *     its town at every zoom and never shifts (rule 6: nothing moves).
+ *   - labelOrigin (32, 10): where the marker's label (the town's name,
+ *     `endpointLabel`) is centred, 30 px above the square's centre, the
+ *     endpoints' distance, and above a roadside diamond on the same point
+ *     (a diamond's canvas reaches 22 px above its point).
+ *   - The number at x 32 with text-anchor middle: centred on the square
+ *     horizontally. Its baseline y 44.5: the digits of 12 px bold
+ *     system-ui are about 8.5 px tall, so their middle is at about 40.25,
+ *     the square's centre to a quarter pixel. A larger font needs its
+ *     baseline lower by half the digits' growth to stay centred.
+ *   - #f0f6fc 2 px stroke around the route colour, the number in #0d1117
+ *     (the page's background): the sheet's own pair, so the square reads
+ *     as the page's mark and the number as text on it.
+ * Moves with it: endpointIcon's canvas, anchor and labelOrigin (a
+ * different canvas here puts a stop's name at a different height from
+ * the ends'), and STRIP_MARGIN_PX.top in fitPaddingPx, sized for a name
+ * 30 px above a mark. Held by the test "fades the dots of the other
+ * days' towns on the map while one is open and draws no name for them,
+ * never the day's own or its ends, and names a stop's square" in
+ * src/components/__tests__/PlanWorkspace.days.ssr.test.tsx, which pins
+ * that the number is a <text> in this SVG and that effect 3 passes the
+ * town's name as the label; the coordinates themselves are not pinned,
+ * so a change here is checked by a screenshot with a stop added: the
+ * name centred over the square, the number centred in it, the name at
+ * the same height as "Amarillo" over the start's dot.
+ */
+function tripStopIcon(fill: string, n: number): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect x="22" y="30" width="20" height="20" fill="${fill}" stroke="#f0f6fc" stroke-width="2"/><text x="32" y="44.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#0d1117">${n}</text></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    // The square's centre, on the stop's point.
+    anchor: new google.maps.Point(32, 40),
+    // One unit per pixel: the viewBox's size, so the numbers above hold.
+    scaledSize: new google.maps.Size(64, 64),
+    // The name's centre, 30 px above the square's, as over the endpoints.
+    labelOrigin: new google.maps.Point(32, 10),
+  };
+}
+
 // Set the first time a route polyline fails to decode, so the console hears
 // about it once per page load, not once per rerun of Effect 1a.
 let warnedBadPolyline = false;
@@ -330,6 +521,9 @@ let warnedBadPolyline = false;
  *       the first render it fits the camera, padded on a phone by the
  *       sheet's share of the map so the road is framed in the strip above
  *       the sheet (fitPaddingPx).
+ *   1c. A day's frame — `[map, fitTo]`
+ *       Fits the camera to the stretch the sheet asked for, or back to the
+ *       whole trip, once per request key, padded like the first fit.
  *   1b. Polyline opacity — `[pending]`
  *       Mutates the existing Polyline in place; no rebuild on pending toggle.
  *   2a. Endpoint markers — `[map, origin, destination, originName, destinationName]`
@@ -384,6 +578,8 @@ function PolylineRenderer({
   onRoadsideClick,
   selectedRoadsideId,
   phoneSheetTopDvh,
+  fitTo,
+  focusCandidateIds,
 }: {
   encodedPolyline: string;
   bounds?: RouteMapProps["bounds"];
@@ -401,6 +597,14 @@ function PolylineRenderer({
   onRoadsideClick?: (id: string) => void;
   selectedRoadsideId?: string | null;
   phoneSheetTopDvh?: number;
+  fitTo?: MapFit | null;
+  /**
+   * The towns to draw at full strength while a day is open on the map
+   * (Gauntlet U3, rounds 3 and 4): that day's towns and its ends; every
+   * other town's dot is faded by OFF_DAY_OPACITY and its name not drawn.
+   * Null: every town as it is.
+   */
+  focusCandidateIds?: ReadonlySet<string> | null;
 }) {
   const map = useMap();
   // Null until the geometry library lands (it lazy-loads after the map);
@@ -498,6 +702,23 @@ function PolylineRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, geometry, encodedPolyline, routeColor]);
 
+  // ── Effect 1c: a day's stretch, or the whole trip again (Gauntlet U3) ──
+  // One fit per request key: the sheet hands a new key on every tap, so a
+  // tap on day 1, then day 2, then day 1 again is three fits, and a render
+  // with the same request is none. Padded the same way as the first fit,
+  // from the map's box read now and the sheet's edge at the snap it is
+  // dropping to. Nothing here runs on mount (no request yet) or on a
+  // recompute (the sheet asks nothing then), so the camera stays the
+  // person's (Council ARCH-2).
+  const lastFitKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!map || !window.google?.maps || !fitTo || fitTo.key === lastFitKeyRef.current) return;
+    lastFitKeyRef.current = fitTo.key;
+    const b = new google.maps.LatLngBounds(fitTo.bounds.southwest, fitTo.bounds.northeast);
+    const box = map.getDiv().getBoundingClientRect();
+    map.fitBounds(b, fitPaddingPx({ mapTopPx: box.top, mapHeightPx: box.height, viewportHeightPx: window.innerHeight, sheetTopDvh: phoneSheetTopDvh, phone: isPhone() }));
+  }, [map, fitTo, phoneSheetTopDvh]);
+
   // ── Effect 1b: polyline opacity (pending state) ────────────────────────
   // Mutates the existing Polyline in place — no rebuild.
   useEffect(() => {
@@ -512,7 +733,12 @@ function PolylineRenderer({
   // same point. zIndex 1800 puts the dot and its name above
   // the diamonds (1500 and 1600) and under the numbered trip stops (2000),
   // so a name is never behind a diamond; not clickable, so a name never
-  // takes a diamond's tap.
+  // takes a diamond's tap. `optimized: false` draws each as its own
+  // element: Google may otherwise draw a marker onto a canvas, where
+  // zIndex does not order it against markers drawn as elements, and the
+  // round-5 rest capture had a diamond over Austin's dot and name
+  // (Gauntlet U3, round 6). Two markers, so the cost is nothing; the
+  // diamonds are untouched and none moves (rule 6).
   useEffect(() => {
     if (!map || !window.google?.maps) return;
 
@@ -522,6 +748,7 @@ function PolylineRenderer({
       title: originName ? `Start: ${originName}` : "Start",
       zIndex: 1800,
       clickable: false,
+      optimized: false,
       icon: endpointIcon("#3fb950"),
       label: endpointLabel(originName),
     });
@@ -532,6 +759,7 @@ function PolylineRenderer({
       title: destinationName ? `End: ${destinationName}` : "End",
       zIndex: 1800,
       clickable: false,
+      optimized: false,
       icon: endpointIcon("#f85149"),
       label: endpointLabel(destinationName),
     });
@@ -590,13 +818,7 @@ function PolylineRenderer({
       const marker = new google.maps.Marker({
         position: { lat: candidate.lat, lng: candidate.lng },
         map,
-        label: {
-          text: candidate.name,
-          color: "#f0f6fc",
-          fontSize: "11px",
-          fontWeight: "500",
-          className: "rt-candidate-label",
-        },
+        label: candidateLabel(candidate.name),
         title: `${candidate.name} (+${Math.round(candidate.detourMinutes)} min detour)`,
         icon: candidateMarkerIcon(routeColor),
       });
@@ -612,7 +834,28 @@ function PolylineRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, candidates, routeColor]);
 
+  // ── Effect 2d: the open day's towns (Gauntlet U3, rounds 3 and 4) ──────
+  // While a day is open on the map, the towns the sheet lists under other
+  // days are faded and lose their names, and the day's own stay as they
+  // are; the whole trip restores every town and every name. Two options
+  // set on markers that already exist, after 2c has diffed them in the
+  // same commit (effects run in order), so a town a refresh brings in
+  // while a day is open is faded or not by the same rule. Nothing is
+  // moved, added or removed (rule 6).
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+    const names = new Map((candidates ?? []).map((c) => [c.id, c.name]));
+    for (const [id, marker] of candidateMarkersRef.current) {
+      marker.setOpacity(candidateOpacity(id, focusCandidateIds));
+      marker.setLabel(candidateLabelShown(id, focusCandidateIds) ? candidateLabel(names.get(id) ?? "") : null);
+    }
+  }, [map, candidates, focusCandidateIds]);
+
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
+  // The square with its number, and the town's name above it as the
+  // endpoints carry theirs (round 5): a stop is where a day ends, and the
+  // framed day's end must read as a town. Drawn as elements, like the
+  // endpoints, so their zIndex holds against the diamonds (round 6).
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!tripStops || tripStops.length === 0) return;
@@ -623,22 +866,9 @@ function PolylineRenderer({
         map,
         title: `Stop ${index + 1}: ${stop.cityName}`,
         zIndex: 2000,
-        label: {
-          text: String(index + 1),
-          color: "#0d1117",
-          fontSize: "12px",
-          fontWeight: "700",
-        },
-        icon: {
-          path:
-            "M -10 -10 L 10 -10 L 10 10 L -10 10 z" /* square */,
-          fillColor: routeColor,
-          fillOpacity: 1,
-          strokeColor: "#f0f6fc",
-          strokeWeight: 2,
-          scale: 1,
-          anchor: new google.maps.Point(0, 0),
-        },
+        optimized: false,
+        label: endpointLabel(stop.cityName),
+        icon: tripStopIcon(routeColor, index + 1),
       });
     });
 
@@ -829,6 +1059,8 @@ export default function RouteMap({
   onRoadsideClick,
   selectedRoadsideId = null,
   phoneSheetTopDvh,
+  fitTo = null,
+  focusCandidateIds = null,
 }: RouteMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 
@@ -867,6 +1099,16 @@ export default function RouteMap({
         // default UI off there is nothing at the bottom of the map to sit
         // under the sheet (Gauntlet U1, rule 6).
         disableDefaultUI
+        // Fractional zooms, so a fit lands on the zoom at which the road
+        // fills the strip above the sheet rather than the whole zoom below
+        // it (Gauntlet U3, round 5: a framed day 145 px tall at zoom 7
+        // dropped to 72 at zoom 6 and sat in the middle of the strip with
+        // the next day's road running on under the sheet). Google's
+        // default is whole zooms on a raster map; the zoom rule for the
+        // diamonds compares against whole steps and reads a fraction as
+        // it should. Pinned by the fit test in
+        // src/components/__tests__/PlanWorkspace.roadside.ssr.test.tsx.
+        isFractionalZoomEnabled
         zoomControl={true}
         // Google's + and - at the bar's 44 px target (rule 7), not its 40.
         controlSize={MAP_CONTROL_SIZE_PX}
@@ -905,6 +1147,8 @@ export default function RouteMap({
             onRoadsideClick={onRoadsideClick}
             selectedRoadsideId={selectedRoadsideId}
             phoneSheetTopDvh={phoneSheetTopDvh}
+            fitTo={fitTo}
+            focusCandidateIds={focusCandidateIds}
             pending={pending}
           />
         ) : (

@@ -35,9 +35,12 @@ export function panelCityFor(
 /**
  * Where the panel goes when the lists change. It stays on its city while
  * that city is anywhere on screen, a stop or a candidate; a removed stop
- * that is still a candidate keeps its write-up open. Only when the city has
- * left both lists does the panel move to the last stop, or close if there
- * is none, so a stale id can never resurrect a city that is gone.
+ * that is still a candidate keeps its write-up open. When the city has
+ * left both lists the panel closes: it is the answer to "What's in
+ * Lubbock", drawn under Lubbock's row inside its day (Gauntlet U3, round
+ * 2), and a town that is gone has no row to answer under. It used to move
+ * to the last stop, which opened a panel nobody had asked for above the
+ * days. A stale id can never resurrect a city that is gone.
  */
 export function nextPanelCityId(
   current: string | null,
@@ -47,5 +50,5 @@ export function nextPanelCityId(
   if (current === null) return null;
   if (tripStops.some((s) => s.cityId === current)) return current;
   if (candidates.some((c) => c.id === current)) return current;
-  return tripStops[tripStops.length - 1]?.cityId ?? null;
+  return null;
 }

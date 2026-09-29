@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroups, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDrive } from "@/lib/today/presets";
 import { kindWord } from "@/lib/plan/words";
+import Figures from "@/components/Figures";
 
 export interface AddCityPayload {
   cityId: string;
@@ -35,6 +36,72 @@ interface RecommendationListProps {
   onCityPreview?: (cityId: string) => void;
   /** The city whose write-up is open, so its button reads as pressed. */
   previewedCityId?: string | null;
+  /**
+   * Only these towns (Gauntlet U3: the sheet draws one list per day). With
+   * a set, a list whose towns have nothing to show draws nothing at all,
+   * since another day's list may; without one, every town.
+   */
+  cityIds?: ReadonlySet<string>;
+  /**
+   * The notes above the rows (why "Stop here" is off, that some places did
+   * not load, that nothing is written up yet). Off when the workspace says
+   * them once above the days rather than once per day.
+   */
+  notices?: boolean;
+  /**
+   * Draw a town's row even when it has no place written up (Gauntlet U3,
+   * round 2): a stop is its day's end and has a row whatever the atlas
+   * holds for it; the row then says nothing is written up. Off, a town
+   * with no rows draws nothing, as the towns that fit always did.
+   */
+  keepEmpty?: boolean;
+  /**
+   * What to draw under one town's rows: the answer to "What's in Lubbock",
+   * which sits under Lubbock, not above the days. Drawn only when that
+   * town is in this list, so the workspace can hand it to every list.
+   */
+  detail?: { cityId: string; node: ReactNode } | null;
+}
+
+/**
+ * The notes a list of towns carries, in one place so the sheet can say them
+ * once above its days (quality bar, rule 3: why every "Stop here" is off is
+ * said once, beside them, not once per day and not in a tooltip). Nothing
+ * when there are no towns at all: the sheet's title already says so.
+ */
+export function RecommendationNotices({ fetchResult, activePersonaId, atCap = false }: Pick<RecommendationListProps, "fetchResult" | "activePersonaId" | "atCap">) {
+  const groups = useMemo(() => buildRankedGroups(fetchResult, activePersonaId), [fetchResult, activePersonaId]);
+  if (fetchResult.cities.length === 0) return null;
+  if (!groups.some((g) => g.rows.length > 0)) {
+    return (
+      <div className="p-4 border border-[#30363d] bg-[#161b22]">
+        <p className="text-base text-[#f0f6fc] mb-2">
+          Nothing written up for these towns yet
+        </p>
+        <p className="text-base text-[#b0b9c2]">
+          {fetchResult.status === "degraded"
+            ? "Some of the places did not load. Reload to try again."
+            : "The towns that fit today have no places written up yet."}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <>
+      {atCap && (
+        <p className="text-base text-[#b0b9c2] px-2 pb-2" role="status">
+          The trip has all the stops it can hold; take one out to add another.
+        </p>
+      )}
+      {fetchResult.status === "degraded" && (
+        <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
+          <p className="text-base text-[#d29922]">
+            Some of the places did not load.
+          </p>
+        </div>
+      )}
+    </>
+  );
 }
 
 /**
@@ -84,14 +151,18 @@ export default function RecommendationList({
   atCap = false,
   onCityPreview,
   previewedCityId = null,
+  cityIds,
+  notices = true,
+  keepEmpty = false,
+  detail = null,
 }: RecommendationListProps) {
   const persona = PERSONAS[activePersonaId];
   const accent = persona.accentColor;
 
-  const groups = useMemo(
-    () => buildRankedGroups(fetchResult, activePersonaId),
-    [fetchResult, activePersonaId]
-  );
+  const groups = useMemo(() => {
+    const all = buildRankedGroups(fetchResult, activePersonaId);
+    return cityIds ? all.filter((g) => cityIds.has(g.cityId)) : all;
+  }, [fetchResult, activePersonaId, cityIds]);
 
   const hasRows = groups.some((g) => g.rows.length > 0);
 
@@ -102,41 +173,22 @@ export default function RecommendationList({
     return null;
   }
 
-  if (!hasRows) {
-    return (
-      <div className="p-4 border border-[#30363d] bg-[#161b22]">
-        <p className="text-base text-[#f0f6fc] mb-2">
-          Nothing written up for these towns yet
-        </p>
-        <p className="text-base text-[#b0b9c2]">
-          {fetchResult.status === "degraded"
-            ? "Some of the places did not load. Reload to try again."
-            : "The towns that fit today have no places written up yet."}
-        </p>
-      </div>
-    );
+  // Nothing to show: the note, unless the caller says the notes itself
+  // (a day's slice of the towns says nothing; the sheet does, once), or
+  // keeps a town's row without its places.
+  if (!hasRows && !keepEmpty) {
+    return notices ? <RecommendationNotices fetchResult={fetchResult} activePersonaId={activePersonaId} atCap={atCap} /> : null;
   }
 
   return (
     <div className="flex flex-col">
       {/* Why every "Stop here" is off, said once beside them rather than
           in a tooltip (quality bar, rule 3). */}
-      {atCap && (
-        <p className="text-base text-[#b0b9c2] px-2 pb-2" role="status">
-          The trip has all the stops it can hold; take one out to add another.
-        </p>
-      )}
-      {fetchResult.status === "degraded" && (
-        <div className="px-3 py-2 border border-[#d29922] bg-[#161b22] mb-2">
-          <p className="text-base text-[#d29922]">
-            Some of the places did not load.
-          </p>
-        </div>
-      )}
+      {notices && <RecommendationNotices fetchResult={fetchResult} activePersonaId={activePersonaId} atCap={atCap} />}
 
       {groups.map((group) => {
         const { cityId, cityName, rows, detourMinutes } = group;
-        if (rows.length === 0) return null;
+        if (rows.length === 0 && !keepEmpty) return null;
         const isHighlighted = cityId === highlightedCityId;
         const isAdded = addedCityIds.has(cityId);
         const coords = cityCoords.get(cityId);
@@ -159,86 +211,91 @@ export default function RecommendationList({
         };
 
         return (
-          <section key={cityId} className="mb-3">
-            <h3
+          <section key={cityId} data-town={cityId} className="mb-3">
+            {/* The town's header: its name with the drive to it on one
+                line that wraps, then its two buttons on a row of their
+                own, each 44 px tall on the screen and sharing the width
+                (Gauntlet U3, round 2: the drive ran under the buttons and
+                the buttons were 30 px with an invisible hit area; rule 7
+                is judged on the screenshot). Sticky so a town's name
+                stays over its rows while they scroll. */}
+            <div
               className={[
-                // 44 px tall so the buttons' extended hit areas (see below)
-                // stay inside the header and never reach the rows beneath.
-                "sticky top-0 z-10 min-h-[44px] text-base px-2 py-1.5 border-b flex items-center justify-between gap-2",
+                "sticky top-0 z-10 px-2 py-1.5 border-b",
                 isHighlighted
                   ? "bg-[#262c36] text-[#f0f6fc] border-[#6e7681]"
                   : "bg-[#161b22] text-[#b0b9c2] border-[#30363d]",
               ].join(" ")}
             >
-              {/* The town's name wraps; the drive to it is a phrase, said
-                  once here and not under every row, with the number in the
-                  mono face. detourMinutes is the round trip, so half of it
-                  is the drive there, the same figure the today screen
-                  shows. */}
-              <span className="min-w-0 flex-1 break-words">
+              {/* The drive is a phrase, said once here and not under every
+                  row, with its figures in the mono face. detourMinutes is
+                  the round trip, so half of it is the drive there, the
+                  same figure the today screen shows; nothing when the
+                  set never measured it. A stop's row says none: its day's
+                  heading right above carries the drive the route measured,
+                  and this figure was the town set's estimate of the same
+                  drive (Gauntlet U3, round 3: "Lubbock · 1 h 40 min away"
+                  under "Amarillo to Lubbock · 1 h 43 min"). */}
+              <h3 className="text-base leading-6 break-words">
                 {cityName}
-                <span className="ml-2 text-[#8b949e] whitespace-nowrap">
-                  <span className="num">{formatDrive(detourMinutes / 2)}</span> away
-                </span>
-              </span>
-              {/* Read about the town before deciding. Opens the panel for a
-                  town the same way a tap on a stop does; nothing is added. */}
-              {onCityPreview && (
+                {detourMinutes > 0 && !isAdded && (
+                  <span className="ml-2 text-[#8b949e]">
+                    · <Figures text={formatDrive(detourMinutes / 2)} /> away
+                  </span>
+                )}
+              </h3>
+              <div className="mt-1 flex gap-2">
+                {/* Read about the town before deciding. Opens the answer
+                    under this row the same way a tap on a stop's square
+                    does; nothing is added. The glossary's words ("what's
+                    in Lubbock"); a long name wraps inside the button. */}
+                {onCityPreview && (
+                  <button
+                    type="button"
+                    onClick={() => onCityPreview(cityId)}
+                    aria-pressed={previewedCityId === cityId}
+                    className={[
+                      "flex-1 min-h-[44px] text-base border px-2 py-1 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                      previewedCityId === cityId
+                        ? "border-[#f0f6fc] text-[#f0f6fc]"
+                        : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
+                    ].join(" ")}
+                  >
+                    What&apos;s in {cityName}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => onCityPreview(cityId)}
-                  aria-pressed={previewedCityId === cityId}
+                  onClick={handleAddClick}
+                  disabled={!isAdded && !canAdd}
+                  title={
+                    isAdded
+                      ? "Take this stop out"
+                      : atCap
+                      ? "The trip has all the stops it can hold"
+                      : "Stop here"
+                  }
                   className={[
-                    // The visible button is 30 px tall (24 px line, 2 px
-                    // padding each side, 1 px border each side). The
-                    // invisible ::before adds 7 px above and below, which
-                    // is 44 px, the touch-target minimum. It extends
-                    // vertically only, so the two side-by-side buttons
-                    // cannot overlap each other, and the header is 44 px
-                    // tall with the buttons centred, so it cannot reach the
-                    // rows beneath either.
-                    "relative before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']",
-                    // The glossary's words ("what's in Lubbock"); a long
-                    // town name wraps inside the button rather than
-                    // pushing past the sheet's edge.
-                    "text-base border px-2 py-0.5 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                    previewedCityId === cityId
-                      ? "border-[#f0f6fc] text-[#f0f6fc]"
-                      : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
+                    "flex-1 min-h-[44px] text-base border px-2 py-1 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    isAdded
+                      ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
+                      : canAdd
+                      ? "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]"
+                      : "border-[#21262d] text-[#6e7681] cursor-not-allowed",
                   ].join(" ")}
+                  style={
+                    isAdded ? { backgroundColor: accent, color: "#0d1117" } : undefined
+                  }
                 >
-                  What&apos;s in {cityName}
+                  {isAdded ? "✓ Added" : "+ Stop here"}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={handleAddClick}
-                disabled={!isAdded && !canAdd}
-                title={
-                  isAdded
-                    ? "Take this stop out"
-                    : atCap
-                    ? "The trip has all the stops it can hold"
-                    : "Stop here"
-                }
-                className={[
-                  // Same 44 px hit area as the button beside it, so
-                  // neither is the hard one to hit on a phone.
-                  "relative before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']",
-                  "text-base border px-2 py-0.5 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
-                  isAdded
-                    ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
-                    : canAdd
-                    ? "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]"
-                    : "border-[#21262d] text-[#6e7681] cursor-not-allowed",
-                ].join(" ")}
-                style={
-                  isAdded ? { backgroundColor: accent, color: "#0d1117" } : undefined
-                }
-              >
-                {isAdded ? "✓ Added" : "+ Stop here"}
-              </button>
-            </h3>
+              </div>
+            </div>
+            {/* A stop's town with nothing written up keeps its row and
+                says so, rather than standing as a bare name. */}
+            {rows.length === 0 && (
+              <p className="text-base text-[#8b949e] px-2 py-2">Nothing written up for {cityName} yet.</p>
+            )}
             {/* The reason leads (step 14): the mood's top-ranked spot that
                 has a description, name and description, before anything else
                 in the card. It is the answer to "why this town" and must be
@@ -263,6 +320,7 @@ export default function RecommendationList({
                 )}
               </div>
             )}
+            {rest.length > 0 && (
             <ul className="space-y-1 pt-1">
               {rest.map((r) => (
                 <li
@@ -309,6 +367,9 @@ export default function RecommendationList({
                 </li>
               ))}
             </ul>
+            )}
+            {/* The answer to "What's in Lubbock", under Lubbock. */}
+            {detail && detail.cityId === cityId && detail.node}
           </section>
         );
       })}
