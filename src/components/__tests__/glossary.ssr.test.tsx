@@ -343,7 +343,8 @@ describe("the words on the screens, against the glossary", () => {
 
   it("sets the date button's words in the body face and only a chosen date in the mono face", () => {
     // The round-1 critic's one failure: "Pick the dates" in the mono face.
-    const idle = clean(screens().home);
+    // The dates sit under the home's fold (U4); opened, the button is there.
+    const idle = clean(renderToString(<RouteInput initialMoreOpen />));
     expect(idle).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>Pick the dates<\/button>/);
     expect(idle).not.toMatch(/<button[^>]*class="[^"]*\bnum\b[^"]*"[^>]*>Pick the (?:dates|arrival date)/);
     const range = clean(renderToString(<RouteInput initialStartDate="2026-10-10" initialEndDate="2026-10-14" />));
@@ -386,7 +387,10 @@ describe("the words on the screens, against the glossary", () => {
     expect(visible(home)).toContain("Choose where you start first");
     expect(home).toMatch(/<button type="submit" disabled="" [^>]*>Plan the trip<\/button>/);
     expect(planReason({ from: true, to: false, dateMode: "range", startDate: "", endDate: "", dateOrderValid: true })).toBe("Choose where you're going first");
-    expect(planReason({ from: true, to: true, dateMode: "range", startDate: "", endDate: "", dateOrderValid: true })).toBe("Pick the dates first");
+    // Dates are optional (U4): from and to are enough; half a range is not.
+    expect(planReason({ from: true, to: true, dateMode: "range", startDate: "", endDate: "", dateOrderValid: true })).toBe("");
+    expect(planReason({ from: true, to: true, dateMode: "range", startDate: "2026-10-10", endDate: "", dateOrderValid: true })).toBe("Pick the end date too");
+    expect(planReason({ from: true, to: true, dateMode: "range", startDate: "", endDate: "2026-10-14", dateOrderValid: true })).toBe("Pick the start date too");
     expect(planReason({ from: true, to: true, dateMode: "arrival", startDate: "", endDate: "", dateOrderValid: true })).toBe("Pick the arrival date first");
     expect(planReason({ from: true, to: true, dateMode: "range", startDate: "2026-10-14", endDate: "2026-10-10", dateOrderValid: false })).toBe("The end date is before the start date");
     expect(planReason({ from: true, to: true, dateMode: "range", startDate: "2026-10-10", endDate: "2026-10-14", dateOrderValid: true })).toBe("");

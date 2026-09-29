@@ -4,7 +4,8 @@ import { PERSONAS, PERSONA_ORDER } from "@/lib/personas";
 import type { PersonaId } from "@/lib/personas/types";
 
 interface PersonaSelectorProps {
-  activePersonaId: PersonaId;
+  /** Null is "nothing chosen yet": the home's fold, where a mood is optional (Gauntlet U4). */
+  activePersonaId: PersonaId | null;
   onChange: (next: PersonaId) => void;
 }
 

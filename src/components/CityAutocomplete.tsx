@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
 
 export interface CitySelection {
@@ -18,6 +18,9 @@ interface CityAutocompleteProps {
   /** Fires on every keystroke, before any place is chosen. The route form
    *  uses it to drop a location fix that lands while the user is typing. */
   onTyping?: () => void;
+  /** A control inside the field's box at its right end: the home's "Where I
+   *  am" (Gauntlet U4). It sits beside the input, never over the text. */
+  trailing?: ReactNode;
 }
 
 export default function CityAutocomplete({
@@ -26,9 +29,11 @@ export default function CityAutocomplete({
   value,
   onChange,
   onTyping,
+  trailing,
 }: CityAutocompleteProps) {
   const places = useMapsLibrary("places");
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const [autocomplete, setAutocomplete] =
     useState<google.maps.places.Autocomplete | null>(null);
   const [displayValue, setDisplayValue] = useState(value?.name ?? "");
@@ -86,20 +91,30 @@ export default function CityAutocomplete({
   }, [autocomplete, onChange]);
 
   return (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       {/* Sentence case in the body face, 16 px, and the box the same: a
-          typed city name is a name, not a code (quality bar, rule 2). */}
-      <span className="text-base text-[#b0b9c2]">
+          typed city name is a name, not a code (quality bar, rule 2). The
+          label points at the input by id rather than wrapping it, so a
+          control inside the box is its own target and not a second way to
+          focus the input. */}
+      <label htmlFor={inputId} className="text-base text-[#b0b9c2]">
         {label}
-      </span>
-      <input
-        ref={inputRef}
-        type="text"
-        placeholder={placeholder}
-        value={displayValue}
-        onChange={(e) => { onTyping?.(); setDisplayValue(e.target.value); }}
-        className="min-h-[44px] bg-[#0d1117] border border-[#30363d] focus:border-[#6e7681] outline-none px-3 py-2 text-base text-[#f0f6fc] placeholder:text-[#6e7681]"
-      />
-    </label>
+      </label>
+      {/* The box carries the border, so a trailing control sits inside it
+          at the right end and the typed text stops where the control
+          starts; the focus colour follows the input through the box. */}
+      <div className="flex items-stretch min-h-[44px] bg-[#0d1117] border border-[#30363d] focus-within:border-[#6e7681]">
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="text"
+          placeholder={placeholder}
+          value={displayValue}
+          onChange={(e) => { onTyping?.(); setDisplayValue(e.target.value); }}
+          className="flex-1 min-w-0 bg-transparent outline-none px-3 py-2 text-base text-[#f0f6fc] placeholder:text-[#6e7681]"
+        />
+        {trailing}
+      </div>
+    </div>
   );
 }
