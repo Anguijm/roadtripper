@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { MOOD_WAYPOINTS, MOODS_THAT_MOVE_TOWNS, waypointProfileForMoods } from "../moodProfile";
+import { MOOD_WAYPOINTS, MOODS_THAT_MOVE_TOWNS, moodsFromLegacyPersona, waypointProfileForMoods } from "../moodProfile";
+import { PersonaIdSchema } from "../types";
 import { PERSONAS, DEFAULT_PERSONA_ID } from "../index";
 import { MOODS, MOOD_CONFIG, type MoodId } from "@/lib/roadside/tags";
 import { tierForType, typeWeight } from "@/lib/routing/scoring";
@@ -94,5 +95,47 @@ describe("the moods mapped onto a town's waypoint types", () => {
   it("ignores a mood that is not one, rather than throwing", () => {
     const profile = waypointProfileForMoods(["food", "banana" as MoodId]);
     expect(profile.primaryTypes).toContain("food");
+  });
+});
+
+
+describe("a link written before the moods existed", () => {
+  it("gives every one of the five old personas a mood, so none of them opens with nothing", () => {
+    // If a persona is ever added to the old enum without a mood here, a
+    // trip saved under it would quietly lose its choice, which is the bug
+    // this exists to stop.
+    for (const id of PersonaIdSchema.options) {
+      expect(moodsFromLegacyPersona(id), id).toHaveLength(1);
+      expect(MOODS, id).toContain(moodsFromLegacyPersona(id)[0]);
+    }
+  });
+
+  it("keeps the two that are the same idea under two names", () => {
+    expect(moodsFromLegacyPersona("outdoorsman")).toEqual(["outdoors"]);
+    expect(moodsFromLegacyPersona("foodie")).toEqual(["food"]);
+  });
+
+  it("makes a judgement on the other three, and this is it written down", () => {
+    // Not derivable: "Culture" used culture+landmark, which History and
+    // Museums both map to exactly; "Nerd" used hidden_gem+culture, which
+    // is Oddities and Art between them; "Gear" used landmark+viewpoint,
+    // which no mood matches. These are the words, not the types.
+    expect(moodsFromLegacyPersona("culture")).toEqual(["history"]);
+    expect(moodsFromLegacyPersona("nerd")).toEqual(["museums"]);
+    expect(moodsFromLegacyPersona("gearhead")).toEqual(["machines"]);
+  });
+
+  it("reads nothing out of anything that is not one of the five", () => {
+    for (const raw of ["banana", "", undefined, null, 42, {}, [], ["banana"]]) {
+      expect(moodsFromLegacyPersona(raw), JSON.stringify(raw)).toEqual([]);
+    }
+    // A repeated parameter takes the first, the same as a repeated moods one.
+    expect(moodsFromLegacyPersona(["foodie", "nerd"])).toEqual(["food"]);
+  });
+
+  it("never returns more than one, since an old link only ever chose one", () => {
+    for (const id of PersonaIdSchema.options) {
+      expect(moodsFromLegacyPersona(id).length, id).toBeLessThanOrEqual(1);
+    }
   });
 });

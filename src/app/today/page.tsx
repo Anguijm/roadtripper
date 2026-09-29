@@ -22,6 +22,8 @@ interface TodaySearchParams {
   hours?: string;
   /** `string[]` when the link repeats the parameter; `parseMoods` reads both. */
   moods?: string | string[];
+  /** Written by links made before U6; read only as a fallback, never written. */
+  persona?: string | string[];
   name?: string;
   /** The trip's deadline and where it is for, when there is one. */
   arriveBy?: string;

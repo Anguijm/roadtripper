@@ -393,3 +393,31 @@ recognised it: I argued there that a silent empty is a worse failure than
 a loud one, and then left one standing two files away.
 
 Gates: 629 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Council round 5 on #94 — the legacy link, applied with its guess named
+
+The one remediation: a trip saved before U6 links with `?persona=nerd`,
+the page had stopped reading that parameter, and reopening such a trip
+quietly lost the choice the person had made. It is read now, as a
+fallback only, at the one line that parses the URL — `moods` still wins if
+a link somehow carries both.
+
+**Two of the five are the same idea under two names and three are a
+judgement**, and the function says which is which rather than presenting
+all five as derived. Outdoors and Food are exact. The others are not:
+"Culture" used the atlas types `culture` and `landmark`, which History
+*and* Museums both map to exactly, so the tie is broken by the word a
+person read on the chip; "Nerd" used `hidden_gem` and `culture`, which is
+Oddities and Art between them; "Gear" used `landmark` and `viewpoint`,
+which no mood matches at all. A worse mood than none is possible here.
+None is not free either, since it discards a real choice, so the guess is
+made, written down, and confined to one line and one function that delete
+together when old links have aged out.
+
+A test walks `PersonaIdSchema.options`, so a persona added to the old enum
+without a mood here fails rather than silently losing a saved choice.
+
+Mutation: the fallback removed from `plan/page.tsx`, "opens a link built
+before U6 on the mood its persona meant" fails.
+
+Gates: 634 green; `tsc --noEmit` clean; `eslint` 0 errors.

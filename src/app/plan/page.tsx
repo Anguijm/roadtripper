@@ -13,6 +13,7 @@ import {
 } from "@/lib/routing/validation";
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parseMoods } from "@/lib/roadside/tags";
+import { moodsFromLegacyPersona } from "@/lib/personas/moodProfile";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
 import Figures from "@/components/Figures";
@@ -30,6 +31,8 @@ interface PlanSearchParams {
   budget?: string;
   /** `string[]` when the link repeats the parameter; `parseMoods` reads both. */
   moods?: string | string[];
+  /** Written by links made before U6; read only as a fallback, never written. */
+  persona?: string | string[];
   startDate?: string;
   endDate?: string;
   dateMode?: string;
@@ -115,7 +118,13 @@ export default async function PlanPage({
   // `persona`, and an old saved trip still links that way — the parameter
   // is simply not read any more, which is why an unknown one cannot fail.
   // The invalid case is pinned in src/app/plan/__tests__/page.ssr.test.tsx.
-  const chosenMoods = parseMoods(params.moods);
+  // A link made before U6 carries `?persona=` instead, and `TripCard`
+  // still writes it for a trip saved then. Read as a fallback only, so a
+  // saved trip reopens with something like what it was saved with rather
+  // than with nothing; `moodsFromLegacyPersona` says which of those
+  // mappings are judgement rather than derivation.
+  const parsedMoods = parseMoods(params.moods);
+  const chosenMoods = parsedMoods.length > 0 ? parsedMoods : moodsFromLegacyPersona(params.persona);
 
   // Parse and validate date params. Three modes:
   //   arrival — endDate only; startDate derived after route computation

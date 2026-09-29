@@ -99,3 +99,41 @@ export function waypointProfileForMoods(chosen: readonly MoodId[]): PersonaConfi
     accentColor: MOOD_CONFIG[chosen[0]].accentColor,
   };
 }
+
+
+/**
+ * The mood a link written before U6 was asking for.
+ *
+ * A trip saved before U6 carries a `personaId`, and `TripCard` still puts
+ * it in the resume link as `?persona=`. The plan page stopped reading that
+ * parameter, so reopening such a trip quietly lost what the person had
+ * chosen. This reads it once, at the URL, and nowhere else.
+ *
+ * **Three of these are judgement, not derivation, and saying so is the
+ * point.** Outdoors and Food are the same idea under two names. The other
+ * three are not: "Culture" used the atlas types `culture` and `landmark`,
+ * which History *and* Museums both map to exactly, so the tie is broken by
+ * the word a person read on the chip; "Nerd" used `hidden_gem` and
+ * `culture`, which is Oddities and Art between them, and Museums is what
+ * the label meant to most people; "Gear" used `landmark` and `viewpoint`,
+ * which no mood matches, and Machines is what the word meant.
+ *
+ * A worse mood than none is possible here. None is not free either — it
+ * discards a choice the person made — so the guess is made, written down,
+ * and confined to the one line that reads an old link. When old links have
+ * aged out this function and its call site delete together.
+ */
+const LEGACY_PERSONA_MOOD: Readonly<Record<string, MoodId>> = {
+  outdoorsman: "outdoors",
+  foodie: "food",
+  culture: "history",
+  nerd: "museums",
+  gearhead: "machines",
+};
+
+export function moodsFromLegacyPersona(raw: unknown): MoodId[] {
+  const id = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof id !== "string") return [];
+  const mood = LEGACY_PERSONA_MOOD[id];
+  return mood ? [mood] : [];
+}

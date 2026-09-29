@@ -130,12 +130,24 @@ describe("the plan page reads the moods from the URL", () => {
     expect(three).toMatch(chip("outdoors", false));
   });
 
-  it("still plans when a link built before U6 carries a persona", async () => {
-    // Trips saved before U6 link with `?persona=nerd`. The page no longer
-    // reads that parameter; it must plan as the sheet at rest rather than
-    // fail on a word it does not know.
-    const old = await render({ persona: "nerd" });
-    expect(old).not.toContain("Something is off with this link");
-    expect(old).not.toContain('aria-pressed="true"');
+  it("opens a link built before U6 on the mood its persona meant", async () => {
+    // Trips saved before U6 link with `?persona=nerd`. Reading it as
+    // nothing discarded a choice the person had made, so it is read as a
+    // fallback; `moodsFromLegacyPersona` says which of the five mappings
+    // are judgement rather than derivation.
+    const legacy = await render({ persona: "nerd" });
+    expect(legacy).not.toContain("Something is off with this link");
+    expect(legacy).toMatch(chip("museums", true));
+    expect(legacy.match(/aria-pressed="true"/g)).toHaveLength(1);
+
+    // A word that was never a persona is still just the sheet at rest.
+    const nonsense = await render({ persona: "banana" });
+    expect(nonsense).not.toContain("Something is off with this link");
+    expect(nonsense).not.toContain('aria-pressed="true"');
+
+    // `moods` wins when a link somehow carries both.
+    const both = await render({ moods: "food", persona: "nerd" });
+    expect(both).toMatch(chip("food", true));
+    expect(both).toMatch(chip("museums", false));
   });
 });
