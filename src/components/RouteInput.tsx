@@ -185,19 +185,22 @@ export default function RouteInput({
             trailing={
               // Where you are, as a control inside the From box at its
               // right end: the box's full 44 px height (rule 7), a glyph
-              // with the words, its state said in the line under the field.
+              // with one short word, so a long city name keeps the room
+              // ("Where I am" took a third of the box, the round-1 critic).
+              // The accessible name starts with the word on it and still
+              // says what it does. Its state is the line under the field.
               <button
                 type="button"
                 onClick={() => void located.locate()}
                 disabled={located.status.kind === "locating"}
-                aria-label="Use where I am"
+                aria-label="Here, use where I am"
                 className="shrink-0 min-h-[44px] px-3 flex items-center gap-1.5 text-base text-[#8b949e] hover:text-[#f0f6fc] border-l border-[#30363d] disabled:opacity-40 disabled:cursor-wait transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#f0f6fc]"
               >
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <circle cx="8" cy="8" r="3" />
                   <path d="M8 1v3M8 12v3M1 8h3M12 8h3" />
                 </svg>
-                Where I am
+                Here
               </button>
             }
           />
@@ -232,23 +235,29 @@ export default function RouteInput({
 
         {/* The fold: dates and the mood, under one disclosure that says its
             state in words (never an icon alone), 44 px tall. Closed, the
-            dates control and the chips are not in the markup at all. */}
+            dates control and the chips are not in the markup at all. Open,
+            everything in it sits inside the 844 px of a phone under the
+            button (the round-1 critic saw the last chip cut at the bottom),
+            so the control follows the reason line as closely as the reason
+            follows the button. */}
         <button
           type="button"
           onClick={() => setMoreOpen((open) => !open)}
           aria-expanded={moreOpen}
           aria-controls={moreOpen ? foldId : undefined}
-          className="self-start min-h-[44px] flex items-center gap-2 text-left text-base text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+          className="self-start -mt-2 min-h-[44px] flex items-center gap-2 text-left text-base text-[#b0b9c2] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
         >
           <span aria-hidden="true">{moreOpen ? "▾" : "▸"}</span>
           {moreOpen ? MORE_OPEN_LABEL : MORE_CLOSED_LABEL}
         </button>
         {moreOpen && (
-          <div id={foldId} className="flex flex-col gap-4">
+          <div id={foldId} className="flex flex-col gap-3">
+            {/* The date button is its own sentence ("Pick the dates",
+                "Arrive by Oct 14", "Oct 10 to Oct 14"), so no label line
+                sits above it; the dialog it opens is titled "Trip dates".
+                The count of days is the line under it, only when there is
+                a range to count, its numbers in the mono face. */}
             <div className="flex flex-col gap-1">
-              <p className="text-base text-[#b0b9c2]">
-                Trip dates
-              </p>
               <button
                 type="button"
                 onClick={() => setDateDialogOpen(true)}
@@ -259,20 +268,21 @@ export default function RouteInput({
               >
                 {dateLabel}
               </button>
+              <p
+                className="text-base text-[#b0b9c2]"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {tripDays !== null && budgetHrs !== null && (
+                  <><span className="num">{tripDays}</span> {tripDays === 1 ? "day" : "days"} at <span className="num">{budget} h</span> a day: <span className="num">{budgetHrs} h</span> of driving in all</>
+                )}
+              </p>
             </div>
-            <p
-              className="text-base text-[#b0b9c2]"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {tripDays !== null && budgetHrs !== null
-                ? `${tripDays} ${tripDays === 1 ? "day" : "days"} at ${budget} h a day: ${budgetHrs} h of driving in all`
-                : " "}
-            </p>
-            <div className="flex flex-col gap-2">
-              {/* The glossary's words for "persona" (quality bar, rule 1). */}
+            <div className="flex flex-col gap-1">
+              {/* The glossary's words for "persona" (quality bar, rule 1);
+                  the chips fill the row three then two, none alone. */}
               <p className="text-base text-[#b0b9c2]">{"I'm in the mood for"}</p>
-              <PersonaSelector activePersonaId={persona} onChange={setPersona} />
+              <PersonaSelector activePersonaId={persona} onChange={setPersona} fill />
             </div>
           </div>
         )}

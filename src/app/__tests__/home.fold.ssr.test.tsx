@@ -40,7 +40,7 @@ describe("the home's fold, server-rendered", () => {
     expect(control?.[0]).toMatch(/class="[^"]*\bmin-h-\[44px\]/);
     // Closed, the dates control and the chips are not in the markup.
     expect(html).not.toContain('aria-haspopup="dialog"');
-    expect(html).not.toContain("Trip dates");
+    expect(html).not.toContain("Pick the dates");
     expect(html).not.toContain('role="radiogroup"');
     expect(html).not.toContain(MORE_OPEN_LABEL + "</button>");
     // Between the title and the button: the example line, From, To, the
@@ -65,25 +65,54 @@ describe("the home's fold, server-rendered", () => {
       expect(control?.[1], JSON.stringify(params)).toBe("true");
       expect(control?.[2], JSON.stringify(params)).toContain(MORE_OPEN_LABEL);
       expect(html, JSON.stringify(params)).toContain('aria-haspopup="dialog"');
-      expect(html, JSON.stringify(params)).toContain("Trip dates");
+      // The date button is its own sentence, what is picked or what to
+      // pick, with no label line above it (the fold has to fit under the
+      // button inside 844 px with the chips whole).
+      expect(html, JSON.stringify(params)).toMatch(/aria-haspopup="dialog"[^>]*>(?:Pick the dates|Pick the arrival date|Arrive by <span|Starts <span|Ends <span|<span class="num">)/);
+      expect(html, JSON.stringify(params)).not.toContain("Trip dates");
       expect(html, JSON.stringify(params)).toContain('role="radiogroup"');
       expect(html, JSON.stringify(params)).toContain("I'm in the mood for");
+      // The five chips share the row, three then two, none alone on a row
+      // (the round-1 critic saw the fifth wrap alone and cut).
+      const chips = html.match(/<button[^>]*role="radio"[^>]*>/g) ?? [];
+      expect(chips, JSON.stringify(params)).toHaveLength(5);
+      for (const chip of chips) expect(chip).toMatch(/class="[^"]*\bgrow\b[^"]*\bbasis-\[30%\]/);
     }
     // A handed-in deadline shows in the fold; a bad date opens the fold with nothing picked.
     expect(await render({ dateMode: "arrival", endDate: "2026-10-14" })).toContain("Arrive by <span class=\"num\">Oct 14</span>");
     expect(await render({ endDate: "2026-02-31" })).toContain("Pick the dates");
+    // A range counts its days in the line under the button, the numbers in
+    // the mono face; with no range the line says nothing and takes no room.
+    expect(await render({ startDate: "2026-10-10", endDate: "2026-10-14" })).toContain('<span class="num">5</span> days at <span class="num">4 h</span> a day: <span class="num">20 h</span> of driving in all');
+    expect(await render({ dateMode: "arrival", endDate: "2026-10-14" })).not.toContain("of driving in all");
   });
 
-  it("puts Use where I am inside the From box, at its right end, with the words on it", async () => {
+  it("gives the From and the To input the same 44 px height inside a 1 px border", async () => {
+    // The round-1 critic measured the To input at 42 px inside a 44 px box
+    // and the From input at 44 inside 46: the minimum was on the box, and
+    // only the From box had a control to hold it open. It is on the input
+    // now, and the box has no minimum of its own to differ by.
+    const html = await render({});
+    const inputs = html.match(/<input[^>]*placeholder="(?:Start|End) city"[^>]*>/g) ?? [];
+    expect(inputs).toHaveLength(2);
+    for (const input of inputs) expect(input).toMatch(/class="[^"]*\bmin-h-\[44px\]/);
+    const boxes = html.match(/<div class="[^"]*\bborder border-\[#30363d\] focus-within[^"]*"/g) ?? [];
+    expect(boxes).toHaveLength(2);
+    for (const box of boxes) expect(box).not.toMatch(/min-h-/);
+  });
+
+  it("puts the location control inside the From box, at its right end, one short word on it and use where I am in its name", async () => {
     const html = await render({});
     // The input and the control share the box: the button follows the
     // input inside the same element, nothing between them.
-    expect(html).toMatch(/<input[^>]*placeholder="Start city"[^>]*\/?><button[^>]*aria-label="Use where I am"[^>]*>/);
-    const control = /<button[^>]*aria-label="Use where I am"[^>]*>(.*?)<\/button>/.exec(html);
+    expect(html).toMatch(/<input[^>]*placeholder="Start city"[^>]*\/?><button[^>]*aria-label="Here, use where I am"[^>]*>/);
+    const control = /<button[^>]*aria-label="Here, use where I am"[^>]*>(.*?)<\/button>/.exec(html);
     expect(control?.[0]).toMatch(/class="[^"]*\bmin-h-\[44px\]/);
-    expect(control?.[1].replace(/<[^>]+>/g, "")).toContain("Where I am");
+    // One short word beside the glyph, so a long city name keeps the room
+    // (the round-1 critic: "Where I am" took a third of the box).
+    expect(control?.[1].replace(/<[^>]+>/g, "").trim()).toBe("Here");
     // Not a second button under the field.
-    expect(html.match(/Use where I am/g)?.length).toBe(1);
+    expect(html.match(/use where I am/gi)?.length).toBe(1);
     expect(html).not.toContain("Finding you");
   });
 

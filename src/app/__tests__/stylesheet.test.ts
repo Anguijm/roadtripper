@@ -32,6 +32,9 @@ describe("the stylesheet, compiled from this tree", () => {
     // The hour buttons and the mood chips (rule 7), and every other target.
     expect(css).toContain(".min-h-\\[48px\\] { min-height: 48px; }");
     expect(css).toContain(".min-h-\\[44px\\] { min-height: 44px; }");
+    // The home's mood chips share their row, three then two (U4, round 2).
+    expect(css).toContain(".grow { flex-grow: 1; }");
+    expect(css).toContain(".basis-\\[30\\%\\] { flex-basis: 30%; }");
     // The body face at 16 px, Geist sans; the mono face only through `.num`.
     expect(css).toMatch(/body \{[^}]*font-family: var\(--font-geist-sans\)[^}]*font-size: 1rem;/);
     expect(css).toMatch(/\.num \{ font-family: var\(--font-geist-mono\)[^}]*tabular-nums; \}/);

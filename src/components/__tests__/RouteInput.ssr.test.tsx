@@ -20,14 +20,14 @@ import RouteInput from "@/components/RouteInput";
 describe("RouteInput server render", () => {
   it("renders without touching the browser and offers the location control inside the From box", () => {
     const html = renderToString(<RouteInput />);
-    expect(html).toContain("Use where I am");
-    expect(html).toContain("Where I am");
+    expect(html).toContain('aria-label="Here, use where I am"');
+    expect(html).toContain("Here</button>");
     expect(html).toContain("Start city");
     expect(html).not.toContain("Finding you");
     // The fold is closed with nothing handed in, and open when a date is.
     expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain("Trip dates");
-    expect(renderToString(<RouteInput initialEndDate="2026-10-14" />)).toContain("Trip dates");
+    expect(html).not.toContain('aria-haspopup="dialog"');
+    expect(renderToString(<RouteInput initialEndDate="2026-10-14" />)).toContain('aria-haspopup="dialog"');
     expect(renderToString(<RouteInput initialDateMode="arrival" />)).toContain("Pick the arrival date");
   });
 

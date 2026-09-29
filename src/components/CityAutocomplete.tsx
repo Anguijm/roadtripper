@@ -102,8 +102,13 @@ export default function CityAutocomplete({
       </label>
       {/* The box carries the border, so a trailing control sits inside it
           at the right end and the typed text stops where the control
-          starts; the focus colour follows the input through the box. */}
-      <div className="flex items-stretch min-h-[44px] bg-[#0d1117] border border-[#30363d] focus-within:border-[#6e7681]">
+          starts; the focus colour follows the input through the box. The
+          44 px (quality bar, rule 7) is on the input itself, not on the
+          box: the box is the input plus 1 px of border each side, 46 px,
+          the same with or without a control in it. Round 1 had the 44 on
+          the box, and the critic measured the To input at 42 inside a 44
+          px box beside a From input held to 44 by its control, in a 46. */}
+      <div className="flex items-stretch bg-[#0d1117] border border-[#30363d] focus-within:border-[#6e7681]">
         <input
           id={inputId}
           ref={inputRef}
@@ -111,7 +116,7 @@ export default function CityAutocomplete({
           placeholder={placeholder}
           value={displayValue}
           onChange={(e) => { onTyping?.(); setDisplayValue(e.target.value); }}
-          className="flex-1 min-w-0 bg-transparent outline-none px-3 py-2 text-base text-[#f0f6fc] placeholder:text-[#6e7681]"
+          className="flex-1 min-w-0 min-h-[44px] bg-transparent outline-none px-3 py-2 text-base text-[#f0f6fc] placeholder:text-[#6e7681]"
         />
         {trailing}
       </div>

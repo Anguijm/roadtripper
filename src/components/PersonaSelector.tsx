@@ -7,6 +7,14 @@ interface PersonaSelectorProps {
   /** Null is "nothing chosen yet": the home's fold, where a mood is optional (Gauntlet U4). */
   activePersonaId: PersonaId | null;
   onChange: (next: PersonaId) => void;
+  /**
+   * The chips share the row's width: each takes at least 30 % of it and
+   * grows, so a 390 px phone shows three then two, never one chip alone on
+   * a row (the home's fold, Gauntlet U4: the round-1 critic saw "Outdoors"
+   * alone on a second row). The plan and today screens leave it off and
+   * keep the natural row; fitting five on one row there is U5's.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -17,6 +25,7 @@ interface PersonaSelectorProps {
 export default function PersonaSelector({
   activePersonaId,
   onChange,
+  fill = false,
 }: PersonaSelectorProps) {
   return (
     <div
@@ -47,6 +56,7 @@ export default function PersonaSelector({
               // 7's 44, so a measurement of the painted box (the round-1
               // critic read 43) cannot land under it (rules 1 and 7).
               "flex items-center gap-1.5 px-3 min-h-[48px] text-base border transition-colors whitespace-nowrap",
+              fill ? "grow basis-[30%] justify-center" : "",
               isActive
                 ? "font-semibold text-[#0d1117] border-transparent"
                 : "font-normal text-[#b0b9c2] bg-transparent border-[#30363d] hover:border-[#6e7681]",

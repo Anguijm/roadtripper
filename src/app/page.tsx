@@ -73,11 +73,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
 
       {/* Top-aligned, not centred: the fold below the button opens
           downward and moves nothing above it, and on a 390 by 844 phone the
-          button's bottom edge sits near 535 px, inside the first screen
-          (Gauntlet U4; quality bar, rule 7). */}
+          button's bottom edge sits near 520 px and the fold, opened, ends
+          near 815 px (840 with a range's count of days), inside the first
+          screen (Gauntlet U4; quality bar, rule 7). */}
       <main className="flex-1 flex items-start justify-center p-4 sm:p-6">
         <div className="w-full max-w-md">
-          <div className="mb-6 text-center">
+          <div className="mb-4 text-center">
             <h2 className="text-2xl text-[#f0f6fc] mb-2">
               Plan your road trip
             </h2>
