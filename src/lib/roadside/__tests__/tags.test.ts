@@ -7,6 +7,8 @@ import {
   TAG_QUESTIONS,
   MAX_MOODS,
   MOOD_ANSWERED,
+  MOOD_WEIGHT,
+  GENERAL_WEIGHT,
   SORT_MODES,
   SORT_LABELS,
   moodScore,
@@ -120,6 +122,10 @@ describe("how well a place answers one mood", () => {
 });
 
 describe("how a place ranks for what is chosen", () => {
+  /** The key a place lands on inside each band, spelled out once. */
+  const band2 = (weakest: number, general: number) => 2 + weakest * MOOD_WEIGHT + general * GENERAL_WEIGHT;
+  const band1 = (best: number, general: number) => 1 + best * MOOD_WEIGHT + general * GENERAL_WEIGHT;
+
   const bigTexan: TagScores = { famous_food: 0.9, roadside_oddity: 0.8, giant_thing: 0.6 };
   const waterfall: TagScores = { waterfall: 0.95 };
   const smallMuseum: TagScores = { museum: 0.5 };
@@ -130,8 +136,8 @@ describe("how a place ranks for what is chosen", () => {
   });
 
   it("uses that mood alone when one is chosen, and bands on whether it is answered at all", () => {
-    expect(rankFor(bigTexan, 0.42, ["food"])).toBeCloseTo(2 + 0.9);
-    expect(rankFor(waterfall, 0.42, ["outdoors"])).toBeCloseTo(2 + 0.95);
+    expect(rankFor(bigTexan, 0.42, ["food"])).toBeCloseTo(band2(0.9, 0.42));
+    expect(rankFor(waterfall, 0.42, ["outdoors"])).toBeCloseTo(band2(0.95, 0.42));
     // A place with nothing to say about the one chosen mood keeps its
     // general score and sits under everything that answered.
     expect(rankFor(waterfall, 0.42, ["food"])).toBeCloseTo(0.42);
@@ -146,12 +152,12 @@ describe("how a place ranks for what is chosen", () => {
 
   it("puts a place that answers both in the top band, ordered by its weaker mood", () => {
     // Food and Oddities: the steakhouse answers both (0.9 and 0.8).
-    expect(rankFor(bigTexan, 0.42, ["food", "oddities"])).toBeCloseTo(2 + 0.8);
+    expect(rankFor(bigTexan, 0.42, ["food", "oddities"])).toBeCloseTo(band2(0.8, 0.42));
   });
 
   it("puts a place that answers one in the middle band and one that answers neither at the bottom", () => {
     const onlyFood: TagScores = { famous_food: 0.95 };
-    expect(rankFor(onlyFood, 0.42, ["food", "oddities"])).toBeCloseTo(1 + 0.95);
+    expect(rankFor(onlyFood, 0.42, ["food", "oddities"])).toBeCloseTo(band1(0.95, 0.42));
     // Neither: it keeps its general score, which is still an order.
     expect(rankFor(waterfall, 0.42, ["food", "oddities"])).toBeCloseTo(0.42);
   });
@@ -199,6 +205,22 @@ describe("how a place ranks for what is chosen", () => {
     expect(rankFor(balanced, 0.5, chosen)).toBeGreaterThan(rankFor(loud, 0.5, chosen));
   });
 
+  it("breaks a tie on the mood with the general score, so the Rose Bowl beats a practice field", () => {
+    // Both are unarguably about sport and the tagging run put both at
+    // 0.99; only "would you pull over for this" separates them.
+    const roseBowl: TagScores = { sports_place: 0.99 };
+    const practiceField: TagScores = { sports_place: 0.99 };
+    expect(rankFor(roseBowl, 0.06, ["sports"])).toBeGreaterThan(rankFor(practiceField, 0.04, ["sports"]));
+  });
+
+  it("does not let the general score overturn a real difference in the mood", () => {
+    // A place half a point better on the mood wins however dull it is.
+    const strongMood: TagScores = { museum: 0.9 };
+    const weakMood: TagScores = { museum: 0.4 };
+    expect(rankFor(strongMood, 0.0, ["museums"])).toBeGreaterThan(rankFor(weakMood, 1.0, ["museums"]));
+    expect(MOOD_WEIGHT).toBeGreaterThan(GENERAL_WEIGHT * 5);
+  });
+
   it("keeps the three bands from ever running into each other", () => {
     // The whole ordering rests on this. Band 0 is at most 1, band 1 runs
     // 1 + MOOD_ANSWERED to 2, band 2 runs 2 + MOOD_ANSWERED to 3. Walk the
@@ -211,13 +233,16 @@ describe("how a place ranks for what is chosen", () => {
     for (let a = 0; a <= 1.0001; a += 0.01) {
       for (let b = 0; b <= 1.0001; b += 0.01) {
         const scores: TagScores = { famous_food: Math.min(a, 1), roadside_oddity: Math.min(b, 1) };
-        const key = rankFor(scores, 1, chosen);
+        // The general score is part of the within-band key now, so take
+        // each band at its worst case: the highest a lower band can reach
+        // (general 1) against the lowest a higher band can fall to
+        // (general 0).
         const answered = [a, b].filter((x) => x >= MOOD_ANSWERED).length;
-        if (answered === 2) minBand2 = Math.min(minBand2, key);
+        if (answered === 2) minBand2 = Math.min(minBand2, rankFor(scores, 0, chosen));
         else if (answered === 1) {
-          minBand1 = Math.min(minBand1, key);
-          maxBand1 = Math.max(maxBand1, key);
-        } else maxBand0 = Math.max(maxBand0, key);
+          minBand1 = Math.min(minBand1, rankFor(scores, 0, chosen));
+          maxBand1 = Math.max(maxBand1, rankFor(scores, 1, chosen));
+        } else maxBand0 = Math.max(maxBand0, rankFor(scores, 1, chosen));
       }
     }
     expect(maxBand0).toBeLessThan(minBand1);
@@ -256,7 +281,7 @@ describe("how a place ranks for what is chosen", () => {
 
   it("carries the same rule on if more moods than the screen allows ever arrive", () => {
     // Two of the three answered, so the middle band, ordered by the best.
-    expect(rankFor(bigTexan, 0.42, ["food", "oddities", "museums"])).toBeCloseTo(1 + 0.9);
+    expect(rankFor(bigTexan, 0.42, ["food", "oddities", "museums"])).toBeCloseTo(band1(0.9, 0.42));
   });
 });
 

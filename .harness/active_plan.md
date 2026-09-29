@@ -77,3 +77,21 @@ read rather than retyped there, which the J11 spec in jev-lab records; the
 contrast test is in the same file as the colours it guards; and the
 validation it asks the ingest to do is now done at the point of use, which
 is the only place that can be sure of it.
+
+## What the real tag scores changed, before the council saw them
+
+The tagging run finished while #92 was in review (jev-lab J11, 31,941
+places, $2.94). Reading the result exposed a gap the fixtures could not:
+the Rose Bowl and a college practice field both score 0.99 for
+`sports_place`, because both are unarguably about sport. Their general
+scores are 0.06 and 0.04. Ranked on the mood alone, the list put them in
+whatever order the database returned.
+
+So the within-band key is now nine parts mood and one part general score.
+The general score cannot overturn a real difference in the mood (a place
+half a point better on the mood still wins from a general score of zero),
+but it decides a near-tie, which is exactly the Rose Bowl case. The band
+separation still holds and its test now walks each band at its worst case.
+
+This is scope added to a branch already in review, and the reason is that
+shipping a ranking I had just watched pick wrong would have been worse.

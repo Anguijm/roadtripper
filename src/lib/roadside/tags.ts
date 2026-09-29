@@ -205,6 +205,24 @@ export function moodScore(scores: TagScores | null | undefined, mood: MoodId): n
 export const MOOD_ANSWERED = 0.35;
 
 /**
+ * Inside a band, how much of the order is the mood and how much is the
+ * general "would you pull over for this" score.
+ *
+ * Nine to one, and the one matters. Tagging the store on 2026-09-30 put
+ * the Rose Bowl and a college practice field both at 0.99 for
+ * `sports_place`, because both are unarguably about sport; their general
+ * scores were 0.06 and 0.04. On the mood alone the list would have put
+ * them in whatever order they came out of the database. The general score
+ * is the only thing that separates them, so it breaks the tie.
+ *
+ * It cannot overturn a real difference in the mood: a tenth of general
+ * score is worth about a ninetieth of mood score, so a place has to be
+ * near-tied on the mood before the general score decides anything.
+ */
+export const MOOD_WEIGHT = 0.9;
+export const GENERAL_WEIGHT = 1 - MOOD_WEIGHT;
+
+/**
  * How a place ranks for what is chosen. This is a **sort key, not a
  * probability**: it runs from 0 to 3 and must never be compared against a
  * threshold meant for a score. Use `moodScore` for that.
@@ -230,16 +248,17 @@ export const MOOD_ANSWERED = 0.35;
  * Nothing chosen is the general score, unbanded, so the ordinary list is
  * exactly what it was before any of this.
  *
- * Why the bands cannot run into each other. A mood score is 0 to 1 and a
- * general score is 0 to 1, so band 0 is at most 1. A place reaches band 1
- * only by answering a mood, so its best is at least `MOOD_ANSWERED` and
- * its key is at least 1.35, above everything in band 0; and its key is at
- * most 2. A place reaches band 2 only by answering every chosen mood, so
- * its weakest is also at least `MOOD_ANSWERED` and its key is at least
- * 2.35, above everything in band 1. The separation rests entirely on
- * `MOOD_ANSWERED` being greater than zero; at zero, band 1 could reach 2
- * and tie the bottom of band 2. The test "keeps the three bands from ever
- * running into each other" holds this.
+ * Why the bands cannot run into each other. Both the mood part and the
+ * general part are 0 to 1 and the weights sum to 1, so the within-band
+ * part is itself 0 to 1 and band 0 is at most 1. A place reaches band 1
+ * only by answering a mood, so its mood part is at least `MOOD_ANSWERED`
+ * and its key is at least 1 + 0.9 × 0.35, above everything in band 0; and
+ * its key is at most 2. A place reaches band 2 only by answering every
+ * chosen mood, so its key is at least 2 + 0.9 × 0.35, above everything in
+ * band 1. The separation rests entirely on `MOOD_ANSWERED` being greater
+ * than zero; at zero, band 1 could reach 2 and tie the bottom of band 2.
+ * The test "keeps the three bands from ever running into each other"
+ * walks the range and holds this.
  */
 export function rankFor(scores: TagScores | null | undefined, generalScore: number, chosen: readonly MoodId[]): number {
   if (chosen.length === 0) return generalScore;
@@ -252,8 +271,9 @@ export function rankFor(scores: TagScores | null | undefined, generalScore: numb
     if (s > best) best = s;
     if (s >= MOOD_ANSWERED) answered++;
   }
-  if (answered === chosen.length) return 2 + weakest;
-  if (answered > 0) return 1 + best;
+  const general = Number.isFinite(generalScore) ? Math.min(Math.max(generalScore, 0), 1) : 0;
+  if (answered === chosen.length) return 2 + weakest * MOOD_WEIGHT + general * GENERAL_WEIGHT;
+  if (answered > 0) return 1 + best * MOOD_WEIGHT + general * GENERAL_WEIGHT;
   // Not banded: a place that answers nothing keeps the general score, which
   // is 0 to 1 and so sits under every banded key.
   return Number.isFinite(generalScore) ? Math.min(Math.max(generalScore, 0), 1) : 0;
