@@ -412,10 +412,26 @@ describe("the moods a link carries", () => {
     for (const raw of ["", ",", ",,,", "banana", "FOOD", "food;outdoors", "  "]) {
       expect(parseMoods(raw), JSON.stringify(raw)).toEqual([]);
     }
-    // Not a string at all: a repeated query parameter arrives as an array.
-    for (const raw of [undefined, null, 0, 42, [], ["food"], {}, true]) {
+    for (const raw of [undefined, null, 0, 42, [], {}, true, [1, 2], [null]]) {
       expect(parseMoods(raw), JSON.stringify(raw)).toEqual([]);
     }
+  });
+
+  it("reads a repeated parameter, which is how a link can spell it", () => {
+    // `?moods=food&moods=sports` reaches a page as `string[]`, which is
+    // what Next types a searchParams value as. It read as nothing at all
+    // until council round 2 on #94, throwing away a choice the link plainly
+    // made. Both spellings of the same link now agree.
+    expect(parseMoods(["food", "sports"])).toEqual(["food", "sports"]);
+    expect(parseMoods("food,sports")).toEqual(["food", "sports"]);
+    expect(parseMoods(["food,sports"])).toEqual(["food", "sports"]);
+    expect(parseMoods(["food"])).toEqual(["food"]);
+    // The cap and the de-duplication hold across the parts, not within one.
+    expect(parseMoods(["food", "sports", "museums"])).toEqual(["food", "sports"]);
+    expect(parseMoods(["food", "food"])).toEqual(["food"]);
+    // A mixed array drops what it cannot read and keeps what it can.
+    expect(parseMoods(["banana", "food"])).toEqual(["food"]);
+    expect(parseMoods([null, "food", 7])).toEqual(["food"]);
   });
 
   it("never returns more than the screen can show, whatever the link says", () => {

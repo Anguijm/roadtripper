@@ -28,7 +28,8 @@ interface PlanSearchParams {
   toLat?: string;
   toLng?: string;
   budget?: string;
-  moods?: string;
+  /** `string[]` when the link repeats the parameter; `parseMoods` reads both. */
+  moods?: string | string[];
   startDate?: string;
   endDate?: string;
   dateMode?: string;

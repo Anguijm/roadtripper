@@ -28,6 +28,7 @@ import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
 import { orderRoadside } from "@/lib/roadside/order";
 import {
   toggleMood,
+  parseMoods,
   MOOD_CONFIG,
   SORT_LABELS,
   MOODS_PARAM,
@@ -429,6 +430,10 @@ export default function PlanWorkspace({
 
   // Persona state — see Session 5 architectural lesson in commit ae3601f.
   const [chosenMoods, setChosenMoods] = useState<readonly MoodId[]>(initialMoods);
+  // The server's moods, as one string, so the effect below has something
+  // stable to watch: `initialMoods` is an array prop and gets a new
+  // identity on every render.
+  const initialMoodKey = initialMoods.join(",");
   // How the day's places are ordered. "best" is the chosen moods through
   // rankFor; "along" is the order they come up on the road. Not in the URL:
   // it is how you are reading the list right now, not part of the trip.
@@ -921,6 +926,26 @@ export default function PlanWorkspace({
   );
 
   // ── Persona / hover handlers ───────────────────────────────────────────
+  /**
+   * Take the server's moods when *they* change (Gauntlet U6; council round
+   * 2 on #94).
+   *
+   * `chosenMoods` starts from `initialMoods` and is the user's from then
+   * on, because a tap writes the URL with `history.replaceState` and never
+   * re-runs the Server Component — that is the invariant that stops a chip
+   * re-billing the Routes API. The cost of it is that a render which
+   * *does* bring different moods from the server, such as the browser's
+   * back or forward landing on a URL with another set, would otherwise
+   * leave the chips showing the old ones.
+   *
+   * Watching the joined string rather than the array means this fires only
+   * when the server actually sends something different. A tap cannot
+   * trigger it: a tap changes the URL, not the props.
+   */
+  useEffect(() => {
+    setChosenMoods(parseMoods(initialMoodKey));
+  }, [initialMoodKey]);
+
   const handleMoodToggle = useCallback(
     (mood: MoodId) => {
       // The next value is computed here, not inside a `setChosenMoods`

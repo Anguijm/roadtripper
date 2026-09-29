@@ -414,10 +414,19 @@ export function tagQuestionsJson(): string {
  * that has to mean the same thing after a reload as before it.
  */
 export function parseMoods(raw: unknown): MoodId[] {
-  if (typeof raw !== "string" || raw.length === 0) return [];
+  // A repeated query parameter (`?moods=food&moods=sports`) reaches a page
+  // as `string[]`, which is what Next types `searchParams` values as. It
+  // used to read as nothing at all, which threw away a choice the link
+  // plainly made. Each part is split on commas too, so the two spellings
+  // of the same link agree. Council round 2 on #94.
+  const parts: string[] = Array.isArray(raw)
+    ? raw.flatMap((v) => (typeof v === "string" ? v.split(",") : []))
+    : typeof raw === "string"
+      ? raw.split(",")
+      : [];
   const known = new Set<string>(MOODS);
   const out: MoodId[] = [];
-  for (const part of raw.split(",")) {
+  for (const part of parts) {
     const id = part.trim();
     if (!known.has(id) || out.includes(id as MoodId)) continue;
     out.push(id as MoodId);

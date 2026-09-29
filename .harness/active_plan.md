@@ -313,3 +313,47 @@ Critic: approved on round 3 of six. Council: CLEAR. Gate 1: passed on
 every push. **Not merged.** The bar's own rule is that the operator sees
 the approved screenshots before merge and can send it back, and that gate
 is his, not the critic's and not the council's.
+
+## Council round 3 on #94 — 🟡 CONDITIONAL after a CLEAR, and the two real items
+
+Round 2 was CLEAR. The commit after it — the `parseMoods` tests and the
+Firestore check — brought the verdict back to CONDITIONAL, which is worth
+recording: the council reads the whole diff each time, and a commit that
+adds tests can surface a finding the earlier passes did not reach.
+
+**2 was real and my own test had blessed the wrong behaviour.** A repeated
+query parameter (`?moods=food&moods=sports`) reaches a page as `string[]`,
+which is what Next types a `searchParams` value as, and `parseMoods`
+returned nothing for it — throwing away a choice the link plainly made.
+Worse, the page declared `moods?: string`, a type that simply was not
+true, and my new test had asserted the bail as if it were correct
+(`expect(parseMoods(["food"])).toEqual([])`). Both pages now declare
+`string | string[]`, `parseMoods` flattens and splits each part, and the
+test says the two spellings of the same link agree. Mutation: the array
+branch removed, "reads a repeated parameter, which is how a link can spell
+it" fails.
+
+**1 applied, on its second raising.** I declined it in round 1 as the
+documented architecture, and that is still why `chosenMoods` starts from
+`initialMoods` and is the user's from then on. But the council is right
+that a render which brings *different* moods from the server — the
+browser's back or forward landing on a URL with another set — would leave
+the chips showing the old ones. An effect on the joined string takes the
+server's moods only when they actually change; a tap cannot trigger it,
+because a tap changes the URL and not the props, which is the invariant
+itself.
+
+**3 declined: `rankFor` already takes a missing `scores`.** Its signature
+is `TagScores | null | undefined` and `scoreOf` reads `scores?.[tag]`, so
+a marker with no `scores` — a store built before the tagging pass, a
+committed survivors file — ranks as a place that answers no mood, which is
+the correct reading. Tests cover it: "leaves a stop the tagging never
+reached without a scores field at all", and rankFor's own null and
+undefined cases from #92.
+
+**4 was a verification and it was already done**, one round earlier:
+`firestore.rules` guards `saved_trips` by ownership alone and validates no
+fields, so neither the optional `personaId` nor the new `moods` can be
+refused by a rule.
+
+Gates: 618 green; `tsc --noEmit` clean; `eslint` 0 errors.
