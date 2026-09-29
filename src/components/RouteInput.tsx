@@ -64,8 +64,18 @@ export const MORE_OPEN_LABEL = "Less";
  * Empty when it can be pressed. Pure, so a test can read every line.
  *
  * Dates are optional (Gauntlet U4): from and to are enough, and a trip with
- * no dates is planned with no deadline. Half a range is refused here
- * because the plan page refuses it; arrive-by without its date the same.
+ * no dates is planned with no deadline. Half a range (a start with no end,
+ * an end with no start) is refused here, at the button, because the plan
+ * page cannot plan it: given startDate or endDate but not both it runs
+ * TripParamsSchema (src/lib/plan/types.ts), whose two dates are both
+ * required, and answers with its error screen, "Something is off with this
+ * link", and a link back to an empty home. That is loud, not silent, but
+ * it is a dead end after the page load; here the missing date is named in
+ * the line beside the button while it is one tap away. Arrive-by without
+ * its date is refused the same way, for ArrivalTripParamsSchema. The lines
+ * are pinned in src/components/__tests__/glossary.ssr.test.tsx; the plan
+ * page's refusal is the schema's, and no test renders the plan page with
+ * half a range.
  */
 export function planReason(opts: {
   from: boolean;

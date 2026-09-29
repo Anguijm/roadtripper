@@ -20,6 +20,17 @@ export const FALLBACK_EXAMPLES: ExampleNames = ["Cadillac Ranch", "the Big Texan
  * two names of this length is two lines under the title, and a longer name
  * would push the button below the fold. Nothing is cut (quality bar, rule
  * 2); a longer name is simply not the example.
+ *
+ * Changing it: src/lib/roadside/__tests__/examples.test.ts reads this
+ * constant rather than pinning 40, and its fixtures bound it, the two names
+ * it expects chosen at 21 characters and the one it expects skipped at 59;
+ * 21 or less, or 59 or more, fails that test, and a value between passes it
+ * unchanged. No test measures the line: src/app/__tests__/home.fold.ssr.test.tsx
+ * mocks the two names, so the fit is the runner's screenshot at 390 by 844
+ * with the fold open and a range set, the case with the least room (each
+ * line the sentence gains is 24 px, the body face's line height at 16 px,
+ * taken from the fold's room under the button; the sums are in the active
+ * plan's weakest part).
  */
 export const MAX_EXAMPLE_NAME_LENGTH = 40;
 

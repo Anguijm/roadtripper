@@ -107,7 +107,18 @@ export default function CityAutocomplete({
           box: the box is the input plus 1 px of border each side, 46 px,
           the same with or without a control in it. Round 1 had the 44 on
           the box, and the critic measured the To input at 42 inside a 44
-          px box beside a From input held to 44 by its control, in a 46. */}
+          px box beside a From input held to 44 by its control, in a 46.
+          Changing the 44 or moving it: src/app/__tests__/home.fold.ssr.test.tsx
+          ("gives the From and the To input the same 44 px height inside a
+          1 px border") reads the min-h-[44px] class on both the Start city
+          and End city inputs and that neither box carries a min-h- of its
+          own, so another value here, or the minimum back on the box, fails
+          that test; the same file reads the 44 on the Here control the
+          From box holds (RouteInput.tsx), which has to match this one or
+          the boxes differ again. src/app/__tests__/stylesheet.test.ts pins
+          that the .min-h-[44px] rule is compiled, but a dozen files name
+          that class, so a change here alone does not reach it; the painted
+          inputs are measured by the runner's screenshot. */}
       <div className="flex items-stretch bg-[#0d1117] border border-[#30363d] focus-within:border-[#6e7681]">
         <input
           id={inputId}

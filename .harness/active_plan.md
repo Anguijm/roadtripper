@@ -54,8 +54,9 @@ range case has the least room, about 4 px by the sums. The date button has no la
 it now: "Pick the dates", "Arrive by Oct 14" and "Oct 10 to Oct 14" are the
 button's own words, and the dialog it opens is still titled "Trip dates". The
 chips' three-then-two comes from a 30 % basis on each chip inside a wrapping
-row, which holds at any label width up to a third of the row; a screen wider
-than about 600 px would fit all five on one row, which is also right. The
+row, which holds at any label width up to a third of the row and at any row
+width, three chips being 90 % of the row and four 120 %; a wide screen shows
+the same two rows, stretched (corrected in council round 1 below). The
 example sentence puts "the" before each name, which reads right for the
 Cadillac Ranch and the Big Texan and wrong for a name that takes no article.
 
@@ -88,3 +89,55 @@ The whole suite: 53 files, 513 tests green; `bun run type-check` 0 errors;
 `bun run lint` 0 errors (9 warnings, all older than this branch and none in
 its files). Not measured here: the 390 by 844 screenshot, which is the
 runner's.
+
+## Council round 1 on #88
+
+1. `MAX_EXAMPLE_NAME_LENGTH` (src/lib/roadside/examples.ts): a comment at
+   the constant saying what changing it does. The council's claim, checked:
+   examples.test.ts reads the constant rather than pinning 40, and its
+   fixtures bound it (the two names it expects chosen are 21 characters,
+   the one it expects skipped is 59), so only a value of 21 or less or of
+   59 or more fails it. The fold height is measured by no test:
+   home.fold.ssr.test.tsx mocks the two names. It is the runner's
+   screenshot at 390 by 844, with the fold open and a range set. Written
+   as such.
+2. The 30 % basis (src/components/PersonaSelector.tsx): a comment at the
+   `fill` prop and a line at the class. The council's claim, checked:
+   home.fold.ssr.test.tsx reads the literal `grow` and `basis-[30%]` on
+   all five chips, not the rows, and stylesheet.test.ts pins the compiled
+   rule; neither lays out three then two. Correction to the weakest part
+   above: with a 30 % basis five chips wrap three then two at any row
+   width (three are 90 % of the row, four are 120 %); the sentence that a
+   screen wider than about 600 px would fit five on one row was wrong and
+   is replaced.
+3. The 44 px (src/components/CityAutocomplete.tsx): a comment at the box.
+   The council's claim, half right: home.fold.ssr.test.tsx reads the class
+   on both inputs and the absence of a min-h- on the boxes, so it is the
+   guard, and it reads the 44 on the Here control the From box holds;
+   stylesheet.test.ts pins that `.min-h-[44px]` compiles, but a dozen
+   files name the class, so a change in this one file does not reach it.
+   Written as such.
+4. Half a range (src/components/RouteInput.tsx): the `planReason` docblock.
+   The council's reason was wrong: the plan page does not fail silently on
+   half a range. Given startDate or endDate but not both it runs
+   TripParamsSchema, whose two dates are both required, and answers with
+   its error screen and a link back to an empty home, loud and a dead end.
+   The home refuses first so the missing date is named beside the button
+   while it is one tap away. glossary.ssr.test.tsx pins the lines; no test
+   renders the plan page with half a range.
+5. `persona` on /plan (src/app/plan/page.tsx): `parsePersonaId`
+   (src/lib/personas/index.ts) runs `PersonaIdSchema.safeParse`, a zod
+   enum of the five ids (src/lib/personas/types.ts), and returns
+   `DEFAULT_PERSONA_ID` for anything else: an arbitrary string is ignored,
+   not an error, the same as a missing one. The plan page has read it this
+   way since Session 5 (ae3601f); this branch is the first time the home
+   sends it (e9e1999), only when a chip was tapped. No test covered an
+   invalid value, so page.ssr.test.tsx gains one: "nerd" is the checked
+   chip; "banana", "NERD", "nerd,culture" and "" give the default chip
+   with no error screen; no persona gives the default. Mutation:
+   `parsePersonaId` made to return the string as given; the test failed
+   by name (TypeError: Cannot read properties of undefined (reading
+   'accentColor')); the file restored from a copy, `cmp` identical.
+
+The whole suite: 54 files, 540 tests green; `bun run type-check` 0 errors;
+`bun run lint` 0 errors (the same 9 warnings, none in this branch's files).
