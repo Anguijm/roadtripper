@@ -172,6 +172,14 @@ type Row = { id: string; name: string; lat: number; lng: number; kind: string; p
  * whichever the machine built. 900 is under the older limit, so the query
  * cannot fail on a corridor that happens to be busy; a route with a few
  * hundred markers is one round trip either way.
+ *
+ * To tune it: the test "never puts more host parameters in one statement
+ * than the oldest SQLite accepts" in `__tests__/store.tags.test.ts` is
+ * what holds this, and it asserts the 999 ceiling rather than this
+ * constant, so raising the value past 999 fails there. Do not trust a
+ * behavioural test instead: on a machine with the 32,766 ceiling a single
+ * unchunked query simply succeeds, which is how the first version of that
+ * test passed with the chunking removed.
  */
 const TAG_CHUNK = 900;
 
@@ -222,12 +230,23 @@ type TagRow = { stop_id: string; tag: string; p: number };
  * argument: the tiles can hold thousands of stops the road never comes
  * near, and reading tags for those would be work thrown away.
  *
- * A tag the vocabulary does not know is skipped rather than trusted: the
- * table is written by a bench in another repository, and a renamed tag
- * must read as absent instead of arriving as a key nothing will ever look
- * up. Values are left exactly as stored — `rankFor` is documented as the
- * place that decides what a number means, and clamping here as well would
- * put that judgement in two files.
+ * Nothing the table holds is trusted, because nothing in this repository
+ * writes it: the rows come from the tagging bench in jev-lab
+ * (`bench/roadside_tag_score.py`, spec J11), which reads its questions
+ * from `data/tag-questions.json` and writes `roadside_tag` directly.
+ *
+ * So a row is carried only if it is a tag the vocabulary knows *and* its
+ * value is a probability — a finite number in 0 to 1. A renamed tag must
+ * read as absent rather than arrive as a key nothing will look up, and a
+ * `NaN` or an `Infinity` must not reach a marker at all. Both are the same
+ * check at the same boundary: this is where data from another repository
+ * enters, and filtering the key but not the value would be half a border.
+ *
+ * `rankFor` still decides what a score *means* for ranking, and `scoreOf`
+ * still refuses a bad number, because a marker can also come from a
+ * committed survivors file that never passed through here. The two are not
+ * duplicates: this one keeps rubbish out of the object, that one keeps the
+ * comparator honest about an object it did not build.
  */
 export function tagScoresByStop(db: Database.Database, ids: readonly string[]): Map<string, TagScores> {
   const out = new Map<string, TagScores>();
@@ -237,6 +256,7 @@ export function tagScoresByStop(db: Database.Database, ids: readonly string[]): 
     const q = db.prepare(`SELECT stop_id, tag, p FROM roadside_tag WHERE stop_id IN (${chunk.map(() => "?").join(",")})`);
     for (const r of q.all(...chunk) as TagRow[]) {
       if (!KNOWN_TAGS.has(r.tag)) continue;
+      if (typeof r.p !== "number" || !Number.isFinite(r.p) || r.p < 0 || r.p > 1) continue;
       const found = out.get(r.stop_id);
       const scores = found ?? {};
       (scores as Record<string, number>)[r.tag] = r.p;
@@ -257,7 +277,11 @@ export function withTagScores(db: Database.Database, markers: RoadsideMarker[]):
   if (byStop.size === 0) return markers;
   return markers.map((m) => {
     const scores = byStop.get(m.id);
-    return scores ? { ...m, scores } : m;
+    // A copy, not the map's object. `survivorsAlongRoute` dedupes by id so
+    // its markers cannot collide, but this is exported and the map holds
+    // one object per stop: two markers with the same id would otherwise
+    // share it, and so would the map itself.
+    return scores ? { ...m, scores: { ...scores } } : m;
   });
 }
 

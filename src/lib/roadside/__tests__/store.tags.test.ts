@@ -30,6 +30,10 @@ tag.run("osm:node:4", "famous_food", 0.94);
 tag.run("osm:node:4", "sports_place", 0.01);
 // A tag the vocabulary does not know, as a renamed tag in the bench would arrive.
 tag.run("osm:node:4", "haunted_house", 0.88);
+// Values a probability cannot take. SQLite stores these happily.
+tag.run("osm:node:1", "museum", Infinity);
+tag.run("osm:node:1", "garden", -0.5);
+tag.run("osm:node:1", "big_view", 4);
 db.close();
 afterAll(() => { closeRoadsideStores(); rmSync(dir, { recursive: true, force: true }); });
 
@@ -55,6 +59,32 @@ describe("the stops the plan page reads carry their tags", () => {
     // must read as absent, not arrive as a key nothing will look up.
     const out = byId(survivorsAlongRoute(roadsideStore(path)!, route));
     expect(out.get("osm:node:4")!.scores).not.toHaveProperty("haunted_house");
+  });
+
+  it("drops a value that is not a probability instead of carrying it to a marker", () => {
+    // The rows come from a bench in another repository (jev-lab J11).
+    // scoreOf would refuse these at ranking time, but a marker is also read
+    // by captures and logs that never go through it, so they are dropped
+    // where the data enters rather than everywhere it is used.
+    const out = byId(survivorsAlongRoute(roadsideStore(path)!, route));
+    const scores = out.get("osm:node:1")!.scores!;
+    expect(scores).not.toHaveProperty("museum");
+    expect(scores).not.toHaveProperty("garden");
+    expect(scores).not.toHaveProperty("big_view");
+    expect(Object.values(scores).every((v) => Number.isFinite(v) && v >= 0 && v <= 1)).toBe(true);
+  });
+
+  it("gives each marker its own scores object rather than the lookup's", () => {
+    // withTagScores is exported and the map holds one object per stop, so
+    // two markers with the same id would otherwise share it.
+    const store = roadsideStore(path)!;
+    const twice = [
+      { id: "osm:node:1", alongKm: 1 },
+      { id: "osm:node:1", alongKm: 2 },
+    ] as unknown as RoadsideMarker[];
+    const out = withTagScores(store, twice);
+    expect(out[0].scores).toEqual(out[1].scores);
+    expect(out[0].scores).not.toBe(out[1].scores);
   });
 
   it("gives the ranking enough to tell the stadium from the diner", () => {

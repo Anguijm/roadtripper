@@ -97,3 +97,43 @@ that tags are read after the corridor narrows — which the code does at the
 one call site and a comment there says why.
 
 Gates: `npx vitest run` 589 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Council round 1 on #93 — 🟡 CONDITIONAL, four applied and one declined
+
+**2, 4 and 5 applied as asked.** Values from `roadside_tag` are now checked
+as well as keys: a row is carried only if the tag is one of the eighteen
+*and* the value is a finite number in 0 to 1. The council is right and my
+original comment was wrong. It said values were left alone because
+`rankFor` is the single place that decides what a number means. But this
+function already refused an unknown *tag* at the same boundary, so it was
+filtering the key and not the value — half a border. `scoreOf` still
+refuses a bad number, and that is not a duplicate: a marker can also come
+from a committed survivors file that never passed through here, so one
+keeps rubbish out of the object and the other keeps the comparator honest
+about an object it did not build.
+
+The `TAG_CHUNK` comment now names the test that holds it and warns that a
+behavioural test proves nothing here. The doc block names jev-lab,
+`bench/roadside_tag_score.py` and J11 rather than "a bench in another
+repository".
+
+**1 applied, though not for the reason given.** The council read a shared
+reference between stops; there is none, since each stop id gets a fresh
+object and the writes are idempotent. But there is a real one between the
+map and the markers: `withTagScores` is exported, the map holds one object
+per stop, and two markers with the same id would have been handed the same
+object. `survivorsAlongRoute` dedupes by id so it cannot happen there.
+Each marker now gets a copy.
+
+**3 declined: it is already done.** `import "server-only";` is line 1 of
+`src/lib/roadside/store.ts` and has been since #75. It does not appear in
+this diff, which is what the council reviewed, so it read the absence from
+the diff rather than the file. Nothing to change.
+
+Mutations: the probability check deleted — three tests fail, among them
+"drops a value that is not a probability instead of carrying it to a
+marker"; the copy in `withTagScores` replaced by the map's own object —
+"gives each marker its own scores object rather than the lookup's" fails.
+Restored from the copy taken first; `cmp` identical.
+
+Gates: `npx vitest run` 591 green; `tsc --noEmit` clean; `eslint` 0 errors.
