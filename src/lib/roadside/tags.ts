@@ -1,0 +1,285 @@
+/**
+ * What a roadside place is, and what you are in the mood for.
+ *
+ * Two levels, because they answer different questions. A **tag** is what a
+ * place is: a waterfall, a war memorial, a giant fibreglass thing. A place
+ * carries several, each with its own probability from the scorer. A
+ * **mood** is what you tap at the top of the screen; it rolls up a handful
+ * of tags. Eighteen tags and eight moods, agreed with the operator on
+ * 2026-09-30 after the clusters were counted in the store: four clusters
+ * hold more than four thousand places, four more hold one to three
+ * thousand, and the tail drops under seven hundred. Eighteen reaches the
+ * bottom of that tail.
+ *
+ * Why two levels and not one: a chip has to fit a phone, and U5 settled
+ * that five chips already wrap to two rows. Eight is the most the screen
+ * can carry. But eight labels are too coarse to score a place against, and
+ * "is this Outdoors?" is a worse question for a model than "is this a
+ * waterfall?". So the model answers the narrow question and the screen
+ * asks the broad one.
+ *
+ * Nothing here calls a model or reads the store. The scores come from the
+ * store, precomputed, because the app must answer with no model in the
+ * loop at use time.
+ */
+
+/** A thing a place can be. One probability per tag per place, from the scorer. */
+export const ROADSIDE_TAGS = [
+  "big_view",
+  "waterfall",
+  "rock_and_cave",
+  "garden",
+  "old_building",
+  "war_memorial",
+  "pioneer",
+  "native_american",
+  "public_art",
+  "museum",
+  "science_and_space",
+  "roadside_oddity",
+  "giant_thing",
+  "trains_and_industry",
+  "bridge_or_tower",
+  "cars_and_racing",
+  "famous_food",
+  "sports_place",
+] as const;
+
+export type RoadsideTag = (typeof ROADSIDE_TAGS)[number];
+
+/** What you tap. Eight, in the order the chips are drawn. */
+export const MOODS = ["outdoors", "history", "art", "museums", "oddities", "machines", "food", "sports"] as const;
+
+export type MoodId = (typeof MOODS)[number];
+
+export interface MoodConfig {
+  id: MoodId;
+  /** The chip's one short word, sentence case (quality bar, rule 1). */
+  label: string;
+  /**
+   * The chip's glyph, so the chosen one is not marked by colour alone.
+   * Provisional: the blind critic judges these on a 390 px screen in the
+   * interface round, and a glyph that does not render in the body face is
+   * that round's finding, not this module's.
+   */
+  glyph: string;
+  /** The tags this mood rolls up. A place's mood score is its best of these. */
+  tags: readonly RoadsideTag[];
+  /**
+   * The fill behind the chosen chip. Every one is light enough to carry
+   * the near-black body colour as text, which is the contrast rule the
+   * council raised on U1.
+   */
+  accentColor: string;
+}
+
+export const MOOD_CONFIG: Readonly<Record<MoodId, MoodConfig>> = {
+  outdoors: {
+    id: "outdoors",
+    label: "Outdoors",
+    glyph: "▲",
+    tags: ["big_view", "waterfall", "rock_and_cave", "garden"],
+    accentColor: "#7ee787",
+  },
+  history: {
+    id: "history",
+    label: "History",
+    glyph: "■",
+    tags: ["old_building", "war_memorial", "pioneer", "native_american"],
+    accentColor: "#d29922",
+  },
+  art: {
+    id: "art",
+    label: "Art",
+    glyph: "●",
+    tags: ["public_art"],
+    accentColor: "#bc8cff",
+  },
+  museums: {
+    id: "museums",
+    label: "Museums",
+    glyph: "◇",
+    tags: ["museum", "science_and_space"],
+    accentColor: "#79c0ff",
+  },
+  oddities: {
+    id: "oddities",
+    label: "Oddities",
+    glyph: "★",
+    tags: ["roadside_oddity", "giant_thing"],
+    accentColor: "#ffa657",
+  },
+  machines: {
+    id: "machines",
+    label: "Machines",
+    glyph: "◆",
+    tags: ["trains_and_industry", "bridge_or_tower", "cars_and_racing"],
+    accentColor: "#a5d6ff",
+  },
+  food: {
+    id: "food",
+    label: "Food",
+    glyph: "◗",
+    tags: ["famous_food"],
+    accentColor: "#f0883e",
+  },
+  sports: {
+    id: "sports",
+    label: "Sports",
+    glyph: "◐",
+    tags: ["sports_place"],
+    accentColor: "#56d4dd",
+  },
+} as const;
+
+/**
+ * Every tag belongs to exactly one mood. Checked by a test rather than by
+ * construction, because the readable form above is the one a person edits.
+ */
+export const TAG_MOOD: Readonly<Record<RoadsideTag, MoodId>> = Object.freeze(
+  Object.fromEntries(MOODS.flatMap((m) => MOOD_CONFIG[m].tags.map((t) => [t, m]))) as Record<RoadsideTag, MoodId>
+);
+
+/**
+ * At most two moods at a time. Three produces a list that matches nothing
+ * (the rank below is the weakest of the chosen, and three narrow moods
+ * rarely all hold) and a third row of chips the phone has no room for.
+ */
+export const MAX_MOODS = 2;
+
+/** A place's probability per tag, as the store holds it. A missing tag reads as zero. */
+export type TagScores = Partial<Readonly<Record<RoadsideTag, number>>>;
+
+/**
+ * How well a place answers one mood: its best tag within that mood. Best,
+ * not average: a spectacular waterfall is a good Outdoors stop whether or
+ * not it also has a view, and averaging would punish a place for being
+ * one thing well.
+ */
+export function moodScore(scores: TagScores, mood: MoodId): number {
+  let best = 0;
+  for (const tag of MOOD_CONFIG[mood].tags) {
+    const p = scores[tag];
+    if (typeof p === "number" && p > best) best = p;
+  }
+  return best;
+}
+
+/**
+ * How strong a mood's score has to be before the place counts as being
+ * that kind of thing at all. Below it the place is not "a bit of an
+ * Outdoors stop", it is simply not one, and a stack of 0.1s must never add
+ * up to an answer.
+ *
+ * Provisional at 0.35. It is a judgement about a distribution that does
+ * not exist yet: no tag has been scored. The first real run over a sample
+ * of the store decides it, and moving it means re-reading this file's
+ * tests, which name the bands by number.
+ */
+export const MOOD_ANSWERED = 0.35;
+
+/**
+ * How a place ranks for what is chosen. This is a **sort key, not a
+ * probability**: it runs from 0 to 3 and must never be compared against a
+ * threshold meant for a score. Use `moodScore` for that.
+ *
+ * Three bands, highest first, because the operator asked for bubbling up
+ * rather than filtering down (2026-09-30) and a screen that is never empty
+ * still has to put the right thing on top:
+ *
+ * - **2, answers every chosen mood.** Ordered among themselves by their
+ *   weakest mood, so a place that is solidly both beats one that is
+ *   brilliant at one and barely scrapes the other.
+ * - **1, answers some but not all.** Ordered by its best chosen mood.
+ * - **0, answers none.** Ordered by the general score, which is the
+ *   scorer's answer to "is this worth pulling over for" and the order the
+ *   list has always used.
+ *
+ * The bands are what makes the tail useful. A first cut ranked on the
+ * weakest mood alone; every place missing either mood then scored exactly
+ * zero and the whole tail came back in arbitrary order, which the tests
+ * caught. Banding keeps the promise that what matches both is on top while
+ * still ordering everything underneath it.
+ *
+ * Nothing chosen is the general score, unbanded, so the ordinary list is
+ * exactly what it was before any of this.
+ */
+export function rankFor(scores: TagScores, generalScore: number, chosen: readonly MoodId[]): number {
+  if (chosen.length === 0) return generalScore;
+  let weakest = Infinity;
+  let best = 0;
+  let answered = 0;
+  for (const mood of chosen) {
+    const s = moodScore(scores, mood);
+    if (s < weakest) weakest = s;
+    if (s > best) best = s;
+    if (s >= MOOD_ANSWERED) answered++;
+  }
+  if (answered === chosen.length) return 2 + weakest;
+  if (answered > 0) return 1 + best;
+  return generalScore;
+}
+
+/**
+ * Add or remove a mood, keeping at most `MAX_MOODS`. Tapping a chosen one
+ * turns it off. Choosing a third drops the one chosen longest ago, so the
+ * tap always does something visible rather than being silently refused,
+ * which is the one behaviour a chip that looks tappable must not have.
+ */
+export function toggleMood(chosen: readonly MoodId[], mood: MoodId): MoodId[] {
+  if (chosen.includes(mood)) return chosen.filter((m) => m !== mood);
+  const next = [...chosen, mood];
+  return next.slice(Math.max(0, next.length - MAX_MOODS));
+}
+
+/** How the list is ordered under the chips. */
+export const SORT_MODES = ["best", "along"] as const;
+export type SortMode = (typeof SORT_MODES)[number];
+
+/**
+ * The words on the sort control. "Along the road" rather than "by
+ * distance": inside a day the two are the same thing, and the first is
+ * what a person in a car would say (quality bar, rule 1).
+ */
+export const SORT_LABELS: Readonly<Record<SortMode, string>> = {
+  best: "Best match",
+  along: "Along the road",
+};
+
+/**
+ * The question each tag is asked, as the scorer sends it. They live beside
+ * the vocabulary on purpose: a tag whose question drifts from its name is
+ * a tag that means one thing in the store and another on the screen, and
+ * nothing in the types would catch it.
+ *
+ * Each is a yes-or-no about the place itself, answerable from a name, a
+ * category and whatever description line the place has. More than half the
+ * places in the store have only a name and a category, and the questions
+ * are written so that is usually enough: a thing called "Miller Overlook"
+ * answers `big_view` from its name alone.
+ */
+export const TAG_QUESTIONS: Readonly<Record<RoadsideTag, string>> = {
+  big_view: "This place exists to be looked out from: an overlook, a scenic pullout, a lookout, an observation deck or a vista point.",
+  waterfall: "This place is a waterfall, a falls or a cascade.",
+  rock_and_cave: "This place is a natural rock formation, a canyon, a gorge, a cave, a cavern, an arch, a butte or dunes.",
+  garden: "This place is a planted garden, an arboretum, a botanical garden or a formal green space made to walk through.",
+  old_building:
+    "This place is a standing building or a ruin kept for its age: a fort, a mission, a courthouse, a jail, a schoolhouse, a homestead, a mill, a ghost town or a preserved historic house.",
+  war_memorial: "This place commemorates a war, a battle or the people who fought in one: a battlefield, a war memorial, a veterans memorial, a preserved cannon, tank, ship or aircraft.",
+  pioneer: "This place is about settling or crossing the frontier: a wagon trail, a stagecoach stop, a pony express station, a pioneer homestead or a settler monument.",
+  native_american: "This place is a Native American site or memorial: a pueblo, a mound, petroglyphs, pictographs, a tribal cultural centre, or a monument to Native American people or history.",
+  public_art: "This place is a work of art made to be seen in public: a sculpture, a statue, a mural, an installation or a carving.",
+  museum: "This place is a museum, a heritage centre or a collection open to visitors.",
+  science_and_space:
+    "This place is about science, space or flight: an observatory, a planetarium, a rocket or missile, an aircraft or aviation collection, a science centre or a research site open to visitors.",
+  roadside_oddity:
+    "This place is a roadside oddity: strange, homemade, kitsch or funny, the kind of thing people pull over to photograph because it is odd rather than because it is important.",
+  giant_thing: "This place is an oversized object built to be seen from the road, or claims to be the world's largest or biggest of something.",
+  trains_and_industry:
+    "This place is about railways or industry: a depot, a station, a locomotive, a caboose, a roundhouse, a mine, a mill, a furnace or a preserved factory.",
+  bridge_or_tower: "This place is a structure worth looking at in itself: a notable bridge, an observation or water tower, a lighthouse, a windmill or a fire lookout.",
+  cars_and_racing: "This place is about cars, motorcycles or racing: a speedway, a raceway, a drag strip, a car collection, or a landmark of a famous driving road such as Route 66.",
+  famous_food:
+    "This place is somewhere to eat or drink that people travel to on purpose: a landmark restaurant, a famous diner, a historic saloon, a destination barbecue, bakery, brewery or winery. An ordinary local restaurant is not.",
+  sports_place: "This place is about sport: a stadium, an arena, a ballpark, a racetrack, a hall of fame, or a site where something famous in sport happened.",
+};
