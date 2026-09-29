@@ -68,7 +68,10 @@ export interface MoodConfig {
   /**
    * The fill behind the chosen chip. Every one is light enough to carry
    * the near-black body colour as text, which is the contrast rule the
-   * council raised on U1.
+   * council raised on U1. A new or edited colour has to clear 4.5 to 1
+   * against `#0d1117`; the test "fills a chosen chip with something the
+   * body colour can be read on" computes that and fails if it does not,
+   * so this is checked rather than trusted.
    */
   accentColor: string;
 }
@@ -142,8 +145,13 @@ export const TAG_MOOD: Readonly<Record<RoadsideTag, MoodId>> = Object.freeze(
 
 /**
  * At most two moods at a time. Three produces a list that matches nothing
- * (the rank below is the weakest of the chosen, and three narrow moods
- * rarely all hold) and a third row of chips the phone has no room for.
+ * (the top band below needs every chosen mood answered, and three narrow
+ * moods rarely all hold) and a third row of chips the phone has no room
+ * for: `src/components/MoodChips.tsx` lays the chips out at `basis-[30%]`,
+ * so three fit a row, and U5 measured eight chips at three rows on a
+ * 390 px screen. Raising this means re-measuring there, and the chip
+ * layout is pinned by `src/app/__tests__/home.fold.ssr.test.tsx` and
+ * `src/app/__tests__/stylesheet.test.ts`.
  */
 export const MAX_MOODS = 2;
 
@@ -151,16 +159,32 @@ export const MAX_MOODS = 2;
 export type TagScores = Partial<Readonly<Record<RoadsideTag, number>>>;
 
 /**
+ * A stored tag score, or zero if it is not one.
+ *
+ * The scores come from a SQLite table written by a bench script in another
+ * repository, so this module cannot assume they are sound. A `NaN` would
+ * silently lose every comparison and read as absent, which is survivable;
+ * an `Infinity` or a 9e9 would win every comparison and put one place at
+ * the top of every list for ever, which is not. Anything that is not a
+ * finite number in 0 to 1 is treated as no answer, which is the same thing
+ * the code does with a tag the store never wrote.
+ */
+function scoreOf(scores: TagScores | null | undefined, tag: RoadsideTag): number {
+  const p = scores?.[tag];
+  return typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1 ? p : 0;
+}
+
+/**
  * How well a place answers one mood: its best tag within that mood. Best,
  * not average: a spectacular waterfall is a good Outdoors stop whether or
  * not it also has a view, and averaging would punish a place for being
  * one thing well.
  */
-export function moodScore(scores: TagScores, mood: MoodId): number {
+export function moodScore(scores: TagScores | null | undefined, mood: MoodId): number {
   let best = 0;
   for (const tag of MOOD_CONFIG[mood].tags) {
-    const p = scores[tag];
-    if (typeof p === "number" && p > best) best = p;
+    const p = scoreOf(scores, tag);
+    if (p > best) best = p;
   }
   return best;
 }
@@ -171,10 +195,12 @@ export function moodScore(scores: TagScores, mood: MoodId): number {
  * Outdoors stop", it is simply not one, and a stack of 0.1s must never add
  * up to an answer.
  *
- * Provisional at 0.35. It is a judgement about a distribution that does
- * not exist yet: no tag has been scored. The first real run over a sample
- * of the store decides it, and moving it means re-reading this file's
- * tests, which name the bands by number.
+ * Provisional at 0.35. It is a judgement about a distribution that did not
+ * exist when it was written: no tag had been scored. Moving it means
+ * re-reading `src/lib/roadside/__tests__/tags.test.ts`, which names the
+ * bands by number and pins the band arithmetic. It must stay above zero
+ * and below 1: at zero the bands collide (see `rankFor`), and at 1 nothing
+ * ever reaches the top band.
  */
 export const MOOD_ANSWERED = 0.35;
 
@@ -203,8 +229,19 @@ export const MOOD_ANSWERED = 0.35;
  *
  * Nothing chosen is the general score, unbanded, so the ordinary list is
  * exactly what it was before any of this.
+ *
+ * Why the bands cannot run into each other. A mood score is 0 to 1 and a
+ * general score is 0 to 1, so band 0 is at most 1. A place reaches band 1
+ * only by answering a mood, so its best is at least `MOOD_ANSWERED` and
+ * its key is at least 1.35, above everything in band 0; and its key is at
+ * most 2. A place reaches band 2 only by answering every chosen mood, so
+ * its weakest is also at least `MOOD_ANSWERED` and its key is at least
+ * 2.35, above everything in band 1. The separation rests entirely on
+ * `MOOD_ANSWERED` being greater than zero; at zero, band 1 could reach 2
+ * and tie the bottom of band 2. The test "keeps the three bands from ever
+ * running into each other" holds this.
  */
-export function rankFor(scores: TagScores, generalScore: number, chosen: readonly MoodId[]): number {
+export function rankFor(scores: TagScores | null | undefined, generalScore: number, chosen: readonly MoodId[]): number {
   if (chosen.length === 0) return generalScore;
   let weakest = Infinity;
   let best = 0;
@@ -217,7 +254,9 @@ export function rankFor(scores: TagScores, generalScore: number, chosen: readonl
   }
   if (answered === chosen.length) return 2 + weakest;
   if (answered > 0) return 1 + best;
-  return generalScore;
+  // Not banded: a place that answers nothing keeps the general score, which
+  // is 0 to 1 and so sits under every banded key.
+  return Number.isFinite(generalScore) ? Math.min(Math.max(generalScore, 0), 1) : 0;
 }
 
 /**

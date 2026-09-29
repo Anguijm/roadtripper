@@ -46,3 +46,34 @@ promise (what answers both is on top) and order everything underneath.
 
 Gates: `bunx vitest run` all green; `bun run type-check` clean; `bun run
 lint` 0 errors.
+
+## Council round 1 on #92
+
+1, 2 and 3 are comments and they are written: `MAX_MOODS` names the chip
+component and the two tests that pin its layout; `MOOD_ANSWERED` names the
+test file and says it must stay above zero and below one; `accentColor`
+says which test computes the contrast; the test file says where `#0d1117`
+comes from and why the question length has a floor and a ceiling (the
+scorer's state-plus-question budget). `rankFor` now carries the proof that
+the bands cannot meet: a general score is at most 1, a band-1 key is at
+least 1 + `MOOD_ANSWERED`, a band-2 key at least 2 + `MOOD_ANSWERED`, and
+the whole separation rests on `MOOD_ANSWERED` being above zero. A new test
+walks the range and checks no lower band reaches a higher one.
+
+4 was real and is fixed. `moodScore` read `scores[tag]` and compared it
+with `>`, so a null or undefined `scores` threw, and an `Infinity` written
+into the table would have won every comparison and pinned one place to the
+top of every list for ever. A `NaN` was already harmless by luck rather
+than design. Scores now pass through `scoreOf`, which takes a finite
+number in 0 to 1 and treats anything else as no answer, and the general
+score is clamped to the same range so it cannot break the band
+separation. Three tests cover it: rubbish values, no scores at all, and an
+out-of-range general score.
+
+The council's three "before merge" notes are the same ground: the drift
+between the questions here and the scorer is the reason the questions live
+in this file and are exported to `data/tag-questions.json` for the bench to
+read rather than retyped there, which the J11 spec in jev-lab records; the
+contrast test is in the same file as the colours it guards; and the
+validation it asks the ingest to do is now done at the point of use, which
+is the only place that can be sure of it.

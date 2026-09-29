@@ -16,7 +16,13 @@ import {
   type TagScores,
 } from "@/lib/roadside/tags";
 
-/** The near-black the chosen chip carries as text; the fill must hold it. */
+/**
+ * The near-black the chosen chip carries as text; the fill must hold it.
+ * The one source of truth for it is `--background` in
+ * `src/app/globals.css`, which `MoodChips.tsx` names as
+ * `text-[#0d1117]` on the chosen chip. If the app's background changes,
+ * change it here too or this test guards the wrong pair.
+ */
 const BODY_ON_ACCENT = "#0d1117";
 
 function luminance(hex: string): number {
@@ -52,7 +58,12 @@ describe("the vocabulary the operator approved", () => {
       const q = TAG_QUESTIONS[tag];
       expect(q, tag).toBeTruthy();
       // A question a person could answer about the place in front of them,
-      // not a sentence fragment and not an essay.
+      // not a sentence fragment and not an essay. The floor is there
+      // because a bare "This place is a museum." gives the model nothing to
+      // separate a museum from a heritage centre; the ceiling because the
+      // scorer sends all eighteen in one request and its state-plus-question
+      // budget is finite (STATE_TOKEN_CAP in jev-lab's bench/jev_client.py),
+      // so eighteen essays would not fit beside a place's description.
       expect(q.length, tag).toBeGreaterThan(30);
       expect(q.length, tag).toBeLessThan(400);
       expect(q.trim().endsWith("."), tag).toBe(true);
@@ -186,6 +197,61 @@ describe("how a place ranks for what is chosen", () => {
     const balanced: TagScores = { famous_food: 0.8, roadside_oddity: 0.8 };
     const chosen = ["food", "oddities"] as const;
     expect(rankFor(balanced, 0.5, chosen)).toBeGreaterThan(rankFor(loud, 0.5, chosen));
+  });
+
+  it("keeps the three bands from ever running into each other", () => {
+    // The whole ordering rests on this. Band 0 is at most 1, band 1 runs
+    // 1 + MOOD_ANSWERED to 2, band 2 runs 2 + MOOD_ANSWERED to 3. Walk the
+    // range and check no key from a lower band can reach a higher one.
+    const chosen = ["food", "oddities"] as const;
+    let maxBand0 = -Infinity;
+    let minBand1 = Infinity;
+    let maxBand1 = -Infinity;
+    let minBand2 = Infinity;
+    for (let a = 0; a <= 1.0001; a += 0.01) {
+      for (let b = 0; b <= 1.0001; b += 0.01) {
+        const scores: TagScores = { famous_food: Math.min(a, 1), roadside_oddity: Math.min(b, 1) };
+        const key = rankFor(scores, 1, chosen);
+        const answered = [a, b].filter((x) => x >= MOOD_ANSWERED).length;
+        if (answered === 2) minBand2 = Math.min(minBand2, key);
+        else if (answered === 1) {
+          minBand1 = Math.min(minBand1, key);
+          maxBand1 = Math.max(maxBand1, key);
+        } else maxBand0 = Math.max(maxBand0, key);
+      }
+    }
+    expect(maxBand0).toBeLessThan(minBand1);
+    expect(maxBand1).toBeLessThan(minBand2);
+  });
+
+  it("is not thrown off by a score the store should never have written", () => {
+    // The scores come from a SQLite table a bench script in another repo
+    // writes. A NaN would lose every comparison and read as absent, which
+    // is survivable; an Infinity would win every comparison and pin one
+    // place to the top of every list for ever, which is not.
+    const rubbish = { famous_food: Infinity, roadside_oddity: NaN } as unknown as TagScores;
+    expect(moodScore(rubbish, "food")).toBe(0);
+    expect(rankFor(rubbish, 0.5, ["food"])).toBeCloseTo(0.5);
+    const tooBig = { museum: 9e9 } as unknown as TagScores;
+    expect(moodScore(tooBig, "museums")).toBe(0);
+    const negative = { museum: -1 } as unknown as TagScores;
+    expect(moodScore(negative, "museums")).toBe(0);
+  });
+
+  it("answers rather than throwing when there are no scores at all", () => {
+    // A place the tagging pass has not reached yet reads as no scores.
+    expect(moodScore(null, "food")).toBe(0);
+    expect(moodScore(undefined, "food")).toBe(0);
+    expect(rankFor(null, 0.42, ["food"])).toBeCloseTo(0.42);
+    expect(rankFor(undefined, 0.42, [])).toBeCloseTo(0.42);
+  });
+
+  it("keeps an unbanded key inside the range a banded one is measured against", () => {
+    // A general score outside 0 to 1 would break the band separation the
+    // test above proves, so it is clamped rather than trusted.
+    expect(rankFor({}, 5, ["food"])).toBeLessThanOrEqual(1);
+    expect(rankFor({}, -3, ["food"])).toBeGreaterThanOrEqual(0);
+    expect(rankFor({}, NaN, ["food"])).toBe(0);
   });
 
   it("carries the same rule on if more moods than the screen allows ever arrive", () => {
