@@ -95,3 +95,47 @@ separation still holds and its test now walks each band at its worst case.
 
 This is scope added to a branch already in review, and the reason is that
 shipping a ranking I had just watched pick wrong would have been worse.
+
+## Council round 2 on #92 — 🟡 CONDITIONAL, both remediations applied
+
+**1. The clamp on the no-mood path.** `rankFor` returned `generalScore`
+untouched when nothing was chosen, while both banded paths clamped. The
+council called it minor. It is not: `chosen.length === 0` is the state of
+the list before anyone taps a chip, so the unguarded return was the most
+travelled line in the function, and a single corrupt row reached the
+comparator unchecked on the default screen. The expression now lives once,
+in `clamp01`, instead of being written a third time.
+
+I did not follow the council's suggested value. It asked that `Infinity`
+resolve to `1`; `clamp01` resolves it to `0`, which its own "or a safe
+clamped fallback" allows. Clamping a corrupt value *upward* to 1 would tie
+it with the best real place and let it win a stable sort — the exact
+failure `scoreOf` is documented as existing to prevent. A value nothing can
+be read from is not an answer, so it reads as no answer.
+
+**2. The tests.** `NaN`, `±Infinity`, out-of-range high and low, and a
+sort over a corrupt row proving it lands last rather than first.
+
+Mutation: `clamp01(generalScore)` on the no-mood path put back to `return
+generalScore`. The two new tests fail by name and the other thirty still
+pass — which is the point, since it shows the previous suite never covered
+that path. Restored from the copy taken first; `cmp` reports identical.
+
+**The deferred follow-up was worse than the council could see, so it is
+done too.** `data/tag-questions.json` was not merely un-synced: it was not
+in the repository at all, an untracked file in one working copy. The
+jev-lab bench reads it by path, and its own error message names
+`scripts/export-tag-questions.ts` — a script that had never been written.
+The cross-repo contract this branch's ship rule rests on ("so the
+vocabulary and the scorer cannot drift apart") was held together by one
+file on one disk.
+
+`tagQuestionsJson()` now lives beside the vocabulary it serialises, the
+script is its only writer, `bun run tags:export` runs it, and two tests
+compare the committed bytes with the module. Mutation: one word added to
+the `waterfall` question without re-exporting; both tests fail by name.
+The generated file is byte-identical to the one the bench actually read
+during the 31,941-place run, so committing it changes nothing already
+scored and locks it going forward.
+
+Gates: `npx vitest run` 582 green; `tsc --noEmit` clean; `eslint` 0 errors.

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, it, expect } from "vitest";
 import {
   ROADSIDE_TAGS,
@@ -14,6 +17,7 @@ import {
   moodScore,
   rankFor,
   toggleMood,
+  tagQuestionsJson,
   type RoadsideTag,
   type TagScores,
 } from "@/lib/roadside/tags";
@@ -279,6 +283,34 @@ describe("how a place ranks for what is chosen", () => {
     expect(rankFor({}, NaN, ["food"])).toBe(0);
   });
 
+  it("clamps the general score with no mood chosen, which is how the list first loads", () => {
+    // The no-mood path is not an edge: it is the state of the list before
+    // anyone taps a chip, so it is the most travelled line in the function.
+    // It returned `generalScore` untouched, so one corrupt row reached the
+    // comparator unchecked on the default screen.
+    expect(rankFor({}, NaN, [])).toBe(0);
+    expect(rankFor({}, Infinity, [])).toBe(0);
+    expect(rankFor({}, -Infinity, [])).toBe(0);
+    expect(rankFor({}, 5, [])).toBe(1);
+    expect(rankFor({}, -3, [])).toBe(0);
+    expect(rankFor({}, 0.42, [])).toBeCloseTo(0.42);
+  });
+
+  it("keeps a corrupt row from outranking a real one when no mood is chosen", () => {
+    // An Infinity clamped upward to 1 would tie the best real place and
+    // win on a stable sort. Treating it as no answer puts it at the
+    // bottom, which is where a row nothing can be read from belongs.
+    const rows = [
+      { id: "corrupt", general: Infinity },
+      { id: "good", general: 0.9 },
+      { id: "poor", general: 0.1 },
+    ];
+    const order = [...rows]
+      .sort((a, b) => rankFor({}, b.general, []) - rankFor({}, a.general, []))
+      .map((r) => r.id);
+    expect(order).toEqual(["good", "poor", "corrupt"]);
+  });
+
   it("carries the same rule on if more moods than the screen allows ever arrive", () => {
     // Two of the three answered, so the middle band, ordered by the best.
     expect(rankFor(bigTexan, 0.42, ["food", "oddities", "museums"])).toBeCloseTo(band1(0.9, 0.42));
@@ -319,5 +351,37 @@ describe("choosing and unchoosing", () => {
     expect(chosen).toEqual(["food"]);
     expect(after).not.toBe(chosen);
     expect(before).toHaveLength(0);
+  });
+});
+
+
+describe("the file the tagging bench reads", () => {
+  // The bench lives in another repository (jev-lab,
+  // bench/roadside_tag_score.py) and reads data/tag-questions.json for the
+  // eighteen questions instead of keeping its own copy, so that a tag
+  // cannot mean one thing to the scorer that wrote a score and another to
+  // the list that ranks on it. Nothing enforced that: the file was
+  // produced by hand and was not in the repository at all, so the module
+  // and the scorer could drift apart without anything failing.
+  const committed = () =>
+    readFileSync(fileURLToPath(new URL("../../../../data/tag-questions.json", import.meta.url)), "utf8");
+
+  it("is committed and matches the vocabulary exactly", () => {
+    // If this fails, run `bun run tags:export` and commit the result.
+    expect(committed()).toBe(tagQuestionsJson());
+  });
+
+  it("carries every tag and every mood in the shape the bench indexes by", () => {
+    const doc = JSON.parse(committed()) as {
+      tags: string[];
+      questions: Record<string, string>;
+      moods: Record<string, string[]>;
+    };
+    expect(doc.tags).toEqual([...ROADSIDE_TAGS]);
+    for (const tag of ROADSIDE_TAGS) expect(doc.questions[tag]).toBe(TAG_QUESTIONS[tag]);
+    expect(Object.keys(doc.moods)).toEqual([...MOODS]);
+    // Every tag rolls up into exactly one mood, which is what lets the
+    // bench's per-tag score become a mood score without a second table.
+    expect(Object.values(doc.moods).flat().sort()).toEqual([...ROADSIDE_TAGS].sort());
   });
 });

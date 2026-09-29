@@ -18,6 +18,7 @@
     "corridor:describe": "bun scripts/describe-corridor.ts",
     "label:sample": "bun scripts/label-sample.ts",
     "label:import": "bun scripts/label-import.ts",
+    "tags:export": "bun scripts/export-tag-questions.ts",
     "roadside:store": "bun build scripts/roadside-store.ts --target=node --external better-sqlite3 --outfile=data/osm/.build/roadside-store.mjs && node data/osm/.build/roadside-store.mjs",
     "roadside:describe": "bun build scripts/roadside-describe.ts --target=node --external better-sqlite3 --outfile=data/osm/.build/roadside-describe.mjs && node data/osm/.build/roadside-describe.mjs"
   },

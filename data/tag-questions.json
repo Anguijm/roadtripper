@@ -1,0 +1,78 @@
+{
+ "tags": [
+  "big_view",
+  "waterfall",
+  "rock_and_cave",
+  "garden",
+  "old_building",
+  "war_memorial",
+  "pioneer",
+  "native_american",
+  "public_art",
+  "museum",
+  "science_and_space",
+  "roadside_oddity",
+  "giant_thing",
+  "trains_and_industry",
+  "bridge_or_tower",
+  "cars_and_racing",
+  "famous_food",
+  "sports_place"
+ ],
+ "questions": {
+  "big_view": "This place exists to be looked out from: an overlook, a scenic pullout, a lookout, an observation deck or a vista point.",
+  "waterfall": "This place is a waterfall, a falls or a cascade.",
+  "rock_and_cave": "This place is a natural rock formation, a canyon, a gorge, a cave, a cavern, an arch, a butte or dunes.",
+  "garden": "This place is a planted garden, an arboretum, a botanical garden or a formal green space made to walk through.",
+  "old_building": "This place is a standing building or a ruin kept for its age: a fort, a mission, a courthouse, a jail, a schoolhouse, a homestead, a mill, a ghost town or a preserved historic house.",
+  "war_memorial": "This place commemorates a war, a battle or the people who fought in one: a battlefield, a war memorial, a veterans memorial, a preserved cannon, tank, ship or aircraft.",
+  "pioneer": "This place is about settling or crossing the frontier: a wagon trail, a stagecoach stop, a pony express station, a pioneer homestead or a settler monument.",
+  "native_american": "This place is a Native American site or memorial: a pueblo, a mound, petroglyphs, pictographs, a tribal cultural centre, or a monument to Native American people or history.",
+  "public_art": "This place is a work of art made to be seen in public: a sculpture, a statue, a mural, an installation or a carving.",
+  "museum": "This place is a museum, a heritage centre or a collection open to visitors.",
+  "science_and_space": "This place is about science, space or flight: an observatory, a planetarium, a rocket or missile, an aircraft or aviation collection, a science centre or a research site open to visitors.",
+  "roadside_oddity": "This place is a roadside oddity: strange, homemade, kitsch or funny, the kind of thing people pull over to photograph because it is odd rather than because it is important.",
+  "giant_thing": "This place is an oversized object built to be seen from the road, or claims to be the world's largest or biggest of something.",
+  "trains_and_industry": "This place is about railways or industry: a depot, a station, a locomotive, a caboose, a roundhouse, a mine, a mill, a furnace or a preserved factory.",
+  "bridge_or_tower": "This place is a structure worth looking at in itself: a notable bridge, an observation or water tower, a lighthouse, a windmill or a fire lookout.",
+  "cars_and_racing": "This place is about cars, motorcycles or racing: a speedway, a raceway, a drag strip, a car collection, or a landmark of a famous driving road such as Route 66.",
+  "famous_food": "This place is somewhere to eat or drink that people travel to on purpose: a landmark restaurant, a famous diner, a historic saloon, a destination barbecue, bakery, brewery or winery. An ordinary local restaurant is not.",
+  "sports_place": "This place is about sport: a stadium, an arena, a ballpark, a racetrack, a hall of fame, or a site where something famous in sport happened."
+ },
+ "moods": {
+  "outdoors": [
+   "big_view",
+   "waterfall",
+   "rock_and_cave",
+   "garden"
+  ],
+  "history": [
+   "old_building",
+   "war_memorial",
+   "pioneer",
+   "native_american"
+  ],
+  "art": [
+   "public_art"
+  ],
+  "museums": [
+   "museum",
+   "science_and_space"
+  ],
+  "oddities": [
+   "roadside_oddity",
+   "giant_thing"
+  ],
+  "machines": [
+   "trains_and_industry",
+   "bridge_or_tower",
+   "cars_and_racing"
+  ],
+  "food": [
+   "famous_food"
+  ],
+  "sports": [
+   "sports_place"
+  ]
+ }
+}

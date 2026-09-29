@@ -190,6 +190,18 @@ export function moodScore(scores: TagScores | null | undefined, mood: MoodId): n
 }
 
 /**
+ * A general score the module can trust: a finite number in 0 to 1, and 0
+ * for anything else. Non-finite becomes 0 rather than 1 deliberately. An
+ * `Infinity` clamped upward to 1 would win every comparison and pin one
+ * place to the top of the unbanded list for ever, which is the exact
+ * failure `scoreOf` exists to prevent; a corrupt value is not an answer,
+ * so it reads as no answer.
+ */
+function clamp01(n: number): number {
+  return Number.isFinite(n) ? Math.min(Math.max(n, 0), 1) : 0;
+}
+
+/**
  * How strong a mood's score has to be before the place counts as being
  * that kind of thing at all. Below it the place is not "a bit of an
  * Outdoors stop", it is simply not one, and a stack of 0.1s must never add
@@ -261,7 +273,7 @@ export const GENERAL_WEIGHT = 1 - MOOD_WEIGHT;
  * walks the range and holds this.
  */
 export function rankFor(scores: TagScores | null | undefined, generalScore: number, chosen: readonly MoodId[]): number {
-  if (chosen.length === 0) return generalScore;
+  if (chosen.length === 0) return clamp01(generalScore);
   let weakest = Infinity;
   let best = 0;
   let answered = 0;
@@ -271,12 +283,12 @@ export function rankFor(scores: TagScores | null | undefined, generalScore: numb
     if (s > best) best = s;
     if (s >= MOOD_ANSWERED) answered++;
   }
-  const general = Number.isFinite(generalScore) ? Math.min(Math.max(generalScore, 0), 1) : 0;
+  const general = clamp01(generalScore);
   if (answered === chosen.length) return 2 + weakest * MOOD_WEIGHT + general * GENERAL_WEIGHT;
   if (answered > 0) return 1 + best * MOOD_WEIGHT + general * GENERAL_WEIGHT;
   // Not banded: a place that answers nothing keeps the general score, which
   // is 0 to 1 and so sits under every banded key.
-  return Number.isFinite(generalScore) ? Math.min(Math.max(generalScore, 0), 1) : 0;
+  return clamp01(generalScore);
 }
 
 /**
@@ -342,3 +354,35 @@ export const TAG_QUESTIONS: Readonly<Record<RoadsideTag, string>> = {
     "This place is somewhere to eat or drink that people travel to on purpose: a landmark restaurant, a famous diner, a historic saloon, a destination barbecue, bakery, brewery or winery. An ordinary local restaurant is not.",
   sports_place: "This place is about sport: a stadium, an arena, a ballpark, a racetrack, a hall of fame, or a site where something famous in sport happened.",
 };
+
+/**
+ * The vocabulary as the tagging bench reads it.
+ *
+ * The bench lives in another repository (jev-lab,
+ * `bench/roadside_tag_score.py`) and reads `data/tag-questions.json`
+ * rather than keeping its own copy of the eighteen questions, so that a
+ * tag cannot come to mean one thing to the scorer that wrote the score
+ * and another to the list that ranks on it. The shape is fixed by that
+ * reader: `tags` in order, `questions` by tag, `moods` as the roll-up.
+ *
+ * `scripts/export-tag-questions.ts` is the only writer, and
+ * `__tests__/tags.test.ts` compares the committed file with these bytes,
+ * so editing a question without re-exporting fails CI rather than
+ * silently splitting the vocabulary in two.
+ */
+export function tagQuestionsDocument(): {
+  tags: RoadsideTag[];
+  questions: Record<string, string>;
+  moods: Record<string, RoadsideTag[]>;
+} {
+  return {
+    tags: [...ROADSIDE_TAGS],
+    questions: Object.fromEntries(ROADSIDE_TAGS.map((t) => [t, TAG_QUESTIONS[t]])),
+    moods: Object.fromEntries(MOODS.map((m) => [m, [...MOOD_CONFIG[m].tags]])),
+  };
+}
+
+/** The exact bytes `data/tag-questions.json` should hold. */
+export function tagQuestionsJson(): string {
+  return `${JSON.stringify(tagQuestionsDocument(), null, 1)}\n`;
+}
