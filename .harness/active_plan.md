@@ -119,3 +119,14 @@ The whole suite: 55 files, 548 tests green; `bun run type-check` 0 errors;
 `bun run lint` 0 errors (9 warnings, all older than this branch and none in
 its files). Not measured here: the 390 by 844 screenshot, which is the
 runner's.
+
+## Council round 1 on #90
+
+1. The fold and stylesheet tests named by path in the class comment of
+   `src/components/MoodChips.tsx`.
+2. `px-3` and `gap-1.5` explained at the class line as terms of the 501 px
+   sum; the wrap does not depend on them.
+3. `src/lib/personas` imports only `zod/v4` and a type-only import from
+   `@/lib/urban-explorer/types` (erased at compile); nothing server-only,
+   no `node:` module, no sqlite, no `process.env` (grep over the directory).
+   `MoodChips.tsx` pulls no server code into the client bundle through it.

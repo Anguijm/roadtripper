@@ -41,9 +41,11 @@ interface MoodChipsProps {
  * are 120 %), never one alone on a row and none cut (U4, round 1: the
  * critic saw "Outdoors" alone; U2, round 1: a strip that scrolled sideways
  * clipped the last chip to "GEARH"). Changing the 30 %: 25 % is four then
- * one, the one alone again. The fold test reads the literal `grow` and
- * `basis-[30%]` on every chip and the stylesheet test pins that the rule
- * compiles; the three-then-two on the phone is the runner's screenshot.
+ * one, the one alone again. The fold test
+ * (src/app/__tests__/home.fold.ssr.test.tsx) reads the literal `grow` and
+ * `basis-[30%]` on every chip, and the stylesheet test
+ * (src/app/__tests__/stylesheet.test.ts) pins that the rule compiles; the
+ * three-then-two on the phone is the runner's screenshot, not a test.
  */
 export default function MoodChips({ activeId, onChange, moods = PERSONA_ORDER }: MoodChipsProps) {
   return (
@@ -73,6 +75,12 @@ export default function MoodChips({ activeId, onChange, moods = PERSONA_ORDER }:
                 // Sentence case at 16 px with a 48 px target: a few over rule
                 // 7's 44, so a measurement of the painted box (the U2 round-1
                 // critic read 43) cannot land under it (rules 1, 2 and 7).
+                // `px-3` (12 px a side) and `gap-1.5` (6 px between glyph and
+                // word) are terms of the 501 px sum above: five words at 16 px
+                // plus five glyphs, gaps and paddings. Widening either widens
+                // the sum and never makes one row possible; narrowing them
+                // still leaves five chips well over 358 px, so the 30 % basis
+                // and the three-then-two wrap stand whatever these two are.
                 "flex items-center justify-center gap-1.5 px-3 min-h-[48px] text-base border transition-colors whitespace-nowrap",
                 // The 30 % is explained above; the fold test reads this string.
                 "grow basis-[30%]",
