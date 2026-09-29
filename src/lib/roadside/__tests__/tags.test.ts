@@ -15,6 +15,8 @@ import {
   SORT_MODES,
   SORT_LABELS,
   SORT_LEAD,
+  parseMoods,
+  MOODS_PARAM,
   moodScore,
   rankFor,
   toggleMood,
@@ -392,5 +394,54 @@ describe("the file the tagging bench reads", () => {
     // Every tag rolls up into exactly one mood, which is what lets the
     // bench's per-tag score become a mood score without a second table.
     expect(Object.values(doc.moods).flat().sort()).toEqual([...ROADSIDE_TAGS].sort());
+  });
+});
+
+
+describe("the moods a link carries", () => {
+  it("reads the ones it knows, in the order they were given", () => {
+    expect(parseMoods("food")).toEqual(["food"]);
+    expect(parseMoods("food,outdoors")).toEqual(["food", "outdoors"]);
+    // Order is kept because toggleMood drops the one chosen longest ago,
+    // and that has to mean the same after a reload as before it.
+    expect(parseMoods("outdoors,food")).toEqual(["outdoors", "food"]);
+    expect(parseMoods(" food , outdoors ")).toEqual(["food", "outdoors"]);
+  });
+
+  it("drops anything it cannot read rather than choosing a mood nobody asked for", () => {
+    for (const raw of ["", ",", ",,,", "banana", "FOOD", "food;outdoors", "  "]) {
+      expect(parseMoods(raw), JSON.stringify(raw)).toEqual([]);
+    }
+    // Not a string at all: a repeated query parameter arrives as an array.
+    for (const raw of [undefined, null, 0, 42, [], ["food"], {}, true]) {
+      expect(parseMoods(raw), JSON.stringify(raw)).toEqual([]);
+    }
+  });
+
+  it("never returns more than the screen can show, whatever the link says", () => {
+    expect(parseMoods("food,outdoors,museums")).toEqual(["food", "outdoors"]);
+    expect(parseMoods(MOODS.join(","))).toHaveLength(MAX_MOODS);
+    // A repeat is not a second choice.
+    expect(parseMoods("food,food")).toEqual(["food"]);
+    expect(parseMoods("food,food,outdoors")).toEqual(["food", "outdoors"]);
+  });
+
+  it("is not hurt by an outsized or hostile parameter", () => {
+    // The parameter comes off a URL anyone can edit. It is read, not
+    // trusted: nothing here indexes by it, and the result is a list of
+    // known ids or nothing at all.
+    expect(parseMoods("x".repeat(100_000))).toEqual([]);
+    expect(parseMoods(Array(50_000).fill("banana").join(","))).toEqual([]);
+    expect(parseMoods("<script>alert(1)</script>")).toEqual([]);
+    expect(parseMoods("__proto__,constructor")).toEqual([]);
+    expect(parseMoods("food," + "x".repeat(100_000))).toEqual(["food"]);
+    // Whatever comes back is always a real mood the vocabulary knows.
+    for (const raw of ["food,banana", "banana,food", "__proto__,food"]) {
+      for (const m of parseMoods(raw)) expect(MOODS, raw).toContain(m);
+    }
+  });
+
+  it("names the parameter once, for every screen that writes it", () => {
+    expect(MOODS_PARAM).toBe("moods");
   });
 });

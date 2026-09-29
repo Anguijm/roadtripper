@@ -275,3 +275,41 @@ finite — and its comment says that if it ever fails, the argument has
 stopped holding and the guards go in.
 
 Gates: 612 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Council round 2 on #94 — 🟢 CLEAR
+
+All seven angles at 10; bugs went 3 to 10. The five declines were accepted
+and the accessibility angle names the `aria-live` region as closing the
+gap it had marked.
+
+Two of the four deferred follow-ups are answered here rather than left:
+
+**The Firestore rules are already compatible.** `firestore.rules` guards
+`users/{userId}/saved_trips/{tripId}` by ownership alone — `allow read,
+write: if isOwner(userId)` — and validates no fields, so making
+`personaId` optional and adding `moods` cannot be refused by a rule. The
+enforcement of the shape is `SaveTripInputSchema` on the way in and
+`loadTrips` discarding anything that fails the schema on the way out.
+
+**`parseMoods` now has its own tests**, including the outsized and hostile
+cases: a 100,000-character parameter, fifty thousand unknown words, a
+script tag, and `__proto__,constructor`. All read as no moods, and a test
+asserts that whatever does come back is always a mood the vocabulary
+knows. It also covers a parameter that is not a string at all, which is
+what a repeated query parameter arrives as.
+
+The other two — a stable-sort assertion in `order.test.ts` and a Firestore
+backfill of legacy `personaId` — are genuinely deferred. The first is
+covered in substance by "orders two places that tie, rather than leaving
+them as they came"; the second is a data task, not a code change, and
+nothing reads `personaId` any more except `TripCard`'s resume link, which
+handles its absence.
+
+Gates: 617 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Where U6 stands
+
+Critic: approved on round 3 of six. Council: CLEAR. Gate 1: passed on
+every push. **Not merged.** The bar's own rule is that the operator sees
+the approved screenshots before merge and can send it back, and that gate
+is his, not the critic's and not the council's.
