@@ -421,3 +421,34 @@ Mutation: the fallback removed from `plan/page.tsx`, "opens a link built
 before U6 on the mood its persona meant" fails.
 
 Gates: 634 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Council round 6 on #94 — the same code, asked for from the opposite side
+
+Round 1 said the `history.replaceState` inside the `setChosenMoods`
+updater had to move out, offering either a `useEffect` on `chosenMoods` or
+the handler after computing the next value. I took the handler. Round 6
+asks for the other one: a functional update plus a dedicated effect, so
+two taps in one tick cannot both read the same `chosenMoods` and the
+second silently undo the first.
+
+Both rounds are right about the same area and the second is the fuller
+answer, so it is now the textbook shape: the handler does nothing but
+`setChosenMoods((curr) => toggleMood(curr, mood))`, and one effect on
+`chosenMoods` writes the URL and speaks, skipping the first render through
+a ref so neither happens when the moods merely came from the server.
+
+**No test covers this change, and the mutation proves it.** Reverting to
+the closure form leaves all 634 green. The suite is server-render only —
+`vitest.config.ts` sets `environment: "node"` and nothing in the project
+simulates a DOM event — so "two taps in one tick" is not a thing any test
+here can express. The fix is right by construction and by the React
+documentation, and it is unguarded: a future edit could put the closure
+form back and every gate would stay green.
+
+Closing that would mean adding jsdom and an interaction-testing library to
+a project that has neither, which is its own decision and not this
+component's to make. It is written down here instead of left as an
+assumption, and it belongs with the other untested claim on this branch:
+that the multi-select reads correctly aloud.
+
+Gates: 634 green; `tsc --noEmit` clean; `eslint` 0 errors.

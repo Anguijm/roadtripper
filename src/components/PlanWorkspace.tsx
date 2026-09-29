@@ -946,33 +946,44 @@ export default function PlanWorkspace({
     setChosenMoods(parseMoods(initialMoodKey));
   }, [initialMoodKey]);
 
-  const handleMoodToggle = useCallback(
-    (mood: MoodId) => {
-      // The next value is computed here, not inside a `setChosenMoods`
-      // updater, and the URL is written here too. A state updater must be
-      // pure: React runs it twice in Strict Mode and may discard a render
-      // and re-run it, so a `history.replaceState` inside one fires more
-      // than once per tap and can leave the URL describing a state the
-      // component never settled on. Council round 1 on #94.
-      const next = toggleMood(chosenMoods, mood);
-      setChosenMoods(next);
-      setListAnnouncement(
-        next.length === 0
-          ? "No mood chosen. The places are back in their usual order."
-          : `In the mood for ${next.map((m) => MOOD_CONFIG[m].label.toLowerCase()).join(" and ")}. The places are reordered.`
-      );
-      if (typeof window !== "undefined") {
-        // history.replaceState, never router.replace: /plan is
-        // force-dynamic and a route change re-invokes the Server Component,
-        // which re-bills the Routes API (architecture invariant).
-        const url = new URL(window.location.href);
-        if (next.length === 0) url.searchParams.delete(MOODS_PARAM);
-        else url.searchParams.set(MOODS_PARAM, next.join(","));
-        window.history.replaceState(null, "", url.toString());
-      }
-    },
-    [chosenMoods]
-  );
+  /**
+   * Whether a tap has changed the moods yet.
+   *
+   * The effect below writes the URL and speaks; neither should happen on
+   * the first render, when the moods came from the server and the URL
+   * already says so. A ref and not state: nothing renders differently
+   * because of it.
+   */
+  const moodsTappedRef = useRef(false);
+
+  const handleMoodToggle = useCallback((mood: MoodId) => {
+    // A functional update, so two taps in one tick cannot both read the
+    // same `chosenMoods` and the second silently undo the first; and
+    // nothing but the state change happens in here, because an updater
+    // must be pure — React runs it twice in Strict Mode and may discard a
+    // render and re-run it. The URL and the announcement are the effect's,
+    // which is the one place that sees the value React settled on.
+    // Council rounds 1 and 6 on #94, from opposite directions.
+    moodsTappedRef.current = true;
+    setChosenMoods((curr) => toggleMood(curr, mood));
+  }, []);
+
+  useEffect(() => {
+    if (!moodsTappedRef.current) return;
+    setListAnnouncement(
+      chosenMoods.length === 0
+        ? "No mood chosen. The places are back in their usual order."
+        : `In the mood for ${chosenMoods.map((m) => MOOD_CONFIG[m].label.toLowerCase()).join(" and ")}. The places are reordered.`
+    );
+    if (typeof window === "undefined") return;
+    // history.replaceState, never router.replace: /plan is force-dynamic
+    // and a route change re-invokes the Server Component, which re-bills
+    // the Routes API (architecture invariant).
+    const url = new URL(window.location.href);
+    if (chosenMoods.length === 0) url.searchParams.delete(MOODS_PARAM);
+    else url.searchParams.set(MOODS_PARAM, chosenMoods.join(","));
+    window.history.replaceState(null, "", url.toString());
+  }, [chosenMoods]);
 
   // ── Trip add/remove ────────────────────────────────────────────────────
   const handleAddCity = useCallback((city: AddCityPayload) => {
