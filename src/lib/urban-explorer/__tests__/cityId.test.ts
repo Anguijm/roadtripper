@@ -46,3 +46,31 @@ describe("an atlas city id", () => {
     expect(CITY_ID_PATTERN.flags).not.toContain("m");
   });
 });
+
+describe("what a saved trip may carry", () => {
+  it("accepts a roadside stop's id, which is not a city id", async () => {
+    // Council round 1 on #96 asked whether a trip holding a roadside stop
+    // still parses. It does, and this is what says so. The two limits are
+    // deliberately different: `CITY_ID_PATTERN` is the narrow one, for a
+    // value that reaches a read; `SavedTripStopSchema.cityId` is a plain
+    // length cap, because a trip's stop may be an OSM id.
+    const { SaveTripInputSchema } = await import("@/lib/trips/types");
+    const trip = {
+      fromName: "Amarillo",
+      toName: "Austin",
+      fromLat: 35.2073,
+      fromLng: -101.8338,
+      toLat: 30.2672,
+      toLng: -97.7431,
+      budgetHours: 4,
+      stops: [
+        { cityId: "osm:way:1059981743", cityName: "The Big Texan Steak Ranch", lat: 35.19381, lng: -101.7551 },
+        { cityId: "lubbock", cityName: "Lubbock", lat: 33.5779, lng: -101.8552 },
+      ],
+    };
+    const parsed = SaveTripInputSchema.safeParse(trip);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+    expect(isCityId(trip.stops[0].cityId)).toBe(false);
+    expect(isCityId(trip.stops[1].cityId)).toBe(true);
+  });
+});

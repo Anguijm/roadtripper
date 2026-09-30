@@ -308,6 +308,16 @@ export function localizedText(
  * over for silently left the drive times stale. Widening the pattern would
  * have been the wrong repair: the value means "the city whose places to
  * load", and a lookout has none.
+ *
+ * The 100 is a ceiling against an outsized value reaching a read, not a
+ * length any real id approaches — the atlas's longest slugs are city
+ * names. It is deliberately *tighter* than the 200 on
+ * `SavedTripStopSchema.cityId` in `src/lib/trips/types.ts`, which has to
+ * hold a roadside stop's OSM id as well and so cannot be this narrow.
+ * Loosening either one means re-reading
+ * `src/lib/urban-explorer/__tests__/cityId.test.ts`, which pins the
+ * anchors and the rejected shapes, and `src/lib/trips/__tests__` for what
+ * a saved trip may carry.
  */
 export const CITY_ID_PATTERN = /^[a-z0-9-]{1,100}$/;
 

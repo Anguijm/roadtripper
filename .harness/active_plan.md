@@ -96,3 +96,28 @@ trip is never a trap. Both critics were told it was missing; neither
 counted it against the component.
 
 Gates: 645 green; `tsc --noEmit` clean; `eslint` 0 errors.
+
+## Council round 1 on #96 — 🔴 BLOCK, two applied and two already true
+
+**3 and 4 applied.** `CITY_ID_PATTERN` now says what its 100 is for and
+that it is deliberately *tighter* than the 200 on
+`SavedTripStopSchema.cityId`, which has to hold an OSM id and so cannot be
+this narrow; the `MAX_TRIP_STOPS` check says the number is the Routes
+API's waypoint ceiling, that the server refuses first, and that the saved
+trip schema caps at the same number.
+
+**1 was already true, and there is now a test saying so.**
+`SavedTripStopSchema.cityId` is `z.string().min(1).max(200)` with no
+pattern, so an OSM id parses. The council asked for the test rather than
+assuming; the test parses a trip holding both a roadside stop and a town
+and asserts `isCityId` is false for the first and true for the second, so
+the two limits cannot quietly converge.
+
+**2 was already true and the build proves it.** `cityAtlas.ts` imports
+exactly one thing, `zod/v4` — no `server-only`, no admin client, no node
+builtin — and `npx next build` completes with the client bundle that
+imports `isCityId` from it through `PlanWorkspace`. A "confirm X" item is
+answered by confirming it, not by moving code.
+
+Gates: 648 green; `tsc --noEmit` clean; `eslint` 0 errors; `next build`
+succeeds.

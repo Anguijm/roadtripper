@@ -1086,6 +1086,12 @@ export default function PlanWorkspace({
     (place: RoadsideMarker) => {
       setTripStops((curr) => {
         if (curr.some((s) => s.cityId === place.id)) return curr.filter((s) => s.cityId !== place.id);
+        // `MAX_TRIP_STOPS` (defined at the top of this file) is the
+        // Routes API's waypoint ceiling, not a taste: a request past it is
+        // refused, and the server refuses first too — `actions.ts` returns
+        // `too_many_stops` before it spends anything. `SavedTripStopSchema`
+        // in `src/lib/trips/types.ts` caps its `stops` array at the same
+        // number so a saved trip cannot carry one that will not replan.
         if (curr.length >= MAX_TRIP_STOPS) return curr;
         return [...curr, { cityId: place.id, cityName: place.name, lat: place.lat, lng: place.lng }];
       });
