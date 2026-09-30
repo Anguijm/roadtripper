@@ -290,3 +290,38 @@ export function localizedText(
 ): string {
   return text[locale] ?? text.en;
 }
+
+/**
+ * What an atlas city's id looks like: a lower-case slug.
+ *
+ * One definition, because two things depend on agreeing about it.
+ * `recomputeAndRefreshAction` refuses a `selectedCityId` that does not
+ * match — it is passed to `fetchWaypointsForCandidates`, so it is
+ * untrusted input reaching a read — and the plan sheet has to know not to
+ * send one that would be refused.
+ *
+ * Gauntlet U7 is why this is shared rather than written twice. A roadside
+ * place can be a trip stop now, and its id is an OSM one
+ * (`osm:way:1059981743`), which has colons in it and is not a city id at
+ * all. The sheet was sending it as the selected city; the server rejected
+ * the whole recompute as invalid input, so adding a place worth pulling
+ * over for silently left the drive times stale. Widening the pattern would
+ * have been the wrong repair: the value means "the city whose places to
+ * load", and a lookout has none.
+ *
+ * The 100 is a ceiling against an outsized value reaching a read, not a
+ * length any real id approaches — the atlas's longest slugs are city
+ * names. It is deliberately *tighter* than the 200 on
+ * `SavedTripStopSchema.cityId` in `src/lib/trips/types.ts`, which has to
+ * hold a roadside stop's OSM id as well and so cannot be this narrow.
+ * Loosening either one means re-reading
+ * `src/lib/urban-explorer/__tests__/cityId.test.ts`, which pins the
+ * anchors and the rejected shapes, and `src/lib/trips/__tests__` for what
+ * a saved trip may carry.
+ */
+export const CITY_ID_PATTERN = /^[a-z0-9-]{1,100}$/;
+
+/** Whether `id` is shaped like an atlas city's id. See `CITY_ID_PATTERN`. */
+export function isCityId(id: unknown): id is string {
+  return typeof id === "string" && CITY_ID_PATTERN.test(id);
+}

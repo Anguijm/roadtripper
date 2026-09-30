@@ -42,3 +42,31 @@ Unchanged from round 1: the critic never reads the builder's notes; it gets the
 spec, the bar and the screenshots, and names the largest failure by rule number or
 approves. At most six rounds, then the state goes to the operator with the
 screenshots.
+
+## Ship rule for U7, declared before the build
+
+Written 2026-09-30, before the builder ran.
+
+U7 ships when the critic approves the phone screenshots (390 px) of the
+roadside card in its three states — offering "+ Stop here", showing
+"✓ Added" for a place already in the trip, and with the control off and
+the reason beside it at the trip's cap — against rules 1, 3, 4 and 7 of
+the bar; and when the SSR tests in the spec pass: the three states, that
+adding a roadside place puts it in the trip's stops, and that adding the
+same place twice leaves one stop. Gate 1 before every push; the council on
+the code.
+
+**Numbering.** `round-1-report.md` routed this residual forward as "U6".
+That name went to the moods and the sort control (#94) before this was
+built, so the residual is U7 and the spec says so. The residual itself is
+unchanged: it is still U1's, "Add as a stop from the roadside card".
+
+**What this must not do.** A roadside place is not a town. `stopTownFrom`
+already falls back to a town synthesised from the stop's own name and
+coordinates with no places in it, so nothing crashes, but the sheet must
+not read as though a lookout or a diner had places inside it.
+
+## Cost of the round
+
+$0 in API calls. Adding a stop already recomputes the route; this is a
+second way to reach an action the sheet has, not a new call.
