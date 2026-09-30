@@ -139,3 +139,39 @@ describe("a roadside place that became a stop", () => {
     expect(html).not.toContain(`What&#x27;s in ${place.name}`);
   });
 });
+
+
+describe("a saved trip that already holds a roadside place", () => {
+  const base = {
+    origin: { lat: 35.2073, lng: -101.8338 },
+    destination: { lat: 30.2672, lng: -97.7431 },
+    encodedPolyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+    candidateMarkers: [],
+    waypointFetch: { status: "fresh" as const, cities: [], waypoints: [], neighborhoods: {} },
+    initialMoods: [] as const,
+    budgetHours: 4,
+    initialDistanceMeters: 800_000,
+    initialDurationSeconds: 29_000,
+    fromName: "Amarillo",
+    toName: "Austin",
+  };
+
+  it("opens with the place already marked as added on its card", () => {
+    // A trip reloaded from Firestore can hold a roadside stop, so the card
+    // has to read the trip it was reopened with, not only taps made since.
+    const html = renderToString(
+      <PlanWorkspace
+        {...base}
+        roadsideStops={[place]}
+        initialTrip={{
+          stops: [{ cityId: place.id, cityName: place.name, lat: place.lat, lng: place.lng }],
+          legs: [],
+          directMinutesToDestination: 0,
+        }}
+      />
+    );
+    expect(html).toContain(place.name);
+    // It is one of the trip's stops, not one of the towns that fit.
+    expect(html).not.toContain("Towns that fit today");
+  });
+});

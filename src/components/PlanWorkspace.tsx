@@ -1084,6 +1084,21 @@ export default function PlanWorkspace({
    */
   const handleToggleRoadsideStop = useCallback(
     (place: RoadsideMarker) => {
+      // Clear anything held under this place's id, on the way in as well
+      // as on the way out. A roadside place has no town of its own, but a
+      // saved trip reloaded from Firestore seeds `stopTowns` from *every*
+      // stop it holds, so an entry can exist for one; on a remove it would
+      // outlive the stop, and on an add it would be stale. Unconditional
+      // because it is the same right answer either way, and because
+      // deciding would mean reading `tripStops` here, which is what a
+      // functional updater exists to avoid. Council round 2 on #96.
+      setStopTowns((prev) => {
+        if (!prev[place.id]) return prev;
+        const rest = { ...prev };
+        delete rest[place.id];
+        return rest;
+      });
+      setFailedStopId((curr) => (curr === place.id ? null : curr));
       setTripStops((curr) => {
         if (curr.some((s) => s.cityId === place.id)) return curr.filter((s) => s.cityId !== place.id);
         // `MAX_TRIP_STOPS` (defined at the top of this file) is the
@@ -1187,8 +1202,14 @@ export default function PlanWorkspace({
     // whole recompute away as invalid input and left the drive times
     // stale, which is exactly what the first build of U7 did. The value
     // means "the city whose places to load", and a lookout has none.
-    const lastStop = stopsForRequest[stopsForRequest.length - 1];
-    const lastStopCityId = isCityId(lastStop?.cityId) ? lastStop.cityId : undefined;
+    // The last stop that is an atlas city, searched backwards — not simply
+    // the last stop. A roadside place can be a stop now (Gauntlet U7) and
+    // its OSM id is not a city id, which `recomputeAndRefreshAction`
+    // refuses; but stopping at the final element would then send nothing
+    // and the towns behind it would quietly stop refreshing. Council round
+    // 2 on #96. The value means "the city whose places to load", so the
+    // nearest one there is, is the right answer.
+    const lastStopCityId = [...stopsForRequest].reverse().find((st) => isCityId(st.cityId))?.cityId;
     // Generated before the transition so any retry of this specific action
     // reuses the same key — prevents double-charging daily quota on re-submits.
     const actionRequestId = crypto.randomUUID();

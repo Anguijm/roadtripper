@@ -121,3 +121,27 @@ answered by confirming it, not by moving code.
 
 Gates: 648 green; `tsc --noEmit` clean; `eslint` 0 errors; `next build`
 succeeds.
+
+## Council round 2 on #96 — both real, and both mine
+
+**1. I broke the towns' refresh while fixing the recompute.** Sending
+`undefined` when the *last* stop is a roadside place meant that a trip of
+[Lubbock, The Big Texan] sent no selected city at all, so the towns behind
+the roadside stop quietly stopped refreshing. It now searches backwards
+for the last stop that is an atlas city, which is what "the city whose
+places to load" should always have meant.
+
+**2. A narrow but real leak.** A saved trip reloaded from Firestore seeds
+`stopTowns` from *every* stop it holds, roadside ones included, so an
+entry can exist for a roadside place. Taking it out from the card left the
+entry behind. Cleared now, on the way in as well as out, because that is
+the same right answer either way and deciding would mean reading
+`tripStops` inside the handler.
+
+**Neither fix is guarded, and the mutation says so.** Putting the raw last
+stop back leaves all 649 green. Both live in a client effect that builds a
+server-action payload, which the SSR suite never runs — the same blind
+spot as the U6 functional-update fix, and the same reason: `environment:
+"node"` and no DOM. It belongs to issue #95 rather than to this branch.
+
+Gates: 649 green; `tsc --noEmit` clean; `eslint` 0 errors.
