@@ -53,6 +53,7 @@ import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg }
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
 import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
+import { isCityId } from "@/lib/urban-explorer/cityAtlas";
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -300,7 +301,32 @@ export function roadsideSwipeCloses(dx: number, dy: number): boolean {
  * a sideways swipe across it. `about` and `name` are
  * untrusted text and are rendered as text.
  */
-export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideMarker; anchor?: RoadsideAnchor | null; onClose?: () => void }) {
+export function RoadsideCard({
+  stop,
+  anchor = null,
+  onClose,
+  isAdded = false,
+  atCap = false,
+  onToggleStop,
+}: {
+  stop: RoadsideMarker;
+  anchor?: RoadsideAnchor | null;
+  onClose?: () => void;
+  /** Whether this place is already one of the trip's stops. */
+  isAdded?: boolean;
+  /** Whether the trip already holds all the stops it can (`MAX_TRIP_STOPS`). */
+  atCap?: boolean;
+  /**
+   * Put this place in the trip, or take it out again when it is already in
+   * (Gauntlet U7). Left off in the tests that render the card on its own;
+   * the control is then not drawn at all, rather than drawn and dead.
+   */
+  onToggleStop?: () => void;
+}) {
+  // The same three states, words and colours as a town's control in
+  // RecommendationList: a card and a town row must not offer the same
+  // action under two names (quality bar, rule 1).
+  const canAdd = !isAdded && !atCap;
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   return (
     <section
@@ -340,11 +366,58 @@ export function RoadsideCard({ stop, anchor = null, onClose }: { stop: RoadsideM
       <p data-roadside-where className="text-base text-[#8b949e]">
         {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm, anchor)}
       </p>
+      {/* The one obvious action on this card is putting the place in the
+          trip (rule 3), so it comes before "Open in Maps", which leaves
+          the app. At the cap it is off and the reason is the sentence
+          under it, never the control's own label. */}
+      {onToggleStop && (
+        <>
+          <button
+            type="button"
+            data-roadside-add
+            onClick={onToggleStop}
+            disabled={!isAdded && !canAdd}
+            title={isAdded ? "Take this stop out" : atCap ? "The trip has all the stops it can hold" : "Stop here"}
+            className={[
+              "flex items-center justify-center w-full min-h-[44px] text-base border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+              // U7 round 1 failed rule 3 on the weight of these three
+              // states, not their words. The first cut gave this control
+              // the town row's quiet outline and left "Open in Maps" in
+              // full gold, so the one thing the card exists to offer was
+              // the faintest mark on it and the loudest one sent the
+              // person out of the app; and the added state was the
+              // brightest block on the sheet, which made the most
+              // inviting target the one that undoes the add.
+              //
+              // Offering it is now the card's one loud control, filled in
+              // the gold the card is bordered and headed in. Added is
+              // calm: a gold rule and gold text on the card's own
+              // background, which reads as done rather than as a thing to
+              // press, while staying tappable so a stop can come out.
+              isAdded
+                ? "border-[#e3b341] bg-transparent text-[#e3b341] font-normal hover:bg-[#1c2128]"
+                : canAdd
+                  ? "border-transparent bg-[#e3b341] text-[#0d1117] font-semibold hover:bg-[#f0c454]"
+                  : "border-[#21262d] text-[#6e7681] cursor-not-allowed",
+            ].join(" ")}
+          >
+            {isAdded ? "✓ Added" : "+ Stop here"}
+          </button>
+          {!isAdded && atCap && (
+            <p className="text-base text-[#b0b9c2]" role="status">
+              The trip has all the stops it can hold; take one out to add another.
+            </p>
+          )}
+        </>
+      )}
       <a
         href={roadsideMapsUrl(stop)}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center w-full min-h-[44px] text-base border border-[#e3b341] text-[#e3b341] hover:bg-[#e3b341] hover:text-[#0d1117] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+        // Quiet, and quieter than "+ Stop here": this link leaves the app,
+        // so it must not be the loudest thing on a card whose own action
+        // is to keep the person in it (U7 round 1, rule 3).
+        className="flex items-center justify-center w-full min-h-[44px] text-base border border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc] transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
       >
         Open in Maps
       </a>
@@ -999,6 +1072,27 @@ export default function PlanWorkspace({
     setStopTowns((prev) => (prev[city.cityId] ? prev : { ...prev, [city.cityId]: stopTownFrom(effectiveWaypointFetch, stop) }));
   }, [effectiveWaypointFetch]);
 
+  /**
+   * Put a roadside place in the trip, or take it out again (Gauntlet U7).
+   *
+   * A roadside place becomes a stop like any other, keyed by its own id in
+   * the field called `cityId`. That field's name is wrong for these
+   * values and its type cannot say so — noted in the branch's plan as this
+   * unit's weakest part. Nothing downstream breaks: `stopTownFrom` already
+   * falls back to a town built from the stop's own name and coordinates
+   * with no places in it, which is the truth about a lookout.
+   */
+  const handleToggleRoadsideStop = useCallback(
+    (place: RoadsideMarker) => {
+      setTripStops((curr) => {
+        if (curr.some((s) => s.cityId === place.id)) return curr.filter((s) => s.cityId !== place.id);
+        if (curr.length >= MAX_TRIP_STOPS) return curr;
+        return [...curr, { cityId: place.id, cityName: place.name, lat: place.lat, lng: place.lng }];
+      });
+    },
+    []
+  );
+
   const handleRemoveCity = useCallback((cityId: string) => {
     setTripStops((curr) => curr.filter((s) => s.cityId !== cityId));
     setStopTowns((prev) => {
@@ -1081,7 +1175,14 @@ export default function PlanWorkspace({
       lat: s.lat,
       lng: s.lng,
     }));
-    const lastStopCityId = stopsForRequest[stopsForRequest.length - 1]?.cityId;
+    // Only when the last stop is an atlas city. A roadside place can be a
+    // stop now (Gauntlet U7) and its id is an OSM one with colons in it,
+    // which `recomputeAndRefreshAction` refuses — it would have thrown the
+    // whole recompute away as invalid input and left the drive times
+    // stale, which is exactly what the first build of U7 did. The value
+    // means "the city whose places to load", and a lookout has none.
+    const lastStop = stopsForRequest[stopsForRequest.length - 1];
+    const lastStopCityId = isCityId(lastStop?.cityId) ? lastStop.cityId : undefined;
     // Generated before the transition so any retry of this specific action
     // reuses the same key — prevents double-charging daily quota on re-submits.
     const actionRequestId = crypto.randomUUID();
@@ -1752,7 +1853,14 @@ export default function PlanWorkspace({
                     >
                       {cardHere && (
                         <div ref={roadsideCardRef} className="scroll-mt-2 mb-2">
-                          <RoadsideCard stop={selectedRoadside} anchor={roadsideAnchor(selectedRoadside, roadTowns)} onClose={clearRoadside} />
+                          <RoadsideCard
+                            stop={selectedRoadside}
+                            anchor={roadsideAnchor(selectedRoadside, roadTowns)}
+                            onClose={clearRoadside}
+                            isAdded={addedCityIds.has(selectedRoadside.id)}
+                            atCap={atCap}
+                            onToggleStop={() => handleToggleRoadsideStop(selectedRoadside)}
+                          />
                         </div>
                       )}
                       {/* The heading, ten rows and the control add up to

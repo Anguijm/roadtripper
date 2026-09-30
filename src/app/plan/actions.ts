@@ -15,6 +15,7 @@ import {
   hopReachMinutes,
 } from "@/lib/routing/validation";
 import { LatLngSchema, deriveStartDate } from "@/lib/plan/types";
+import { isCityId } from "@/lib/urban-explorer/cityAtlas";
 import type { WaypointFetchResult, NeighborhoodLoadState } from "@/lib/routing/scoring";
 import {
   checkRateLimit,
@@ -173,10 +174,10 @@ export async function recomputeAndRefreshAction(
   if (!isBudgetHoursInRange(budgetHours)) {
     return { ok: false, error: "invalid_input" };
   }
-  if (
-    selectedCityId !== undefined &&
-    !/^[a-z0-9-]{1,100}$/.test(selectedCityId)
-  ) {
+  // `isCityId` rather than a literal pattern: the plan sheet reads the
+  // same one to decide what it may send, and a roadside stop's OSM id is
+  // not a city id (Gauntlet U7).
+  if (selectedCityId !== undefined && !isCityId(selectedCityId)) {
     return { ok: false, error: "invalid_input" };
   }
 

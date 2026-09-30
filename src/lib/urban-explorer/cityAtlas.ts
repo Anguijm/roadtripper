@@ -290,3 +290,28 @@ export function localizedText(
 ): string {
   return text[locale] ?? text.en;
 }
+
+/**
+ * What an atlas city's id looks like: a lower-case slug.
+ *
+ * One definition, because two things depend on agreeing about it.
+ * `recomputeAndRefreshAction` refuses a `selectedCityId` that does not
+ * match — it is passed to `fetchWaypointsForCandidates`, so it is
+ * untrusted input reaching a read — and the plan sheet has to know not to
+ * send one that would be refused.
+ *
+ * Gauntlet U7 is why this is shared rather than written twice. A roadside
+ * place can be a trip stop now, and its id is an OSM one
+ * (`osm:way:1059981743`), which has colons in it and is not a city id at
+ * all. The sheet was sending it as the selected city; the server rejected
+ * the whole recompute as invalid input, so adding a place worth pulling
+ * over for silently left the drive times stale. Widening the pattern would
+ * have been the wrong repair: the value means "the city whose places to
+ * load", and a lookout has none.
+ */
+export const CITY_ID_PATTERN = /^[a-z0-9-]{1,100}$/;
+
+/** Whether `id` is shaped like an atlas city's id. See `CITY_ID_PATTERN`. */
+export function isCityId(id: unknown): id is string {
+  return typeof id === "string" && CITY_ID_PATTERN.test(id);
+}
