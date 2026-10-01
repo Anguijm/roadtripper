@@ -2,18 +2,23 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-05-11** (Session 24 — PRs #34, #35 merged: arrival mode V2 + persona-aware neighborhood ranking).
+Last refreshed: **2026-10-01** (round 2 of the interface build closed — PRs #92, #93, #94, #96 merged: the tag vocabulary, the join, the moods on screen, and "Stop here" from the roadside card).
 
 ## Now (this week)
 
-- **Mobile smoke test** — verify OKC + Tulsa surface as candidates on Dallas → [far destination], 5h/day budget. Deploy is live (PR #26 auto-deployed). Still pending from S21.
+- **The jsdom decision** — [#95](https://github.com/Anguijm/roadtripper/issues/95). Three client fixes from round 2 are unguarded: reverting any one leaves all 649 tests green, because the suite is `environment: "node"` and never runs a handler. The mood chips also became a multi-select and nobody has heard it read aloud. Operator's call: adding jsdom is infrastructure, not a feature branch's to spend.
+- **Mobile smoke test** — verify OKC + Tulsa surface as candidates on Dallas → [far destination], 5h/day budget. Deploy is live (PR #26 auto-deployed). Pending since S21; older than most of what is above it.
 
 ## Next (queued, scoped)
 
-None queued.
+- **A place in the trip is not marked in the day's list** — [#97](https://github.com/Anguijm/roadtripper/issues/97). Its card reads "✓ Added" while the list shows it like any other place. Small UI unit; needs a spec and a critic round.
 
 ## Someday (architectural ideas, daydreams)
 
+- A map-first today screen. Left for the operator in `gauntlet/round-1-report.md` and never scoped.
+- Icons for the eight moods, if they are ever wanted back: one drawn set at one size, each shape meaning its mood, no two telling apart only by fill. `MoodConfig` has no `glyph` field and a test asserts its absence, so this is a deliberate act rather than a regression.
+- Rename `TripStopMarker.cityId`. A roadside stop is a trip stop now and its id is an OSM one, so the field name is wrong for some of its values and the compiler cannot say so. Touches the saved-trip schema.
+- A Firestore backfill translating legacy `personaId` to `moods`. Nothing reads `personaId` any more except `TripCard`'s resume link, which handles its absence, so this is tidying rather than a fix.
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
 - Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
 - Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
@@ -24,13 +29,20 @@ None queued.
 
 ## Open issues
 
-None. (`gh issue list` returned empty as of 2026-04-30.)
+- [#95](https://github.com/Anguijm/roadtripper/issues/95) — no DOM/interaction tests: three client fixes are unguarded.
+- [#97](https://github.com/Anguijm/roadtripper/issues/97) — a place in the trip is not marked in the day's list.
 
 ## In flight
 
 None.
 
 ## Completed
+
+### Round 2 of the interface build (2026-09-29–30) — see `gauntlet/round-2-report.md`
+- ✓ PR #92 — T1: the eighteen tags, the eight moods, the roll-up, the question each tag is asked, and how one or two chosen moods rank a place. Banded ranking (answers both / one / neither), `MOOD_ANSWERED` 0.35, within-band tiebreak nine parts mood to one part general score. 2 council rounds.
+- ✓ PR #93 — T2: `survivorsAlongRoute` attaches tag scores, read from `roadside_tag` in chunks after the corridor narrows. Found: a store built before the tagging pass has no such table and every roadside marker would have vanished silently. 2 council rounds.
+- ✓ PR #94 — U6: eight mood chips, two at a time, plus the order control; `rankFor` orders the day's places; moods mapped onto the towns' waypoint types where they fit. 3 critic rounds, 7 council rounds.
+- ✓ PR #96 — U7: "Stop here" from the roadside card (U1's residual). Found by screenshot, not by test: `selectedCityId` rejected a roadside OSM id, so adding a place left the drive times stale. 2 critic rounds, 2 council rounds.
 
 ### Session 24 (2026-05-09–10)
 - ✓ PR #34 — Arrival mode V2: dynamic `startDate` re-derivation on each recompute. `DateDerivationResult` DU (`{status:"ok",date}|{status:"failed"}|null`) in `actions.ts`. `effectiveStartDate` state + aria-live + amber failure banner in PlanWorkspace. [skip council] R3 (i18n fabricated).

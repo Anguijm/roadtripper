@@ -2,16 +2,34 @@
 
 ## Start here next session
 
-**Current branch: `main`**. No open PRs. Local in sync with origin.
+**Current branch: `main`**. Local in sync with origin.
 
-**Main is at `8e321ea`** (last merged: PR #35 — persona-aware neighborhood ranking, Session 24).
+**Main is at `89feba2`** (last merged: PR #96 — U7, "Stop here" from the roadside card).
 
-**Session 24 shipped (PRs #34, #35 — 2026-05-10):**
-- PR #34: Arrival mode V2 — dynamic `startDate` re-derivation as stops are added. `recomputeAndRefreshAction` accepts optional `endDate`, returns `DateDerivationResult` DU (`{status:"ok",date}|{status:"failed"}|null`). `PlanWorkspace` holds `effectiveStartDate` state + aria-live announcement + amber failure banner.
-- PR #35: Persona-aware neighborhood ranking. `scoreNeighborhood(trendingScore, waypoints, persona)` in `scoring.ts`; `NeighborhoodPanel` accepts `personaId: string|null` and sorts by `trending_score × bestTypeWeight(persona)`. `Number(x??0)||0` coercion guards Firestore schema drift. Key-based `aria-live` for reorder announcements (no setState-in-effect). 8 council rounds; CLEAR at R8.
+**Round 2 of the interface build shipped (PRs #92, #93, #94, #96 — 2026-09-29 to 30).**
+Full write-up in `gauntlet/round-2-report.md`; the one-line version is that the
+tag work went from a store column to something you can tap. Pick up to two
+moods on the plan sheet, the day's places reorder on real per-tag scores, and a
+place worth pulling over for can go into the trip from its own card.
 
-**Next: choose from Someday.** Highest-impact candidates:
-1. "Optimize stop order" toggle — `optimizeWaypointOrder` Routes API flag, small/self-contained
+- #92 — the eighteen tags, the eight moods, and the banded ranking (`src/lib/roadside/tags.ts`).
+- #93 — `survivorsAlongRoute` attaches tag scores from `roadside_tag`, after the corridor narrows.
+- #94 — the chips became eight moods, two at a time, plus the order control. The five personas are gone from every screen; `src/lib/personas` stays because the *towns'* places are scored from waypoint types, not tags, and `waypointProfileForMoods` maps moods onto those.
+- #96 — "Stop here" on the roadside card, and `isCityId` shared between the server that refuses a `selectedCityId` and the client that decides what to send.
+
+**Things that changed shape and will surprise you:**
+- `RecommendationList` and `NeighborhoodPanel` take a `PersonaConfig` profile and a `moodKey`, not a persona id. Two moods have no single id between them.
+- `MoodConfig` has no `glyph`. A test asserts its absence.
+- `SaveTripInputSchema.personaId` is optional and `moods` sits beside it; trips saved before U6 still parse and reopen.
+- A trip stop's `cityId` may be an OSM id, because a roadside place can be a stop now. The field name is wrong for those values and the compiler cannot say so.
+
+**Next: the jsdom decision (#95) is the live one.** Three client fixes from round
+2 are unguarded — reverting any one leaves all 649 tests green, because the
+suite is `environment: "node"` and never runs a handler. The chips also became
+a multi-select and nobody has heard it read aloud. It is infrastructure, so it
+is the operator's call rather than a feature branch's.
+
+Then `BACKLOG.md`, whose Now and Next are current as of 2026-10-01.
 2. Map polygon rendering for neighborhoods (schema doesn't carry polygons today — schema change needed first)
 3. CitySchema reconciliation: nested `location.{latitude,longitude}` vs flat `lat/lng` (deferred from city-atlas-service#26)
 
