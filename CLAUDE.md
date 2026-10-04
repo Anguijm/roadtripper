@@ -18,36 +18,47 @@ bun run test         # vitest run (53 unit tests, isomorphic layer)
 bun run test:watch   # vitest watch mode
 ```
 
-## Council — mandatory pre-EXECUTE gate
+## Merging — what gates a PR, and what the council is now
 
 **ALL changes go through a PR — no exceptions, no direct pushes to main.**
-`[skip council]` skips the council *job*, not the PR. Even docs/chore commits
-need a branch + PR. GitHub branch protection now enforces this at the API
-level; the local pre-push hook (`.git/hooks/pre-push`) blocks it locally.
+GitHub branch protection enforces this at the API level; the pre-push hook
+blocks it locally.
 
-Standard flow — **always use CI diff review, not the local runner**:
+**The council is advisory, not a gate** (operator, 2026-10-04). It still runs
+in CI on every push (`.github/workflows/council.yml`) and posts one
+re-edited comment. Read it, apply what is real, decline the rest in a line
+on the PR with the evidence, and **never wait for a CLEAR to merge.**
 
-```bash
-# 1. Save plan to Plans/session-N-<slug>.md and commit it on a feature branch
-git checkout -b feat/my-feature
-git add Plans/... && git commit -m "docs: session N plan [skip council]"
+Why it changed, from round 2 of the interface build (`gauntlet/round-2-report.md`):
+it caught real bugs nothing else would — a fix of mine that silently broke the
+towns' refresh, and a comment describing code that was never written — but it
+was wrong almost as often as right (one round had five of nine items that did
+not hold up), it contradicted itself round over round on the same lines, a
+CLEAR flipped back to CONDITIONAL on a test-only commit, and by the time it saw
+anything the diff was big enough that every round was expensive.
 
-# 2. Implement, push branch, open PR
-gh pr create ...
+**Read it closely, though not as a gate, for anything touching a server action,
+a Zod schema that crosses the server boundary, the saved-trip schema, or the
+roadside store.** That is where its real finds were.
 
-# 3. CI runs the council automatically on push (council.yml).
-#    Check the <!-- council-report --> comment on the PR.
-#    Proceed → merge. Revise → fix, push, wait for next run.
+**What gates a merge now:**
 
-# 4. Merge via PR (never git push origin main directly)
-git stash && gh pr merge <N> --squash && git stash drop
-```
+1. **Gate 1** — `.harness/hooks/pre-push`: lint, type-check, the tests, the
+   lockfile, and `.harness/active_plan.md` naming the branch with `Cost:` and
+   `Weakest part:` lines.
+2. **A mutation proof before pushing**, not after someone doubts the test:
+   put the old code back, watch the new test go red, restore from a copy and
+   `cmp` it. Three tests in round 2 certified the wrong thing, and in each case
+   the mutation proof was what settled it — run only after something else had
+   raised the question.
+3. **For a screen: the critic's approval** against `gauntlet/quality-bar.md`,
+   judged blind from a 390 px screenshot, then **the operator's look** at the
+   approved screenshots. The bar's own rule; unchanged.
+4. **For anything that calls a server action: a live run**, not only the
+   tests. The stale-drive-times bug in #96 passed every test because the
+   suite never calls a server action; one screenshot of a real state found it.
 
-`GEMINI_API_KEY` lives in GitHub Actions secrets. Never ask to set it locally — always use the CI path above.
-
-The CI workflow (`.github/workflows/council.yml`) re-runs automatically on every PR push and posts a single re-edited comment. Add `[skip council]` to the PR title to skip the council job for trivial/docs-only changes — the PR is still required.
-
-**The AI writing code cannot self-approve.** Proceed from the council runner is the gate, not a judgment call in conversation.
+`[skip council]` in a PR title still skips the CI job, for docs and chores.
 
 ## Architecture invariants — do not violate
 

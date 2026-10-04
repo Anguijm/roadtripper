@@ -79,9 +79,10 @@ For a screen, the critic's evidence is the phone screenshot (390 px, device emul
 never by the builder, plus the glossary and this bar. The critic writes: the largest
 failure against a numbered rule, or "approved", and nothing about the code.
 
-Every component still passes Gate 1 (`.harness/hooks/pre-push`) and goes to the council
-as a pull request; council items about the code are applied or answered as before; a
-council item about the words or the layout is answered by pointing at this bar.
+Every component still passes Gate 1 (`.harness/hooks/pre-push`) and goes in as a pull
+request. Since 2026-10-04 the council is advisory rather than a gate (CLAUDE.md, "Merging"):
+its items about the code are applied or answered, never waited on; a council item about
+the words or the layout is answered by pointing at this bar.
 
 ## Hard stops (the operator is the brake)
 
