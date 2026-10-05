@@ -70,3 +70,15 @@ not read as though a lookout or a diner had places inside it.
 
 $0 in API calls. Adding a stop already recomputes the route; this is a
 second way to reach an action the sheet has, not a new call.
+
+## Ship rule for U8, declared before the build
+
+Written 2026-10-06, before the builder ran, and the first component judged
+under CLAUDE.md's "Merging" section rather than with the council as a gate.
+
+U8 ships when the critic approves the 390 px screenshots of the day's list
+with a roadside place in the trip and its card open, and of a reloaded trip
+holding one, against rules 1, 4, 5 and 7; when the tests pass — no town
+section for a reloaded roadside stop, and the row saying it is in the trip
+and then not; when a mutation proof has turned each new test red before the
+push; and when the operator has looked at the screenshots.
