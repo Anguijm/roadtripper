@@ -539,7 +539,12 @@ export default function PlanWorkspace({
   const [stopTowns, setStopTowns] = useState<Record<string, StopTown>>(() => {
     const out: Record<string, StopTown> = {};
     const from = initialTrip?.addedFrom ?? waypointFetch;
-    for (const s of initialTrip?.stops ?? []) out[s.cityId] = stopTownFrom(from, s);
+    // Atlas cities only (Gauntlet U8, #99). A saved trip can hold a
+    // roadside place since U7, and every entry here becomes a city
+    // `sheetFetch` lists, so seeding one for a steakhouse drew a town
+    // section for it on reload. `isCityId` is the same test the recompute
+    // path uses to decide what is a city.
+    for (const s of initialTrip?.stops ?? []) if (isCityId(s.cityId)) out[s.cityId] = stopTownFrom(from, s);
     return out;
   });
   // TripState tracks accumulated leg times + budget status. Built from
@@ -1909,19 +1914,47 @@ export default function PlanWorkspace({
                               type="button"
                               onClick={() => handleRoadsideSelect(s.id)}
                               aria-expanded={selectedRoadsideId === s.id}
+                              data-in-trip={addedCityIds.has(s.id) || undefined}
                               className={[
                                 "w-full min-h-[44px] text-left px-2 py-0 border-l-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                                 selectedRoadsideId === s.id
                                   ? "border-[#e3b341] bg-[#161b22]"
-                                  : "border-transparent hover:bg-[#161b22]",
+                                  : addedCityIds.has(s.id)
+                                    ? "border-[#e3b341] hover:bg-[#161b22]"
+                                    : "border-transparent hover:bg-[#161b22]",
                               ].join(" ")}
                             >
                               <span className="block text-base leading-snug text-[#f0f6fc] break-words">{s.name}</span>
                               {/* The card's own sentence, town included: three
                                   stops at the end read "at Austin", not three
-                                  copies of the route's length (round-3 critic). */}
+                                  copies of the route's length (round-3 critic).
+
+                                  A place in the trip says so here, in place
+                                  of its kind (Gauntlet U8, #97), rather than
+                                  on a line of its own: the row is two lines
+                                  of 22 px and `ROADSIDE_LIST_PX` has one
+                                  pixel of slack, so a third line would spend
+                                  U1's sizing.
+
+                                  It takes the kind's place because the kind
+                                  is the least useful word on the row once
+                                  you have chosen the place: you know what it
+                                  is. It is *not* always shorter — "✓ In the
+                                  trip" is 13 characters against "zoo", "arch"
+                                  or "cave" — so for a short kind the line
+                                  grows and can wrap. The second line already
+                                  wraps on a long town name ("less than a
+                                  mile along, in Amarillo"), so rows were
+                                  never exactly two lines; this does not make
+                                  the budget a guarantee it was not before,
+                                  but it can make it worse for a short kind. */}
                               <span className="block text-base leading-snug text-[#8b949e]">
-                                {ROADSIDE_KIND_WORDS[s.kind] ?? "place"} · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
+                                {addedCityIds.has(s.id) ? (
+                                  <span className="text-[#e3b341]">✓ In the trip</span>
+                                ) : (
+                                  ROADSIDE_KIND_WORDS[s.kind] ?? "place"
+                                )}{" "}
+                                · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
                               </span>
                             </button>
                           </li>
