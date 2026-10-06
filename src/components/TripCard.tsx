@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { SavedTrip } from "@/lib/trips/types";
+import { STOPS_PARAM, stopsParam } from "@/lib/trips/link";
 
-// V1: stops are intentionally excluded from the resume URL.
-// The /plan page initialises with empty stops; users re-add them interactively.
-// Full stop serialisation can be added once the V1 flow is validated.
+// The link reopens the trip as it was saved, stops included (Gauntlet U9).
+// Until U9 the stops were left out on purpose ("V1… users re-add them
+// interactively"), so a saved trip reopened as a bare route. They travel
+// as one JSON parameter written and read by src/lib/trips/link.ts.
 function resumeUrl(trip: SavedTrip): string {
   const p = new URLSearchParams({
     fromLat: trip.fromLat.toString(),
@@ -33,6 +35,8 @@ function resumeUrl(trip: SavedTrip): string {
     if (trip.startDate) p.set("startDate", trip.startDate);
     if (trip.endDate) p.set("endDate", trip.endDate);
   }
+  const stops = stopsParam(trip.stops);
+  if (stops) p.set(STOPS_PARAM, stops);
   return `/plan?${p.toString()}`;
 }
 

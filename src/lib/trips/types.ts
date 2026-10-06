@@ -2,6 +2,13 @@
 import { z } from "zod/v4";
 import { MAX_MOODS } from "@/lib/roadside/tags";
 
+/**
+ * The most stops a trip may hold: the Routes API's waypoint ceiling, which a
+ * request past it is refused at. One number for the sheet, the saved trip's
+ * schema, and the reopen link, which all used to write 7 for themselves.
+ */
+export const MAX_TRIP_STOPS = 7;
+
 export const SavedTripStopSchema = z.object({
   // 200-char sanity limit: well within Firestore field limits; prevents abuse.
   cityId: z.string().min(1).max(200),
@@ -54,7 +61,7 @@ export const SaveTripInputSchema = z.object({
    */
   moods: z.array(z.string().min(1).max(40)).max(MAX_MOODS).optional(),
   // Max 7 stops — matches MAX_TRIP_STOPS in PlanWorkspace; Routes API waypoint cap.
-  stops: z.array(SavedTripStopSchema).max(7),
+  stops: z.array(SavedTripStopSchema).max(MAX_TRIP_STOPS),
 });
 export type SaveTripInput = z.infer<typeof SaveTripInputSchema>;
 

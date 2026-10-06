@@ -43,3 +43,26 @@ describe("a saved trip card remembers the deadline", () => {
     expect(range).toContain('<span class="num">Oct 10, 2026</span> to <span class="num">Oct 14, 2026</span>');
   });
 });
+
+describe("a saved trip card reopens the trip with its stops (U9)", () => {
+  // The href is read raw, not decoded: React escapes `&` as `&amp;` in the
+  // attribute, and URLSearchParams then reads the parameter as the browser
+  // will.
+  const paramsOf = (html: string) =>
+    new URLSearchParams((html.match(/href="\/plan\?([^"]+)"/)?.[1] ?? "").replace(/&amp;/g, "&"));
+
+  it("puts the stops in the link, and they read back exactly as saved", async () => {
+    const { parseStopsParam } = await import("@/lib/trips/link");
+    const stops = [
+      { cityId: "lubbock", cityName: "Lubbock", lat: 33.5779, lng: -101.8552 },
+      { cityId: "osm:way:1059981743", cityName: "The Big Texan Steak Ranch", lat: 35.19381, lng: -101.7551 },
+    ];
+    const html = renderToString(<TripCard trip={{ ...BASE, stops }} onDeleted={() => {}} />);
+    expect(parseStopsParam(paramsOf(html).get("stops"))).toEqual(stops);
+  });
+
+  it("leaves the parameter out for a trip with no stops", () => {
+    const html = renderToString(<TripCard trip={{ ...BASE, stops: [] }} onDeleted={() => {}} />);
+    expect(paramsOf(html).has("stops")).toBe(false);
+  });
+});
