@@ -161,12 +161,18 @@ describe("the plan page reopens a saved trip's stops (U9)", () => {
     const html = await render({ stops: stopsParam([town, roadside])! });
     const bare = await render({});
     expect(html).not.toContain("Something is off with this link");
-    // Neither name is anywhere on this route's sheet unless it is a stop:
-    // the bare render has none of either, so their presence is the stops.
+    // Lubbock is nowhere on this route's sheet unless it is a stop: the
+    // bare render has none of it, so its presence is the stop.
     expect(bare).not.toContain("Lubbock");
-    expect(bare).not.toContain("Big Texan");
     expect(html).toContain("Lubbock");
-    expect(html).toContain("The Big Texan Steak Ranch");
+    // The roadside place is in the trip too, but since U10 it is a visit,
+    // not where a day ends, so it is not named in a day heading. That it
+    // was restored at all is proved where it shows regardless of how a
+    // visit is drawn — the recompute the sheet sends — in
+    // src/components/__tests__/PlanWorkspace.interaction.test.tsx.
+    // No day ends at it: before U10 a day read "Amarillo to The Big Texan
+    // Steak Ranch · 9 min", and a night was booked there.
+    expect(html).not.toContain("to The Big Texan Steak Ranch");
     // A reopened town keeps its section; a reopened roadside place does
     // not get one. That is #99's fix, live for the first time now that
     // stops can actually reach the sheet.

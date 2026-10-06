@@ -4,70 +4,66 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u9-saved-trip-stops`
+Branch: `feat/u10-roadside-visits`
 
 ## Ship rule (written before the work)
 
-Ships when reopening a saved trip puts its stops back, towns and roadside
-places both; when a live run shows the route drawn through them with no
-red banner; when the tests prove the stops survive the round trip and that
-an unreadable stops parameter reads as no stops; when a mutation proof has
-turned each new test red before the push; and when the operator has looked.
+The operator ruled on 2026-10-06: a roadside place added to a trip is a
+visit, not an overnight. The route still runs through it; no day ends
+there and no night is booked there. Ships when the days and the deadline
+both read it that way, the live run shows it, the critic approves, the
+mutation proofs ran before the push, and the operator has looked.
 
-**Cost:** One Routes API recompute per reopen, the same call adding the
-stops by hand makes. No new server call: the sheet already recomputes when
-it opens with stops.
+**Cost:** $0 beyond the one recompute the live run makes.
 
-**Weakest part:** The stops go in the URL, and a URL is the one thing
-anyone can edit. The parser takes them through the saved trip's own Zod
-schema and caps them at the stop limit, and the server re-validates every
-coordinate on the recompute — but a hand-built link can still name a stop
-"Austin" at the coordinates of somewhere else, and nothing here can tell.
-That was true of a saved trip in localStorage too; it is not new, only
-easier to reach.
+**Weakest part:** "Visit or overnight" is decided by `isCityId` — a stop
+whose id is an atlas slug is an overnight, anything else is a visit. That
+is right for the two kinds the app has today, towns and roadside places,
+and wrong the day a third kind of stop exists, or the day someone wants to
+stay the night at a roadside motel. There is no per-stop choice; the
+operator chose the default and not the toggle.
 
-## What was built
+## How it works
 
-`src/lib/trips/link.ts` writes a trip's stops into the reopen link as one
-JSON parameter and reads them back; `TripCard` writes it and the plan page
-reads it and hands the stops to the sheet as `initialTrip`. The sheet
-already recomputes the route when it opens with stops, so a reopen costs
-the one Routes call adding them by hand would — measured live, 269 ms.
+The day and deadline arithmetic was written for a world where every stop
+is an overnight, and is right for that world. Rather than teach it about
+visits, the visits are folded out first: a visit's leg is added to the leg
+after it, so each stretch runs from one overnight to the next. Two folds,
+the same rule — `foldVisitMinutes` for the days, `foldVisitLegs` for the
+deadline — and a test that they agree about the stretches, which is the
+invariant `days.ts` exists to keep.
 
-`MAX_TRIP_STOPS` is one exported number now. The sheet and the saved
-trip's schema each used to write 7 for themselves, and the reopen link
-would have been a third.
+The trip state itself is not folded. It keeps one leg per stop, because
+the sheet indexes it by stop.
 
-#99's fix is live for the first time. A reopened town gets its section; a
-reopened roadside place does not. Until U9 nothing could reach that code.
+## Mutation proofs, before the push — two survived the first time
 
-## Mutation proofs, before the push
+1. Every stop an overnight again: 6 fail.
+2. A trailing visit's minutes dropped: 2 fail.
+3. **The deadline not folded: 0 failed.** The fold lived at the sheet's
+   one call site and nothing tested the deadline with a visit, so
+   reverting it changed nothing any test could see. Moved *into*
+   `computeDeadlinePressure`, so no caller can forget, and tested there.
+4. **A day's stretch indexing every stop instead of the overnights: 0
+   failed.** It only changes which road a tapped day frames, which no test
+   could see. Moved into `stretchEnds`, which is handed every stop and
+   picks the overnights itself, and tested there.
 
-Four, and one of them caught a test of mine that did not test what it
-said. The page ignoring the stops (1 fails), TripCard leaving them out as
-V1 did (1 fails), no de-duplication (1 fails), and no length ceiling —
-which **passed** the first time. That test used a 10,000-character name,
-which the schema's 200-character cap refused on its own, so it proved the
-schema and nothing about the ceiling. It now pads a *valid* stop with
-whitespace past the ceiling, so only the ceiling can refuse it, and the
-mutation turns it red. This is the case the rule was written for: the
-proof run before the push, not after a doubt.
+Both survivors were the same shape — knowledge at a call site where
+nothing could check it — and both were closed by moving the knowledge
+somewhere a test could reach, not by adding a test that reached into the
+component. And one deadline test I wrote passed with or without the fold,
+because its numbers came out the same either way; rewritten with numbers
+where the fold changes the answer.
 
 ## Live run
 
-The reopen recompute fired with both stops in order and answered in
-269 ms, no red banner. The first screenshot used a stop order no one would
-choose — Lubbock, then the Big Texan, which is back in Amarillo — and the
-app restored it faithfully into a 729-mile backtrack. Reshot in the order
-they would have been added: 505 miles against 494 direct.
+The same trip as U9's screenshot — The Big Texan, then Lubbock. Before:
+"Four days, with nights in The Big Texan Steak Ranch and Lubbock",
+"Day 1 · Amarillo to The Big Texan Steak Ranch · 9 min". After: "Three
+days, with a night in Lubbock", "Day 1 · Amarillo to Lubbock · 1 h 59 min"
+— nine minutes and 110 folded together — and the route still drawn
+through the steakhouse.
 
-## Seen, and not this unit's
-
-Adding a roadside place makes it the end of a day. The reopened trip reads
-"Day 1 · Amarillo to The Big Texan Steak Ranch · 9 min" and claims a night
-there. That is U7's behaviour, faithfully restored here, and it is wrong
-for a place you pull over at rather than stay at. Raised with the operator
-rather than fixed in this branch.
-
-Gates: 674 green across 65 files; `tsc --noEmit` clean; `eslint` 0
-errors; `next build` succeeds.
+Gates: 690 green across 66 files; `tsc --noEmit` clean; `eslint` 0 errors;
+`next build` succeeds.

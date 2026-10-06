@@ -1,3 +1,4 @@
+import { foldVisitLegs } from "./visits";
 // Pure isomorphic trip state — safe for both client components and server modules.
 // No server-only imports.
 
@@ -82,8 +83,18 @@ export function computeDeadlinePressure(
   if (legs.length === 0) return null;
   if (budgetHours <= 0) return null; // avoid divide-by-zero
   if (!Number.isFinite(directMinutesToDestination) || directMinutesToDestination < 0) return null;
+  // Visits folded out here, not by the caller (Gauntlet U10): a roadside
+  // stop is visited on the way and ends no day, and `legsQuantizedDays`
+  // rounds each leg up to whole days, so an unfolded nine-minute leg cost
+  // a day of its own. Folding inside means no caller can forget to — the
+  // first cut folded at the one call site, and reverting that left every
+  // test green.
+  const folded = foldVisitLegs(legs, directMinutesToDestination);
+  legs = folded.legs;
+  directMinutesToDestination = folded.directMinutesToDestination;
   const budgetMinutesPerDay = budgetHours * 60;
-  // Each leg is an overnight stay — ceil so a 6h leg on a 5h budget costs 2 days.
+  // Each leg is an overnight stay, once the visits are folded into the
+  // stretch they lie on — ceil so a 6h leg on a 5h budget costs 2 days.
   const daysUsed = legsQuantizedDays(legs, budgetMinutesPerDay);
   const daysRemaining = Math.max(0, tripDays - daysUsed);
   // Infinity signals to callers that no pace can meet the deadline — guard before formatting.
