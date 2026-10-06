@@ -52,11 +52,31 @@ roadside store.** That is where its real finds were.
    the mutation proof was what settled it — run only after something else had
    raised the question.
 3. **For a screen: the critic's approval** against `gauntlet/quality-bar.md`,
-   judged blind from a 390 px screenshot, then **the operator's look** at the
-   approved screenshots. The bar's own rule; unchanged.
+   judged blind from a 390 px screenshot by a fresh critic each round.
 4. **For anything that calls a server action: a live run**, not only the
    tests. The stale-drive-times bug in #96 passed every test because the
    suite never calls a server action; one screenshot of a real state found it.
+
+**Merge without asking** (operator, 2026-10-07: "stop asking me every time
+you want to merge, just keep good documentation"). When 1–4 hold, merge.
+The operator's look at the screenshots is no longer a per-merge gate: send
+them with the PR as a record, not as a question. What carries the
+accountability instead is the documentation — `.harness/active_plan.md`
+with the ship rule, the mutation proofs and anything that went wrong; a
+PR description that says what changed, why, and what is still weak; and
+the round report.
+
+**After merging, check production in a real browser, not with curl.**
+App Hosting deploys main on its own, a few minutes after the merge. A
+`curl` of the page sees only the server's first render, and much of the
+sheet — the budget line, the warning box, anything that waits on the
+recompute — only exists after the browser's JavaScript has run and the
+recompute has answered. A curl check for U11's "Tight" box found none on
+its first poll, seconds after the merge and before any new build could
+have shipped: it could not have failed, because the box never appears in
+the server render, old build or new. Drive the deployed page headless
+(the runner's screenshot script reading `document.body.innerText`) and
+make sure the check is one the *old* build would fail.
 
 `[skip council]` in a PR title still skips the CI job, for docs and chores.
 
