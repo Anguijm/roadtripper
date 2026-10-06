@@ -157,3 +157,67 @@ function withThe(name: string): string {
   const trimmed = name.trim();
   return /^the\s/i.test(trimmed) ? `the ${trimmed.slice(4).trimStart()}` : `the ${trimmed}`;
 }
+
+/**
+ * The trip's driving budget, as the sheet says it (Gauntlet U11): the
+ * header's second line, and the box under the figures when the budget is
+ * tight or blown.
+ *
+ * **A trip only has a total budget when it has dates.** With dates, the
+ * budget is the days times the hours a day, and "Tight" or "more driving
+ * than fits" is a real statement about that whole trip. Without dates
+ * there is no total: the trip takes as many days as it takes, and the day
+ * list already says how many. Until U11 the sheet filled the gap by
+ * treating an undated trip as *one day*, so every multi-day trip without
+ * dates read as tight or over budget — "Tight: 5 h 57 min straight on to
+ * Austin, with 2 h of driving left" on a three-day trip that was fine.
+ *
+ * Without dates, then, there is no box, and "left today" is what is left
+ * of day 1's hours once day 1's own drive is done — not one day's hours
+ * less every leg in the trip, which counted later days' driving as today's
+ * and was only right by coincidence when the trip had one overnight.
+ */
+export function budgetWords(input: {
+  /** Whether the trip has dates, and so a total budget at all. */
+  dated: boolean;
+  /** The trip's days: the date range when dated, ignored otherwise. */
+  tripDays: number;
+  budgetMinutesPerDay: number;
+  /** The whole trip's budget status, meaningful only when `dated`. */
+  status:
+    | { kind: "empty" }
+    | { kind: "in_progress" | "warning"; remainingBudgetMinutes: number; directMinutesToDestination: number }
+    | { kind: "over_budget"; overageMinutes: number };
+  /** Day 1's drive in minutes, or null while it is not known. */
+  dayOneMinutes: number | null;
+  toName: string;
+}): { line: string; box: { kind: "warning" | "over_budget"; text: string } | null } {
+  const fmt = (minutes: number) => formatDurationPlain(Math.round(minutes) * 60);
+  if (!input.dated) {
+    // Nothing planned yet, or day 1's drive not back from the server: the
+    // day's whole budget is still there to spend.
+    const left =
+      input.status.kind === "empty" || input.dayOneMinutes === null
+        ? input.budgetMinutesPerDay
+        : Math.max(0, input.budgetMinutesPerDay - input.dayOneMinutes);
+    return { line: `${fmt(left)} of driving left today`, box: null };
+  }
+  const span = input.tripDays === 1 ? "today" : `over ${input.tripDays} days`;
+  const s = input.status;
+  if (s.kind === "empty") return { line: `${fmt(input.tripDays * input.budgetMinutesPerDay)} of driving left ${span}`, box: null };
+  if (s.kind === "over_budget") {
+    const text = `${fmt(s.overageMinutes)} more driving than fits ${span}`;
+    return { line: text, box: { kind: "over_budget", text: `${text}.` } };
+  }
+  const line = `${fmt(s.remainingBudgetMinutes)} of driving left ${span}`;
+  if (s.kind === "warning") {
+    return {
+      line,
+      box: {
+        kind: "warning",
+        text: `Tight: ${fmt(s.directMinutesToDestination)} still to drive to ${input.toName}, and ${fmt(s.remainingBudgetMinutes)} of driving left ${span}.`,
+      },
+    };
+  }
+  return { line, box: null };
+}

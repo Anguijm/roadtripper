@@ -4,66 +4,51 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u10-roadside-visits`
+Branch: `feat/u11-tight-box`
 
-## Ship rule (written before the work)
+## Ship rule — written after the build began, which is a miss
 
-The operator ruled on 2026-10-06: a roadside place added to a trip is a
-visit, not an overnight. The route still runs through it; no day ends
-there and no night is booked there. Ships when the days and the deadline
-both read it that way, the live run shows it, the critic approves, the
-mutation proofs ran before the push, and the operator has looked.
+The bar says ship rules come before the build. This one did not: I went
+from the operator's "tackle the next thing" straight to reading the code
+and writing the fix, and wrote this once the fix was in. Recorded here in
+the same way round 1 recorded U4's, rather than back-dated.
 
-**Cost:** $0 beyond the one recompute the live run makes.
+U11 ships when an undated trip shows no budget warning and no warning
+colour, and says what is left of day 1's hours rather than one day's hours
+less every leg; when a dated trip keeps its warning, worded so its two
+figures say what each covers; when the mutation proofs ran before the
+push; when the critic approves; and when the operator has looked.
 
-**Weakest part:** "Visit or overnight" is decided by `isCityId` — a stop
-whose id is an atlas slug is an overnight, anything else is a visit. That
-is right for the two kinds the app has today, towns and roadside places,
-and wrong the day a third kind of stop exists, or the day someone wants to
-stay the night at a roadside motel. There is no per-stop choice; the
-operator chose the default and not the toggle.
+**Cost:** $0 beyond one recompute for the live run.
 
-## How it works
+**Weakest part:** The fault was that an undated trip was treated as one day
+long, and that one-day fallback is still there — `tripDays` is still 1
+without dates, because other things read it. U11 stops the budget wording
+from believing it. Anything else that reads `tripDays` or
+`totalBudgetMinutes` on an undated trip is reading a number that means
+"one day" when the trip is not one day, and I have not audited them all.
 
-The day and deadline arithmetic was written for a world where every stop
-is an overnight, and is right for that world. Rather than teach it about
-visits, the visits are folded out first: a visit's leg is added to the leg
-after it, so each stretch runs from one overnight to the next. Two folds,
-the same rule — `foldVisitMinutes` for the days, `foldVisitLegs` for the
-deadline — and a test that they agree about the stretches, which is the
-invariant `days.ts` exists to keep.
+## The fault
 
-The trip state itself is not folded. It keeps one leg per stop, because
-the sheet indexes it by stop.
+`tripDays` falls back to 1 with no dates — "ensures a non-zero budget is
+always available on legacy URLs" — so an undated trip's whole budget was
+one day's hours. `computeTripStatus` then compared one day's leftover
+against the drive still to go and called every multi-day trip tight or
+over: "Tight: 5 h 57 min straight on to Austin, with 2 h of driving left"
+on a three-day trip that was fine. The line above it, in warning gold, was
+one day's hours less *every* leg, right only by coincidence with a single
+overnight.
 
-## Mutation proofs, before the push — two survived the first time
+## A test that had the bug written into it
 
-1. Every stop an overnight again: 6 fail.
-2. A trailing visit's minutes dropped: 2 fail.
-3. **The deadline not folded: 0 failed.** The fold lived at the sheet's
-   one call site and nothing tested the deadline with a visit, so
-   reverting it changed nothing any test could see. Moved *into*
-   `computeDeadlinePressure`, so no caller can forget, and tested there.
-4. **A day's stretch indexing every stop instead of the overnights: 0
-   failed.** It only changes which road a tapped day frames, which no test
-   could see. Moved into `stretchEnds`, which is handed every stop and
-   picks the overnights itself, and tested there.
+A days test required the trip-shape line to sit "before the budget's
+alert" on an undated three-day trip — so it required the false alert to
+exist. It now asserts there is none.
 
-Both survivors were the same shape — knowledge at a call site where
-nothing could check it — and both were closed by moving the knowledge
-somewhere a test could reach, not by adding a test that reached into the
-component. And one deadline test I wrote passed with or without the fold,
-because its numbers came out the same either way; rewritten with numbers
-where the fold changes the answer.
+## Mutation proofs, before the push
 
-## Live run
-
-The same trip as U9's screenshot — The Big Texan, then Lubbock. Before:
-"Four days, with nights in The Big Texan Steak Ranch and Lubbock",
-"Day 1 · Amarillo to The Big Texan Steak Ranch · 9 min". After: "Three
-days, with a night in Lubbock", "Day 1 · Amarillo to Lubbock · 1 h 59 min"
-— nine minutes and 110 folded together — and the route still drawn
-through the steakhouse.
-
-Gates: 690 green across 66 files; `tsc --noEmit` clean; `eslint` 0 errors;
-`next build` succeeds.
+1. Undated trips warn again: 5 fail. 2. "Left today" back to one day less
+every leg: 2 fail. 3. The sheet passing `dated: true`: 1 fails.
+4. **The line's colour back on the raw status: 0 failed** the first time
+— nothing tested the colour, which was half of the screenshot's fault. A
+days test now reads the line's class; the mutation turns it red.

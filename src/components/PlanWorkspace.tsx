@@ -39,7 +39,7 @@ import {
 import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
+import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
@@ -1441,16 +1441,19 @@ export default function PlanWorkspace({
     setTripStops((curr) => curr.slice());
   }, []);
 
-  // The header's second line: the glossary's sentence for what was a
-  // "Budget left" stat. The budget is the whole trip's, so "today" is only
-  // right on a one-day trip; a longer trip says the span.
-  const daySpan = tripDays === 1 ? "today" : `over ${tripDays} days`;
-  const drivingLeftText =
-    tripState.status.kind === "empty"
-      ? `${formatDurationPlain(totalBudgetMins * 60)} of driving left ${daySpan}`
-      : tripState.status.kind === "over_budget"
-      ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}`
-      : `${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left ${daySpan}`;
+  // The header's second line and the budget box, from `budgetWords`
+  // (Gauntlet U11). Only a dated trip has a total budget to be tight or
+  // blown against; an undated one says what is left of day 1's hours and
+  // never warns, because it has no total to exceed.
+  const budget = budgetWords({
+    dated: Boolean(effectiveStartDate && endDate),
+    tripDays,
+    budgetMinutesPerDay: budgetHours * 60,
+    status: tripState.status,
+    dayOneMinutes: days[0]?.minutes ?? null,
+    toName,
+  });
+  const drivingLeftText = budget.line;
 
   const tripCount = tripStops.length;
   const atCap = tripCount >= MAX_TRIP_STOPS;
@@ -1589,9 +1592,13 @@ export default function PlanWorkspace({
               </p>
               <p
                 className={
-                  tripState.status.kind === "over_budget"
+                  // The same rule as the box: an undated trip has no total
+                  // to be tight against, so its line is never coloured as a
+                  // warning (U11; the screenshot had "2 h of driving left
+                  // today" in warning gold on a trip that was fine).
+                  budget.box?.kind === "over_budget"
                     ? "text-[#f85149]"
-                    : tripState.status.kind === "warning"
+                    : budget.box?.kind === "warning"
                     ? "text-[#d29922]"
                     : "text-[#f0f6fc]"
                 }
@@ -1661,27 +1668,17 @@ export default function PlanWorkspace({
 
           {/* Budget warning — assertive so screen readers interrupt current speech
               (time-sensitive: user needs to know before adding more stops). */}
-          {(tripState.status.kind === "warning" || tripState.status.kind === "over_budget") && (
+          {budget.box && (
             <div
               role="alert"
               className={`px-3 py-2 border bg-[#161b22] ${
-                tripState.status.kind === "over_budget"
-                  ? "border-[#f85149]"
-                  : "border-[#d29922]"
+                budget.box.kind === "over_budget" ? "border-[#f85149]" : "border-[#d29922]"
               }`}
             >
               <p className={`text-base leading-snug ${
-                tripState.status.kind === "over_budget"
-                  ? "text-[#f85149]"
-                  : "text-[#d29922]"
+                budget.box.kind === "over_budget" ? "text-[#f85149]" : "text-[#d29922]"
               }`}>
-                <Figures
-                  text={
-                    tripState.status.kind === "over_budget"
-                      ? `${formatDurationPlain(tripState.status.overageMinutes * 60)} more driving than fits ${daySpan}.`
-                      : `Tight: ${formatDurationPlain(tripState.status.directMinutesToDestination * 60)} straight on to ${toName}, with ${formatDurationPlain(tripState.status.remainingBudgetMinutes * 60)} of driving left.`
-                  }
-                />
+                <Figures text={budget.box.text} />
               </p>
             </div>
           )}
