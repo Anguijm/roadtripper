@@ -330,13 +330,29 @@ describe("the plan sheet told as days", () => {
     // Three days: one to Lubbock, two on to Austin at 4 h a day, the
     // second night where 4 h runs out.
     expect(text(shape![0]).trim()).toBe("Three days, with nights in Lubbock and near Llano");
-    // Under the numbers, before the budget's alert and before Day 1's
-    // section; nothing of it is a button or a heading.
+    // Under the numbers and before Day 1's section; nothing of it is a
+    // button or a heading.
     const at = html.indexOf("data-trip-shape");
     expect(at).toBeGreaterThan(html.indexOf("on the road"));
     expect(at).toBeGreaterThan(html.indexOf("of driving left"));
-    expect(at).toBeLessThan(html.indexOf('role="alert"'));
     expect(at).toBeLessThan(html.indexOf('<section data-day="1"'));
+    // And no budget alert at all. This trip has no dates, so it has no
+    // total budget to be tight against: it takes the three days it takes.
+    // Until U11 this assertion *required* an alert here — the shape line
+    // had to sit "before the budget's alert" — because an undated trip was
+    // treated as one day long, and a three-day trip read as over budget.
+    // The test had the bug written into it.
+    expect(html).not.toContain('role="alert"');
+    // Nor is the line under the figures coloured as a warning. The first
+    // screenshot of U11's fault had "2 h of driving left today" in warning
+    // gold on a trip that was fine; the line's colour follows the same rule
+    // as the box, and the first cut of the fix left it on the raw status,
+    // which every other test passed with.
+    const left = /<p class="([^"]*)"[^>]*>(?:(?!<\/p>)[\s\S])*?of driving left/.exec(html);
+    expect(left).not.toBeNull();
+    expect(left![1]).toContain("text-[#f0f6fc]");
+    expect(left![1]).not.toContain("text-[#d29922]");
+    expect(left![1]).not.toContain("text-[#f85149]");
     expect(shape![0]).not.toContain("<button");
     // Each day's sentence once, in its own section's heading, and no strip.
     expect(html.match(/Day <span class="num">1<\/span> · Amarillo to Lubbock/g)).toHaveLength(1);
