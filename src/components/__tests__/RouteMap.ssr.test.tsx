@@ -82,3 +82,19 @@ describe("RouteMap server rendering", () => {
     }
   });
 });
+
+
+describe("a trip stop's name on the map (U12)", () => {
+  it("names a town stop, which is where a day ends", async () => {
+    const { tripStopLabel } = await import("@/components/RouteMap");
+    expect(tripStopLabel({ cityId: "lubbock", cityName: "Lubbock" })?.text).toBe("Lubbock");
+  });
+
+  it("does not name a roadside visit, which ends no day and was printed over the town beside it", async () => {
+    // The Big Texan, six miles out of Amarillo, was drawn on top of
+    // "Amarillo" so neither could be read; three critics named it. A visit
+    // keeps its numbered square and its name stays in the marker's title.
+    const { tripStopLabel } = await import("@/components/RouteMap");
+    expect(tripStopLabel({ cityId: "osm:way:1059981743", cityName: "The Big Texan Steak Ranch" })).toBeUndefined();
+  });
+});

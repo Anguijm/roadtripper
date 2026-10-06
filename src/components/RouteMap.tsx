@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { isOvernightStop } from "@/lib/plan/visits";
 import {
   APIProvider,
   ControlPosition,
@@ -446,6 +447,26 @@ function endpointLabel(name: string | undefined): google.maps.MarkerLabel | unde
 }
 
 /**
+ * A trip stop's name label, or none (Gauntlet U12).
+ *
+ * A stop carried its town's name above its numbered square because a stop
+ * was where a day ended, and the framed day's end had to read as a town
+ * (round 5). Since U10 a roadside place is a visit, not where a day ends,
+ * so that reason does not reach it — and its name was the one on the map
+ * printed over another: The Big Texan Steak Ranch, six miles out of
+ * Amarillo, drawn on top of "Amarillo" so that neither could be read. Three
+ * critics in a row named it.
+ *
+ * A visit keeps its numbered square, and its name stays in the marker's
+ * title, which is what a screen reader announces; the sheet names it on its
+ * row and its card. Nothing is moved and no label dodges another: rule 6,
+ * written after a spreading engine put Amarillo's places in New Mexico.
+ */
+export function tripStopLabel(stop: { cityId: string; cityName: string }): google.maps.MarkerLabel | undefined {
+  return isOvernightStop(stop.cityId) ? endpointLabel(stop.cityName) : undefined;
+}
+
+/**
  * A stop's square with its number drawn in it, on the same 64 px canvas
  * as the endpoints so the town's name sits 30 px above the square in the
  * map's one label style (Gauntlet U3, round 5: the end of a framed day
@@ -852,10 +873,11 @@ function PolylineRenderer({
   }, [map, candidates, focusCandidateIds]);
 
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
-  // The square with its number, and the town's name above it as the
-  // endpoints carry theirs (round 5): a stop is where a day ends, and the
-  // framed day's end must read as a town. Drawn as elements, like the
-  // endpoints, so their zIndex holds against the diamonds (round 6).
+  // The square with its number, and — for a town — its name above it as
+  // the endpoints carry theirs (round 5): a town stop is where a day ends,
+  // and the framed day's end must read as a town. A roadside visit gets the
+  // square without the name since U12 (`tripStopLabel`). Drawn as elements,
+  // like the endpoints, so their zIndex holds against the diamonds (round 6).
   useEffect(() => {
     if (!map || !window.google?.maps) return;
     if (!tripStops || tripStops.length === 0) return;
@@ -867,7 +889,7 @@ function PolylineRenderer({
         title: `Stop ${index + 1}: ${stop.cityName}`,
         zIndex: 2000,
         optimized: false,
-        label: endpointLabel(stop.cityName),
+        label: tripStopLabel(stop),
         icon: tripStopIcon(routeColor, index + 1),
       });
     });

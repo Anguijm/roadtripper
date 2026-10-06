@@ -400,8 +400,14 @@ describe("the plan sheet told as days", () => {
     expect(sheet).toContain("focusCandidateIds={focusCandidateIds}");
     // A stop's square carries the town's name above it in the map's one
     // label style, with its number drawn in the square (round 5: the end
-    // of a framed day read as a "1" badge with no name).
-    expect(map).toContain("label: endpointLabel(stop.cityName)");
+    // of a framed day read as a "1" badge with no name). Since U12 the
+    // name goes through `tripStopLabel`, which names a town stop and leaves
+    // a roadside visit to its square — so this checks the effect applies
+    // that rule rather than naming every stop. The effect only runs inside
+    // a real Google map, so reading the source is the guard it can have;
+    // putting `endpointLabel(stop.cityName)` back turns this red.
+    expect(map).toContain("label: tripStopLabel(stop)");
+    expect(map).not.toContain("label: endpointLabel(stop.cityName)");
     expect(map).toContain("icon: tripStopIcon(routeColor, index + 1)");
     expect(map).toMatch(/function tripStopIcon[\s\S]*?<text[^>]*>\$\{n\}<\/text>/);
   });
