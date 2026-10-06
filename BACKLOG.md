@@ -2,41 +2,42 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-01** (round 2 of the interface build closed — PRs #92, #93, #94, #96 merged: the tag vocabulary, the join, the moods on screen, and "Stop here" from the roadside card).
+Last refreshed: **2026-10-07** (round 2 of the interface build closed — PRs #92, #93, #94, #96 merged: the tag vocabulary, the join, the moods on screen, and "Stop here" from the roadside card).
 
 ## Now (this week)
 
-- **The jsdom decision** — [#95](https://github.com/Anguijm/roadtripper/issues/95). Three client fixes from round 2 are unguarded: reverting any one leaves all 649 tests green, because the suite is `environment: "node"` and never runs a handler. The mood chips also became a multi-select and nobody has heard it read aloud. Operator's call: adding jsdom is infrastructure, not a feature branch's to spend.
-- **Mobile smoke test** — verify OKC + Tulsa surface as candidates on Dallas → [far destination], 5h/day budget. Deploy is live (PR #26 auto-deployed). Pending since S21; older than most of what is above it.
+Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
-## Next (queued, scoped)
+## Next (scoped, not started)
 
-- **A place in the trip is not marked in the day's list** — [#97](https://github.com/Anguijm/roadtripper/issues/97). Its card reads "✓ Added" while the list shows it like any other place. Small UI unit; needs a spec and a critic round.
+- **Audit `tripDays`'s one-day fallback.** Undated trips still get `tripDays = 1`. U11 stopped the budget wording believing it; other readers of `tripDays` / `totalBudgetMinutes` are unaudited.
+- **Why Food is thin.** On Amarillo → Austin only two day-1 places answer Food, so a non-food place ranks third. Data, or the 0.35 `MOOD_ANSWERED` cut-off too strict?
+- **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
 ## Someday (architectural ideas, daydreams)
 
-- A map-first today screen. Left for the operator in `gauntlet/round-1-report.md` and never scoped.
-- Icons for the eight moods, if they are ever wanted back: one drawn set at one size, each shape meaning its mood, no two telling apart only by fill. `MoodConfig` has no `glyph` field and a test asserts its absence, so this is a deliberate act rather than a regression.
-- Rename `TripStopMarker.cityId`. A roadside stop is a trip stop now and its id is an OSM one, so the field name is wrong for some of its values and the compiler cannot say so. Touches the saved-trip schema.
-- A Firestore backfill translating legacy `personaId` to `moods`. Nothing reads `personaId` any more except `TripCard`'s resume link, which handles its absence, so this is tidying rather than a fix.
+- A map-first today screen. Left for the operator in round 1; never scoped.
+- A per-stop "stay the night here" choice, if a roadside motel ever needs to be an overnight. The operator chose the visit default over a toggle (U10).
+- A Google Maps fake for jsdom, so the map effects can be run rather than read as source (U12).
+- Icons for the eight moods, if wanted back: one drawn set at one size, no two telling apart only by fill.
+- Rename `TripStopMarker.cityId`: a stop's id may be an OSM id, and the field name is wrong for those values.
+- A Firestore backfill translating legacy `personaId` to `moods` (tidying, not a fix).
 - "Optimize stop order" toggle wrapping Routes API `optimizeWaypointOrder`.
-- Map polygon rendering for neighborhoods (schema doesn't carry polygons today).
-- Locales beyond `en` in the UI. Schema supports 7 locales via `LocalizedTextSchema`; `localizedText(text, locale)` centralizes the path. i18n switch is one file.
-- External CAS state for council monthly-budget counter (documented cross-PR race in GH Actions cache; GCP budget alert is current backstop).
-- Move post-commit hook artifacts off the working tree so `gh pr merge` stops requiring a pre-merge stash.
-- CitySchema: reconcile local nested `location.{latitude,longitude}` divergence with upstream (deferred from city-atlas-service#26).
-- `getAllCities` 24h TTL: consider a cache invalidation endpoint or shorter TTL if pipeline runs more than once/day.
+- Locales beyond `en`; neighborhood polygons; council budget CAS; `getAllCities` TTL.
 
 ## Open issues
 
-- [#95](https://github.com/Anguijm/roadtripper/issues/95) — no DOM/interaction tests: three client fixes are unguarded.
-- [#97](https://github.com/Anguijm/roadtripper/issues/97) — a place in the trip is not marked in the day's list.
+None.
 
 ## In flight
 
 None.
 
 ## Completed
+
+### Round 3 of the interface build (2026-10-02–07) — see `gauntlet/round-3-report.md`
+- ✓ #100 jsdom + interaction tests · #102 U8 roadside stop marked in the trip · #103 production fetches the tagged store · #104 U9 saved trips keep their stops · #105 U10 roadside places are visits · #106 U11 no budget warning without dates · #108 U12 map labels.
+- ✓ #101 council advisory · #107 merge without asking, check production in a browser.
 
 ### Round 2 of the interface build (2026-09-29–30) — see `gauntlet/round-2-report.md`
 - ✓ PR #92 — T1: the eighteen tags, the eight moods, the roll-up, the question each tag is asked, and how one or two chosen moods rank a place. Banded ranking (answers both / one / neither), `MOOD_ANSWERED` 0.35, within-band tiebreak nine parts mood to one part general score. 2 council rounds.

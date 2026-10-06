@@ -4,18 +4,22 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `89feba2`** (last merged: PR #96 — U7, "Stop here" from the roadside card).
+**Main is at `5829ae8`** (last merged: PR #108 — U12, map labels).
 
-**Round 2 of the interface build shipped (PRs #92, #93, #94, #96 — 2026-09-29 to 30).**
-Full write-up in `gauntlet/round-2-report.md`; the one-line version is that the
-tag work went from a store column to something you can tap. Pick up to two
-moods on the plan sheet, the day's places reorder on real per-tag scores, and a
-place worth pulling over for can go into the trip from its own card.
+**Round 3 shipped (PRs #100–#108, 2026-10-02 to 07).** Full write-up in
+`gauntlet/round-3-report.md`; round 2's is `gauntlet/round-2-report.md`.
+On Amarillo → Austin with The Big Texan and Lubbock added, the trip now
+reads three days with a night in Lubbock (a roadside place is a visit,
+not an overnight), no false "Tight" warning without dates, a clean map,
+and it reopens from Saved trips with its stops. All checked live on
+production in a real browser.
 
-- #92 — the eighteen tags, the eight moods, and the banded ranking (`src/lib/roadside/tags.ts`).
-- #93 — `survivorsAlongRoute` attaches tag scores from `roadside_tag`, after the corridor narrows.
-- #94 — the chips became eight moods, two at a time, plus the order control. The five personas are gone from every screen; `src/lib/personas` stays because the *towns'* places are scored from waypoint types, not tags, and `waypointProfileForMoods` maps moods onto those.
-- #96 — "Stop here" on the roadside card, and `isCityId` shared between the server that refuses a `selectedCityId` and the client that decides what to send.
+**How work is gated now** (CLAUDE.md, "Merging"): Gate 1; a mutation proof
+*before* the push; the critic for anything on screen; a live run for
+anything calling a server action. **Merge without asking** once those hold
+— the operator ruled it on 2026-10-07 — and keep the record: the plan file,
+the PR description, the round report. The council is advisory (#101).
+After merging, check production in a real browser, not with curl.
 
 **Things that changed shape and will surprise you:**
 - `RecommendationList` and `NeighborhoodPanel` take a `PersonaConfig` profile and a `moodKey`, not a persona id. Two moods have no single id between them.
@@ -23,13 +27,11 @@ place worth pulling over for can go into the trip from its own card.
 - `SaveTripInputSchema.personaId` is optional and `moods` sits beside it; trips saved before U6 still parse and reopen.
 - A trip stop's `cityId` may be an OSM id, because a roadside place can be a stop now. The field name is wrong for those values and the compiler cannot say so.
 
-**Next: the jsdom decision (#95) is the live one.** Three client fixes from round
-2 are unguarded — reverting any one leaves all 649 tests green, because the
-suite is `environment: "node"` and never runs a handler. The chips also became
-a multi-select and nobody has heard it read aloud. It is infrastructure, so it
-is the operator's call rather than a feature branch's.
+**Next: nothing is queued.** Open threads, none urgent, are at the end of
+`gauntlet/round-3-report.md`: the `tripDays` one-day fallback's other
+readers (unaudited), and why Food is thin on Amarillo → Austin.
 
-Then `BACKLOG.md`, whose Now and Next are current as of 2026-10-01.
+Then `BACKLOG.md`, current as of 2026-10-07.
 2. Map polygon rendering for neighborhoods (schema doesn't carry polygons today — schema change needed first)
 3. CitySchema reconciliation: nested `location.{latitude,longitude}` vs flat `lat/lng` (deferred from city-atlas-service#26)
 
