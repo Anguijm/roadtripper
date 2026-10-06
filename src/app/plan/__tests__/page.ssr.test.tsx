@@ -151,3 +151,34 @@ describe("the plan page reads the moods from the URL", () => {
     expect(both).toMatch(chip("museums", false));
   });
 });
+
+describe("the plan page reopens a saved trip's stops (U9)", () => {
+  const town = { cityId: "lubbock", cityName: "Lubbock", lat: 33.5779, lng: -101.8552 };
+  const roadside = { cityId: "osm:way:1059981743", cityName: "The Big Texan Steak Ranch", lat: 35.19381, lng: -101.7551 };
+
+  it("opens with the link's stops in the trip, towns and roadside places both", async () => {
+    const { stopsParam } = await import("@/lib/trips/link");
+    const html = await render({ stops: stopsParam([town, roadside])! });
+    const bare = await render({});
+    expect(html).not.toContain("Something is off with this link");
+    // Neither name is anywhere on this route's sheet unless it is a stop:
+    // the bare render has none of either, so their presence is the stops.
+    expect(bare).not.toContain("Lubbock");
+    expect(bare).not.toContain("Big Texan");
+    expect(html).toContain("Lubbock");
+    expect(html).toContain("The Big Texan Steak Ranch");
+    // A reopened town keeps its section; a reopened roadside place does
+    // not get one. That is #99's fix, live for the first time now that
+    // stops can actually reach the sheet.
+    expect(html).toContain('data-town="lubbock"');
+    expect(html).not.toContain(`data-town="${roadside.cityId}"`);
+  });
+
+  it("opens as the plain route when the stops cannot be read, never as an error", async () => {
+    for (const stops of ["not json", "[{}]", "%%%", JSON.stringify([{ ...town, lat: 999 }])]) {
+      const html = await render({ stops });
+      expect(html, stops).not.toContain("Something is off with this link");
+      expect(html, stops).not.toContain("Lubbock</span>");
+    }
+  });
+});

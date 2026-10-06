@@ -14,6 +14,7 @@ import {
 import { checkRateLimit, checkDailyQuota, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { parseMoods } from "@/lib/roadside/tags";
 import { moodsFromLegacyPersona } from "@/lib/personas/moodProfile";
+import { parseStopsParam } from "@/lib/trips/link";
 import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, MAX_TRIP_DAYS } from "@/lib/plan/types";
 import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
 import Figures from "@/components/Figures";
@@ -33,6 +34,8 @@ interface PlanSearchParams {
   moods?: string | string[];
   /** Written by links made before U6; read only as a fallback, never written. */
   persona?: string | string[];
+  /** A saved trip's stops (U9), as written by src/lib/trips/link.ts. */
+  stops?: string | string[];
   startDate?: string;
   endDate?: string;
   dateMode?: string;
@@ -123,6 +126,7 @@ export default async function PlanPage({
   // saved trip reopens with something like what it was saved with rather
   // than with nothing; `moodsFromLegacyPersona` says which of those
   // mappings are judgement rather than derivation.
+  const reopenedStops = parseStopsParam(params.stops);
   const parsedMoods = parseMoods(params.moods);
   const chosenMoods = parsedMoods.length > 0 ? parsedMoods : moodsFromLegacyPersona(params.persona);
 
@@ -287,6 +291,17 @@ export default async function PlanPage({
           candidateMarkers={candidateMarkers}
           waypointFetch={waypointFetch}
           initialMoods={chosenMoods}
+          // A saved trip's stops, when the link carries them (Gauntlet U9).
+          // The legs are left empty on purpose: the sheet recomputes the
+          // route through its stops when it opens with any, so the one
+          // Routes call a reopen costs is the one adding them by hand
+          // would. Unreadable stops read as none — the plain route, never
+          // an error screen.
+          initialTrip={
+            reopenedStops.length > 0
+              ? { stops: reopenedStops, legs: [], directMinutesToDestination: route.totalDurationSeconds / 60 }
+              : undefined
+          }
           budgetHours={budgetHours}
           initialDistanceMeters={route.totalDistanceMeters}
           initialDurationSeconds={route.totalDurationSeconds}

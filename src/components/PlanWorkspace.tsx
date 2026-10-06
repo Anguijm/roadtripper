@@ -54,6 +54,7 @@ import { totalDays as dateTotalDays } from "@/lib/plan/types";
 import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
 import { isCityId } from "@/lib/urban-explorer/cityAtlas";
+import { MAX_TRIP_STOPS } from "@/lib/trips/types";
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -434,7 +435,7 @@ export function RoadsideCard({
 // and places along the new route read again, so the cap bounds what one
 // trip can cost; and seven stops with the start and the end is nine rows
 // on the sheet, about as long a list as a person reads on a phone.
-const MAX_TRIP_STOPS = 7;
+// MAX_TRIP_STOPS is imported from src/lib/trips/types.ts: one number for the sheet, the schema and the reopen link.
 
 // Compile-time exhaustiveness — adding a new RecomputeErrorCode forces a label.
 // Sentences a person would say (quality bar, rule 1); none of the
