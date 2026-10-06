@@ -154,3 +154,19 @@ describe("the city sent with a recompute", () => {
  * can see. It stays unguarded and this comment is the record of why,
  * rather than a passing test that implies otherwise.
  */
+
+
+describe("a saved trip, reopened (U9)", () => {
+  it("sends both stops, in the order they were saved, the moment the sheet opens", () => {
+    // The proof that a reopen restored the trip: the sheet recomputes the
+    // route through its stops when it opens with any, and the payload is
+    // what the server is asked for. Independent of how each stop is drawn,
+    // which U10 changed for roadside places.
+    const town = { cityId: "lubbock", cityName: "Lubbock", lat: 33.5779, lng: -101.8552 };
+    const visit = { cityId: place.id, cityName: place.name, lat: place.lat, lng: place.lng };
+    render(<PlanWorkspace {...base} initialTrip={{ stops: [visit, town], legs: [], directMinutesToDestination: 0 }} />);
+    expect(recomputeAndRefreshAction).toHaveBeenCalled();
+    const stops = recomputeAndRefreshAction.mock.calls.at(-1)![2] as Array<{ cityId: string }>;
+    expect(stops.map((s) => s.cityId)).toEqual([place.id, "lubbock"]);
+  });
+});

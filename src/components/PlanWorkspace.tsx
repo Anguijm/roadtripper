@@ -55,6 +55,7 @@ import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
 import { isCityId } from "@/lib/urban-explorer/cityAtlas";
 import { MAX_TRIP_STOPS } from "@/lib/trips/types";
+import { foldVisitMinutes, isOvernightStop, stretchEnds } from "@/lib/plan/visits";
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -764,12 +765,8 @@ export default function PlanWorkspace({
   // was provided and at least one stop has been added.
   const deadlinePressure = useMemo(() => {
     if (!effectiveStartDate || !endDate) return null;
-    return computeDeadlinePressure(
-      tripState.legs,
-      tripDays,
-      budgetHours,
-      tripState.directMinutesToDestination
-    );
+    // `computeDeadlinePressure` folds visits out itself (Gauntlet U10).
+    return computeDeadlinePressure(tripState.legs, tripDays, budgetHours, tripState.directMinutesToDestination);
   }, [tripState, tripDays, budgetHours, effectiveStartDate, endDate]);
 
   // ── Roadside stops (Gauntlet U1) ───────────────────────────────────────
@@ -826,19 +823,26 @@ export default function PlanWorkspace({
     () => liveCandidateMarkers.map((c) => ({ id: c.id, name: c.name, ...nearestOnRoad(road, c) })),
     [liveCandidateMarkers, road]
   );
+  // The stops a day can end at (Gauntlet U10): towns, not roadside
+  // places, which are visited on the way. Everything that tells the trip
+  // as days reads these, including the two places that find a day's
+  // stretch by its `legIndex` — which counts overnights, not stops.
+  const overnightStops = useMemo(() => tripStops.filter((s) => isOvernightStop(s.cityId)), [tripStops]);
   const dayStops = useMemo(
-    () => tripStops.map((s) => ({ id: s.cityId, name: s.cityName, alongKm: alongRoadKm(road, s) })),
-    [tripStops, road]
+    () => overnightStops.map((s) => ({ id: s.cityId, name: s.cityName, alongKm: alongRoadKm(road, s) })),
+    [overnightStops, road]
   );
   // The legs lag the stops (a stop is on the sheet before its recompute
   // returns, and stays when it fails), so a day whose leg is not here yet
   // has no time, and the last day's time is only known when every leg is.
   const legMinutes = useMemo<(number | null)[]>(() => {
     const legsMatch = tripState.legs.length === tripStops.length;
-    return [
+    const perStop = [
       ...tripStops.map((_, i) => (tripState.legs[i] ? tripState.legs[i].durationSeconds / 60 : null)),
       legsMatch ? tripState.directMinutesToDestination : null,
     ];
+    // One leg per overnight: a visit's leg rides in the stretch it lies on.
+    return foldVisitMinutes(perStop, tripStops.map((s) => s.cityId));
   }, [tripState, tripStops]);
   const days = useMemo(
     () =>
@@ -933,11 +937,13 @@ export default function PlanWorkspace({
       // The day's stretch of the drawn road: its stretch between
       // overnights, cut at the day's shares of it by time (a day cut where
       // the budget runs out ends part way along the stretch).
-      const leg = day.legIndex;
-      const from = leg === 0 ? origin : tripStops[leg - 1];
-      const to = leg < tripStops.length ? tripStops[leg] : destination;
-      const legStartKm = leg === 0 ? 0 : alongRoadKm(liveRoad, from);
-      const legEndKm = leg < tripStops.length ? alongRoadKm(liveRoad, to) : liveRoad.lengthKm;
+      // The stretch's two ends among the overnights (Gauntlet U10):
+      // `stretchEnds` is handed every stop and picks the overnights itself.
+      const ends2 = stretchEnds(day.legIndex, tripStops);
+      const from = ends2.from ?? origin;
+      const to = ends2.to ?? destination;
+      const legStartKm = ends2.from ? alongRoadKm(liveRoad, from) : 0;
+      const legEndKm = ends2.to ? alongRoadKm(liveRoad, to) : liveRoad.lengthKm;
       const startKm = legStartKm + (legEndKm - legStartKm) * day.legFractionStart;
       const endKm = legStartKm + (legEndKm - legStartKm) * day.legFractionEnd;
       const ends = [
@@ -980,7 +986,11 @@ export default function PlanWorkspace({
       // leg's neighbours: `leg - 1` clamped at 0 for the first stretch,
       // `leg + 1` past the last stop is empty. The stop's square (effect
       // 3 in RouteMap.tsx) is never faded; this is for its town's dot.
-      ...tripStops.slice(Math.max(0, leg - 1), leg + 1).map((s) => s.cityId),
+      // `legIndex` counts overnights since U10; `stretchEnds` picks them.
+      ...(() => {
+        const e = stretchEnds(leg, tripStops);
+        return [e.from, e.to].filter((x): x is NonNullable<typeof x> => x !== null).map((x) => x.cityId);
+      })(),
     ]);
   }, [openDay, cityIdsByDay, days, tripStops]);
 
