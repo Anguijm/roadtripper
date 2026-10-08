@@ -1,3 +1,5 @@
+import { STICKY_BAND_PX } from "@/components/RecommendationList";
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
 import React from "react";
@@ -328,5 +330,27 @@ describe("one obvious action on a town's card (U25)", () => {
     const added = html.match(/<button[^>]*>✓ Added<\/button>/)?.[0] ?? "";
     expect(added).toMatch(/style="border-color:#[0-9a-f]{6};color:#[0-9a-f]{6}"/i);
     expect(added).not.toMatch(/background-color/);
+  });
+});
+
+
+describe("a pinned town header covers the scroll box's padding above it (U32)", () => {
+  it("draws a band of its own colour as tall as the sheet's scroll padding", () => {
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={result}
+        moodProfile={PROFILE}
+        moodKey="museums"
+        cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+      />
+    );
+    expect(html).toMatch(new RegExp(`class="sticky top-0[^"]*" style="box-shadow:0 -${STICKY_BAND_PX}px 0 0 #161b22"`));
+    // Tied to the scroll box's padding: p-2 is 8 px.
+    const sheet = readFileSync(new URL("../PlanWorkspace.tsx", import.meta.url), "utf8");
+    expect(sheet).toContain('className="plan-sheet-scroll flex-1 overflow-y-auto p-2 space-y-2"');
+    expect(STICKY_BAND_PX).toBe(8);
   });
 });

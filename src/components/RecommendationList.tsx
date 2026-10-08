@@ -140,6 +140,9 @@ export function RecommendationNotices({ fetchResult, moodProfile, atCap = false 
  * tier, and nothing at all for the rest; a badge that said "Other" was
  * noise beside a name.
  */
+/** The sheet's scroll box padding (`p-2` on .plan-sheet-scroll in PlanWorkspace), which a pinned town header must cover above it (U32). */
+export const STICKY_BAND_PX = 8;
+
 const BADGE_LABELS = { pick: "★ The pick", good: "Also good" } as const;
 export type RowBadge = keyof typeof BADGE_LABELS | null;
 
@@ -286,11 +289,18 @@ export default function RecommendationList({
                 stays over its rows while they scroll. */}
             <div
               className={[
+                // The sheet's scroll box has 8 px of padding (p-2), and the
+                // pinned header sits 8 px below its edge; an 8 px band of the
+                // header's own colour above it closes that strip, so no line
+                // of the card above shows over it (Gauntlet U32).
                 "sticky top-0 z-10 px-2 py-1.5 border-b",
                 isHighlighted
                   ? "bg-[#262c36] text-[#f0f6fc] border-[#6e7681]"
                   : "bg-[#161b22] text-[#b0b9c2] border-[#30363d]",
               ].join(" ")}
+              // Inline, not a Tailwind arbitrary shadow: that class was not
+              // generated and the band silently did nothing (measured).
+              style={{ boxShadow: `0 -${STICKY_BAND_PX}px 0 0 ${isHighlighted ? "#262c36" : "#161b22"}` }}
             >
               {/* The drive is a phrase, said once here and not under every
                   row, with its figures in the mono face. detourMinutes is

@@ -4,76 +4,63 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u31-one-primary-per-screen`
+Branch: `fix/u32-sticky-header-edge`
 
 ## Ship rule (written before the work)
 
-U30's critic: since U25 every town's "+ Stop here" is filled, so a
-screen showing two towns has two equally loud primary actions (rule 3:
-one obvious action per screen).
-
-The thing to do next is to choose where today ends, and the natural
-choice is the town nearest where the day's driving runs out.
+The U25 and U31 critics: while a town's places scroll under its pinned
+header, a line of the card above peeks out over the header's top edge
+("possible" above "Lubbock · 1 h 40 min away"). The sheet's scroll box
+has 8 px of padding (`p-2`), and the header pins 8 px below the box's top
+edge, so text scrolls visibly through that strip.
 
 Ships when:
 
-- **One filled button.** On the day that holds the towns, only the town
-  whose place along the road is nearest that day's end gets the filled
-  "+ Stop here". Out-of-the-way towns (U21) are never it.
-- **The rest.** Every other town's "+ Stop here" is an accent outline,
-  U25 round 1's look: still clearly an action, not the primary.
-- **No night to choose.** When the day ends at the destination, no
-  button is filled.
-- **Unchanged.** "✓ Added" and disabled stay as they are.
+- **No gap.** The pinned header carries an 8 px band of its own colour
+  above it (a box-shadow, so layout does not move), in both its resting
+  and its highlighted colour.
+- **Nothing shows between the sheet's top edge and the pinned header.**
+- **Pinned in a test.** An SSR test pins the band, tied to the scroll
+  box's padding.
 
 Also required:
 
-- the choice is a pure, tested function
-- an SSR test that exactly one button is filled, and the right one
-- mutation proofs
-- a screenshot
+- a mutation proof
+- a screenshot at the same scroll as U31's
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** "nearest the day's end" is by distance along the road;
-a town 10 km short of the cut is chosen over one 12 km past it, though a
-person might prefer driving the extra few minutes.
+**Weakest part:** the band is tied to `p-2` by hand. If the scroll box's
+padding changes, the gap comes back. The test pins both together.
 
 ## Built
 
-- `days.ts`: `primaryTownId(day, shown, outOfTheWay)` is pure. It returns the shown, on-the-way town nearest `day.endKm`, or null when the day ends at a stop or at the destination.
-- `RecommendationList.tsx`: a `primaryCityId` prop.
-  - When it is undefined, every town's button is filled, as on a list that stands alone.
-  - Otherwise only the primary town's Stop here is filled, and the others get an accent outline.
-- `PlanWorkspace.tsx`: computes the primary town per day from `outOfTheWayIds`.
+`RecommendationList.tsx`: `STICKY_BAND_PX = 8`. The pinned header's inline `boxShadow` is `0 -8px 0 0 <its bg>`.
 
-## Mutation proofs
+## What went wrong, kept
 
-All 5 are caught:
+The first cut used a Tailwind arbitrary shadow class, `shadow-[0_-8px_0_0_#161b22]`. The screenshot still showed "possible". Measured in the browser, the computed box-shadow was "none": the class was never generated. It is now an inline style, and an SSR test pins that style. A class can't be tested this way, because a test only sees that the class name is there, not whether it does anything.
 
-- detour towns can be primary
-- the end day has a primary
-- nearest the start instead of the end
-- every button filled
-- primary not passed
+## Tests and proofs
+
+- An SSR test pins the band at `STICKY_BAND_PX`, and the scroll box's `p-2`.
+- Mutation proof: removing the band is caught.
 
 ## Gates
 
-tsc, eslint, vitest (798) and next build are clean.
+eslint, vitest (799) and next build are clean.
 
-## Live (Amarillo → Austin)
+## Live (measured)
 
-| budget | filled |
+| | value |
 |---|---|
-| 4 h, undated | Abilene only, nearest the "near Sweetwater" cut |
-| 4 h, dated | Abilene only; Oklahoma City (out of the way) is outlined |
-| 8 h (one day) | none |
+| scroll box top | 306.6 |
+| header top | 314.6 |
+| band | covers 8 px, rgb(22, 27, 34) |
 
-## Critic, round 1: REJECT (evidence)
+The screenshot shows no text above the pinned header.
 
-The screenshot showed only Abilene, the one button that stays filled, so it couldn't separate before from after. Round 2's shots scroll the sheet's own scroll box so that Lubbock's pinned header (outlined) and Abilene's card (filled) are on one screen, with the same script for before and after. No code changed.
+## Critic: APPROVE (round 1)
 
-## Critic, round 2: APPROVE
-
-Rule 3 is met: Abilene's is the one filled action, and Lubbock's outline still reads as a button. Out of scope, noted: the sticky town header lets text from the card above peek through behind it.
+The leak is gone, and the band reads as top padding. Out of scope, noted: nothing says why one Stop here is filled. Two critics have now asked for this, so it is the next unit.
