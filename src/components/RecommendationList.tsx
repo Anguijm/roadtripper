@@ -132,11 +132,31 @@ export function RecommendationNotices({ fetchResult, moodProfile, atCap = false 
  * tier, and nothing at all for the rest; a badge that said "Other" was
  * noise beside a name.
  */
-const TIER_LABELS: Record<RankedWaypoint["tier"], string | null> = {
-  primary: "★ The pick",
-  secondary: "Also good",
-  other: null,
-};
+const BADGE_LABELS = { pick: "★ The pick", good: "Also good" } as const;
+export type RowBadge = keyof typeof BADGE_LABELS | null;
+
+/**
+ * Each row's badge (Gauntlet U24). "The pick" is singular: one per town,
+ * its highest-scoring primary-kind place (rows come ordered by score), and
+ * none at all when that place is the town's lead, which is shown first
+ * and needs no badge to say so. Every other primary-kind place, and every
+ * secondary-kind one, is "Also good"; the rest say nothing. A town out of
+ * the way (U21) has no pick, so its best does not read as recommending
+ * the detour over the towns on the way. Pure: keyed by waypoint id.
+ */
+export function rowBadges(
+  rows: ReadonlyArray<Pick<RankedWaypoint, "waypointId" | "tier">>,
+  leadId: string | null,
+  outOfTheWay: boolean
+): Map<string, RowBadge> {
+  const out = new Map<string, RowBadge>();
+  const pickId = outOfTheWay ? null : rows.find((r) => r.tier === "primary")?.waypointId ?? null;
+  for (const r of rows) {
+    if (r.waypointId === pickId) out.set(r.waypointId, r.waypointId === leadId ? null : "pick");
+    else out.set(r.waypointId, r.tier === "other" ? null : "good");
+  }
+  return out;
+}
 
 const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
   landmark: "◆",
@@ -217,6 +237,7 @@ export default function RecommendationList({
         const canAdd = !isAdded && !pending && !atCap && Boolean(coords);
         const lead = rows.find((r) => r.description) ?? rows[0];
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
+        const badges = rowBadges(rows, lead?.waypointId ?? null, !!outOfTheWay);
 
         const handleAddClick = () => {
           if (isAdded) {
@@ -374,23 +395,21 @@ export default function RecommendationList({
                       {kindWord(r.type)}
                     </p>
                   </div>
-                  {TIER_LABELS[r.tier] && (
-                    <span
-                      className={[
-                        "text-base px-1.5 py-0.5 border whitespace-nowrap self-start",
-                        r.tier === "primary"
-                          ? "text-[#0d1117] border-transparent"
-                          : "text-[#b0b9c2] border-[#30363d]",
-                      ].join(" ")}
-                      style={
-                        r.tier === "primary"
-                          ? { backgroundColor: accent }
-                          : undefined
-                      }
-                    >
-                      {TIER_LABELS[r.tier]}
-                    </span>
-                  )}
+                  {(() => {
+                    const badge = badges.get(r.waypointId);
+                    return badge ? (
+                      <span
+                        data-badge={badge}
+                        className={[
+                          "text-base px-1.5 py-0.5 border whitespace-nowrap self-start",
+                          badge === "pick" ? "text-[#0d1117] border-transparent" : "text-[#b0b9c2] border-[#30363d]",
+                        ].join(" ")}
+                        style={badge === "pick" ? { backgroundColor: accent } : undefined}
+                      >
+                        {BADGE_LABELS[badge]}
+                      </span>
+                    ) : null;
+                  })()}
                 </li>
               ))}
             </ul>

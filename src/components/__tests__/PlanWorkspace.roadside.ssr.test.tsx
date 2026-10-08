@@ -468,7 +468,10 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(text).not.toMatch(/\d+ towns? that fit/);
     expect(text).toContain("What&#x27;s in Lubbock");
     expect(text).toContain("+ Stop here");
-    expect(text).toContain("★ The pick");
+    // "primary" reads "Also good" here: Lubbock's pick is its lead, shown
+    // first with no badge (U24, one pick per town); "★ The pick" itself is
+    // pinned in RecommendationList.badges.test.ts.
+    expect(text).toContain("Also good");
     // The mood chips: named in the glossary's words, wrapping rather than
     // scrolling sideways (round-1 critic: the strip clipped the last chip).
     expect(html).toContain('aria-label="I&#x27;m in the mood for, choose up to 2"');
