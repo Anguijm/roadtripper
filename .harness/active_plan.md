@@ -4,69 +4,52 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u36-towns-down-to-1000`
+Branch: `fix/u37-band-over-text`
 
 ## Ship rule (written before the work)
 
-The operator's choice, 2026-10-08: "Down to 1,000 people". Days that end
-far from any town of 5,000 still say "4 h down the road", about a quarter
-of 6 h days. With GeoNames' 1,000+ list, more of them get "near X".
+Found during U36's live run. U32's 8 px band (a box-shadow above each town
+header) paints above *every* header, pinned or not. Where a header sits
+right under other text, the band covers that text's bottom: "Towns that
+fit today" is clipped above Lawrence's card on Kansas City → Denver.
 
 Ships when:
 
-- **The list.** `places-us.json` is rebuilt from `cities1000`, the same
-  rules otherwise: US, population ≥ 1,000, no PPLX, PPLQ or PPLH.
-  `build-places.mjs` takes the minimum population as an argument, and it
-  defaults to 1,000.
-- **Measured.** The share of day ends named is measured before and after,
-  on the same 9,064 day ends as U19.
-- **Live.** A trip that said hours at 6 h (Reno → Salt Lake City) now
-  names its day's end, or the run says why not.
-- **Size.** The server bundle stays fine (~17k rows ≈ 650 KB), and the
-  client bundle still has none of it.
-- **Attribution.** Unchanged.
+- **Unpinned.** Each town header gets a top margin equal to the band
+  (STICKY_BAND_PX). An unpinned header's band then paints into its own
+  empty margin, and over nothing.
+- **Pinned.** A pinned header still covers the scroll box's strip, as in
+  U32.
 
 Also required:
 
-- the critic's approval of a live screenshot
-- tests updated where they pin the list's size or threshold
+- measured in the browser: the "Towns that fit today" heading's bottom is
+  at or above the band's top, and the pinned case still has no gap
+- an SSR test pins the margin to STICKY_BAND_PX
+- a mutation proof
+- the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** a 1,000-person place may have nowhere to sleep. "near X"
-names where the day ends, not a motel.
+**Weakest part:** each card moves 8 px further from the text above it.
 
 ## Built
 
-- `scripts/build-places.mjs` takes a minimum population (default 1,000).
-- `places-us.json` is rebuilt from `cities1000`: 16,257 places, 610 KB, server-only.
-- A built client bundle has 0 copies of the list (checked with "Byers"); the server bundle has 1.
+`RecommendationList.tsx`: the town header gets `marginTop: STICKY_BAND_PX` beside its band. The SSR test pins both, and the mutation that removes the margin is caught.
 
-## Measured
+## Measured in the browser (Kansas City → Denver, the "Towns that fit today" heading against Lawrence's band)
 
-On the same 9,414 day ends (atlas metros, 5–20 h trips, at 4, 6 and 8 h):
+| build | heading bottom | band top | clear |
+|---|---|---|---|
+| production (before) | 587.6 | 579.6 | **false** (8 px covered) |
+| this branch | 587.6 | 587.6 | **true** |
 
-| list | day ends named |
-|---|---|
-| 5,000+ | 72 % |
-| 1,000+ | **89 %** |
-
-## Live
-
-| trip | day end |
-|---|---|
-| Kansas City → Denver, 4 h | day 2 "near Byers" (was Night 2, on the road) |
-| Kansas City → Denver, 6 h | "near Goodland" (was "40 min past Colby") |
-| Reno → Salt Lake City, 6 h | "25 min past Wendover" (was hours) |
+The pinned case (Amarillo → Austin, Abilene) is unchanged: the header is 8 px below the scroll edge and the band covers it.
 
 ## Gates
 
-tsc, eslint, vitest (800) and next build are clean. No test pinned the list's size.
-
-## Found, not fixed here (U37)
-
-U32's 8 px band paints above *every* town header, pinned or not. Where a header sits right under other text it clips that text, here "Towns that fit today" above Lawrence. Its own unit follows.
+tsc, eslint, vitest (800) and next build are clean.
 
 ## Critic: APPROVE (round 1)
 
-Rule 5 is better met, and the shape line reads "nights near Hays and near Byers". It noted that Byers crowds Denver, which is the short-last-day item and is being fixed next (U35, fold).
+The label is whole, and the pinned case still holds.
