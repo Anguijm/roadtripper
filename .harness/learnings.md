@@ -723,3 +723,14 @@ by reading `/proc/<pid>/cmdline` of the processes named `python` (or
 `node`), never by a pid file written around `nohup` or `$!` after a
 `cd &&`. And a start from a foreground tool call does survive the call;
 the waiter was wrong, not the process.
+
+## 2026-10-09: lessons from U17–U44 (operator: "learn from your mistakes")
+
+- **IMPROVE: write the ship rule before any code on a new branch.** U20's and U28's rules were written late.
+- **IMPROVE: never `pkill -f` a pattern that can match the running shell.** It killed the session's own shell twice. Kill by PID from `ps`.
+- **IMPROVE: a visual fix is proven by the computed style or geometry in a real browser, not by the class in the SSR HTML.** U32's Tailwind arbitrary shadow class was never generated (box-shadow: none).
+- **IMPROVE: critic screenshots are matched.** Before and after use the same script, and the changed state is visibly on screen. Two rejects (U28, U31) were about evidence.
+- **IMPROVE: a production check reads rendered markers (`data-*`, visible text), not the RSC payload,** and must be one the old build fails.
+- **KEEP: open data files read-only.** A bare `sqlite3 <path>` created an empty store that shadowed the real one.
+- **KEEP: when live output contradicts passing tests, restart the dev server first.**
+- **INSIGHT: measure the route.** Decoding the real polyline showed Abilene 54 km off Amarillo → Austin's road, which set U39's threshold.

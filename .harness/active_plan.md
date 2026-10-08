@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/u43-u44`
+Branch: `docs/loop-lessons`
 
 ## Ship rule (written before the work)
 
