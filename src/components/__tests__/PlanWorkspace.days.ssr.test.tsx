@@ -480,6 +480,28 @@ describe("the plan sheet told as days", () => {
     expect(pending).not.toMatch(/\b0 min\b/);
   });
 
+  it("says under the towns which is the last before the day runs out, when the day ends on open road and only then (U18)", () => {
+    // Only Plainview and Lubbock fit: the cut at 284 km has no town near
+    // it, so day 1 ends on the road and the sheet says the list is all.
+    const sparse = ["plainview", "lubbock"];
+    const thin = {
+      ...base,
+      candidateMarkers: base.candidateMarkers.filter((c) => sparse.includes(c.id)),
+      waypointFetch: { ...base.waypointFetch, cities: cities.filter((c) => sparse.includes(c.id)), waypoints: base.waypointFetch.waypoints.filter((w) => sparse.includes(w.cityId)) },
+    };
+    const html = renderToString(<PlanWorkspace {...thin} />);
+    const days = daySections(html);
+    expect(visible(html)).toContain("Day 1 · 4 h down the road from Amarillo");
+    expect(days[0].text).toContain("Lubbock is the last town before your 4 h are up");
+    // Under the heading, before the rows (round 1 critic: after Lubbock's places it read as a footnote).
+    expect(days[0].text.indexOf("Towns that fit today")).toBeLessThan(days[0].text.indexOf("is the last town"));
+    expect(days[0].text.indexOf("is the last town")).toBeLessThan(days[0].text.indexOf("What's in Plainview"));
+    expect(days[1].text).not.toMatch(/(last|only) town/);
+    // A cut near a town (Snyder), and a day that ends at Austin: no line.
+    expect(visible(renderToString(<PlanWorkspace {...base} />))).not.toMatch(/(last|only) town/);
+    expect(visible(renderToString(<PlanWorkspace {...thin} initialDurationSeconds={3 * 3600} />))).not.toMatch(/(last|only) town/);
+  });
+
   it("shows the ten strongest places per day and one Show all per day only where a day has more than ten", () => {
     // Fourteen places in day 1 (before Lubbock at 167 km) and three in day 2.
     const many = [
