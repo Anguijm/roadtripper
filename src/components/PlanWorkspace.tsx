@@ -1938,7 +1938,7 @@ export default function PlanWorkspace({
                   {lastTown && (
                     <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
                   )}
-                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} primaryNote={primaryTown ? primaryTownLine(n, budgetHours * 60) : null} />
+                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} primaryNote={primaryTown ? primaryTownLine(n, budgetHours * 60) : null} drivesFrom={day.holdsTowns ? day.fromName : null} />
                   {endStop && (
                     <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />
                   )}

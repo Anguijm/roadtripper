@@ -290,7 +290,8 @@ describe("the plan sheet told as days", () => {
     // its own, the only figure for that drive on the sheet.
     const row = (id: string) => /<section[^>]*data-town="ID"[\s\S]*?<\/h3>/.source.replace("ID", id);
     expect(visible(new RegExp(row("lubbock")).exec(html)![0]).trim()).toBe("Lubbock");
-    expect(visible(new RegExp(row("fort-worth")).exec(html)![0]).trim()).toBe("Fort Worth · 2 h away");
+    // From where the towns' day starts, the stop (U40: "away" said not from where).
+    expect(visible(new RegExp(row("fort-worth")).exec(html)![0]).trim()).toBe("Fort Worth · 2 h from Lubbock");
     expect(days[0].text).toContain("Amarillo to Lubbock · 3 h 20 min");
     expect(text.indexOf("on the road")).toBeLessThan(text.indexOf("Day 1 ·"));
     expect(html).not.toContain("itinerary");
@@ -540,7 +541,7 @@ describe("the plan sheet told as days", () => {
       waypointFetch: { ...base.waypointFetch, cities: base.waypointFetch.cities.map((c) => (c.id === "plainview" ? { ...c, outOfTheWay: true } : c)) },
     };
     const roomy = visible(renderToString(<PlanWorkspace {...detour} startDate="2026-10-20" endDate="2026-10-24" />));
-    expect(roomy).toContain("Plainview · 2 h away · out of the way");
+    expect(roomy).toContain("Plainview · 2 h from Amarillo · out of the way");
     // Last in the list, though nearest; not counted in the title, which
     // is today's road (round 1 critic).
     expect(roomy.indexOf("What's in Plainview")).toBeGreaterThan(roomy.indexOf("What's in Llano"));

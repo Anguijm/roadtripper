@@ -321,7 +321,7 @@ describe("the words on the screens, against the glossary", () => {
     // row's drive, and a day's heading.
     const { sheet, itinerary, loading, planError } = screens();
     expect(clean(sheet)).toContain('<span class="whitespace-nowrap"><span class="num">497</span> mi</span> <span class="whitespace-nowrap">· <span class="num">8</span> h</span> <span class="whitespace-nowrap"><span class="num">3</span> min</span> on the road');
-    expect(clean(sheet)).toContain('· <span class="whitespace-nowrap"><span class="num">2</span> h</span> <span class="whitespace-nowrap"><span class="num">5</span> min</span> away');
+    expect(clean(sheet)).toContain('· <span class="whitespace-nowrap"><span class="num">2</span> h</span> <span class="whitespace-nowrap"><span class="num">5</span> min</span> from Amarillo');
     expect(clean(sheet)).not.toMatch(/class="num">[^<]*[a-z]/);
     expect(clean(itinerary)).not.toMatch(/class="num">[^<]*[a-z]/);
     // The plan screen's loading and error states: a sentence each, the

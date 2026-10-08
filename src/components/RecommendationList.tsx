@@ -27,6 +27,11 @@ interface RecommendationListProps {
   /** Said under the primary town's name: why its Stop here is the filled one (U33). */
   primaryNote?: string | null;
   /**
+   * Where a town's drive is counted from (U40): "39 min from Kansas City",
+   * the place the day that holds the towns starts. Null says "away".
+   */
+  drivesFrom?: string | null;
+  /**
    * The scoring profile the chosen moods make (U6), not an id: a mood's
    * profile is built by `waypointProfileForMoods`, and two moods do not
    * have one id between them.
@@ -194,6 +199,7 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
  * an empty list says nothing here.
  */
 export default function RecommendationList({
+  drivesFrom = null,
   primaryNote = null,
   primaryCityId,
   detourNote = null,
@@ -321,7 +327,7 @@ export default function RecommendationList({
                 {cityName}
                 {detourMinutes > 0 && !isAdded && (
                   <span className="ml-2 text-[#8b949e]">
-                    · <Figures text={formatDrive(detourMinutes / 2)} /> away
+                    · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}
                   </span>
                 )}
                 {/* A town offered because the trip has a day to spare
