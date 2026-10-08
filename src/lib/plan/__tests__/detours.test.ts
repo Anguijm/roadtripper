@@ -1,3 +1,5 @@
+import { buildRoad } from "../days";
+import { markOffRoad, OFF_ROAD_OUT_KM } from "../detours";
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
 import { offeredTowns, onlyOffered } from "../detours";
@@ -74,5 +76,28 @@ describe("towns out of the way, with a day to spare (U21)", () => {
     expect(picked).not.toContain("okc");
     expect(cityContextFor(cs[0] as never).outOfTheWay).toBe(true);
     expect(cityContextFor(cs[1] as never).outOfTheWay).toBeUndefined();
+  });
+});
+
+
+describe("a town far off the road is out of the way (U39)", () => {
+  // A road due south from 35,-101 to 30,-101 with only its two ends as
+  // vertices: a town beside its middle is near the road, far from both.
+  const road = buildRoad([{ lat: 35, lng: -101 }, { lat: 30, lng: -101 }]);
+  const ends = { origin: { lat: 35, lng: -101 }, destination: { lat: 30, lng: -101 } };
+  const at = (id: string, lat: number, offKm: number) => ({ ...city(id), lat, lng: -101 + offKm / (111.19 * Math.cos((lat * Math.PI) / 180)) });
+  const f = fetch([at("beside", 32.5, 10), at("edge", 32.5, OFF_ROAD_OUT_KM - 5), at("far", 32.5, OFF_ROAD_OUT_KM + 10)]);
+  it("marks only the towns past the limit, measured to the road itself, not its nearest vertex", () => {
+    const marked = markOffRoad(f, road, ends);
+    expect(marked.cities.map((c) => [c.id, !!c.outOfTheWay])).toEqual([["beside", false], ["edge", false], ["far", true]]);
+    expect(OFF_ROAD_OUT_KM).toBe(60);
+  });
+  it("leaves the set alone when the road does not join the trip's ends", () => {
+    expect(markOffRoad(f, road, { origin: { lat: 40, lng: -120 }, destination: ends.destination })).toBe(f);
+  });
+  it("hides a town far off the road from a trip with no room, and offers it last with room", () => {
+    const marked = markOffRoad(f, road, ends);
+    expect(offeredTowns(marked, false).cities.map((c) => c.id)).toEqual(["beside", "edge"]);
+    expect(offeredTowns(marked, true).cities.map((c) => c.id)).toEqual(["beside", "edge", "far"]);
   });
 });

@@ -52,7 +52,7 @@ import {
 } from "@/app/plan/actions";
 import type { DirectionsResult } from "@/lib/routing/directions";
 import { buildTripState, computeDeadlinePressure, tripBudgetFor, spareDays, SPARE_DAYS_FOR_DETOURS, type TripState, type TripLeg } from "@/lib/plan/trip-state";
-import { offeredTowns, onlyOffered } from "@/lib/plan/detours";
+import { offeredTowns, onlyOffered, markOffRoad } from "@/lib/plan/detours";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
 import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
@@ -723,8 +723,15 @@ export default function PlanWorkspace({
   // takes this set, so they cannot disagree about what fits.
   const sparedDays = spareDays(tripState.legs, tripDayCount, budgetHours, tripState.directMinutesToDestination) ?? 0;
   const roomForDetours = sparedDays >= SPARE_DAYS_FOR_DETOURS;
+  // The direct route is the frame the days are cut on and the towns are
+  // measured against (U3; U39 moved it up, so the offer can read it).
+  const road = useMemo(() => buildRoad(safeDecode(encodedPolyline)), [encodedPolyline]);
   const rawWaypointFetch = liveWaypointFetch ?? waypointFetch;
-  const effectiveWaypointFetch = useMemo(() => offeredTowns(rawWaypointFetch, roomForDetours), [rawWaypointFetch, roomForDetours]);
+  // A town far off the road is out of the way too (U39), like a detour.
+  const effectiveWaypointFetch = useMemo(
+    () => offeredTowns(markOffRoad(rawWaypointFetch, road, { origin, destination }), roomForDetours),
+    [rawWaypointFetch, road, origin, destination, roomForDetours]
+  );
   // Why a town out of the way is offered, said before the first one (U30).
   const outOfTheWayIds = useMemo(() => new Set(effectiveWaypointFetch.cities.filter((c) => c.outOfTheWay).map((c) => c.id)), [effectiveWaypointFetch]);
   const detourCount = outOfTheWayIds.size;
@@ -844,7 +851,6 @@ export default function PlanWorkspace({
   // the one the roadside stops were measured along. Decoded once per plan;
   // every place is placed along it once per set. No routing call: the
   // legs are the recompute's, the road is the page's.
-  const road = useMemo(() => buildRoad(safeDecode(encodedPolyline)), [encodedPolyline]);
   // The towns that fit, each with where the road passes nearest it and
   // how far off the road it sits, so a town on the road can name where a
   // cut day ends ("near Snyder") and one hours off it cannot. The towns
