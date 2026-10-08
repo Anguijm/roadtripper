@@ -41,7 +41,7 @@ import {
 import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine } from "@/lib/plan/words";
+import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine, primaryTownLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, primaryTownId, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
@@ -1925,7 +1925,7 @@ export default function PlanWorkspace({
                   {lastTown && (
                     <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
                   )}
-                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} />
+                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} primaryNote={primaryTown ? primaryTownLine(n, budgetHours * 60) : null} />
                   {endStop && (
                     <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />
                   )}

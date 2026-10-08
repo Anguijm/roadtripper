@@ -1,3 +1,4 @@
+import { primaryTownLine } from "../words";
 import { detourNoteLine } from "../words";
 import { describe, it, expect } from "vitest";
 import { budgetWords, dayHeadingLine } from "../words";
@@ -109,5 +110,12 @@ describe("why a town out of the way is offered (U30)", () => {
   it("says the spare days and how many, in words a person says", () => {
     expect(detourNoteLine(3, 1)).toBe("3 days to spare, so here's a town a bit out of the way");
     expect(detourNoteLine(1, 2)).toBe("1 day to spare, so here are 2 towns a bit out of the way");
+  });
+});
+
+describe("why one Stop here is filled (U33)", () => {
+  it("says it is the town nearest where the day's hours run out, day 1 as today", () => {
+    expect(primaryTownLine(1, 240)).toBe("Closest to where today's 4 h run out");
+    expect(primaryTownLine(2, 390)).toBe("Closest to where day 2's 6 h 30 min run out");
   });
 });

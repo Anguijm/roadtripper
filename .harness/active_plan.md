@@ -4,63 +4,58 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u32-sticky-header-edge`
+Branch: `feat/u33-why-this-stop`
 
 ## Ship rule (written before the work)
 
-The U25 and U31 critics: while a town's places scroll under its pinned
-header, a line of the card above peeks out over the header's top edge
-("possible" above "Lubbock · 1 h 40 min away"). The sheet's scroll box
-has 8 px of padding (`p-2`), and the header pins 8 px below the box's top
-edge, so text scrolls visibly through that strip.
+The U31 and U32 critics: one town's "+ Stop here" is filled and the
+others are outlined, and nothing says why. U31 fills the town nearest
+where the day's driving runs out.
 
 Ships when:
 
-- **No gap.** The pinned header carries an 8 px band of its own colour
-  above it (a box-shadow, so layout does not move), in both its resting
-  and its highlighted colour.
-- **Nothing shows between the sheet's top edge and the pinned header.**
-- **Pinned in a test.** An SSR test pins the band, tied to the scroll
-  box's padding.
+- **One line.** The primary town's header carries one line under its
+  name: "Closest to where today's 4 h run out" on the day the title calls
+  "today", or "Nearest where day 2's 4 h run out" on a later day, with
+  the budget as the heading writes it.
+- **Only there.** No other town carries it, and there is no line when
+  no town is primary.
 
 Also required:
 
-- a mutation proof
-- a screenshot at the same scroll as U31's
+- a pure function for the words, with a test
+- an SSR test that it sits in the primary town's header only
+- mutation proofs
+- a screenshot
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** the band is tied to `p-2` by hand. If the scroll box's
-padding changes, the gap comes back. The test pins both together.
+**Weakest part:** "nearest" is along the road, so a town just past the
+day's end is called nearest when it sits a little beyond the budget.
 
 ## Built
 
-`RecommendationList.tsx`: `STICKY_BAND_PX = 8`. The pinned header's inline `boxShadow` is `0 -8px 0 0 <its bg>`.
+- `words.ts`: `primaryTownLine(day, budgetMinutes)`.
+- `RecommendationList.tsx`: a `primaryNote` prop, shown under the primary town's name only.
+- `PlanWorkspace.tsx`: passes the note for the day's primary town.
 
-## What went wrong, kept
+## Mutation proofs
 
-The first cut used a Tailwind arbitrary shadow class, `shadow-[0_-8px_0_0_#161b22]`. The screenshot still showed "possible". Measured in the browser, the computed box-shadow was "none": the class was never generated. It is now an inline style, and an SSR test pins that style. A class can't be tested this way, because a test only sees that the class name is there, not whether it does anything.
+All 3 are caught:
 
-## Tests and proofs
-
-- An SSR test pins the band at `STICKY_BAND_PX`, and the scroll box's `p-2`.
-- Mutation proof: removing the band is caught.
+- always "today"
+- note on every town
+- note not passed
 
 ## Gates
 
-eslint, vitest (799) and next build are clean.
+tsc, eslint, vitest (800) and next build are clean.
 
-## Live (measured)
+## Live
 
-| | value |
-|---|---|
-| scroll box top | 306.6 |
-| header top | 314.6 |
-| band | covers 8 px, rgb(22, 27, 34) |
-
-The screenshot shows no text above the pinned header.
+Amarillo → Austin at 4 h: the line reads "Closest to where today's 4 h run out", under Abilene only.
 
 ## Critic: APPROVE (round 1)
 
-The leak is gone, and the band reads as top padding. Out of scope, noted: nothing says why one Stop here is filled. Two critics have now asked for this, so it is the next unit.
+Applied its wording point: "Closest to where today's 4 h run out".

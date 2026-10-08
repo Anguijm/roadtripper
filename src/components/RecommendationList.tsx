@@ -24,6 +24,8 @@ interface RecommendationListProps {
    * town's is filled, as on a list that stands alone.
    */
   primaryCityId?: string | null;
+  /** Said under the primary town's name: why its Stop here is the filled one (U33). */
+  primaryNote?: string | null;
   /**
    * The scoring profile the chosen moods make (U6), not an id: a mood's
    * profile is built by `waypointProfileForMoods`, and two moods do not
@@ -192,6 +194,7 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
  * an empty list says nothing here.
  */
 export default function RecommendationList({
+  primaryNote = null,
   primaryCityId,
   detourNote = null,
   fetchResult,
@@ -324,6 +327,11 @@ export default function RecommendationList({
                   <span data-out-of-the-way className="ml-2 text-[#8b949e] whitespace-nowrap">· out of the way</span>
                 )}
               </h3>
+              {primaryNote && cityId === primaryCityId && (
+                <p data-primary-note className="text-base text-[#b0b9c2]">
+                  <Figures text={primaryNote} />
+                </p>
+              )}
               <div className="mt-1 flex gap-2">
                 {/* Read about the town before deciding. Opens the answer
                     under this row the same way a tap on a stop's square
