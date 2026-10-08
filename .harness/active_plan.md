@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u33-why-this-stop`
+Branch: `chore/u34-undated-one-day-audit`
 
 ## Ship rule (written before the work)
 
