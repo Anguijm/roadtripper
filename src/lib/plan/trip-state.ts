@@ -107,6 +107,31 @@ export interface DeadlinePressure {
  *   ≥ 0.25 days late → amber (a quarter-day gives the user time to react)
  *   ≥ 1.0  days late → red   (a full day over is unrecoverable without skipping stops)
  */
+/**
+ * The days a dated trip has to spare (Gauntlet U21): the days between its
+ * dates, less the days its stops have used, less the days the rest of the
+ * drive needs at the budget's pace. Counted the way the deadline counts
+ * them (visits folded into their stretch, each overnight leg rounded up
+ * to whole days), so the two can never disagree. Null for a trip with no
+ * dates, which has no slack to measure; never below zero.
+ */
+export function spareDays(
+  legs: readonly TripLeg[],
+  tripDays: number | null,
+  budgetHours: number,
+  directMinutesToDestination: number
+): number | null {
+  if (tripDays === null || !(budgetHours > 0) || !Number.isFinite(directMinutesToDestination)) return null;
+  const folded = foldVisitLegs(legs, Math.max(0, directMinutesToDestination));
+  const perDay = budgetHours * 60;
+  const used = legsQuantizedDays(folded.legs, perDay);
+  const still = Math.ceil(folded.directMinutesToDestination / perDay);
+  return Math.max(0, tripDays - used - still);
+}
+
+/** A day to spare is room for a town out of the way (U21). */
+export const SPARE_DAYS_FOR_DETOURS = 1;
+
 export function computeDeadlinePressure(
   legs: readonly TripLeg[],
   tripDays: number,

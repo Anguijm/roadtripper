@@ -525,6 +525,28 @@ describe("the plan sheet told as days", () => {
     expect(bare).not.toContain("GeoNames");
   });
 
+  it("offers a town out of the way only to a dated trip with a day to spare, last, and says so (U21)", () => {
+    // Plainview made out of the way; the trip needs 2 days at 4 h.
+    const detour = {
+      ...base,
+      waypointFetch: { ...base.waypointFetch, cities: base.waypointFetch.cities.map((c) => (c.id === "plainview" ? { ...c, outOfTheWay: true } : c)) },
+    };
+    const roomy = visible(renderToString(<PlanWorkspace {...detour} startDate="2026-10-20" endDate="2026-10-24" />));
+    expect(roomy).toContain("Plainview · 2 h away · out of the way");
+    // Last in the list, though nearest; not counted in the title, which
+    // is today's road (round 1 critic).
+    expect(roomy.indexOf("What's in Plainview")).toBeGreaterThan(roomy.indexOf("What's in Llano"));
+    expect(roomy).toContain("Lubbock, Post and 3 more fit today");
+    // The tag stays whole: "way" never wraps alone onto a line.
+    expect(renderToString(<PlanWorkspace {...detour} startDate="2026-10-20" endDate="2026-10-24" />)).toMatch(/data-out-of-the-way="[^"]*" class="[^"]*whitespace-nowrap/);
+    for (const props of [{}, { startDate: "2026-10-20", endDate: "2026-10-21" }]) {
+      const html = visible(renderToString(<PlanWorkspace {...detour} {...props} />));
+      expect(html).not.toContain("Plainview");
+      expect(html).not.toContain("out of the way");
+      expect(html).toContain("Lubbock, Post and 3 more fit today");
+    }
+  });
+
   it("shows the ten strongest places per day and one Show all per day only where a day has more than ten", () => {
     // Fourteen places in day 1 (before Lubbock at 167 km) and three in day 2.
     const many = [

@@ -85,7 +85,21 @@ export const MAX_DETOUR_RATIO = 1.25;
  * (U17). "Not past" rules out overshooting and having to come back. When
  * origin and destination coincide nothing is progress.
  */
-export function makesProgress(city: LatLng, origin: LatLng, destination: LatLng): boolean {
+export function makesProgress(city: LatLng, origin: LatLng, destination: LatLng, maxDetourRatio = MAX_DETOUR_RATIO): boolean {
   const { totalKm, remainingKm, alongKm } = progressToward(city, origin, destination);
-  return remainingKm < totalKm && alongKm <= totalKm && detourRatio(city, origin, destination) <= MAX_DETOUR_RATIO;
+  return remainingKm < totalKm && alongKm <= totalKm && detourRatio(city, origin, destination) <= maxDetourRatio;
+}
+
+/**
+ * How far out of the way a town may be for a trip with a day to spare
+ * (Gauntlet U21; the operator on U17: Oklahoma City on Amarillo to Austin
+ * is fine "if you have five days… at the bottom of the list"). Oklahoma
+ * City is 1.45 there. Still only towns that bring you closer: going west
+ * to go east never qualifies, whatever the ratio.
+ */
+export const MAX_DETOUR_RATIO_WITH_SLACK = 1.5;
+
+/** A town past MAX_DETOUR_RATIO but within the slack limit: offered only with a day to spare, and last. */
+export function isOutOfTheWay(city: LatLng, origin: LatLng, destination: LatLng): boolean {
+  return detourRatio(city, origin, destination) > MAX_DETOUR_RATIO;
 }

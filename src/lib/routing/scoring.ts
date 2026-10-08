@@ -29,6 +29,8 @@ export interface CityContext {
   detourMinutes: number;
   lat: number;
   lng: number;
+  /** Out of the way (U21): offered only to a dated trip with a day to spare, after the rest. Absent is on the way. */
+  outOfTheWay?: boolean;
 }
 
 /** Lean waypoint row shipped to the client. Keeps payload small. */
@@ -162,6 +164,8 @@ export interface RankedCityGroup {
   cityId: string;
   cityName: string;
   detourMinutes: number;
+  /** Out of the way (U21): listed after every town on the way, and its row says so. */
+  outOfTheWay?: boolean;
   rows: RankedWaypoint[];
 }
 
@@ -201,8 +205,10 @@ export function buildRankedGroupsWith(
     else waypointsByCity.set(w.cityId, [w]);
   }
 
+  // Nearest first, and every town out of the way after every town on it
+  // (U21: "at the bottom of the list").
   const citiesByDetour = [...fetchResult.cities].sort(
-    (a, b) => a.detourMinutes - b.detourMinutes
+    (a, b) => Number(!!a.outOfTheWay) - Number(!!b.outOfTheWay) || a.detourMinutes - b.detourMinutes
   );
 
   const groups: RankedCityGroup[] = [];
@@ -239,6 +245,7 @@ export function buildRankedGroupsWith(
       cityId: city.id,
       cityName: city.name,
       detourMinutes: city.detourMinutes,
+      ...(city.outOfTheWay ? { outOfTheWay: true } : {}),
       rows,
     });
   }

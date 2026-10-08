@@ -209,7 +209,7 @@ export default function RecommendationList({
       {notices && <RecommendationNotices fetchResult={fetchResult} moodProfile={moodProfile} moodKey={moodKey} atCap={atCap} />}
 
       {groups.map((group) => {
-        const { cityId, cityName, rows, detourMinutes } = group;
+        const { cityId, cityName, rows, detourMinutes, outOfTheWay } = group;
         if (rows.length === 0 && !keepEmpty) return null;
         const isHighlighted = cityId === highlightedCityId;
         const isAdded = addedCityIds.has(cityId);
@@ -264,6 +264,11 @@ export default function RecommendationList({
                   <span className="ml-2 text-[#8b949e]">
                     · <Figures text={formatDrive(detourMinutes / 2)} /> away
                   </span>
+                )}
+                {/* A town offered because the trip has a day to spare
+                    (U21): said, so nobody takes it for one on the way. */}
+                {outOfTheWay && !isAdded && (
+                  <span data-out-of-the-way className="ml-2 text-[#8b949e] whitespace-nowrap">· out of the way</span>
                 )}
               </h3>
               <div className="mt-1 flex gap-2">
