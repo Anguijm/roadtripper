@@ -4,7 +4,19 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `ecaca24`** (last merged: PR #119, 16 corridor towns in the atlas).
+**Main is at `79debb9`** (last merged: PR #130, U29 night marks).
+
+**Round 5 shipped (PRs #121–#130, 2026-10-08), all checked on production.**
+
+- **U21 (#121):** a dated trip with a day to spare is also offered towns out of the way, last, marked "out of the way" (Oklahoma City on Amarillo → Austin).
+- **U22 (#123):** the first fit leaves the zoom control room, so the start's or end's name is never under it.
+- **U23 (#124):** no country names on the base map, and dimmer state names.
+- **U24 (#125):** one "★ The pick" per town, and none on a detour.
+- **U25 (#126):** "+ Stop here" is the card's largest and only filled control.
+- **U26 (#127):** the destination is never offered as a town to stop in.
+- **U27 (#128):** after a stop, "1 h 35 min to spare on day 1", which adds up with day 1's heading.
+- **U28 (#129):** a day ending with no town near is named by the last town passed, within the hour ("45 min past Elizabethtown"). Figures never wrap apart from their unit.
+- **U29 (#130):** a white ring and the night's name where each cut night falls on the map. Names try a second side before giving way.
 
 **Round 4 shipped (PRs #110–#119, 2026-10-08).**
 

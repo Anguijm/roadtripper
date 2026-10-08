@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-08** (late): U17–U20 and the corridor-town atlas merged (#114–#119).
+Last refreshed: **2026-10-08** (round 5): U21–U29 merged (#121–#130).
 
 ## Now (this week)
 
@@ -11,12 +11,10 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 ## Next (scoped, not started)
 
 - **Audit `tripDays`'s one-day fallback.** Undated trips still get `tripDays = 1`. U11 stopped the budget wording believing it; other readers of `tripDays` / `totalBudgetMinutes` are unaudited.
-- **The zoom buttons cover the start's name on a phone** ("Kansas City" shows as "Ka"). Since U20, that hidden name also blocks the names of the towns beside it (Lawrence, Topeka). Rule 6. Flagged by four critics.
 - **Ten corridor towns too thin for the pipeline** (Grand Island, Rock Springs, Rawlins, Snyder, Santa Rosa, Brownwood, Colby, Ogallala, Elk City, West Wendover) and Sweetwater. They still name day ends via U19. Adding them needs a new source upstream (city-atlas-service's "thin cities" problem).
 - **Day ends beyond 30 km of any 5k town stay "on the road"**, about a quarter of 6 h days. Options: GeoNames `cities1000`, or a smaller population floor. Product call: "near X" for a village of 1,500.
 - **A cut night very close to the end** (U29 critic). Kansas City → Denver at 4 h ends day 2 43 min short of Denver, and its ring and "Night 2" read as a second name for Denver. Options: fold a last day under ~1 h into the day before (a product call: it drives past the budget), or drop that ring.
 - **Say why a detour appeared** (U21 critic). A dated trip with spare days now offers a town "out of the way" at the bottom, and nothing says why the list changed. Something like "3 days to spare, so one a bit out of the way". It also shows "★ The pick" on the detour's places, which reads as a recommendation over towns on the way.
-- **One "The pick" per town?** Two critics noticed several picks on one town's list.
 - **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
 ## Someday (architectural ideas, daydreams)
