@@ -63,4 +63,4 @@ this unit it flagged that **the card's line was a bare tag word,
 "tourism"**: the mapper's raw value used as the line about a place. A real
 place whose only line is a tag word has the same fault; next unit.
 
-Gates: 724 green across 67 files; `tsc --noEmit` clean; `eslint` 0 errors.
+Gates: 723 green across 67 files; `tsc --noEmit` clean; `eslint` 0 errors.
