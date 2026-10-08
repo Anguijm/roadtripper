@@ -303,7 +303,10 @@ export default function RecommendationList({
               ].join(" ")}
               // Inline, not a Tailwind arbitrary shadow: that class was not
               // generated and the band silently did nothing (measured).
-              style={{ boxShadow: `0 -${STICKY_BAND_PX}px 0 0 ${isHighlighted ? "#262c36" : "#161b22"}` }}
+              // The band's own room above the header (U37): unpinned, the
+              // band paints into this margin and over nothing; it clipped
+              // "Towns that fit today" when it painted over the text above.
+              style={{ boxShadow: `0 -${STICKY_BAND_PX}px 0 0 ${isHighlighted ? "#262c36" : "#161b22"}`, marginTop: STICKY_BAND_PX }}
             >
               {/* The drive is a phrase, said once here and not under every
                   row, with its figures in the mono face. detourMinutes is

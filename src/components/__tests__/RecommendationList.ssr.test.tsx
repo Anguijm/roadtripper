@@ -347,7 +347,9 @@ describe("a pinned town header covers the scroll box's padding above it (U32)", 
         onRemoveCity={() => {}}
       />
     );
-    expect(html).toMatch(new RegExp(`class="sticky top-0[^"]*" style="box-shadow:0 -${STICKY_BAND_PX}px 0 0 #161b22"`));
+    // And room above for the band, so an unpinned header's band covers
+    // nothing (U37: it clipped "Towns that fit today").
+    expect(html).toMatch(new RegExp(`class="sticky top-0[^"]*" style="box-shadow:0 -${STICKY_BAND_PX}px 0 0 #161b22;margin-top:${STICKY_BAND_PX}px"`));
     // Tied to the scroll box's padding: p-2 is 8 px.
     const sheet = readFileSync(new URL("../PlanWorkspace.tsx", import.meta.url), "utf8");
     expect(sheet).toContain('className="plan-sheet-scroll flex-1 overflow-y-auto p-2 space-y-2"');
