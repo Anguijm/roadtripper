@@ -5,6 +5,7 @@
 # Active plan — roadtripper
 
 Branch: `fix/u18-sparse-stretch`
+Docs follow-up: `docs/atlas-gaps` (scoping doc for the upstream track; no code).
 
 ## Ship rule (written before the work)
 
