@@ -125,7 +125,7 @@ export function spareDays(
   const folded = foldVisitLegs(legs, Math.max(0, directMinutesToDestination));
   const perDay = budgetHours * 60;
   const used = legsQuantizedDays(folded.legs, perDay);
-  const still = Math.ceil(folded.directMinutesToDestination / perDay);
+  const still = folded.directMinutesToDestination > 0 ? stretchDays(folded.directMinutesToDestination, perDay) : 0;
   return Math.max(0, tripDays - used - still);
 }
 
@@ -161,7 +161,7 @@ export function computeDeadlinePressure(
   // daysLate = daysUsed + drivingDaysStillNeeded − tripDays; clamped at 0 when on or ahead of pace.
   const daysLate = Math.max(
     0,
-    daysUsed + Math.ceil(directMinutesToDestination / budgetMinutesPerDay) - tripDays
+    daysUsed + (directMinutesToDestination > 0 ? stretchDays(directMinutesToDestination, budgetMinutesPerDay) : 0) - tripDays
   );
   return { daysRemaining, requiredMinutesPerDay, budgetMinutesPerDay, daysLate };
 }
@@ -169,6 +169,27 @@ export function computeDeadlinePressure(
 /** Total drive minutes accumulated across all legs. */
 export function legsTotalMinutes(legs: readonly TripLeg[]): number {
   return legs.reduce((sum, leg) => sum + leg.durationSeconds / 60, 0);
+}
+
+/**
+ * A stretch's last day shorter than this, in minutes, is folded into the
+ * day before (Gauntlet U35, the operator's choice): drive on to the end
+ * rather than stop for the night 37 min short of Denver. That day runs up
+ * to this much over the budget.
+ */
+export const FOLD_MINUTES = 60;
+
+/**
+ * The days a stretch of `minutes` takes at `budgetMinutesPerDay`: one per
+ * budget's worth, a final remainder under FOLD_MINUTES folded into the day
+ * before. The one count every reader uses (the day list, the deadline, the
+ * spare days), so they can never disagree. At least one day.
+ */
+export function stretchDays(minutes: number, budgetMinutesPerDay: number): number {
+  if (!(budgetMinutesPerDay > 0) || !(minutes > 0)) return 1;
+  const days = Math.ceil(minutes / budgetMinutesPerDay);
+  const lastDay = minutes - (days - 1) * budgetMinutesPerDay;
+  return days > 1 && lastDay < FOLD_MINUTES ? days - 1 : days;
 }
 
 /**
@@ -181,7 +202,7 @@ export function legsQuantizedDays(
   budgetMinutesPerDay: number
 ): number {
   return legs.reduce(
-    (sum, leg) => sum + Math.ceil(leg.durationSeconds / 60 / budgetMinutesPerDay),
+    (sum, leg) => sum + stretchDays(leg.durationSeconds / 60, budgetMinutesPerDay),
     0
   );
 }

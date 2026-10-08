@@ -21,8 +21,10 @@ import type { WaypointFetchResult } from "@/lib/routing/scoring";
  * stop, Lubbock, so two stretches, and the towns and places sit at known
  * distances so each one's day is known in advance. Snyder (278 km) sits
  * near where 4 h of the 7 h 50 min direct drive runs out (284 km), and
- * Llano (511 km) near where 4 h of the 4 h 30 min stretch on from Lubbock
- * runs out (513 km), so a cut day has a town to be named by.
+ * Llano (478 km) near where 4 h of the 5 h stretch on from Lubbock runs
+ * out (478 km), so a cut day has a town to be named by. (Until U35 the
+ * stretch was 4 h 30 min and Llano at 511 km; a 30 min last day now folds
+ * into the day before, so the fixture keeps an hour's remainder.)
  */
 function encode(points: { lat: number; lng: number }[]): string {
   let out = "";
@@ -57,7 +59,7 @@ const cities = [
   city("post", "Post", 33, -101),
   city("snyder", "Snyder", 32.5, -101),
   city("brady", "Brady", 31, -101),
-  city("llano", "Llano", 30.4, -101),
+  city("llano", "Llano", 30.7, -101),
 ];
 const place = (id: string, name: string, alongKm: number, p: number): RoadsideMarker => ({
   id, name, lat: 35 - alongKm / KM_PER_DEG, lng: -101, kind: "attraction", p, about: null, url: null, alongKm,
@@ -89,11 +91,11 @@ const base = {
   toName: "Austin",
   roadsideStops: [place("a", "Cadillac Ranch", 10, 0.9), place("b", "Prairie Dog Town", 250, 0.7), place("c", "Windmill", 400, 0.6)],
 };
-/** Two stretches: Amarillo to Lubbock, 3 h 20 min, and Lubbock to Austin, 4 h 30 min, which is over the 4 h budget and so cut. */
+/** Two stretches: Amarillo to Lubbock, 3 h 20 min, and Lubbock to Austin, 5 h, which is over the 4 h budget and so cut (an hour left: not folded, U35). */
 const twoLegs = {
   stops: [lubbock],
   legs: [{ originCityId: "__origin__", destinationCityId: "lubbock", durationSeconds: 200 * 60, distanceMeters: 167_000 }],
-  directMinutesToDestination: 270,
+  directMinutesToDestination: 300,
 };
 /** Two stretches that together exceed the budget while each fits a day: 3 h 20 min, then 3 h 50 min. */
 const twoDays = { ...twoLegs, directMinutesToDestination: 230 };
@@ -101,7 +103,7 @@ const twoDays = { ...twoLegs, directMinutesToDestination: 230 };
  * The towns that fit from Lubbock: the planner offers nothing behind a
  * stop, so Plainview and Lubbock leave the set, and Fredericksburg joins
  * it, four hours from Lubbock by road though the direct road passes
- * nearest it at 526 km, past where 4 h on from Lubbock runs out (513 km).
+ * nearest it at 526 km, past where 4 h on from Lubbock runs out (478 km).
  */
 const fredericksburg = city("fredericksburg", "Fredericksburg", 30.27, -98.87);
 const fromLubbock = {
@@ -143,10 +145,10 @@ describe("the plan sheet told as days", () => {
     // where day 2 ended).
     expect(clean(html)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock <span class="whitespace-nowrap">· <span class="num">3</span> h</span> <span class="whitespace-nowrap"><span class="num">20</span> min</span>');
     expect(clean(html)).toContain('Day <span class="num">2</span> · Lubbock to near Llano <span class="whitespace-nowrap">· <span class="num">4</span> h</span>');
-    expect(clean(html)).toContain('Day <span class="num">3</span> · near Llano to Austin <span class="whitespace-nowrap">· <span class="num">30</span> min</span>');
+    expect(clean(html)).toContain('Day <span class="num">3</span> · near Llano to Austin <span class="whitespace-nowrap">· <span class="num">1</span> h</span>');
     expect(text).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
     expect(text).toContain("Day 2 · Lubbock to near Llano · 4 h See it on the map");
-    expect(text).toContain("Day 3 · near Llano to Austin · 30 min");
+    expect(text).toContain("Day 3 · near Llano to Austin · 1 h");
     expect(text).not.toMatch(/Days \d/);
     expect(text).not.toContain("over the");
     expect(text.indexOf("Day 1 ·")).toBeLessThan(text.indexOf("Day 2 ·"));
@@ -184,7 +186,7 @@ describe("the plan sheet told as days", () => {
     expect(days[1].text).not.toContain("What's in Lubbock");
     expect(days[1].text).not.toContain("Cadillac Ranch");
     expect(days[1].text.indexOf("Towns that fit in day 2")).toBeLessThan(days[1].text.indexOf("What's in Post"));
-    // Day 3, the last 30 min: nothing on the road but Austin.
+    // Day 3, the last hour: nothing on the road but Austin.
     expect(days[2].text).toContain("Nothing listed along this stretch.");
     expect(days[2].text).not.toContain("What's in");
     expect(days[2].text).not.toContain("Towns that fit");
@@ -265,7 +267,7 @@ describe("the plan sheet told as days", () => {
     expect(days[1].text).toContain("Stockyards");
     expect(days[1].text).not.toContain("What's in Lubbock");
     expect(days[1].text).not.toContain("Buddy Holly Center");
-    expect(days[2].text).toContain("Day 3 · on to Austin · 30 min");
+    expect(days[2].text).toContain("Day 3 · on to Austin · 1 h");
     expect(text).toContain("Three days, with a night in Lubbock and one on the road");
     expect(text).not.toMatch(/\bmile\b/);
     expect(html).toContain('Day <span class="num">2</span> <span class="whitespace-nowrap">· <span class="num">4</span> h</span> down the road from Lubbock');

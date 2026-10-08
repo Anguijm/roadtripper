@@ -83,17 +83,18 @@ describe("the road", () => {
 
 describe("the trip as days", () => {
   it("cuts two legs that together exceed a day's budget into two days, lists every town that fits under the day after the stop, and lands every roadside stop in its day by its position along the road", () => {
-    // Amarillo to Lubbock (3 h 20 min) and Lubbock to Austin (4 h 30 min)
-    // on a 4 h budget: the first stretch is one day; the second is over
-    // the budget, so it is cut where 4 h runs out (240/270 of the way,
-    // 512.8 km) into a day of 4 h and a day of 30 min. Three days, each
-    // saying where it ends; no town on the road is within 30 km of the
-    // cut, so it is named by the last town passed, Brady 68 km back, at
-    // the day's pace (U28; it was said in hours before).
-    const days = tripDays({ ...base, stops: [lubbock], legMinutes: [200, 270], towns: fromLubbock });
+    // Amarillo to Lubbock (3 h 20 min) and Lubbock to Austin (5 h) on a
+    // 4 h budget: the first stretch is one day; the second is over the
+    // budget, so it is cut where 4 h runs out (240/300 of the way, 478 km)
+    // into a day of 4 h and a day of 1 h (U35: an hour or more is not
+    // folded; 4 h 30 min used to be, as two days). Three days, each saying
+    // where it ends; no town on the road is within 30 km of the cut, so it
+    // is named by the last town passed, Brady 33 km back, at the day's
+    // pace (U28).
+    const days = tripDays({ ...base, stops: [lubbock], legMinutes: [200, 300], towns: fromLubbock });
     expect(days).toHaveLength(3);
-    expect(days.map((d) => [d.fromName, d.toName])).toEqual([["Amarillo", "Lubbock"], ["Lubbock", "45 min past Brady"], ["45 min past Brady", "Austin"]]);
-    expect(days.map((d) => d.minutes)).toEqual([200, 240, 30]);
+    expect(days.map((d) => [d.fromName, d.toName])).toEqual([["Amarillo", "Lubbock"], ["Lubbock", "25 min past Brady"], ["25 min past Brady", "Austin"]]);
+    expect(days.map((d) => d.minutes)).toEqual([200, 240, 60]);
     expect(days.map((d) => d.legIndex)).toEqual([0, 1, 1]);
     expect(days.map((d) => d.endStopId)).toEqual(["lubbock", null, null]);
     expect(days.map((d) => d.endKind)).toEqual(["stop", "past", "end"]);
@@ -101,13 +102,13 @@ describe("the trip as days", () => {
     expect(days[0].startKm).toBe(0);
     expect(days[0].endKm).toBeCloseTo(1.5 * KM_PER_DEG, 0);
     expect(days[1].startKm).toBe(days[0].endKm);
-    expect(days[1].endKm).toBeCloseTo(days[0].endKm + ((road.lengthKm - days[0].endKm) * 240) / 270, 5);
+    expect(days[1].endKm).toBeCloseTo(days[0].endKm + ((road.lengthKm - days[0].endKm) * 240) / 300, 5);
     expect(days[2].startKm).toBe(days[1].endKm);
     expect(days[2].endKm).toBeCloseTo(road.lengthKm, 5);
-    expect(days.map((d) => [d.legFractionStart, d.legFractionEnd])).toEqual([[0, 1], [0, 240 / 270], [240 / 270, 1]]);
+    expect(days.map((d) => [d.legFractionStart, d.legFractionEnd])).toEqual([[0, 1], [0, 240 / 300], [240 / 300, 1]]);
     // The towns that fit from Lubbock are the choices for where day 2
     // ends, so every one of them is day 2's, Fredericksburg included
-    // though the road passes nearest it at 526 km, past the cut at 513
+    // though the road passes nearest it at 526 km, past the cut at 478
     // (round 6: placed by position it sat under day 3 while the title
     // said it fit in day 2). Day 1 ends at the stop and lists no town;
     // day 3 lists none.
@@ -124,7 +125,7 @@ describe("the trip as days", () => {
     expect(days[2].roadside).toEqual([]);
     expect(days.map((d) => d.index)).toEqual([0, 1, 2]);
     // The count is the deadline's own: one day for the first leg, two for the second.
-    expect(days.length).toBe(legsQuantizedDays([{ originCityId: "a", destinationCityId: "b", durationSeconds: 200 * 60, distanceMeters: 0 }], 240) + daysSpannedBy(270, 240));
+    expect(days.length).toBe(legsQuantizedDays([{ originCityId: "a", destinationCityId: "b", durationSeconds: 200 * 60, distanceMeters: 0 }], 240) + daysSpannedBy(300, 240));
   });
 
   it("lists the towns that fit under the first day after the last stop, whatever the cuts, and the title's day is that day", () => {
@@ -136,7 +137,7 @@ describe("the trip as days", () => {
     const cases: [ReturnType<typeof tripDays>, number][] = [
       [tripDays({ ...base, stops: [], legMinutes: [470] }), 0],
       [tripDays({ ...base, stops: [], legMinutes: [721] }), 0],
-      [tripDays({ ...base, stops: [lubbock], legMinutes: [200, 270], towns: fromLubbock }), 1],
+      [tripDays({ ...base, stops: [lubbock], legMinutes: [200, 300], towns: fromLubbock }), 1],
       [tripDays({ ...base, stops: [lubbock, abilene], legMinutes: [200, 150, 300], towns: [towns[3], fredericksburg] }), 2],
       [tripDays({ ...base, stops: [lubbock, abilene], legMinutes: [200, 150, null], towns: [towns[3]] }), 2],
     ];
@@ -203,21 +204,23 @@ describe("the trip as days", () => {
     expect(cutAt([{ id: "x", name: "Far Town", alongKm: 284, offRoadKm: ON_ROAD_KM + 1 }])).toBe(ON_THE_ROAD);
     expect(cutAt([{ id: "x", name: "Near Town", alongKm: 284, offRoadKm: ON_ROAD_KM }])).toBe("near Near Town");
     expect(cutAt([{ id: "x", name: "Unmeasured", alongKm: 284 }])).toBe("near Unmeasured");
-    // A stop can name a cut in the stretch after it, as can the next stop
-    // or the end: 4 h of a 4 h 5 min stretch runs out 5 min short of Austin.
+    // A cut 5 min short of Austin is not a night: 4 h 5 min drives on to
+    // Austin in one day (U35, folded), so the end never names a cut now.
     const late = tripDays({ ...base, stops: [lubbock], legMinutes: [200, 245], towns: [] });
-    expect(late.map((d) => d.toName)).toEqual(["Lubbock", "near Austin", "Austin"]);
-    expect(late.map((d) => d.minutes)).toEqual([200, 240, 5]);
+    expect(late.map((d) => d.toName)).toEqual(["Lubbock", "Austin"]);
+    expect(late.map((d) => d.minutes)).toEqual([200, 245]);
   });
 
   it("says a day's time only when its route is known, and counts a stretch's days by the budget as the deadline does", () => {
     const abilene = { id: "abilene", name: "Abilene", alongKm: 334 };
     const two = { ...base, stops: [lubbock, abilene], towns: [], roadside: [] };
-    // Three stretches on a 4 h budget: 3 h 20 min, 4 h exactly, 4 h 1 min:
-    // days 1, 2, and 3 and 4 (the last cut a minute short of Austin).
-    const three = tripDays({ ...two, legMinutes: [200, 240, 241] });
-    expect(three.map((d) => [d.legIndex, d.minutes])).toEqual([[0, 200], [1, 240], [2, 240], [2, 1]]);
+    // Three stretches on a 4 h budget: 3 h 20 min, 4 h exactly, 5 h:
+    // days 1, 2, and 3 and 4 (the last an hour, not folded). A stretch of
+    // 4 h 1 min is one day: its minute is folded in (U35).
+    const three = tripDays({ ...two, legMinutes: [200, 240, 300] });
+    expect(three.map((d) => [d.legIndex, d.minutes])).toEqual([[0, 200], [1, 240], [2, 240], [2, 60]]);
     expect(three.map((d) => d.index + 1)).toEqual([1, 2, 3, 4]);
+    expect(tripDays({ ...two, legMinutes: [200, 240, 241] }).map((d) => [d.legIndex, d.minutes])).toEqual([[0, 200], [1, 240], [2, 241]]);
     // A recompute in flight: the legs stop short of the stops, the rest is
     // unknown, never "0 min", and an unknown stretch is one day.
     expect(tripDays({ ...two, legMinutes: [200] }).map((d) => d.minutes)).toEqual([200, null, null]);
@@ -229,10 +232,14 @@ describe("the trip as days", () => {
     // numbers and its deadline can never disagree.
     expect(daysSpannedBy(200, 240)).toBe(1);
     expect(daysSpannedBy(240, 240)).toBe(1);
-    expect(daysSpannedBy(241, 240)).toBe(2);
+    // A last day under FOLD_MINUTES folds into the one before (U35).
+    expect(daysSpannedBy(241, 240)).toBe(1);
+    expect(daysSpannedBy(299, 240)).toBe(1);
+    expect(daysSpannedBy(300, 240)).toBe(2);
     expect(daysSpannedBy(470, 240)).toBe(2);
-    expect(daysSpannedBy(721, 240)).toBe(4);
-    for (const m of [1, 200, 240, 241, 470, 721]) {
+    expect(daysSpannedBy(721, 240)).toBe(3); // the last minute folds in
+    expect(daysSpannedBy(780, 240)).toBe(4); // an hour does not
+    for (const m of [1, 200, 240, 241, 299, 300, 470, 721, 780]) {
       expect(daysSpannedBy(m, 240)).toBe(legsQuantizedDays([{ originCityId: "a", destinationCityId: "b", durationSeconds: m * 60, distanceMeters: 0 }], 240));
     }
     // Unknown, or a budget that is not a positive number: one, never NaN.
@@ -240,19 +247,20 @@ describe("the trip as days", () => {
     expect(daysSpannedBy(300, 0)).toBe(1);
     expect(daysSpannedBy(300, NaN)).toBe(1);
     expect(tripDays({ ...base, stops: [], legMinutes: [470], budgetMinutesPerDay: 0 }).map((d) => [d.toName, d.minutes])).toEqual([["Austin", 470]]);
-    // A stretch of 12 h 1 min at 4 h a day is four days (the deadline's
-    // count too), the middle ones from a night on the road to the next
-    // with no town near, and the last cut a minute short of Austin. Each
-    // day knows what it starts from, so the heading can say "another 4 h
-    // down the road" and "on to Austin".
-    const long = tripDays({ ...base, stops: [], legMinutes: [721], towns: [] });
+    // A stretch of 13 h at 4 h a day is four days (the deadline's count
+    // too), the middle ones from a night on the road to the next with no
+    // town near, and the last an hour to Austin. Each day knows what it
+    // starts from, so the heading can say "another 4 h down the road" and
+    // "on to Austin". 12 h 1 min would be three, its minute folded (U35).
+    const long = tripDays({ ...base, stops: [], legMinutes: [780], towns: [] });
     expect(long.map((d) => [d.fromName, d.toName, d.minutes])).toEqual([
       ["Amarillo", ON_THE_ROAD, 240],
       [ON_THE_ROAD, ON_THE_ROAD, 240],
-      [ON_THE_ROAD, "near Austin", 240],
-      ["near Austin", "Austin", 1],
+      [ON_THE_ROAD, ON_THE_ROAD, 240],
+      [ON_THE_ROAD, "Austin", 60],
     ]);
-    expect(long.map((d) => [d.fromKind, d.endKind])).toEqual([["start", "hours"], ["hours", "hours"], ["hours", "near"], ["near", "end"]]);
+    expect(long.map((d) => [d.fromKind, d.endKind])).toEqual([["start", "hours"], ["hours", "hours"], ["hours", "hours"], ["hours", "end"]]);
+    expect(tripDays({ ...base, stops: [], legMinutes: [721], towns: [] }).map((d) => d.minutes)).toEqual([240, 240, 241]);
   });
 
   it("keeps a place beyond every stop in the last day, and a stop added behind an earlier one leaves the earlier day what the road passed first", () => {

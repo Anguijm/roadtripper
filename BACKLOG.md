@@ -11,8 +11,7 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 ## Next (scoped, not started)
 
 - **Ten corridor towns too thin for the pipeline** (Grand Island, Rock Springs, Rawlins, Snyder, Santa Rosa, Brownwood, Colby, Ogallala, Elk City, West Wendover) and Sweetwater. They still name day ends via U19. Adding them needs a new source upstream (city-atlas-service's "thin cities" problem).
-- **Day ends beyond 30 km of any 5k town stay "on the road"**, about a quarter of 6 h days. Options: GeoNames `cities1000`, or a smaller population floor. Product call: "near X" for a village of 1,500.
-- **A cut night very close to the end** (U29 critic). Kansas City → Denver at 4 h ends day 2 43 min short of Denver, and its ring and "Night 2" read as a second name for Denver. Options: fold a last day under ~1 h into the day before (a product call: it drives past the budget), or drop that ring.
+- **Say when a folded day runs over the budget** (U35 critic). Since U35, a last day under an hour folds into the one before ("near Hays to Denver · 4 h 36 min" on a 4 h budget). The heading shows the figure, but nothing says it is over on purpose.
 - **Say why a detour appeared** (U21 critic). A dated trip with spare days now offers a town "out of the way" at the bottom, and nothing says why the list changed. Something like "3 days to spare, so one a bit out of the way". It also shows "★ The pick" on the detour's places, which reads as a recommendation over towns on the way.
 - **The sticky town header lets text show around it** (U31, U25 critics). While a town's places scroll under its pinned header, a line of the card above peeks over the header's top and the text below is sliced mid-line. The header needs an opaque band above it, or a hard edge.
 - **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
