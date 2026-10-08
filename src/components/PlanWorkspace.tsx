@@ -9,7 +9,7 @@ import React, {
   useTransition,
 } from "react";
 import type { RoadsideMarker } from "@/lib/roadside/along";
-import { roadsideAnchor, townsAlong, type RoadsideAnchor } from "@/lib/roadside/anchor";
+import { roadsideAnchor, townsAlong, type RoadsideAnchor, type NamedPoint } from "@/lib/roadside/anchor";
 import { decodePolyline } from "@/lib/routing/polyline";
 import RouteMap, {
   type CandidateMarker,
@@ -86,6 +86,12 @@ interface PlanWorkspaceProps {
   /** Roadside survivors along the planned route, in road order. Empty when no pulled corridor is near it. */
   roadsideStops?: RoadsideMarker[];
   /**
+   * Towns on the planned road from the plain list (Gauntlet U19), to name
+   * where a cut day ends when no atlas town is near it. The server picks
+   * them; the client never has the list.
+   */
+  roadPlaces?: NamedPoint[];
+  /**
    * The roadside stop whose card is open on the first render. Only the SSR
    * tests pass it: the card is normally opened by a tap, and a server
    * render cannot tap. The page never sets it.
@@ -145,6 +151,7 @@ function stopTownFrom(set: WaypointFetchResult, stop: { cityId: string; cityName
  * there are stops; this is the stable one when there are none.
  */
 const NO_ROADSIDE: RoadsideMarker[] = [];
+const NO_PLACES: NamedPoint[] = [];
 
 /** The kinds as the sheet says them, one or two plain words; anything unknown is "place". */
 const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
@@ -475,6 +482,7 @@ export default function PlanWorkspace({
   dateMode,
   initialCandidateFetchFailed = false,
   roadsideStops = NO_ROADSIDE,
+  roadPlaces = NO_PLACES,
   initialSelectedRoadsideId,
   today,
   initialTrip,
@@ -834,6 +842,12 @@ export default function PlanWorkspace({
     () => liveCandidateMarkers.map((c) => ({ id: c.id, name: c.name, ...nearestOnRoad(road, c) })),
     [liveCandidateMarkers, road]
   );
+  // The plain list's towns on the road, placed along it the same way:
+  // they only name a cut no atlas town is near (U19).
+  const dayPlaces = useMemo(
+    () => roadPlaces.map((p) => ({ id: `place:${p.name}`, name: p.name, ...nearestOnRoad(road, p) })),
+    [roadPlaces, road]
+  );
   // The stops a day can end at (Gauntlet U10): towns, not roadside
   // places, which are visited on the way. Everything that tells the trip
   // as days reads these, including the two places that find a day's
@@ -864,10 +878,11 @@ export default function PlanWorkspace({
         legMinutes,
         roadLengthKm: road.lengthKm,
         towns: dayTowns,
+        places: dayPlaces,
         roadside: roadsideStops,
         budgetMinutesPerDay: budgetHours * 60,
       }),
-    [fromName, toName, dayStops, legMinutes, road, dayTowns, roadsideStops, budgetHours]
+    [fromName, toName, dayStops, legMinutes, road, dayTowns, dayPlaces, roadsideStops, budgetHours]
   );
   // Each day's heading, a sentence with its figures: "Day 1 · Amarillo to
   // Lubbock · 3 h 20 min", and a day cut where the budget runs out named
@@ -2043,6 +2058,16 @@ export default function PlanWorkspace({
                 {saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed; try again" : "Save trip"}
               </button>
           </div>
+          {/* The list that names a day's end is CC BY 4.0 (U19): credited
+              wherever its names can show, which is any trip with one. */}
+          {roadPlaces.length > 0 && (
+            <p data-places-credit className="text-base text-[#8b949e] px-2 pb-3">
+              Town names from{" "}
+              <a href="https://www.geonames.org/" className="underline" target="_blank" rel="noopener noreferrer">
+                GeoNames
+              </a>
+            </p>
+          )}
         </div>
         </div>
       </aside>

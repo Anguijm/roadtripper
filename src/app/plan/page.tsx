@@ -19,6 +19,7 @@ import { TripParamsSchema, ArrivalTripParamsSchema, deriveStartDate, totalDays, 
 import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
 import Figures from "@/components/Figures";
 import { roadsideForRoute } from "@/lib/roadside/store";
+import { placesForRoute } from "@/lib/plan/places";
 
 interface PlanSearchParams {
   from?: string;
@@ -287,6 +288,7 @@ export default async function PlanPage({
           destination={destination}
           encodedPolyline={route.encodedPolyline}
           roadsideStops={roadsideForRoute(route.encodedPolyline)}
+          roadPlaces={placesForRoute(route.encodedPolyline)}
           bounds={route.bounds}
           candidateMarkers={candidateMarkers}
           waypointFetch={waypointFetch}

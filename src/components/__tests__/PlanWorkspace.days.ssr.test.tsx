@@ -502,6 +502,26 @@ describe("the plan sheet told as days", () => {
     expect(visible(renderToString(<PlanWorkspace {...thin} initialDurationSeconds={3 * 3600} />))).not.toMatch(/(last|only) town/);
   });
 
+  it("names a cut with no atlas town near it from a town on the road, and credits the list (U19)", () => {
+    const sparse = ["plainview", "lubbock"];
+    const thin = {
+      ...base,
+      candidateMarkers: base.candidateMarkers.filter((c) => sparse.includes(c.id)),
+      waypointFetch: { ...base.waypointFetch, cities: cities.filter((c) => sparse.includes(c.id)), waypoints: base.waypointFetch.waypoints.filter((w) => sparse.includes(w.cityId)) },
+    };
+    const roscoe = { name: "Roscoe", lat: 35 - 300 / KM_PER_DEG, lng: -101 };
+    const named = visible(renderToString(<PlanWorkspace {...thin} roadPlaces={[roscoe]} />));
+    expect(named).toContain("Day 1 · Amarillo to near Roscoe · 4 h");
+    expect(named).toContain("Day 2 · near Roscoe to Austin");
+    expect(named).toContain("Town names from GeoNames");
+    // Roscoe names the night; it is not offered as a town to stop in.
+    expect(named).not.toContain("What's in Roscoe");
+    // Without the list: on the road, and no credit.
+    const bare = visible(renderToString(<PlanWorkspace {...thin} />));
+    expect(bare).toContain("Day 1 · 4 h down the road from Amarillo");
+    expect(bare).not.toContain("GeoNames");
+  });
+
   it("shows the ten strongest places per day and one Show all per day only where a day has more than ten", () => {
     // Fourteen places in day 1 (before Lubbock at 167 km) and three in day 2.
     const many = [
