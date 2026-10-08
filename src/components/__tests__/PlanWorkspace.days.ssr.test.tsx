@@ -105,7 +105,9 @@ const twoDays = { ...twoLegs, directMinutesToDestination: 230 };
  * it, four hours from Lubbock by road though the direct road passes
  * nearest it at 526 km, past where 4 h on from Lubbock runs out (478 km).
  */
-const fredericksburg = city("fredericksburg", "Fredericksburg", 30.27, -98.87);
+// 40 km off the road (U39 moved it in from 200 km): too far to name a cut
+// (ON_ROAD_KM, 15) but near enough to be on the way (OFF_ROAD_OUT_KM, 60).
+const fredericksburg = city("fredericksburg", "Fredericksburg", 30.27, -100.583);
 const fromLubbock = {
   status: "fresh" as const,
   cities: [cities[2], cities[3], cities[4], cities[5], fredericksburg],
@@ -231,7 +233,8 @@ describe("the plan sheet told as days", () => {
     // Fort Worth sits 340 km off this road, so it cannot name the cut on
     // from Lubbock: that day is said in hours (round 6: round 5's "mile
     // 319" was a number a person in a car would not say).
-    const fortWorth = city("fort-worth", "Fort Worth", 32.75, -97.33);
+    // 28 km off the road, so on the way (U39 moved it in from 350 km).
+    const fortWorth = city("fort-worth", "Fort Worth", 32.75, -100.7);
     const movedOn = {
       status: "fresh" as const,
       cities: [fortWorth],

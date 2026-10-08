@@ -8,6 +8,6 @@ describe("the sheet hands the map only the towns it offers (U21)", () => {
   it("filters the map's towns by the offered set", () => {
     const sheet = readFileSync(new URL("../PlanWorkspace.tsx", import.meta.url), "utf8");
     expect(sheet).toContain("return onlyOffered(all, effectiveWaypointFetch);");
-    expect(sheet).toContain("const effectiveWaypointFetch = useMemo(() => offeredTowns(rawWaypointFetch, roomForDetours)");
+    expect(sheet).toContain("() => offeredTowns(markOffRoad(rawWaypointFetch, road, { origin, destination }), roomForDetours),");
   });
 });
