@@ -214,11 +214,19 @@ export function budgetWords(input: {
   if (!trip.dated) {
     // Nothing planned yet, or day 1's drive not back from the server: the
     // day's whole budget is still there to spend.
-    const left =
-      input.status.kind === "empty" || input.dayOneMinutes === null
-        ? input.budgetMinutesPerDay
-        : Math.max(0, input.budgetMinutesPerDay - input.dayOneMinutes);
-    return { line: `${fmt(left)} of driving left today`, box: null };
+    if (input.status.kind === "empty" || input.dayOneMinutes === null) {
+      return { line: `${fmt(input.budgetMinutesPerDay)} of driving left today`, box: null };
+    }
+    // A stop ends day 1 (U27): what is left of its hours is spare, not
+    // still to drive. "1 h 34 min of driving left today" under "Elko fits
+    // in day 2" read as today's driving to do, on a day already planned.
+    // Day 1's minutes as its heading shows them (whole minutes, cut, not
+    // rounded: formatDurationPlain), so the heading and this line add up
+    // to the day's hours (round 1 critic: "2 h 25 min" above "1 h 34 min
+    // to spare" on a 4 h day).
+    const shownDayOne = Math.floor(Math.round(input.dayOneMinutes * 60) / 60);
+    const spare = Math.max(0, input.budgetMinutesPerDay - shownDayOne);
+    return { line: spare > 0 ? `${fmt(spare)} to spare on day 1` : "No time to spare on day 1", box: null };
   }
   const span = trip.days === 1 ? "today" : `over ${trip.days} days`;
   const s = input.status;

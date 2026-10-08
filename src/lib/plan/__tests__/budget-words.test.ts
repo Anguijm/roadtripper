@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { budgetWords } from "../words";
+import { budgetWords, dayHeadingLine } from "../words";
 
 /**
  * The trip's driving budget, as the sheet says it (Gauntlet U11). A trip
@@ -27,14 +27,14 @@ describe("an undated trip", () => {
     expect(w.line).not.toContain("more driving than fits");
   });
 
-  it("says what is left of day 1's hours once day 1's drive is done", () => {
+  it("says what is left of day 1's hours as spare once a stop ends day 1 (U27: not \"left today\")", () => {
     const w = budgetWords({
       ...base,
       trip: { dated: false as const },
       status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 },
       dayOneMinutes: 119,
     });
-    expect(w.line).toBe("2 h 1 min of driving left today");
+    expect(w.line).toBe("2 h 1 min to spare on day 1");
   });
 
   it("counts only day 1, not every leg in the trip", () => {
@@ -48,7 +48,7 @@ describe("an undated trip", () => {
       status: { kind: "over_budget", overageMinutes: 20 },
       dayOneMinutes: 110,
     });
-    expect(w.line).toBe("2 h 10 min of driving left today");
+    expect(w.line).toBe("2 h 10 min to spare on day 1");
     expect(w.box).toBeNull();
   });
 
@@ -59,9 +59,17 @@ describe("an undated trip", () => {
     ).toBe("4 h of driving left today");
   });
 
+  it("adds up with day 1's heading, which shows whole minutes cut, not rounded (U27 critic)", () => {
+    // Day 1 is 145.6 min: its heading says "2 h 25 min" (dayHeadingLine),
+    // so on a 4 h day the spare is 1 h 35 min, not 240 - 145.6 = 94.4 → "1 h 34 min".
+    const w = budgetWords({ ...base, trip: { dated: false as const }, status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 }, dayOneMinutes: 145.6 });
+    expect(dayHeadingLine({ index: 0, fromKind: "start", fromName: "Reno", endKind: "stop", toName: "Winnemucca", minutes: 145.6 })).toBe("Day 1 · Reno to Winnemucca · 2 h 25 min");
+    expect(w.line).toBe("1 h 35 min to spare on day 1");
+  });
+
   it("does not go below nothing when day 1 runs the whole budget", () => {
     const w = budgetWords({ ...base, trip: { dated: false as const }, status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 }, dayOneMinutes: 240 });
-    expect(w.line).toBe("0 min of driving left today");
+    expect(w.line).toBe("No time to spare on day 1");
   });
 });
 
