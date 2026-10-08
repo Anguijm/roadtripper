@@ -4,44 +4,43 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/round-6-close`
+Branch: `fix/u43-see-it-on-the-map-looks-tappable`
 
 ## Ship rule (written before the work)
 
-Five critics (U24 onward): "Also good" sits in a bordered box at the
-right of a place's row, so it reads as a button, and it takes a column
-that squeezes the description into a narrow strip ("seven lines").
+About six critics (U31 to U42): "See it on the map" under each day's
+heading is low-contrast grey and doesn't look tappable. The whole heading
+is already a 44 px button (U3), so only its look misleads.
 
-Ships when:
+Ships when the line reads as a link, in the sheet's own link style (the
+sort control's "along the road"):
 
-- **The kind line.** The badge moves onto the place's kind line, after
-  the kind: "Culture · Also good" in the kind's grey, and "Culture · ★ The
-  pick" with "★ The pick" in the accent at medium weight. There is no
-  border or box, so it never looks pressable.
-- **Full width.** The description takes the row's full width.
-- **U24's rule unchanged.** One pick per town, none on the lead or a
-  detour.
+- **Underlined.** An underline in #6e7681, offset 4.
+- **Brighter.** #b0b9c2 instead of #8b949e.
+- **Unchanged.** The words, the button and its 44 px stay as they are,
+  and "See the whole trip" gets the same style.
 
 Also required:
 
-- the SSR and badge tests updated where they pin the badge's markup
+- an SSR test pins the style
 - a mutation proof
-- a screenshot at the same scroll as before
+- a screenshot
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** "★ The pick" loses its filled pill, which was its
-loudest form. The accent colour and weight carry it now.
+**Weakest part:** the underline is on the hint, while the whole heading
+is the tap target. A tap on the heading text works too, but only the
+hint looks like it does.
 
 ## Built
 
-In `RecommendationList.tsx`, the badge is now a span on the kind line after " · ": grey for "good", and the accent colour at medium weight for "pick". There is no border, padding or column. A new SSR pin checks both forms on the kind line and that no badge carries a border. The mutation that boxes it again is caught.
+In `PlanWorkspace.tsx`, the hint is now `<span data-day-map-hint class="block text-[#b0b9c2]">` wrapping an underlined span (`decoration-[#6e7681] underline-offset-4`). An SSR pin checks it, and the mutation that drops the underline is caught.
 
 ## Gates
 
-eslint, vitest (808) and next build are clean.
+tsc, eslint, vitest (808) and next build are clean.
 
 ## Critic: APPROVE (round 1)
 
-The badge no longer reads as a button, and descriptions run full width. Noted: the kind line sits under the description, which is existing layout. The lead place shows no kind line (out of scope).
+The hint reads as tappable, and nothing regressed. Next, noted: the lead place has no kind line and a different indent from the other places.

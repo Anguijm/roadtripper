@@ -1905,7 +1905,12 @@ export default function PlanWorkspace({
                       <span data-day-line className="block text-[#f0f6fc] break-words">
                         <Figures text={heading} />
                       </span>
-                      <span className="block text-[#8b949e]">{open ? "See the whole trip" : "See it on the map"}</span>
+                      {/* In the sheet's link style, the sort control's "along the
+                          road" (U43: six critics read the grey line as inert;
+                          the whole heading is the 44 px button). */}
+                      <span data-day-map-hint className="block text-[#b0b9c2]">
+                        <span className="underline decoration-[#6e7681] underline-offset-4">{open ? "See the whole trip" : "See it on the map"}</span>
+                      </span>
                     </button>
                   </h2>
                   {/* A folded day runs over the budget on purpose (U35); say so (U38). */}

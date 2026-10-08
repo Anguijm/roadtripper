@@ -433,6 +433,8 @@ describe("the plan sheet told as days", () => {
       expect(h).toMatch(/class="[^"]*\bmin-h-\[44px\]/);
     }
     expect(html.match(/See it on the map/g)).toHaveLength(3);
+    // In the sheet's link style, so it reads as tappable (U43).
+    expect(html).toContain('<span data-day-map-hint="true" class="block text-[#b0b9c2]"><span class="underline decoration-[#6e7681] underline-offset-4">See it on the map</span></span>');
     expect(html).not.toContain("See the whole trip");
     // A day with nothing under it says so rather than standing empty; with
     // no town on the road at all, a cut is said in hours, as a person
