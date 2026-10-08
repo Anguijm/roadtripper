@@ -493,3 +493,25 @@ export function nightMarks(days: readonly TripDay[], road: Road): NightMark[] {
   }
   return out;
 }
+
+/**
+ * The town whose "Stop here" is the screen's one obvious action (Gauntlet
+ * U31, rule 3): on the day that holds the towns, the one nearest where
+ * that day's driving runs out, of those the list shows and none out of
+ * the way. Null when the day ends at the destination, since there is no
+ * night to choose, or no town qualifies. Pure.
+ */
+export function primaryTownId(day: Pick<TripDay, "holdsTowns" | "endKind" | "endKm" | "towns">, shown: ReadonlySet<string>, outOfTheWay: ReadonlySet<string>): string | null {
+  if (!day.holdsTowns || day.endKind === "end" || day.endKind === "stop") return null;
+  let best: string | null = null;
+  let bestKm = Infinity;
+  for (const t of day.towns) {
+    if (!shown.has(t.id) || outOfTheWay.has(t.id)) continue;
+    const d = Math.abs(t.alongKm - day.endKm);
+    if (d < bestKm) {
+      bestKm = d;
+      best = t.id;
+    }
+  }
+  return best;
+}

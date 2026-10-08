@@ -4,59 +4,76 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u30-why-a-detour`
+Branch: `fix/u31-one-primary-per-screen`
 
 ## Ship rule (written before the work)
 
-U21's critic: when a dated trip has days to spare, a town out of the way
-appears at the bottom of the list ("Oklahoma City · out of the way"), and
-nothing says why the list changed when the trip got dates.
+U30's critic: since U25 every town's "+ Stop here" is filled, so a
+screen showing two towns has two equally loud primary actions (rule 3:
+one obvious action per screen).
+
+The thing to do next is to choose where today ends, and the natural
+choice is the town nearest where the day's driving runs out.
 
 Ships when:
 
-- **The line.** Directly before the first out-of-the-way town in the
-  list, a plain line says why: "3 days to spare, so one a bit out of the
-  way", or "…so 2 a bit out of the way" when there are more. The count is
-  the trip's spare days (U21's `spareDays`).
-- **Only with detours.** No line when no town out of the way is offered.
-- **Figures.** Its figures set in the mono face (rule 2).
+- **One filled button.** On the day that holds the towns, only the town
+  whose place along the road is nearest that day's end gets the filled
+  "+ Stop here". Out-of-the-way towns (U21) are never it.
+- **The rest.** Every other town's "+ Stop here" is an accent outline,
+  U25 round 1's look: still clearly an action, not the primary.
+- **No night to choose.** When the day ends at the destination, no
+  button is filled.
+- **Unchanged.** "✓ Added" and disabled stay as they are.
 
 Also required:
 
-- a pure function for the words, with tests
-- an SSR test of where the line sits
+- the choice is a pure, tested function
+- an SSR test that exactly one button is filled, and the right one
 - mutation proofs
-- a live screenshot
+- a screenshot
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** "spare" is counted at the budget's pace, so a person
-who means to drive less than their budget has fewer real spare days than
-the line says.
+**Weakest part:** "nearest the day's end" is by distance along the road;
+a town 10 km short of the cut is chosen over one 12 km past it, though a
+person might prefer driving the extra few minutes.
 
 ## Built
 
-- `words.ts`: `detourNoteLine(spare, count)` gives "3 days to spare, so one a bit out of the way".
-- `RecommendationList.tsx`: a `detourNote` prop. The line goes before the first out-of-the-way town the list draws (`firstDetourId`), in a fragment with that town's section.
-- `PlanWorkspace.tsx`: the note is built from the trip's spare days and the number of out-of-the-way towns offered, and passed to the day's town list.
+- `days.ts`: `primaryTownId(day, shown, outOfTheWay)` is pure. It returns the shown, on-the-way town nearest `day.endKm`, or null when the day ends at a stop or at the destination.
+- `RecommendationList.tsx`: a `primaryCityId` prop.
+  - When it is undefined, every town's button is filled, as on a list that stands alone.
+  - Otherwise only the primary town's Stop here is filled, and the others get an accent outline.
+- `PlanWorkspace.tsx`: computes the primary town per day from `outOfTheWayIds`.
 
 ## Mutation proofs
 
-Three are caught: "1 days", note on every town, and note not passed.
+All 5 are caught:
 
-One survived as an **equivalent mutant**: building the note even without room. With no room, no town out of the way is offered, so the list never draws it. The guard was simplified to `detourCount > 0`.
+- detour towns can be primary
+- the end day has a primary
+- nearest the start instead of the end
+- every button filled
+- primary not passed
 
 ## Gates
 
-tsc, eslint, vitest (794) and next build are clean. A dev server stuck in a stale hot-reload state served the dated page with no towns, and was restarted. Production was correct throughout.
+tsc, eslint, vitest (798) and next build are clean.
 
-## Live
+## Live (Amarillo → Austin)
 
-Dated Oct 20–24: "3 days to spare, so one a bit out of the way", right before Oklahoma City. Undated: no line.
+| budget | filled |
+|---|---|
+| 4 h, undated | Abilene only, nearest the "near Sweetwater" cut |
+| 4 h, dated | Abilene only; Oklahoma City (out of the way) is outlined |
+| 8 h (one day) | none |
 
-## Critic: APPROVE (round 1)
+## Critic, round 1: REJECT (evidence)
 
-Applied its wording point: "so here's a town a bit out of the way" ("one" made the reader work out what it meant).
+The screenshot showed only Abilene, the one button that stays filled, so it couldn't separate before from after. Round 2's shots scroll the sheet's own scroll box so that Lubbock's pinned header (outlined) and Abilene's card (filled) are on one screen, with the same script for before and after. No code changed.
 
-Out of scope, noted: San Angelo and Oklahoma City both show a filled "Stop here", so there are two primaries on one screen.
+## Critic, round 2: APPROVE
+
+Rule 3 is met: Abilene's is the one filled action, and Lubbock's outline still reads as a button. Out of scope, noted: the sticky town header lets text from the card above peek through behind it.

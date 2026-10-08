@@ -15,6 +15,7 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 - **Day ends beyond 30 km of any 5k town stay "on the road"**, about a quarter of 6 h days. Options: GeoNames `cities1000`, or a smaller population floor. Product call: "near X" for a village of 1,500.
 - **A cut night very close to the end** (U29 critic). Kansas City → Denver at 4 h ends day 2 43 min short of Denver, and its ring and "Night 2" read as a second name for Denver. Options: fold a last day under ~1 h into the day before (a product call: it drives past the budget), or drop that ring.
 - **Say why a detour appeared** (U21 critic). A dated trip with spare days now offers a town "out of the way" at the bottom, and nothing says why the list changed. Something like "3 days to spare, so one a bit out of the way". It also shows "★ The pick" on the detour's places, which reads as a recommendation over towns on the way.
+- **The sticky town header lets text show around it** (U31, U25 critics). While a town's places scroll under its pinned header, a line of the card above peeks over the header's top and the text below is sliced mid-line. The header needs an opaque band above it, or a hard edge.
 - **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
 ## Someday (architectural ideas, daydreams)

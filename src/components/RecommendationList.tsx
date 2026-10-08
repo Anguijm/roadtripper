@@ -19,6 +19,12 @@ interface RecommendationListProps {
   /** Said before the first town out of the way (U30): why the trip is offered it. */
   detourNote?: string | null;
   /**
+   * The town whose Stop here is filled, the screen's one obvious action
+   * (U31); every other town's is an accent outline. Undefined: every
+   * town's is filled, as on a list that stands alone.
+   */
+  primaryCityId?: string | null;
+  /**
    * The scoring profile the chosen moods make (U6), not an id: a mood's
    * profile is built by `waypointProfileForMoods`, and two moods do not
    * have one id between them.
@@ -183,6 +189,7 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
  * an empty list says nothing here.
  */
 export default function RecommendationList({
+  primaryCityId,
   detourNote = null,
   fetchResult,
   moodProfile,
@@ -241,6 +248,9 @@ export default function RecommendationList({
         const isAdded = addedCityIds.has(cityId);
         const coords = cityCoords.get(cityId);
         const canAdd = !isAdded && !pending && !atCap && Boolean(coords);
+        // One filled Stop here on the screen (U31): the town the sheet names
+        // as the natural night, or every town on a list that stands alone.
+        const isPrimary = primaryCityId === undefined || cityId === primaryCityId;
         const lead = rows.find((r) => r.description) ?? rows[0];
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
         const badges = rowBadges(rows, lead?.waypointId ?? null, !!outOfTheWay);
@@ -340,7 +350,9 @@ export default function RecommendationList({
                     isAdded
                       ? "font-medium"
                       : canAdd
-                      ? "font-semibold border-transparent hover:brightness-110"
+                      ? isPrimary
+                        ? "font-semibold border-transparent hover:brightness-110"
+                        : "font-medium hover:brightness-125"
                       : "border-[#21262d] text-[#6e7681] cursor-not-allowed",
                   ].join(" ")}
                   // The card's one obvious action (rule 3, Gauntlet U25):
@@ -351,7 +363,7 @@ export default function RecommendationList({
                   // action is done and it steps back to an accent outline;
                   // disabled stays dim with its reason beside it.
                   style={
-                    isAdded
+                    isAdded || (canAdd && !isPrimary)
                       ? { borderColor: accent, color: accent }
                       : canAdd
                       ? { backgroundColor: accent, color: "#0d1117" }
