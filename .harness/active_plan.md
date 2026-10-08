@@ -4,52 +4,66 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u23-quiet-basemap`
+Branch: `fix/u24-one-pick`
 
 ## Ship rule (written before the work)
 
-U20's and U22's critics: on Kansas City → Denver the base map's "United
-States" label is the heaviest text on the map. It is drawn across the
-route and a diamond, louder than the trip. State names crowd the town
-names (Salina, Wichita and "KANSAS"). Rule 6: the map shows the trip.
+Two critics (the atlas round, and U21) noticed "★ The pick" on several
+places in one town. It is set on every place whose kind is among the
+mood's primary kinds, so Lubbock showed three picks. "The pick" is
+singular. U21's critic also saw it on the places of a town out of the way,
+where it reads as recommending the detour over towns on the way.
 
-Ships when the base map:
+Ships when:
 
-- **Countries:** draws no country names. Every trip is in one country,
-  and its name says nothing.
-- **States:** draws state names dimmer than the app's town names, so they
-  orient without competing. #4d5560 against the town names' #f0f6fc, on
-  #1c2128 land.
-- **Everything else:** roads and water keep their labels, and town names
-  stay off (U1).
+- **One pick per town.** Each town's list shows at most one "★ The pick":
+  its highest-scoring primary-kind place, which is the list's first such
+  row since rows are ordered by score.
+- **The rest.** Other primary-kind places say "Also good", as
+  secondary-kind places do, and the rest say nothing, as before.
+- **Detours.** A town out of the way shows no "★ The pick" at all; its best
+  says "Also good".
 
 Also required:
 
-- the style test pins both rules
+- a pure function for the badge, with tests
 - mutation proofs
-- a before/after screenshot of Kansas City → Denver
+- an SSR check on a town with several primary places
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** a trip that crosses into Canada or Mexico loses the
-country name that would say so. State and province names still show,
-dimmed.
+**Weakest part:** "Also good" now covers two tiers, primary-but-not-first
+and secondary, so the badge says less about how strong a match is.
 
 ## Built
 
-`DARK_MAP_STYLES` gets two rules: `administrative.country` labels off, and the `administrative.province` text fill set to #4d5560. Both are pinned in the style test, and both mutations are caught.
+- `rowBadges(rows, leadId, outOfTheWay)` in `RecommendationList.tsx` is pure. It gives:
+  - "pick" to the first primary place, or no badge when that place is the lead
+  - "good" to the other primary places and the secondary ones
+  - nothing to the rest
+  - no pick at all when the town is out of the way
+- The render reads the badge from this map, and it carries a `data-badge` attribute.
+- The glossary test's "★ The pick" check became "Also good". On that fixture, Lubbock's pick is its lead, so it shows no badge. "★ The pick" itself is now pinned by the new SSR test.
 
-## Live check
+## Mutation proofs, before push
 
-Measured on the Kansas City → Denver screenshot: the brightest pixel in "NEBRASKA" went from #7d8590 to #4d5560, as set. "United States" is gone.
+All 5 are caught:
+
+- every primary is a pick
+- detour towns get picks
+- the lead gets a badge
+- other primaries get no badge
+- the render ignores the detour flag
 
 ## Gates
 
-eslint, vitest (777) and next build are clean.
+tsc, eslint, vitest (782) and next build are all clean.
 
 ## Critic: APPROVE (round 1)
 
-The trip's names are now the brightest text on the map, and the state names stay readable.
+The duplicate pick is gone and "Also good" reads well. Out of scope, noted:
 
-Left out of scope: state names still collide with trip names where both fall on the same spot ("KANSAS" under Salina and Wichita). The basemap can't be told to give way to the app's markers short of turning state names off.
+- the badge column wastes width beside long descriptions
+- "Towns that fit today" repeats the title
+- the lead has no kind line

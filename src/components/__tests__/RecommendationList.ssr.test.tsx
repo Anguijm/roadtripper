@@ -245,3 +245,41 @@ describe("a read that failed does not look like a road with nothing on it", () =
     expect(html).toBe("");
   });
 });
+
+describe("one pick per town on the list (U24)", () => {
+  // Two museum-kind places (primary for "Museums"), neither with a reason,
+  // and a lower one with a reason, which leads the card.
+  const many: WaypointFetchResult = {
+    status: "fresh",
+    cities: [{ id: "lubbock", name: "Lubbock", vibeClass: null, detourMinutes: 40, lat: 33.58, lng: -101.86 }],
+    waypoints: [
+      { id: "m1", cityId: "lubbock", name: "Museum one", type: "culture", trendingScore: 0.9, neighborhoodId: null, description: null },
+      { id: "m2", cityId: "lubbock", name: "Museum two", type: "culture", trendingScore: 0.8, neighborhoodId: null, description: null },
+      { id: "l1", cityId: "lubbock", name: "A landmark", type: "landmark", trendingScore: 0.1, neighborhoodId: null, description: "Has a reason." },
+    ],
+    neighborhoods: {},
+  };
+  const render = (fetchResult: WaypointFetchResult) =>
+    renderToString(
+      <RecommendationList
+        fetchResult={fetchResult}
+        moodProfile={PROFILE}
+        moodKey="museums"
+        cityCoords={new Map([["lubbock", { lat: 33.58, lng: -101.86 }]])}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+      />
+    );
+  it("badges one place the pick and the next Also good", () => {
+    const html = render(many);
+    expect(html.match(/★ The pick/g)?.length).toBe(1);
+    expect(html.indexOf("Museum one")).toBeLessThan(html.indexOf("★ The pick"));
+    expect(html.indexOf("★ The pick")).toBeLessThan(html.indexOf("Museum two"));
+    expect(html).toContain("Also good");
+  });
+  it("gives a town out of the way no pick", () => {
+    const html = render({ ...many, cities: [{ ...many.cities[0], outOfTheWay: true }] });
+    expect(html).not.toContain("★ The pick");
+  });
+});
