@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u21-detours-with-slack`
+Branch: `docs/u21-backlog`
 
 ## Ship rule (written before the work)
 
