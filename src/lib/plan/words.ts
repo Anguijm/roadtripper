@@ -6,6 +6,7 @@
 
 import type { WaypointType } from "@/lib/urban-explorer/types";
 import type { TripDay } from "@/lib/plan/days";
+import type { TripStatus } from "@/lib/plan/trip-state";
 import { formatDurationPlain } from "@/lib/routing/format";
 import { countWord } from "@/lib/plan/deadline";
 
@@ -178,22 +179,21 @@ function withThe(name: string): string {
  * and was only right by coincidence when the trip had one overnight.
  */
 export function budgetWords(input: {
-  /** Whether the trip has dates, and so a total budget at all. */
-  dated: boolean;
-  /** The trip's days: the date range when dated, ignored otherwise. */
-  tripDays: number;
+  /**
+   * Whether the trip has dates, and if so how many days (U13: a union, so
+   * an undated trip has no day count to be read by mistake).
+   */
+  trip: { dated: false } | { dated: true; days: number };
   budgetMinutesPerDay: number;
-  /** The whole trip's budget status, meaningful only when `dated`. */
-  status:
-    | { kind: "empty" }
-    | { kind: "in_progress" | "warning"; remainingBudgetMinutes: number; directMinutesToDestination: number }
-    | { kind: "over_budget"; overageMinutes: number };
+  /** The trip's budget status; an undated trip's is `empty` or `undated`. */
+  status: TripStatus;
   /** Day 1's drive in minutes, or null while it is not known. */
   dayOneMinutes: number | null;
   toName: string;
 }): { line: string; box: { kind: "warning" | "over_budget"; text: string } | null } {
   const fmt = (minutes: number) => formatDurationPlain(Math.round(minutes) * 60);
-  if (!input.dated) {
+  const trip = input.trip;
+  if (!trip.dated) {
     // Nothing planned yet, or day 1's drive not back from the server: the
     // day's whole budget is still there to spend.
     const left =
@@ -202,9 +202,11 @@ export function budgetWords(input: {
         : Math.max(0, input.budgetMinutesPerDay - input.dayOneMinutes);
     return { line: `${fmt(left)} of driving left today`, box: null };
   }
-  const span = input.tripDays === 1 ? "today" : `over ${input.tripDays} days`;
+  const span = trip.days === 1 ? "today" : `over ${trip.days} days`;
   const s = input.status;
-  if (s.kind === "empty") return { line: `${fmt(input.tripDays * input.budgetMinutesPerDay)} of driving left ${span}`, box: null };
+  // A dated trip's status is never `undated`; read as nothing used yet if
+  // it ever were, rather than letting the type through unhandled.
+  if (s.kind === "empty" || s.kind === "undated") return { line: `${fmt(trip.days * input.budgetMinutesPerDay)} of driving left ${span}`, box: null };
   if (s.kind === "over_budget") {
     const text = `${fmt(s.overageMinutes)} more driving than fits ${span}`;
     return { line: text, box: { kind: "over_budget", text: `${text}.` } };
