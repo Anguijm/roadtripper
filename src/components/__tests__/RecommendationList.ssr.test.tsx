@@ -360,3 +360,33 @@ describe("a pinned town header covers the scroll box's padding above it (U32)", 
     expect(STICKY_BAND_PX).toBe(8);
   });
 });
+
+describe("the lead place is laid out like the rest, and named the pick when it is (U44)", () => {
+  it("gives the lead the glyph column, its reason indented, and its kind line with the pick", () => {
+    const pickLeads: WaypointFetchResult = {
+      status: "fresh",
+      cities: [{ id: "lubbock", name: "Lubbock", vibeClass: null, detourMinutes: 40, lat: 33.58, lng: -101.86 }],
+      waypoints: [
+        { id: "m1", cityId: "lubbock", name: "Museum one", type: "culture", trendingScore: 0.9, neighborhoodId: null, description: "Has a reason." },
+        { id: "m2", cityId: "lubbock", name: "Museum two", type: "culture", trendingScore: 0.8, neighborhoodId: null, description: null },
+      ],
+      neighborhoods: {},
+    };
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={pickLeads}
+        moodProfile={PROFILE}
+        moodKey="museums"
+        cityCoords={new Map([["lubbock", { lat: 33.58, lng: -101.86 }]])}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+      />
+    );
+    const lead = html.match(/<div data-lead="true"[^>]*>[\s\S]*?<\/div><\/div>/)?.[0] ?? "";
+    expect(lead).toMatch(/class="flex items-start gap-2 px-2 pt-2 pb-1"/);
+    expect(lead).toContain('<div class="flex-1 min-w-0"><p class="text-base text-[#f0f6fc] break-words">Museum one</p>');
+    expect(lead).toMatch(/Culture<!-- --> · <span data-badge="pick"[^>]*>★ The pick<\/span>/);
+    expect(html.match(/★ The pick/g)).toHaveLength(1);
+  });
+});

@@ -155,22 +155,22 @@ export type RowBadge = keyof typeof BADGE_LABELS | null;
 
 /**
  * Each row's badge (Gauntlet U24). "The pick" is singular: one per town,
- * its highest-scoring primary-kind place (rows come ordered by score), and
- * none at all when that place is the town's lead, which is shown first
- * and needs no badge to say so. Every other primary-kind place, and every
+ * its highest-scoring primary-kind place (rows come ordered by score),
+ * named wherever it sits, the lead included (U44: since the badge became
+ * words on the kind line, U42, saying it on the lead costs nothing, and
+ * three critics found the ranking half shown without it). Every other primary-kind place, and every
  * secondary-kind one, is "Also good"; the rest say nothing. A town out of
  * the way (U21) has no pick, so its best does not read as recommending
  * the detour over the towns on the way. Pure: keyed by waypoint id.
  */
 export function rowBadges(
   rows: ReadonlyArray<Pick<RankedWaypoint, "waypointId" | "tier">>,
-  leadId: string | null,
   outOfTheWay: boolean
 ): Map<string, RowBadge> {
   const out = new Map<string, RowBadge>();
   const pickId = outOfTheWay ? null : rows.find((r) => r.tier === "primary")?.waypointId ?? null;
   for (const r of rows) {
-    if (r.waypointId === pickId) out.set(r.waypointId, r.waypointId === leadId ? null : "pick");
+    if (r.waypointId === pickId) out.set(r.waypointId, "pick");
     else out.set(r.waypointId, r.tier === "other" ? null : "good");
   }
   return out;
@@ -265,7 +265,48 @@ export default function RecommendationList({
         const isPrimary = primaryCityId === undefined || cityId === primaryCityId;
         const lead = rows.find((r) => r.description) ?? rows[0];
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
-        const badges = rowBadges(rows, lead?.waypointId ?? null, !!outOfTheWay);
+        const badges = rowBadges(rows, !!outOfTheWay);
+        // One layout for every place, the lead included (U44: the lead ran
+        // its reason flush under the glyph and had no kind line).
+        const placeBody = (r: (typeof rows)[number]) => (
+          <>
+              <span
+                aria-hidden
+                className="text-base leading-6 shrink-0"
+                style={{ color: accent }}
+              >
+                {TYPE_GLYPHS[r.type] ?? "·"}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-base text-[#f0f6fc] break-words">{r.name}</p>
+                {/* The reason to stop. Untrusted text, rendered as text; React escapes it. It wraps whole, like the name. */}
+                {r.description && (
+                  <p className="text-base text-[#b0b9c2] mt-0.5" data-reason>{r.description}</p>
+                )}
+                <p className="text-base text-[#8b949e] mt-0.5">
+                  {kindWord(r.type)}
+                  {/* The badge on the kind line, not boxed at the row's
+                      right (U42: five critics read the box as a button,
+                      and it narrowed the description to a strip). */}
+                  {(() => {
+                    const badge = badges.get(r.waypointId);
+                    return badge ? (
+                      <>
+                        {" · "}
+                        <span
+                          data-badge={badge}
+                          className={badge === "pick" ? "font-medium whitespace-nowrap" : "whitespace-nowrap"}
+                          style={badge === "pick" ? { color: accent } : undefined}
+                        >
+                          {BADGE_LABELS[badge]}
+                        </span>
+                      </>
+                    ) : null;
+                  })()}
+                </p>
+              </div>
+          </>
+        );
 
         const handleAddClick = () => {
           if (isAdded) {
@@ -420,16 +461,10 @@ export default function RecommendationList({
                 data-lead
                 onMouseEnter={() => onCityHover?.(cityId)}
                 onMouseLeave={() => onCityHover?.(null)}
-                className="px-2 pt-2 pb-1"
+                className="flex items-start gap-2 px-2 pt-2 pb-1"
                 style={{ borderLeft: `2px solid ${accent}` }}
               >
-                <p className="text-base text-[#f0f6fc] break-words">
-                  <span aria-hidden className="mr-1.5" style={{ color: accent }}>{TYPE_GLYPHS[lead.type] ?? "·"}</span>
-                  {lead.name}
-                </p>
-                {lead.description && (
-                  <p className="text-base text-[#b0b9c2] mt-1" data-reason>{lead.description}</p>
-                )}
+                {placeBody(lead)}
               </div>
             )}
             {rest.length > 0 && (
@@ -442,41 +477,7 @@ export default function RecommendationList({
                   className="flex items-start gap-2 pl-2 pr-2 py-2 border border-transparent hover:border-[#30363d] bg-[#0d1117] cursor-pointer"
                   style={{ borderLeft: `2px solid ${accent}` }}
                 >
-                  <span
-                    aria-hidden
-                    className="text-base leading-6 shrink-0"
-                    style={{ color: accent }}
-                  >
-                    {TYPE_GLYPHS[r.type] ?? "·"}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base text-[#f0f6fc] break-words">{r.name}</p>
-                    {/* The reason to stop. Untrusted text, rendered as text; React escapes it. It wraps whole, like the name. */}
-                    {r.description && (
-                      <p className="text-base text-[#b0b9c2] mt-0.5" data-reason>{r.description}</p>
-                    )}
-                    <p className="text-base text-[#8b949e] mt-0.5">
-                      {kindWord(r.type)}
-                      {/* The badge on the kind line, not boxed at the row's
-                          right (U42: five critics read the box as a button,
-                          and it narrowed the description to a strip). */}
-                      {(() => {
-                        const badge = badges.get(r.waypointId);
-                        return badge ? (
-                          <>
-                            {" · "}
-                            <span
-                              data-badge={badge}
-                              className={badge === "pick" ? "font-medium whitespace-nowrap" : "whitespace-nowrap"}
-                              style={badge === "pick" ? { color: accent } : undefined}
-                            >
-                              {BADGE_LABELS[badge]}
-                            </span>
-                          </>
-                        ) : null;
-                      })()}
-                    </p>
-                  </div>
+                  {placeBody(r)}
                 </li>
               ))}
             </ul>
