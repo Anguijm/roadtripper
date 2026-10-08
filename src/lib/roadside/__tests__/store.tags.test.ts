@@ -25,6 +25,8 @@ ins.run("osm:node:4", "The diner", 34.775, -101, "attraction", 0.5);
 ins.run("osm:node:7", "Never tagged", 34.9, -101, "attraction", 0.7);
 // A row the schema must refuse: a name is `z.string().min(1)`.
 ins.run("osm:node:8", "", 34.8, -101, "attraction", 0.8);
+// And one whose "name" is not a name (U15): 54 in Midland, Texas, are "*".
+ins.run("osm:node:9", "*", 34.7, -101, "attraction", 0.6);
 const tag = db.prepare("INSERT INTO roadside_tag (stop_id, tag, p, scored_at) VALUES (?, ?, ?, 't')");
 tag.run("osm:node:1", "sports_place", 0.99);
 tag.run("osm:node:1", "famous_food", 0.02);
@@ -113,6 +115,12 @@ describe("the stops the plan page reads carry their tags", () => {
       expect(m.name.length, m.id).toBeGreaterThan(0);
       expect(Number.isFinite(m.alongKm), m.id).toBe(true);
     }
+  });
+
+  it("never lets a place named `*` onto the sheet (U15)", () => {
+    const out = survivorsAlongRoute(roadsideStore(path)!, route);
+    expect(out.map((m) => m.id)).not.toContain("osm:node:9");
+    for (const m of out) expect(m.name).not.toBe("*");
   });
 
   it("asks for nothing when there are no stops to ask about", () => {
