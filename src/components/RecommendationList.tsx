@@ -324,16 +324,18 @@ export default function RecommendationList({
                   drive (Gauntlet U3, round 3: "Lubbock · 1 h 40 min away"
                   under "Amarillo to Lubbock · 1 h 43 min"). */}
               <h3 className="text-base leading-6 break-words">
-                {cityName}
+                {/* The card's title (U41): the name in the body white, the
+                    rest of the line grey, so the eye finds the town first. */}
+                <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
                 {detourMinutes > 0 && !isAdded && (
-                  <span className="ml-2 text-[#8b949e]">
+                  <span className="ml-1 text-[#8b949e]">
                     · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}
                   </span>
                 )}
                 {/* A town offered because the trip has a day to spare
                     (U21): said, so nobody takes it for one on the way. */}
                 {outOfTheWay && !isAdded && (
-                  <span data-out-of-the-way className="ml-2 text-[#8b949e] whitespace-nowrap">· out of the way</span>
+                  <span data-out-of-the-way className="ml-1 text-[#8b949e] whitespace-nowrap">· out of the way</span>
                 )}
               </h3>
               {primaryNote && cityId === primaryCityId && (
