@@ -183,6 +183,12 @@ export interface TripDaysInput {
    * them; a town on the road also names a cut near it.
    */
   towns: readonly DayTown[];
+  /**
+   * Towns from the plain list (Gauntlet U19) that can name a cut when no
+   * atlas name is near it: where the road passes each and how far off it
+   * sits. Optional; without them a cut is named by the atlas alone.
+   */
+  places?: readonly DayTown[];
   roadside: readonly RoadsideMarker[];
   budgetMinutesPerDay: number;
 }
@@ -294,6 +300,7 @@ export function tripDays(input: TripDaysInput): TripDay[] {
     { name: input.toName, alongKm: input.roadLengthKm },
     ...input.towns.filter((t) => t.offRoadKm === undefined || t.offRoadKm <= ON_ROAD_KM).map((t) => ({ name: t.name, alongKm: t.alongKm })),
   ];
+  const listNamed: NamedKm[] = (input.places ?? []).filter((t) => t.offRoadKm === undefined || t.offRoadKm <= ON_ROAD_KM).map((t) => ({ name: t.name, alongKm: t.alongKm }));
   const budget = input.budgetMinutesPerDay;
   const days: TripDay[] = [];
   ends.forEach((end, leg) => {
@@ -313,7 +320,11 @@ export function tripDays(input: TripDaysInput): TripDay[] {
       const startKm = start.km + (end.km - start.km) * fStart;
       const endKm = start.km + (end.km - start.km) * fEnd;
       const dayMinutes = minutes === null ? null : last ? minutes - k * budget : budget;
-      const cut = last ? null : cutEndName(endKm, named);
+      // The atlas first: a town the sheet offers, or a stop or an end,
+      // names the cut when one is near it; the list only when none is
+      // (U19), so "near Lubbock" is never lost to a smaller town beside it.
+      const atlasCut = last ? null : cutEndName(endKm, named);
+      const cut = atlasCut && atlasCut.endKind === "hours" && listNamed.length > 0 ? cutEndName(endKm, listNamed) : atlasCut;
       const prev = days[days.length - 1];
       days.push({
         index: days.length,
