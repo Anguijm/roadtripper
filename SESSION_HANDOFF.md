@@ -4,15 +4,20 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `5829ae8`** (last merged: PR #108 — U12, map labels).
+**Main is at `ecaca24`** (last merged: PR #119, 16 corridor towns in the atlas).
 
-**Round 3 shipped (PRs #100–#108, 2026-10-02 to 07).** Full write-up in
-`gauntlet/round-3-report.md`; round 2's is `gauntlet/round-2-report.md`.
-On Amarillo → Austin with The Big Texan and Lubbock added, the trip now
-reads three days with a night in Lubbock (a roadside place is a visit,
-not an overnight), no false "Tight" warning without dates, a clean map,
-and it reopens from Saved trips with its stops. All checked live on
-production in a real browser.
+**Round 4 shipped (PRs #110–#119, 2026-10-08).**
+
+- **U14–U16:** Food marks, junk names, readable lines.
+- **U17 (#114):** a detour limit, so Oklahoma City is no longer a town that fits on Amarillo → Austin.
+- **U18 (#115):** "Lubbock is the only town before your 4 h are up".
+- **U19 (#117):** a cut day's end is named from GeoNames US towns, so "Amarillo to near Sweetwater" replaces "4 h down the road". This list is server-only and credited on the sheet.
+- **U20 (#118):** map town names sit above their dots and are withheld where they would collide. A named town draws over the diamonds, with a halo.
+- **Atlas (#119, city-atlas-service#61):** 16 corridor towns.
+  - Reno → SLC and Las Vegas → SLC now offer towns.
+  - Sweetwater, TX was first ingested with Miami places. It is deleted, and Phase C now rejects places more than 3 radii from the city.
+
+All of it is checked live on production. Scoping is in `docs/atlas-gaps.md`.
 
 **How work is gated now** (CLAUDE.md, "Merging"): Gate 1; a mutation proof
 *before* the push; the critic for anything on screen; a live run for
