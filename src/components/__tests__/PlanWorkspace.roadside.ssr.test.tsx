@@ -35,9 +35,12 @@ import RouteMap, {
   fitPaddingPx,
   FIT_MARGIN_PX,
   STRIP_MARGIN_PX,
+  CONTROL_CLEARANCE_PX,
+  MAP_CONTROL_MARGIN_PX,
+  MAP_CONTROL_SIZE_PX,
+  HALF_NAME_PX,
   STRIP_MIN_PX,
   PLAN_HEADER_PX,
-  MAP_CONTROL_SIZE_PX,
 } from "@/components/RouteMap";
 import { townsAlong, roadsideAnchor } from "@/lib/roadside/anchor";
 import { formatDurationPlain } from "@/lib/routing/format";
@@ -283,7 +286,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // the margins; the start's name above, a name's width and a diamond's
     // canvas beside, the end's diamond below.
     expect(pad).toEqual({ ...STRIP_MARGIN_PX, bottom: Math.round(phone.mapHeightPx - strip) + STRIP_MARGIN_PX.bottom });
-    expect(innerW).toBe(310);
+    // 256, not 310 (U22): the right side clears the zoom control and half
+    // a name, so the start's or end's name is never under the buttons.
+    expect(innerW).toBe(256);
     expect(innerH).toBe(141);
     // The map takes fractional zooms (Gauntlet U3, round 5), so the fit
     // lands where the road fills the inner area rather than on the whole
@@ -302,14 +307,20 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(Math.max(at.w / innerW, at.h / innerH)).toBeCloseTo(1, 6);
     expect(Math.round(at.h)).toBe(innerH);
     expect(PLAN_HEADER_PX).toBe(49);
-    expect(STRIP_MARGIN_PX).toEqual({ top: 40, right: 40, bottom: 32, left: 40 });
+    expect(STRIP_MARGIN_PX).toEqual({ top: 40, right: 94, bottom: 32, left: 40 });
     // A strip too short to frame a road falls back; so does a desktop, or
     // a map with no sheet: the margins as before.
     expect(STRIP_MIN_PX).toBe(140);
     expect(fitPaddingPx({ ...phone, viewportHeightPx: 390 })).toEqual(FIT_MARGIN_PX);
     expect(fitPaddingPx({ ...phone, phone: false })).toEqual(FIT_MARGIN_PX);
     expect(fitPaddingPx({ ...phone, sheetTopDvh: undefined })).toEqual(FIT_MARGIN_PX);
-    expect(FIT_MARGIN_PX).toEqual({ top: 60, right: 60, bottom: 120, left: 60 });
+    expect(FIT_MARGIN_PX).toEqual({ top: 60, right: 94, bottom: 120, left: 60 });
+    // The right clears the zoom control (U22): its 44 px buttons, Google's
+    // 10 px margin and half a long name, so no start's or end's name sits
+    // under the buttons ("Kansas City" read "Ka").
+    expect(CONTROL_CLEARANCE_PX).toBe(MAP_CONTROL_MARGIN_PX + MAP_CONTROL_SIZE_PX + HALF_NAME_PX);
+    expect(MAP_CONTROL_MARGIN_PX).toBe(10);
+    expect(HALF_NAME_PX).toBeGreaterThanOrEqual(Math.ceil(("Kansas City".length * 6.6) / 2));
   });
 
   it("draws the map's own buttons at the 44 px target", () => {

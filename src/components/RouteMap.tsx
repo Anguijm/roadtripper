@@ -116,6 +116,20 @@ export const PHONE_MAX_WIDTH_PX = 767;
  */
 export const MAP_CONTROL_SIZE_PX = 44;
 
+/** The gap Google leaves between a control and the map's edge, in px. */
+export const MAP_CONTROL_MARGIN_PX = 10;
+/** Half a long town's name, in px (11 chars at the label face's 6.6 px), since a name is centred on its point. */
+export const HALF_NAME_PX = 40;
+/**
+ * The fit's right padding (Gauntlet U22): the zoom control sits at the
+ * top right (44 px buttons and Google's 10 px margin), and a start's or
+ * end's name centred above its dot reaches half a name beyond it. Four
+ * critics saw "Kansas City" cut to "Ka" under the buttons when the right
+ * padding was 40, and since U20 the hidden name also withheld the names of
+ * the towns beside it. Moves with: the control's size and margin above.
+ */
+export const CONTROL_CLEARANCE_PX = MAP_CONTROL_MARGIN_PX + MAP_CONTROL_SIZE_PX + HALF_NAME_PX;
+
 /** What `fitBounds` takes: pixels of the map the corridor stays out of, on each side. */
 export interface FitPadding {
   top: number;
@@ -129,15 +143,16 @@ export interface FitPadding {
  * sheet is a side panel and the whole map is on screen. Unchanged since the
  * fit was written.
  */
-export const FIT_MARGIN_PX: FitPadding = { top: 60, right: 60, bottom: 120, left: 60 };
+export const FIT_MARGIN_PX: FitPadding = { top: 60, right: CONTROL_CLEARANCE_PX, bottom: 120, left: 60 };
 /**
  * On a phone, the room inside the strip of map above the sheet: 40 above
  * for the start's name (drawn 30 px above its dot, 11 px tall) and beside
- * for a name's width and a diamond's canvas (22 px each side of its point);
+ * for a name's width and a diamond's canvas (22 px each side of its point),
+ * and on the right the zoom control as well (CONTROL_CLEARANCE_PX, U22);
  * 32 below for the end's diamond and its dot. The bottom of the padding
  * proper is the sheet's share of the map, added in fitPaddingPx.
  */
-export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: 40, bottom: 32, left: 40 };
+export const STRIP_MARGIN_PX: FitPadding = { top: 40, right: CONTROL_CLEARANCE_PX, bottom: 32, left: 40 };
 /**
  * The least height, in px, of the strip of map above the sheet at rest
  * for the fit to frame the road in it. 140 leaves 68 px of road between
