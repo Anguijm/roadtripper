@@ -27,6 +27,10 @@ ins.run("osm:node:7", "Never tagged", 34.9, -101, "attraction", 0.7);
 ins.run("osm:node:8", "", 34.8, -101, "attraction", 0.8);
 // And one whose "name" is not a name (U15): 54 in Midland, Texas, are "*".
 ins.run("osm:node:9", "*", 34.7, -101, "attraction", 0.6);
+// Places whose only line is the mapper's one-word tag (U16).
+const withDetail = db.prepare("INSERT INTO roadside_stop (id, name, lat, lng, kind, p, detail) VALUES (?, ?, ?, ?, ?, ?, ?)");
+withDetail.run("osm:node:10", "A Statue", 34.65, -101, "artwork", 0.6, "statue");
+withDetail.run("osm:node:11", "A Tourist Thing", 34.6, -101, "attraction", 0.6, "tourism");
 const tag = db.prepare("INSERT INTO roadside_tag (stop_id, tag, p, scored_at) VALUES (?, ?, ?, 't')");
 tag.run("osm:node:1", "sports_place", 0.99);
 tag.run("osm:node:1", "famous_food", 0.02);
@@ -121,6 +125,14 @@ describe("the stops the plan page reads carry their tags", () => {
     const out = survivorsAlongRoute(roadsideStore(path)!, route);
     expect(out.map((m) => m.id)).not.toContain("osm:node:9");
     for (const m of out) expect(m.name).not.toBe("*");
+  });
+
+  it("never shows the mapper's one-word tag as the whole line about a place (U16)", () => {
+    // Read through the store, the path the app uses: before U16 this card
+    // read only "statue", and one in Midland read only "tourism".
+    const out = byId(survivorsAlongRoute(roadsideStore(path)!, route));
+    expect(out.get("osm:node:10")!.about).toBe("On the map as a statue; nothing written about it yet.");
+    expect(out.get("osm:node:11")!.about).toBeNull();
   });
 
   it("asks for nothing when there are no stops to ask about", () => {
