@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { bearingDeg, makesProgress, progressToward } from "../progress";
+import { bearingDeg, detourRatio, makesProgress, MAX_DETOUR_RATIO, progressToward } from "../progress";
 import { haversineKm, type LatLng } from "../polyline";
 
 // A flat little world near the equator where degrees are about 111 km, so
@@ -79,13 +79,16 @@ describe("makesProgress, on the real atlas", () => {
     expect(haversineKm(wichita, austin)).toBeGreaterThan(haversineKm(amarillo, austin));
   });
 
-  it("Amarillo to Austin: everything the new rule drops from the old fan is farther from Austin than Amarillo", () => {
+  it("Amarillo to Austin: everything the new rule drops from the old fan is farther from Austin, past it, or too far off the way", () => {
+    // Before U17 every drop was the first two. U17 adds the third: a town
+    // closer to Austin in a straight line can still be far off the way.
     const amarillo = byId("amarillo"), austin = byId("austin");
     const dropped = cities.filter((c) => oldFanKept(c, amarillo, austin) && !makesProgress(c, amarillo, austin));
     expect(dropped.length).toBeGreaterThan(0);
     for (const c of dropped) {
       const p = progressToward(c, amarillo, austin);
-      expect(p.remainingKm >= p.totalKm || p.alongKm > p.totalKm).toBe(true);
+      const offTheWay = detourRatio(c, amarillo, austin) > MAX_DETOUR_RATIO;
+      expect(p.remainingKm >= p.totalKm || p.alongKm > p.totalKm || offTheWay, c.name).toBe(true);
     }
   });
 
@@ -117,5 +120,49 @@ describe("makesProgress, on the real atlas", () => {
     // cities each, about 8,000 checks. Far below 1,000 would mean the loop
     // skipped most pairs (all same-id, or a broken atlas) and proved nothing.
     expect(kept).toBeGreaterThan(1000);
+  });
+});
+
+
+describe("a town far off the way is not ahead (U17)", () => {
+  // Measured before MAX_DETOUR_RATIO was chosen. U14's critic noticed
+  // Oklahoma City offered as fitting "today" on Amarillo → Austin. The
+  // same real atlas as the block above.
+  const db = new Database("data/atlas.sqlite", { readonly: true, fileMustExist: true });
+  const cities = db.prepare(`select id, name, lat, lng from cities`).all() as Array<{ id: string; name: string; lat: number; lng: number }>;
+  db.close();
+  const byId = (id: string) => {
+    const c = cities.find((x) => x.id === id);
+    if (!c) throw new Error(`atlas has no city ${id}`);
+    return c;
+  };
+  const trip = (from: string, to: string) => [byId(from), byId(to)] as const;
+
+  it("drops Oklahoma City from Amarillo to Austin, though it is closer to Austin than Amarillo is", () => {
+    const [amarillo, austin] = trip("amarillo", "austin");
+    const okc = byId("oklahoma-city");
+    const p = progressToward(okc, amarillo, austin);
+    // It is closer — which is all the old rule asked —
+    expect(p.remainingKm).toBeLessThan(p.totalKm);
+    // — but going through it is nearly half as long again.
+    expect(detourRatio(okc, amarillo, austin)).toBeGreaterThan(1.4);
+    expect(makesProgress(okc, amarillo, austin)).toBe(false);
+  });
+
+  it("keeps every town on the road the trip actually takes", () => {
+    expect(makesProgress(byId("lubbock-tx"), ...trip("amarillo", "austin"))).toBe(true);
+    expect(makesProgress(byId("indianapolis"), ...trip("chicago", "nashville"))).toBe(true);
+    expect(makesProgress(byId("louisville"), ...trip("chicago", "nashville"))).toBe(true);
+    expect(makesProgress(byId("fort-worth"), ...trip("dallas", "denver"))).toBe(true);
+  });
+
+  it("judges the town by the trip: Oklahoma City is on the way to Denver from Dallas", () => {
+    expect(makesProgress(byId("oklahoma-city"), ...trip("dallas", "denver"))).toBe(true);
+  });
+
+  it("drops the far-off towns on a dog-leg trip", () => {
+    for (const id of ["columbus", "st-louis", "dayton"]) {
+      expect(makesProgress(byId(id), ...trip("chicago", "nashville")), id).toBe(false);
+    }
   });
 });
