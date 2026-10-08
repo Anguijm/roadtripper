@@ -9,6 +9,7 @@ import React, {
   useTransition,
 } from "react";
 import type { RoadsideMarker } from "@/lib/roadside/along";
+import { inTitleOrder } from "@/lib/map/labels";
 import { roadsideAnchor, townsAlong, type RoadsideAnchor, type NamedPoint } from "@/lib/roadside/anchor";
 import { decodePolyline } from "@/lib/routing/polyline";
 import RouteMap, {
@@ -1530,6 +1531,13 @@ export default function PlanWorkspace({
   // the failed page fetch the title is the sentence again, and a later
   // failure keeps the last set on the sheet rather than saying the towns
   // never loaded.
+  // The map names towns in the title's order (U20): when names would
+  // collide it keeps the first, so the towns the title names are the ones
+  // the map names. Order only; the set is the same.
+  const mapCandidates = useMemo(
+    () => inTitleOrder(liveCandidateMarkers, effectiveWaypointFetch.cities.map((c) => c.id)),
+    [liveCandidateMarkers, effectiveWaypointFetch]
+  );
   const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
   const sheetTitle = townsFailed
     ? "Couldn't load the towns along the road"
@@ -2083,7 +2091,7 @@ export default function PlanWorkspace({
           destinationName={toName}
           encodedPolyline={livePolyline}
           bounds={bounds}
-          candidates={liveCandidateMarkers}
+          candidates={mapCandidates}
           routeColor={accent}
           highlightedCandidateId={highlightedCityId}
           onCandidateClick={handleMapClick}
