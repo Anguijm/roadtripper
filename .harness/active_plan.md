@@ -4,110 +4,66 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/u21-backlog`
+Branch: `fix/u22-controls-clear-names`
 
 ## Ship rule (written before the work)
 
-The operator, on U17 (2026-10-08): Oklahoma City from Amarillo on the way
-to Austin is fine "if you have five days to get to Austin… maybe listed as
-an option, but at the bottom of the list". Going west first (Albuquerque,
-El Paso) is out: "go east to go west doesn't make a lot of sense".
+Four critics (U19, U20 ×2, atlas) flagged the zoom buttons covering the
+start's name on a phone: Kansas City → Denver shows "Ka". Since U20 that
+hidden name also withholds the names of the towns beside it (Lawrence,
+Topeka). Rule 6: the map's controls never hide the trip.
 
-Ships when:
+The fit leaves 40 px on the right on a phone (60 on a desktop). The
+zoom control takes 54 px of the right edge at the top (44 px buttons, rule
+7, and Google's 10 px margin), and a name centred above its dot reaches
+about 40 px beyond the dot.
 
-- **Who sees detours.** A dated trip with at least one spare day is
-  offered towns up to a detour ratio of 1.5. Spare days are the days
-  between the dates, minus the days already used by stops, minus the days
-  the rest of the drive needs. Oklahoma City is at 1.45 on Amarillo →
-  Austin. Below a ratio of 1.25 a town counts as "on the way" (U17).
-- **Where they go.** Those towns sit after every on-the-way town, in the
-  title, the list and the map's naming order, and their row says "out of
-  the way".
-- **Unchanged.** An undated trip, or one with no spare day, sees exactly
-  what U17 shows.
-- **Never further back.** A town that doesn't bring you closer to the
-  destination is still never offered, so going west first (Albuquerque, El
-  Paso) never appears.
+Ships when the first fit's right padding clears the control and half a
+long name:
 
-Also required:
+- 10 + 44 + 40 = **94 px**, on a phone and on a desktop
+- derived from the control size and margin constants, not typed in
+- Kansas City → Denver at 390 px shows "Kansas City" whole and clear of
+  the buttons
+- the other sides are unchanged
+- tests pin the derivation, mutation proofs run before the push, and the
+  critic approves
 
-- tests: the spare-day count, the tagging, the filter and order on the
-  sheet, the row's words
-- mutation proofs before the push
-- a live run, dated with spare days vs undated, on Amarillo → Austin
-- the critic's approval
+**Cost:** $0.
 
-**Cost:** $0. The free drive graph serves it. When the graph misses, the
-paid fallback is capped at MAX_RADIAL_FAN_OUT either way, and it now sorts
-on-the-way towns first so a detour never displaces one.
-
-**Weakest part:** 1.5 is a second tuning number, and "one spare day" is a
-guess at when a detour is welcome. Spare days are counted at the budget's
-pace, so a trip whose stops already eat the slack loses its detours as
-stops are added. That is intended, but it may surprise someone.
+**Weakest part:** padding the whole right edge shrinks the road's frame
+by 54 px of a 390 px phone, though the buttons only cover the top 100 px
+of it. A road that runs east–west fills a little less of the width. A
+corner-only clearance would need a camera move after the fit, which
+round 4 found strict mode removes.
 
 ## Built
 
-- **`progress.ts`:** `makesProgress` now takes a ratio. Added `MAX_DETOUR_RATIO_WITH_SLACK = 1.5` and `isOutOfTheWay` (above 1.25).
-- **`radial.ts`:** fetches up to 1.5 and tags `outOfTheWay` with `tagOutOfTheWay`. The paid fallback's cap now sorts on-the-way towns first.
-- **`recommend.ts`:**
-  - `waypointCities` puts on-the-way towns first before the 10-town places cap. Without it, Oklahoma City could have taken a slot from a town on the way, which only reading the code revealed.
-  - `cityContextFor` carries the tag.
-- **`trip-state.ts`:** `spareDays` counts dates − days used − days still needed, with visits folded as the deadline does. It returns null when undated.
-- **`detours.ts`:** `offeredTowns` (filter and order: out of the way last) and `onlyOffered` (the map's towns).
-- **`PlanWorkspace.tsx`:** `roomForDetours = spareDays ≥ 1`. `effectiveWaypointFetch` is the offered set, so the title, days and map can't disagree.
-- **`scoring.ts`:** the list sorts out-of-the-way towns last.
-- **`RecommendationList.tsx`:** the row says "· out of the way".
-- **The server action's contract is unchanged:** the tag rides on existing data.
+`RouteMap.tsx` gets three constants:
+
+- `MAP_CONTROL_MARGIN_PX = 10`
+- `HALF_NAME_PX = 40`
+- `CONTROL_CLEARANCE_PX = 10 + 44 + 40 = 94`
+
+Both `FIT_MARGIN_PX.right` and `STRIP_MARGIN_PX.right` now use it. The fit test pins the derivation, and checks that `HALF_NAME_PX` covers "Kansas City" at 6.6 px per character. Its pinned inner width is now 256, not 310; that is the intended cost, and the zoom and height checks are unchanged.
 
 ## Mutation proofs, before push
 
-All 17 are caught in the end:
+All 4 are caught:
 
-- slack limit set to strict
-- never tagged
-- always offered
-- not last in the title
-- not last in the list
-- stops use no days
-- undated has slack
-- sheet ignores slack
-- map shows unoffered towns
-- sheet skips `onlyOffered`
-- row unmarked
-- tag dropped in `recommend`
-- cap not ordered
-- …plus the reruns
+- phone right back to 40
+- desktop right back to 60
+- no control margin
+- half a name too small
 
-Four **survived first** and were fixed:
+## Live
 
-| survivor | why it survived | fix |
-|---|---|---|
-| list order | the sheet already reorders | direct `buildRankedGroupsWith` test |
-| map filter | the map is never rendered | pure `onlyOffered` + source guard |
-| tag in recommend | no test reached it | pure `cityContextFor` test |
-| sheet call site | — | source guard |
-
-## Live (dev server, Amarillo → Austin, 4 h)
-
-| dates | towns |
-|---|---|
-| none | Lubbock, Abilene, San Angelo |
-| Oct 20–24 (3 spare) | Lubbock, Abilene, San Angelo, **Oklahoma City · out of the way**, last |
-| Oct 20–21 (0 spare) | Lubbock, Abilene, San Angelo |
+Kansas City → Denver at 390 px: "Kansas City" reads whole, left of the buttons. Lawrence and Topeka stay unnamed at state zoom, because U20 withholds a name that would touch the start's.
 
 ## Gates
 
-tsc, eslint, vitest (777) and next build are all clean.
+tsc and vitest (777) are clean.
 
 ## Critic: APPROVE (round 1)
 
-Two of its points were applied, each with a test and a caught mutation:
-
-- **Wrapping.** "· out of the way" stays whole (`whitespace-nowrap`), so "way" never sits alone on a line.
-- **Title count.** The title counts only towns on the way ("Lubbock, Abilene and 1 more fit today"). A detour is offered in the list, not counted as today's road.
-
-Two went to the backlog:
-
-- a line saying why a detour appeared ("you have 3 days to spare")
-- "★ The pick" showing on a detour town's places
+"Kansas City" is whole and the buttons cover no trip name. The narrower frame costs little. Out of scope: the base map's "United States" label is louder than the trip, and state names get crowded. That is the next unit.
