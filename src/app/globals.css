@@ -89,3 +89,12 @@ body {
     min-height: 0;
   }
 }
+
+/* The map's town names (and the start's and end's), drawn by Google from
+   MarkerLabel.className. A dark halo in the page's own background keeps a
+   white name readable where it crosses a gold roadside diamond or the
+   route's line (Gauntlet U20, round 1 critic: "Lubbock" and "Austin" read
+   poorly white on gold once named towns drew above the diamonds). */
+.rt-candidate-label {
+  text-shadow: 0 0 2px #0d1117, 0 0 2px #0d1117, 0 0 4px #0d1117;
+}

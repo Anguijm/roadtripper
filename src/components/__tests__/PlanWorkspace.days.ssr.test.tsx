@@ -395,7 +395,10 @@ describe("the plan sheet told as days", () => {
     // 6: nothing moves), and the workspace hands it the open day's towns.
     const map = readFileSync(new URL("../RouteMap.tsx", import.meta.url), "utf8");
     expect(map).toContain("marker.setOpacity(candidateOpacity(id, focusCandidateIds))");
-    expect(map).toContain("marker.setLabel(candidateLabelShown(id, focusCandidateIds) ? candidateLabel(names.get(id) ?? \"\") : null)");
+    // A town is named when the open-day rule allows it and its name fits
+    // among the others at this zoom (U20, effect 2e).
+    expect(map).toContain("const named = candidateLabelShown(id, focusCandidateIds) && !crowdedIds.has(id);");
+    expect(map).toContain("marker.setLabel(named ? candidateLabel(names.get(id) ?? \"\") : null)");
     const sheet = readFileSync(new URL("../PlanWorkspace.tsx", import.meta.url), "utf8");
     expect(sheet).toContain("focusCandidateIds={focusCandidateIds}");
     // A stop's square carries the town's name above it in the map's one

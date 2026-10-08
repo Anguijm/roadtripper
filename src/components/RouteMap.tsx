@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { labelsThatFit, TOWN_LABEL_DY, type LabelPlacement } from "@/lib/map/labels";
 import { isOvernightStop } from "@/lib/plan/visits";
 import {
   APIProvider,
@@ -419,6 +420,8 @@ function candidateMarkerIcon(color: string, active = false): google.maps.Icon {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
     anchor: new google.maps.Point(22, 22),
     scaledSize: new google.maps.Size(44, 44),
+    // The name's centre TOWN_LABEL_DY (18 px) above the dot, not on it (U20).
+    labelOrigin: new google.maps.Point(22, 22 + TOWN_LABEL_DY),
   };
 }
 
@@ -560,6 +563,12 @@ let warnedBadPolyline = false;
  *       markers never hold a stale closure. Also sets `candidateAnnouncement` for
  *       the aria-live region returned from this component.
  *       No teardown on candidates change = zero flicker on route refresh.
+ *   2d. The open day's towns — `[map, candidates, focusCandidateIds, crowdedIds]`
+ *       Fades other days' towns and sets every town's name: none for a
+ *       faded town or a crowded one (2e).
+ *   2e. Crowded names — `[map, candidates, endpoints, tripStops, focusCandidateIds]` + `zoom_changed`
+ *       Measures, at the current zoom, which towns' names would sit on a
+ *       name already drawn, and hands them to 2d as state (Gauntlet U20).
  *   3.  Trip-stop markers — `[map, tripStops, routeColor]`
  *       Numbered square markers for stops the user has added.
  *   4.  Roadside diamonds — `[map, roadsideStops]`
@@ -582,6 +591,10 @@ let warnedBadPolyline = false;
  * VERY FIRST polyline render — subsequent recomputes redraw the line in
  * place without zoom/pan churn.
  */
+const NO_CROWDED: ReadonlySet<string> = new Set();
+/** A named town's marker: above the diamonds (1500, 1600), under the endpoints (1800) and the stops (2000). */
+const NAMED_TOWN_Z = 1700;
+
 function PolylineRenderer({
   encodedPolyline,
   bounds,
@@ -658,6 +671,9 @@ function PolylineRenderer({
   // selection change without rebuilding the markers.
   const applyRoadsideZoomRef = useRef<(() => void) | null>(null);
   const [candidateAnnouncement, setCandidateAnnouncement] = useState("");
+  // The towns whose names would sit on another name at the current zoom
+  // (effect 2e); effect 2d leaves them unnamed.
+  const [crowdedIds, setCrowdedIds] = useState<ReadonlySet<string>>(NO_CROWDED);
 
   // ── Effect 1a: polyline geometry / color ───────────────────────────────
   // Rebuilds when the route geometry or persona color changes.
@@ -868,9 +884,63 @@ function PolylineRenderer({
     const names = new Map((candidates ?? []).map((c) => [c.id, c.name]));
     for (const [id, marker] of candidateMarkersRef.current) {
       marker.setOpacity(candidateOpacity(id, focusCandidateIds));
-      marker.setLabel(candidateLabelShown(id, focusCandidateIds) ? candidateLabel(names.get(id) ?? "") : null);
+      const named = candidateLabelShown(id, focusCandidateIds) && !crowdedIds.has(id);
+      marker.setLabel(named ? candidateLabel(names.get(id) ?? "") : null);
+      // A named town draws over the diamonds and over unnamed towns' dots,
+      // under the start and the end (1800), so its name is never behind
+      // either (U20); an unnamed one stays at the default, under both.
+      marker.setZIndex(named ? NAMED_TOWN_Z : undefined);
     }
-  }, [map, candidates, focusCandidateIds]);
+  }, [map, candidates, focusCandidateIds, crowdedIds]);
+
+  // ── Effect 2e: names that would collide (Gauntlet U20) ─────────────────
+  // At the zoom the map is at, which towns' names would sit on a name
+  // already drawn: the start's, the end's and a stop town's first, then
+  // the open day's towns, then the rest in the order the sheet ranks them.
+  // Measured on every zoom, in screen pixels from the map's own projection, and handed to 2d as state, so
+  // the one place that sets a town's label stays 2d. Nothing is moved or
+  // removed: a crowded town keeps its dot and its tap (rule 6).
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+    const measure = () => {
+      const projection = map.getProjection();
+      const zoom = map.getZoom();
+      if (!projection || zoom === undefined) return;
+      const scale = 2 ** zoom;
+      const at = (lat: number, lng: number) => {
+        const pt = projection.fromLatLngToPoint(new google.maps.LatLng(lat, lng));
+        return pt ? { x: pt.x * scale, y: pt.y * scale } : null;
+      };
+      const fixed: LabelPlacement[] = [];
+      const pin = (lat: number, lng: number, text: string | undefined) => {
+        const p = text ? at(lat, lng) : null;
+        if (p && text) fixed.push({ ...p, text, offsetY: -30 });
+      };
+      pin(origin.lat, origin.lng, originName);
+      pin(destination.lat, destination.lng, destinationName);
+      for (const stop of tripStops ?? []) pin(stop.lat, stop.lng, tripStopLabel(stop)?.text);
+      const named = (candidates ?? []).filter((c) => candidateLabelShown(c.id, focusCandidateIds));
+      const ordered = focusCandidateIds ? [...named.filter((c) => focusCandidateIds.has(c.id)), ...named.filter((c) => !focusCandidateIds.has(c.id))] : named;
+      const towns = ordered.flatMap((c) => {
+        const p = at(c.lat, c.lng);
+        return p ? [{ id: c.id, ...p, text: c.name, offsetY: TOWN_LABEL_DY }] : [];
+      });
+      const fit = labelsThatFit(fixed, towns);
+      const crowded = new Set(towns.filter((t) => !fit.has(t.id)).map((t) => t.id));
+      setCrowdedIds((prev) => (prev.size === crowded.size && [...crowded].every((id) => prev.has(id)) ? prev : crowded));
+    };
+    // Which names collide depends on the zoom alone: a pan moves every
+    // point by the same pixels. So the zoom, like the diamonds' rule, is
+    // the one camera change that re-measures; the projection's arrival is
+    // the first measure when the map was not ready at mount.
+    measure();
+    const onZoom = map.addListener("zoom_changed", measure);
+    const onReady = map.addListener("projection_changed", measure);
+    return () => {
+      onZoom.remove();
+      onReady.remove();
+    };
+  }, [map, candidates, origin, destination, originName, destinationName, tripStops, focusCandidateIds]);
 
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
   // The square with its number, and — for a town — its name above it as

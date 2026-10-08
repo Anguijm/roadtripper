@@ -4,85 +4,109 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u19-day-end-names`
+Branch: `fix/u20-label-overlap`
 
-## Ship rule (written before the work)
+## Ship rule (written late, after the first build — recorded as a miss, as U11's was)
 
-A day cut where the budget runs out is named "near X" only when an *atlas*
-town is within 30 km. I measured it on 9,064 day ends: every trip between
-atlas metros of 5–20 h, at 4, 6 and 8 h budgets. Only 13 % are named; the
-other 87 % say "on the road". Adding curated towns barely moves that. Each
-added town gains about 0.2 %, and the 26 now being ingested add under one
-point. With GeoNames towns of 5,000 people or more, it is 72 %.
+With the 17 corridor towns in the atlas (branch `data/corridor-towns`, held
+back), Amarillo → Austin draws "Sweetwater" and "Abilene" over each other
+at state zoom, as "SweeAbilene". Each town's name was drawn centred on
+its own dot, and every name was drawn whatever it collided with.
 
-This unit ships when a cut day's end can be named from a public town list
-(GeoNames `cities5000`, US, population ≥ 5,000, CC BY 4.0) as well as from
-the atlas:
+Ships when:
 
-- **Naming:** Amarillo → Austin at 4 h, with no atlas town near the cut,
-  reads "Day 1 · Amarillo to near <a real town on US-84> · 4 h".
-- **Unchanged:** the towns that fit (still atlas only, with their places).
-- **Precedence:** an atlas town within reach still wins over a list town at
-  the same distance.
+- **No collisions.** No town's name overlaps another name, the start's or
+  end's name, or a named town's dot.
+- **Priority.** The towns kept are the start, the end and the stops first,
+  then the open day's towns, then the rest in the sheet title's order.
+- **Nothing removed.** A town left unnamed keeps its dot and its tap.
+- **Diamonds don't hide names.** A named town draws above the roadside
+  diamonds (Lubbock's name was behind one), under the start, the end and
+  the stops.
+- **Measured on zoom.** Which names fit is re-measured on zoom, never on
+  pan, which the roadside guard forbids. Pixel distances do not change
+  with a pan.
 
-It also needs:
+Also required:
 
-- tests: list towns name a cut; an atlas town wins a tie; a list town off
-  the road (> 15 km) never names a cut; the server keeps only towns near the
-  road
-- mutation proofs before the push
-- a live run
+- pure tests for the rule
+- source guards for the map wiring, which no test can run
+- mutation proofs
+- a live run on the new atlas
 - the critic's approval
-- an attribution line for GeoNames on the plan page
+- the atlas data merges only after this
 
-**Cost:** $0. The list is a static file read on the server. There are no API
-calls, and no new data reaches the client beyond the few dozen towns near
-the route.
+**Cost:** $0.
 
-**Weakest part:** a GeoNames "town" is a census place. Some are suburbs or
-places with no services, so a day "near X" could name a place with nowhere
-to sleep. Population ≥ 5,000 is the guard, and it is a guess. Straight-line
-nearness also stands in for roads.
+**Weakest part:** label widths are estimated (6.6 px per character at
+11 px), not measured. A wide name like "WWWW" could still touch. A name
+that just touches a named dot is withheld: Sweetwater stays unnamed
+because "Sweetwater" would touch Lubbock's dot by about 4 px, so the map
+names Abilene, while the title says "Lubbock, Sweetwater and 2 more".
 
 ## Built
 
-- `scripts/build-places.mjs` builds `src/lib/plan/places-us.json`: 7,110 US towns of 5,000 people or more from GeoNames `cities5000`. Neighbourhoods (PPLX) and abandoned or historical places are dropped.
-- `src/lib/plan/places.ts` is server-only. `placesNearRoute` uses the corridor tiles' boxes, then an exact projection at 15 km (ON_ROAD_KM). `placesForRoute` is called once per render in `page.tsx`. A built client bundle has 0 copies of the list, and the server bundle has 1.
-- In `days.ts`, a new input `places` names a cut only when the atlas leaves it "on the road", so an atlas town within reach always wins.
-- The sheet shows "Town names from GeoNames" (CC BY 4.0) whenever the route has list towns.
+- `src/lib/map/labels.ts` (pure):
+  - `labelsThatFit(fixed, towns)`: the greedy rule.
+  - `labelBox`, with the width estimated at 6.6 px per character.
+  - `TOWN_LABEL_DY = -18`, which puts a name above its dot.
+  - `inTitleOrder`.
+- `RouteMap.tsx`:
+  - The town icon gets a `labelOrigin` 18 px above the dot.
+  - New effect 2e measures which names fit with the map's projection, on mount, on `projection_changed` and on `zoom_changed`. It never re-measures on pan or idle: the roadside guard forbids it, and pixel distances don't change with a pan.
+  - Effect 2d names a town only when it is focused and not crowded, and sets a named town's zIndex to 1700.
+- `PlanWorkspace.tsx`: the map gets its towns in the title's order (`mapCandidates`).
+
+## Iterations, on the live map (new atlas, not committed here)
+
+1. **Names only.** Names were withheld when they collided, but Abilene's dot sat in the middle of "Sweetwater", because names were drawn on their dots.
+2. **Names above dots, every dot a wall.** No town between Lubbock and Austin was named, and Lubbock's name went behind a diamond.
+3. **Final rule.**
+   - A name may not touch a named town's dot. It may cover an unnamed one, which is drawn underneath.
+   - Named towns get zIndex 1700, so Lubbock reads over its diamond.
+   - On Amarillo → Austin, Lubbock and Abilene are named. Sweetwater is not, because its name would touch Lubbock's dot by about 4 px.
+
+## Existing guards touched
+
+- The days test pinned 2d's `setLabel` line word for word. It is updated to the new rule: `named` = focused and not crowded. This is intended.
+- The roadside guard bans `dy`, `addListener("idle"` and similar in RouteMap, to keep diamonds from moving. The field was renamed `offsetY`, and the measure listens for zoom, not idle. The guard is unchanged.
 
 ## Mutation proofs, before push
 
-| mutation | result |
-|---|---|
-| list never consulted | 2 red |
-| list mixed with atlas, no precedence | 1 red |
-| no off-road filter | 1 red |
-| list not passed to the days | 1 red |
-| no credit | 1 red |
-| page not wired | 1 red (source guard) |
-| exact distance ×4 | **survived**, then caught (1 red) by a new diagonal-road test. On a straight N–S test road the padded box already enforces 15 km, so the exact check was unreachable. |
-| `out.has` skip removed | survives. This is an equivalent mutant: the Map is keyed by row, so a town cannot be listed twice. The skip only saves work. |
+11 mutations, all caught:
+
+- names may overlap
+- may cover a named dot
+- own dot under a name allowed
+- named dots not recorded
+- fixed labels ignored
+- overlap ignores y
+- label on the dot
+- title order ignored
+- crowded ignored in 2d
+- named towns under the diamonds
+- map not in title order
+
+"Names may overlap" **survived twice first**. At 20 px and then 40 px apart, the dot rules alone kept the test green. The test now spaces the towns 50 px apart, so only the name-on-name rule decides.
 
 ## Gates
 
-tsc, eslint, vitest (753) and next build are all clean.
+tsc, eslint, vitest (766) and next build are all clean.
 
-## Live (dev server, real routes)
+## Critic, round 1: REJECT
 
-| trip | before (atlas only) | after |
-|---|---|---|
-| Amarillo → Austin, 4 h | 4 h down the road from Amarillo | **Amarillo to near Sweetwater · 4 h** |
-| Kansas City → Denver, 4 h | 4 h down the road | **Kansas City to near Hays · 4 h** |
-| Chicago → Nashville, 4 h | (on the road) | **Chicago to near Seymour · 4 h** |
-| all three, 6 h | on the road | on the road |
+Both points were fair, and both are applied:
 
-All three 6 h cases still say "on the road", and each one is legitimate. Chicago → Nashville's 6 h cut is 54 km past Elizabethtown and 46 km short of Bowling Green, both outside the 30 km "near". Kansas City → Denver's falls between towns under 5,000 people.
+- **The wrong town won.** "Sweetwater" (second in the title) lost to Abilene over a 4 px brush of Sweetwater's line box with Lubbock's dot. Names are now checked against dots by their ink (4.5 px each side of centre) and the dot as drawn (7 px), while names against names keep the line box and gap. Sweetwater is named now. A new test pins the line box/ink distinction, and its mutations (back to the line box, ink as tall as the line) are both caught.
+- **White on gold read poorly.** `.rt-candidate-label` gets a dark halo in `globals.css`, guarded by a source test whose mutation is caught.
 
-Widening `NEAR_CUT_KM` would make "near" untrue, so it is left alone.
+## Critic, round 2: APPROVE
 
-## Critic: APPROVE (round 1)
+The collisions are gone, diamonds are unmoved, the halo works and the priority reads right. Its weakest points:
 
-The critic asked whether U18's "Wichita is the last town before your 4 h are up" was meant to disappear on Kansas City → Denver. It was. U18's line shows only when the day ends on open road (`endKind: "hours"`). This day now ends near Hays, so the line has nothing to explain, and Wichita is well off the I-70 road anyway. Its tests, which use a list with no towns, still cover the open-road case.
+- San Angelo stays unnamed: its letters touch Sweetwater's dot by about 0.5 px.
+- Kansas City → Denver names 3 of 7 towns at the opening zoom. Lawrence and Topeka give way to the "Kansas City" label the zoom buttons hide, which is out of scope and predates U20.
 
-Noted, out of scope: the zoom controls clip "Kansas City" on the map, and "39 min away" doesn't say from where.
+## Gates (final)
+
+tsc, eslint, vitest (all) and next build are clean. `data/atlas.sqlite` was swapped locally for the live check and is **not** in this commit.
