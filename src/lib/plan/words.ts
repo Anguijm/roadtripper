@@ -261,3 +261,14 @@ export function detourNoteLine(spareDays: number, outOfTheWay: number): string {
   // "here's a town", not "one" (critic: the reader had to work out what "one" meant).
   return `${days} to spare, so ${outOfTheWay === 1 ? "here's a town" : `here are ${outOfTheWay} towns`} a bit out of the way`;
 }
+
+/**
+ * Why one town's Stop here is the filled one (Gauntlet U33; U31 fills the
+ * town nearest where the day runs out, and two critics asked why it was
+ * that one): "Closest to where today's 4 h run out", "Closest to where day 2's
+ * 4 h run out". Day 1 is "today", as the title says it.
+ */
+export function primaryTownLine(day: number, budgetMinutes: number): string {
+  const whose = day > 1 ? `day ${day}'s` : "today's";
+  return `Closest to where ${whose} ${formatDurationPlain(Math.round(budgetMinutes) * 60)} run out`;
+}

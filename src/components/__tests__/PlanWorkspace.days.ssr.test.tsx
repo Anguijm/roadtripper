@@ -560,9 +560,13 @@ describe("the plan sheet told as days", () => {
     const filled = [...clean(html).matchAll(/<section data-town="([^"]+)"(?:(?!<\/section>)[\s\S])*?<button[^>]*style="background-color:[^"]*"[^>]*>\+ Stop here/g)].map((m) => m[1]);
     // The cut is near Snyder (284 km): Snyder is the night to choose.
     expect(filled).toEqual(["snyder"]);
+    // And says why, in its own header only (U33).
+    const notes = [...clean(html).matchAll(/<section data-town="([^"]+)"(?:(?!<\/section>)[\s\S])*?data-primary-note[^>]*>([\s\S]*?)<\/p>/g)].map((m) => [m[1], text(m[2]).trim()]);
+    expect(notes).toEqual([["snyder", "Closest to where today's 4 h run out"]]);
     // A one-day trip has no night to choose: nothing filled.
     const one = renderToString(<PlanWorkspace {...base} initialDurationSeconds={3 * 3600} />);
     expect(one).not.toMatch(/style="background-color:[^"]*"[^>]*>\+ Stop here/);
+    expect(one).not.toContain("data-primary-note");
   });
 
   it("shows the ten strongest places per day and one Show all per day only where a day has more than ten", () => {
