@@ -29,6 +29,7 @@ import { orderRoadside } from "@/lib/roadside/order";
 import {
   toggleMood,
   parseMoods,
+  answeredMood,
   MOOD_CONFIG,
   SORT_LABELS,
   MOODS_PARAM,
@@ -1960,11 +1961,24 @@ export default function PlanWorkspace({
                                   the budget a guarantee it was not before,
                                   but it can make it worse for a short kind. */}
                               <span className="block text-base leading-snug text-[#8b949e]">
-                                {addedCityIds.has(s.id) ? (
-                                  <span className="text-[#e3b341]">✓ In the trip</span>
-                                ) : (
-                                  ROADSIDE_KIND_WORDS[s.kind] ?? "place"
-                                )}{" "}
+                                {/* What leads the line, in order: in the trip
+                                    (U8), then the chosen mood it answers, in
+                                    the mood's colour (U14, so the reader can
+                                    see where the matches end), then its kind.
+                                    Each replaces the kind on the line the row
+                                    already has: the row may not get taller. */}
+                                {(() => {
+                                  if (addedCityIds.has(s.id)) return <span className="text-[#e3b341]">✓ In the trip</span>;
+                                  const mood = answeredMood(s.scores, chosenMoods);
+                                  if (mood) {
+                                    return (
+                                      <span data-answers-mood={mood} style={{ color: MOOD_CONFIG[mood].accentColor }}>
+                                        {MOOD_CONFIG[mood].label}
+                                      </span>
+                                    );
+                                  }
+                                  return ROADSIDE_KIND_WORDS[s.kind] ?? "place";
+                                })()}{" "}
                                 · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
                               </span>
                             </button>

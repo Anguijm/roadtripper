@@ -437,3 +437,31 @@ export function parseMoods(raw: unknown): MoodId[] {
 
 /** The URL parameter for the chosen moods, one name for every screen that writes it. */
 export const MOODS_PARAM = "moods";
+
+/**
+ * The chosen mood a place answers best, or null when it answers none of
+ * them (Gauntlet U14).
+ *
+ * "Answers" is `MOOD_ANSWERED`, the same line the ranking's bands use, so a
+ * row marked with a mood is exactly a row the ranking put in a band above
+ * the places that answer nothing. With two moods chosen and a place that
+ * answers both, the stronger wins; on a tie, the one chosen first.
+ *
+ * Why it exists: on Amarillo → Austin only two day-1 places answer Food,
+ * and the list showed them and then a helium monument with nothing to say
+ * where the matches stopped, so a thin answer read as a broken one. The
+ * line was not too strict — the places just under it are statues and a
+ * locomotive — so the fix was to say where the matches end, not to move it.
+ */
+export function answeredMood(scores: TagScores | null | undefined, chosen: readonly MoodId[]): MoodId | null {
+  let best: MoodId | null = null;
+  let bestScore = 0;
+  for (const mood of chosen) {
+    const s = moodScore(scores, mood);
+    if (s >= MOOD_ANSWERED && s > bestScore) {
+      best = mood;
+      bestScore = s;
+    }
+  }
+  return best;
+}

@@ -146,3 +146,54 @@ describe("the day's places under the chosen moods", () => {
     expect(html).toMatch(new RegExp(`role="radio" aria-checked="true"[^>]*>${SORT_LABELS.best}</button>`));
   });
 });
+
+describe("where the chosen mood's matches end (U14)", () => {
+  /** The leading word of each row's second line, by stop id, read off the markup. */
+  const marks = (raw: string) => {
+    // React's server render separates adjacent text with `<!-- -->`, so the
+    // " · " a person reads is not one run of characters in the markup.
+    const html = raw.replace(/<!-- -->/g, "");
+    const out: Record<string, string> = {};
+    for (const m of html.matchAll(/data-roadside-stop="osm:way:([^"]+)"[\s\S]*?<span class="block text-base leading-snug text-\[#8b949e\]">([\s\S]*?) · /g)) {
+      out[m[1]] = m[2].replace(/<[^>]+>/g, "").trim();
+    }
+    return out;
+  };
+
+  it("marks the places that answer the mood with its word, and leaves the rest their kind", () => {
+    // On Amarillo → Austin only two day-1 places answered Food, and the
+    // list ran on into a helium monument with nothing to say the matches
+    // had stopped. Now the matches say which mood they answer.
+    const html = render(["food"]);
+    expect(marks(html)).toEqual({ diner: "Food", canyon: "attraction", stadium: "attraction" });
+  });
+
+  it("colours the mark in the mood's own colour", () => {
+    const html = render(["food"]);
+    expect(html).toMatch(/data-answers-mood="food" style="color:#[0-9a-f]{6}">Food</);
+  });
+
+  it("marks nothing when no mood is chosen", () => {
+    expect(render([])).not.toContain("data-answers-mood");
+  });
+
+  it("still says a place is in the trip when it also answers the mood", () => {
+    // In the trip is the stronger fact about a place you have already
+    // chosen (U8), so it wins the line. The first cut had no test with a
+    // place that was both, and putting the mood first passed every test.
+    const diner = stops.find((s) => s.id === "osm:way:diner")!;
+    const html = renderToString(
+      <PlanWorkspace
+        {...base}
+        initialMoods={["food"]}
+        roadsideStops={stops}
+        initialTrip={{ stops: [{ cityId: diner.id, cityName: diner.name, lat: diner.lat, lng: diner.lng }], legs: [], directMinutesToDestination: 0 }}
+      />
+    );
+    expect(marks(html).diner).toBe("✓ In the trip");
+  });
+
+  it("marks each place with the mood it answers when two are chosen", () => {
+    expect(marks(render(["food", "sports"]))).toEqual({ diner: "Food", stadium: "Sports", canyon: "attraction" });
+  });
+});

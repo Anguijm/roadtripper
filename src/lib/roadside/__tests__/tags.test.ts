@@ -20,6 +20,7 @@ import {
   moodScore,
   rankFor,
   toggleMood,
+  answeredMood,
   tagQuestionsJson,
   type RoadsideTag,
   type TagScores,
@@ -459,5 +460,33 @@ describe("the moods a link carries", () => {
 
   it("names the parameter once, for every screen that writes it", () => {
     expect(MOODS_PARAM).toBe("moods");
+  });
+});
+
+describe("the chosen mood a place answers (U14)", () => {
+  const diner: TagScores = { famous_food: 0.94 };
+  const stadium: TagScores = { sports_place: 0.99, famous_food: 0.01 };
+  const both: TagScores = { famous_food: 0.6, roadside_oddity: 0.9 };
+
+  it("is the mood when the place answers it", () => {
+    expect(answeredMood(diner, ["food"])).toBe("food");
+  });
+
+  it("is nothing when the place answers none of the chosen moods", () => {
+    expect(answeredMood(stadium, ["food"])).toBeNull();
+    expect(answeredMood(diner, [])).toBeNull();
+    expect(answeredMood(null, ["food"])).toBeNull();
+  });
+
+  it("uses the same line as the ranking's bands, so a marked row is a row ranked above the rest", () => {
+    // Just under the line is not an answer: the places just under 0.35 on
+    // Amarillo → Austin were statues and a locomotive.
+    expect(answeredMood({ famous_food: MOOD_ANSWERED - 0.01 }, ["food"])).toBeNull();
+    expect(answeredMood({ famous_food: MOOD_ANSWERED }, ["food"])).toBe("food");
+  });
+
+  it("is the stronger of two chosen moods when the place answers both", () => {
+    expect(answeredMood(both, ["food", "oddities"])).toBe("oddities");
+    expect(answeredMood(both, ["oddities", "food"])).toBe("oddities");
   });
 });
