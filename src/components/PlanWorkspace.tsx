@@ -41,7 +41,7 @@ import {
 import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine } from "@/lib/plan/words";
+import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
@@ -721,10 +721,14 @@ export default function PlanWorkspace({
   // The towns offered (U21): out-of-the-way ones only with a day to spare,
   // and after the rest. Every reader below (the title, the days, the map)
   // takes this set, so they cannot disagree about what fits.
-  const roomForDetours =
-    (spareDays(tripState.legs, tripDayCount, budgetHours, tripState.directMinutesToDestination) ?? 0) >= SPARE_DAYS_FOR_DETOURS;
+  const sparedDays = spareDays(tripState.legs, tripDayCount, budgetHours, tripState.directMinutesToDestination) ?? 0;
+  const roomForDetours = sparedDays >= SPARE_DAYS_FOR_DETOURS;
   const rawWaypointFetch = liveWaypointFetch ?? waypointFetch;
   const effectiveWaypointFetch = useMemo(() => offeredTowns(rawWaypointFetch, roomForDetours), [rawWaypointFetch, roomForDetours]);
+  // Why a town out of the way is offered, said before the first one (U30).
+  const detourCount = effectiveWaypointFetch.cities.filter((c) => c.outOfTheWay).length;
+  // Only offered towns reach here, so a count above nothing means room.
+  const detourNote = detourCount > 0 ? detourNoteLine(sparedDays, detourCount) : null;
 
   // The set the days draw their towns from: the effective set, and every
   // stop's town the set no longer holds, with the places it had when it
@@ -1918,7 +1922,7 @@ export default function PlanWorkspace({
                   {lastTown && (
                     <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
                   )}
-                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} />
+                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} />
                   {endStop && (
                     <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />
                   )}

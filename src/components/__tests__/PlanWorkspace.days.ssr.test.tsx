@@ -542,10 +542,15 @@ describe("the plan sheet told as days", () => {
     expect(roomy).toContain("Lubbock, Post and 3 more fit today");
     // The tag stays whole: "way" never wraps alone onto a line.
     expect(renderToString(<PlanWorkspace {...detour} startDate="2026-10-20" endDate="2026-10-24" />)).toMatch(/data-out-of-the-way="[^"]*" class="[^"]*whitespace-nowrap/);
+    // Why it is there, said once, right before it (U30): 5 days for a
+    // 2-day drive is 3 to spare.
+    expect(roomy).toContain("3 days to spare, so here's a town a bit out of the way Plainview");
+    expect(roomy.match(/a bit out of the way/g)).toHaveLength(1);
     for (const props of [{}, { startDate: "2026-10-20", endDate: "2026-10-21" }]) {
       const html = visible(renderToString(<PlanWorkspace {...detour} {...props} />));
       expect(html).not.toContain("Plainview");
       expect(html).not.toContain("out of the way");
+      expect(html).not.toContain("to spare, so");
       expect(html).toContain("Lubbock, Post and 3 more fit today");
     }
   });

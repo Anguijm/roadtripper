@@ -1,3 +1,4 @@
+import { detourNoteLine } from "../words";
 import { describe, it, expect } from "vitest";
 import { budgetWords, dayHeadingLine } from "../words";
 
@@ -100,5 +101,13 @@ describe("a dated trip", () => {
 
   it("says today for a one-day dated trip", () => {
     expect(budgetWords({ ...dated, trip: { dated: true, days: 1 }, status: { kind: "empty" } }).line).toBe("4 h of driving left today");
+  });
+});
+
+
+describe("why a town out of the way is offered (U30)", () => {
+  it("says the spare days and how many, in words a person says", () => {
+    expect(detourNoteLine(3, 1)).toBe("3 days to spare, so here's a town a bit out of the way");
+    expect(detourNoteLine(1, 2)).toBe("1 day to spare, so here are 2 towns a bit out of the way");
   });
 });
