@@ -141,9 +141,9 @@ describe("the plan sheet told as days", () => {
     // 4 h runs out, named by the town near there, and the rest is day 3
     // (round 5: round 4's "Days 2 and 3 · Lubbock to Austin" never said
     // where day 2 ended).
-    expect(clean(html)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">3</span> h <span class="num">20</span> min');
-    expect(clean(html)).toContain('Day <span class="num">2</span> · Lubbock to near Llano · <span class="num">4</span> h');
-    expect(clean(html)).toContain('Day <span class="num">3</span> · near Llano to Austin · <span class="num">30</span> min');
+    expect(clean(html)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock <span class="whitespace-nowrap">· <span class="num">3</span> h</span> <span class="whitespace-nowrap"><span class="num">20</span> min</span>');
+    expect(clean(html)).toContain('Day <span class="num">2</span> · Lubbock to near Llano <span class="whitespace-nowrap">· <span class="num">4</span> h</span>');
+    expect(clean(html)).toContain('Day <span class="num">3</span> · near Llano to Austin <span class="whitespace-nowrap">· <span class="num">30</span> min</span>');
     expect(text).toContain("Day 1 · Amarillo to Lubbock · 3 h 20 min");
     expect(text).toContain("Day 2 · Lubbock to near Llano · 4 h See it on the map");
     expect(text).toContain("Day 3 · near Llano to Austin · 30 min");
@@ -268,7 +268,7 @@ describe("the plan sheet told as days", () => {
     expect(days[2].text).toContain("Day 3 · on to Austin · 30 min");
     expect(text).toContain("Three days, with a night in Lubbock and one on the road");
     expect(text).not.toMatch(/\bmile\b/);
-    expect(html).toContain('Day <span class="num">2</span> · <span class="num">4</span> h down the road from Lubbock');
+    expect(html).toContain('Day <span class="num">2</span> <span class="whitespace-nowrap">· <span class="num">4</span> h</span> down the road from Lubbock');
     // The title names the day the towns are listed under (round 3: "fits
     // today after Lubbock" stood over a list that put Fort Worth in day
     // 2; round 6: the title said day 2 while Fort Worth, placed by where
@@ -437,8 +437,8 @@ describe("the plan sheet told as days", () => {
     expect(bare).toContain("Day 2 · on to Austin · 3 h 50 min See it on the map");
     expect(bare).toContain("Two days, with a night on the road");
     expect(bare).not.toMatch(/\bmile\b|on the road to|to on the road/);
-    expect(bareHtml).toContain('Day <span class="num">1</span> · <span class="num">4</span> h down the road from Amarillo');
-    expect(bareHtml).toContain('Day <span class="num">2</span> · on to Austin · <span class="num">3</span> h <span class="num">50</span> min');
+    expect(bareHtml).toContain('Day <span class="num">1</span> <span class="whitespace-nowrap">· <span class="num">4</span> h</span> down the road from Amarillo');
+    expect(bareHtml).toContain('Day <span class="num">2</span> · on to Austin <span class="whitespace-nowrap">· <span class="num">3</span> h</span> <span class="whitespace-nowrap"><span class="num">50</span> min</span>');
     expect(bare.match(/Nothing listed along this stretch\./g)).toHaveLength(2);
     expect(bare).not.toContain("Towns that fit");
   });

@@ -35,6 +35,7 @@
 import { haversineKm, type LatLng } from "@/lib/routing/polyline";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import { ON_ROAD_KM } from "@/lib/roadside/anchor";
+import { formatDurationPlain } from "@/lib/routing/format";
 
 /** A route with the distance along it at every point, built once per plan. */
 export interface Road {
@@ -118,10 +119,11 @@ export interface DayTown {
 
 /**
  * What a day ends at: a stop the person chose, a cut where the budget
- * runs out named by a town near it ("near") or said in hours with none
- * near ("hours"), or the trip's end.
+ * runs out named by a town near it ("near"), by how far past the last
+ * town it falls ("past", U28: "50 min past Elko"), or said in hours with
+ * neither ("hours"), or the trip's end.
  */
-export type DayEndKind = "stop" | "near" | "hours" | "end";
+export type DayEndKind = "stop" | "near" | "past" | "hours" | "end";
 
 export interface TripDay {
   /** 0-based position among the days: the section's key; the heading's number is index + 1. */
@@ -277,6 +279,33 @@ export function cutEndName(cutKm: number, named: readonly NamedKm[], nearKm = NE
 }
 
 /**
+ * How far back, in km, the last town passed may be for a cut to be named
+ * by it (Gauntlet U28): about an hour at highway speed. "50 min past
+ * Elko" says where a night falls; "3 h past Reno" says nothing the
+ * heading's own hours do not.
+ */
+export const PAST_CUT_KM = 100;
+/** And at most this many minutes back at the day's pace: past an hour, "1 h 30 min past Brady" names a town the day left long ago. */
+export const PAST_CUT_MINUTES = 60;
+
+/**
+ * A cut no town is near, named by the last named point the road passed
+ * before it, in the time it takes to get there at the day's own pace:
+ * "50 min past Elko" (U28: "a night … and one on the road" did not say
+ * where, U26's critic). Rounded to 5 minutes, as a person says it. Null
+ * when nothing was passed within PAST_CUT_KM, or the pace is unknown.
+ */
+export function pastCutName(cutKm: number, named: readonly NamedKm[], minutesPerKm: number | null, pastKm = PAST_CUT_KM): string | null {
+  if (minutesPerKm === null || !(minutesPerKm > 0)) return null;
+  let last: NamedKm | null = null;
+  for (const n of named) if (n.alongKm < cutKm && cutKm - n.alongKm <= pastKm && (!last || n.alongKm > last.alongKm)) last = n;
+  if (!last) return null;
+  const minutes = Math.max(5, Math.round(((cutKm - last.alongKm) * minutesPerKm) / 5) * 5);
+  if (minutes > PAST_CUT_MINUTES) return null;
+  return `${formatDurationPlain(minutes * 60)} past ${last.name}`;
+}
+
+/**
  * The days in order. A stretch within the budget is one day; a longer one
  * is cut into the days it takes, each cut where its budget runs out along
  * the road in proportion to time. A place belongs to the first day whose
@@ -324,7 +353,12 @@ export function tripDays(input: TripDaysInput): TripDay[] {
       // names the cut when one is near it; the list only when none is
       // (U19), so "near Lubbock" is never lost to a smaller town beside it.
       const atlasCut = last ? null : cutEndName(endKm, named);
-      const cut = atlasCut && atlasCut.endKind === "hours" && listNamed.length > 0 ? cutEndName(endKm, listNamed) : atlasCut;
+      const nearCut = atlasCut && atlasCut.endKind === "hours" && listNamed.length > 0 ? cutEndName(endKm, listNamed) : atlasCut;
+      // Nothing near: name it by the last town passed, if one is within
+      // reach behind (U28), at this day's pace.
+      const pace = dayMinutes !== null && endKm > startKm ? dayMinutes / (endKm - startKm) : null;
+      const past = nearCut && nearCut.endKind === "hours" ? pastCutName(endKm, [...named, ...listNamed], pace) : null;
+      const cut = past ? { toName: past, endKind: "past" as const } : nearCut;
       const prev = days[days.length - 1];
       days.push({
         index: days.length,

@@ -320,8 +320,8 @@ describe("the words on the screens, against the glossary", () => {
     // inside the sentence): the sheet's distance and drive, the town
     // row's drive, and a day's heading.
     const { sheet, itinerary, loading, planError } = screens();
-    expect(clean(sheet)).toContain('<span class="num">497</span> mi · <span class="num">8</span> h <span class="num">3</span> min on the road');
-    expect(clean(sheet)).toContain('· <span class="num">2</span> h <span class="num">5</span> min away');
+    expect(clean(sheet)).toContain('<span class="whitespace-nowrap"><span class="num">497</span> mi</span> <span class="whitespace-nowrap">· <span class="num">8</span> h</span> <span class="whitespace-nowrap"><span class="num">3</span> min</span> on the road');
+    expect(clean(sheet)).toContain('· <span class="whitespace-nowrap"><span class="num">2</span> h</span> <span class="whitespace-nowrap"><span class="num">5</span> min</span> away');
     expect(clean(sheet)).not.toMatch(/class="num">[^<]*[a-z]/);
     expect(clean(itinerary)).not.toMatch(/class="num">[^<]*[a-z]/);
     // The plan screen's loading and error states: a sentence each, the
@@ -333,8 +333,8 @@ describe("the words on the screens, against the glossary", () => {
     expect(planError).toMatch(/<a [^>]*href="\/"[^>]*>Back to the start<\/a>/);
     expect(visible(planError)).not.toMatch(/error ref|something went wrong/i);
     // The days' headings carry the legs' drives, the figures alone in mono.
-    expect(clean(itinerary)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock · <span class="num">2</span> h <span class="num">5</span> min');
-    expect(clean(itinerary)).toContain('Day <span class="num">2</span> · Lubbock to Abilene · <span class="num">1</span> h <span class="num">40</span> min');
+    expect(clean(itinerary)).toContain('Day <span class="num">1</span> · Amarillo to Lubbock <span class="whitespace-nowrap">· <span class="num">2</span> h</span> <span class="whitespace-nowrap"><span class="num">5</span> min</span>');
+    expect(clean(itinerary)).toContain('Day <span class="num">2</span> · Lubbock to Abilene <span class="whitespace-nowrap">· <span class="num">1</span> h</span> <span class="whitespace-nowrap"><span class="num">40</span> min</span>');
     expect(visible(itinerary)).toContain("Day 3 · Abilene to Austin · 3 h 20 min");
     expect(visible(itinerary)).toContain("✓ Added");
     // Two stops: the towns that fit are day 3's, and the title says so.

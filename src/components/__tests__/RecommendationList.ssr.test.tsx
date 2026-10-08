@@ -96,7 +96,7 @@ describe("the candidate list shows the reason under every stop", () => {
     // name with its drive, the figures in the mono face, then the two
     // buttons on a row of their own, each 44 px tall and sharing the
     // width, with no invisible hit area.
-    expect(open).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="num">20<\/span> min away<\/span><\/h3><div class="mt-1 flex gap-2"><button/);
+    expect(open).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="whitespace-nowrap"><span class="num">20<\/span> min<\/span> away<\/span><\/h3><div class="mt-1 flex gap-2"><button/);
     // Both 44 px tall; Stop here takes three parts of the row to What's
     // in's two (U25, rule 3: the next action is the largest control).
     expect(open).toMatch(/<button[^>]*class="flex-\[2\] min-w-0 min-h-\[44px\] [^"]*"[^>]*>What&#x27;s in Amarillo<\/button>/);
@@ -131,7 +131,7 @@ describe("the candidate list shows the reason under every stop", () => {
     const render = (added: string[]) =>
       renderToString(<RecommendationList {...baseProps} fetchResult={result} addedCityIds={new Set(added)} />).replace(/<!-- -->/g, "");
     const fits = render([]);
-    expect(fits).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="num">20<\/span> min away<\/span><\/h3>/);
+    expect(fits).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="whitespace-nowrap"><span class="num">20<\/span> min<\/span> away<\/span><\/h3>/);
     const stop = render(["amarillo"]);
     expect(stop).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<\/h3>/);
     expect(stop).not.toContain("away");

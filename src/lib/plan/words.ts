@@ -96,7 +96,7 @@ export function dayHeadingLine(day: Pick<TripDay, "index" | "fromKind" | "fromNa
 
 /** Where a night is spent, after "a night" or "nights": "in Lubbock" at a stop, "near Snyder" at a cut with a town near. */
 function nightAt(day: Pick<TripDay, "toName" | "endKind">): string {
-  return day.endKind === "near" ? day.toName : `in ${day.toName}`;
+  return day.endKind === "near" || day.endKind === "past" ? day.toName : `in ${day.toName}`;
 }
 
 /**
