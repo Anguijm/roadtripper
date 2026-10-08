@@ -41,7 +41,7 @@ import {
 import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine, primaryTownLine } from "@/lib/plan/words";
+import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine, primaryTownLine, overrunLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, primaryTownId, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
@@ -1860,6 +1860,7 @@ export default function PlanWorkspace({
               const townIds = cityIdsByDay[day.index];
               const heading = dayHeadings[day.index];
               const lastTown = lastTownLine({ ...day, towns: day.towns.filter((t) => townIds.has(t.id)) });
+              const overrun = overrunLine(day, budgetHours * 60);
               // The one filled Stop here (U31): the town nearest where the day ends.
               const primaryTown = primaryTownId(day, townIds, outOfTheWayIds);
               const townProps = {
@@ -1901,6 +1902,12 @@ export default function PlanWorkspace({
                       <span className="block text-[#8b949e]">{open ? "See the whole trip" : "See it on the map"}</span>
                     </button>
                   </h2>
+                  {/* A folded day runs over the budget on purpose (U35); say so (U38). */}
+                  {overrun && (
+                    <p data-overrun className="text-base text-[#b0b9c2] px-2 pb-1">
+                      <Figures text={overrun} />
+                    </p>
+                  )}
                   {/* A stop whose recompute failed: said on its day, in a
                       sentence; the banner above has "Try again". */}
                   {endStop && failedStopId === endStop.cityId && (

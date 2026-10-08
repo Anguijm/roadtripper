@@ -272,3 +272,19 @@ export function primaryTownLine(day: number, budgetMinutes: number): string {
   const whose = day > 1 ? `day ${day}'s` : "today's";
   return `Closest to where ${whose} ${formatDurationPlain(Math.round(budgetMinutes) * 60)} run out`;
 }
+
+/**
+ * Why a day runs over the budget (Gauntlet U38; U35 folds a last day
+ * under an hour into the one before, and its critic asked for the overrun
+ * to be said, not left for the reader to find in the figure): "36 min over
+ * your 4 h, to reach Denver". Counted from the minutes the heading shows
+ * (whole minutes, cut), so the two agree. Null at or under the budget, or
+ * while the drive is unknown.
+ */
+export function overrunLine(day: Pick<TripDay, "minutes" | "toName">, budgetMinutes: number): string | null {
+  if (day.minutes === null || !(budgetMinutes > 0)) return null;
+  const shown = Math.floor(Math.round(day.minutes * 60) / 60);
+  const over = shown - Math.round(budgetMinutes);
+  if (over <= 0) return null;
+  return `${formatDurationPlain(over * 60)} over your ${formatDurationPlain(Math.round(budgetMinutes) * 60)}, to reach ${day.toName}`;
+}
