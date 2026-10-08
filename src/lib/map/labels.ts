@@ -89,24 +89,42 @@ export function inkBox(p: LabelPlacement): Box {
  * every dot as a wall left no town on the stretch named at all).
  */
 export function labelsThatFit(fixed: readonly LabelPlacement[], towns: ReadonlyArray<LabelPlacement & { id: string }>): Set<string> {
+  return new Set(placeLabels(fixed, towns).keys());
+}
+
+/**
+ * The same rule, for names that may sit on either side of their mark
+ * (Gauntlet U29: a cut night's name tries just above its ring, then just
+ * below, before it gives way). Returns each placed id with the offset it
+ * was placed at; an id missing from the map is not named.
+ */
+export function placeLabels(
+  fixed: readonly LabelPlacement[],
+  items: ReadonlyArray<LabelPlacement & { id: string; altOffsetY?: number }>
+): Map<string, number> {
   // Names against names by their line boxes; names against dots by ink.
   const names: Box[] = fixed.map(labelBox);
   const inks: Box[] = fixed.map(inkBox);
   const namedDots: Box[] = [];
-  const shown = new Set<string>();
-  for (const t of towns) {
-    const box = labelBox(t);
-    const ink = inkBox(t);
+  const placed = new Map<string, number>();
+  for (const t of items) {
     const dot = dotBox(t);
-    if (names.some((n) => overlaps(n, box))) continue;
     if (inks.some((n) => overlaps(n, dot))) continue;
-    if (namedDots.some((d) => overlaps(d, ink))) continue;
-    names.push(box);
-    inks.push(ink);
-    namedDots.push(dot);
-    shown.add(t.id);
+    const offsets = t.altOffsetY === undefined ? [t.offsetY] : [t.offsetY, t.altOffsetY];
+    for (const offsetY of offsets) {
+      const at = { ...t, offsetY };
+      const box = labelBox(at);
+      const ink = inkBox(at);
+      if (names.some((n) => overlaps(n, box))) continue;
+      if (namedDots.some((d) => overlaps(d, ink))) continue;
+      names.push(box);
+      inks.push(ink);
+      namedDots.push(dot);
+      placed.set(t.id, offsetY);
+      break;
+    }
   }
-  return shown;
+  return placed;
 }
 
 /**

@@ -4,82 +4,86 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u28-past-the-last-town`
+Branch: `feat/u29-day-ends-on-the-map`
 
-## Ship rule (written late, after the first build; recorded as a miss, as U20's and U11's were)
+## Ship rule (written before the work)
 
-U26's and U27's critics: "Three days, with a night in Winnemucca and one
-on the road" doesn't say where the second night is. A cut with no town
-within 30 km (even after U19's town list) is said in hours: "Day 2 · 4 h
-down the road from Winnemucca".
+The U19 and U28 critics: day headings name where a night falls ("near
+Sweetwater", "45 min past Elizabethtown"), but the map draws nothing
+there. A reader looks for the named place and doesn't find it (rules 5
+and 6: the map shows the trip). A stop's night already has its numbered
+square; a cut's night has nothing.
 
-Ships when such a cut is named by the last town passed, in the time it
-takes to get there at the day's own pace, rounded to 5 minutes:
+Ships when:
 
-- "Day 2 · Lubbock to 45 min past Brady · 4 h"
-- "Three days, with nights in Winnemucca and 50 min past Elko"
-
-Bounds:
-
-- Only when that town is at most 100 km and 60 minutes back. Past an hour,
-  "1 h 30 min past Brady" names a town left long ago, so it stays in
-  hours, as now.
-- A town near the cut (U17/U19) still wins.
-- A town ahead of the cut never names it.
+- **A mark at each cut.** Every day that ends at a cut ("near", "past" or
+  "hours") gets a marker on the road at the exact point the day ends: a
+  small moon-coloured ring, distinct from a town's purple dot, a stop's
+  square and a diamond.
+- **A name for it.** Above the ring is the night's name as the heading
+  says it ("near Sweetwater", "45 min past Elizabethtown"), or "Night 1"
+  for one said in hours.
+- **Fits with U20.** The night's name is placed with the start's, the
+  end's and the stops' names (fixed), so towns give way to it.
+- **Draw order.** It draws above the diamonds and towns, under the
+  endpoints and the stops.
+- **Untouched.** A stop's night, and the trip's last day, get no extra
+  mark.
+- **Code.** A pure function computes the marks from the days, tested. The
+  map effect is a new effect (the effect-split rule), guarded by source.
 
 Also required:
 
-- pure tests
-- the days tests updated: the canonical "hours" fixture now reads "45 min
-  past Brady", and the other one still reads hours, at 1 h 30 min back
 - mutation proofs
-- a live run
+- a live screenshot
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** the minutes are the day's average pace applied to
-straight-line km along the road. A slow stretch past the town reads short.
+**Weakest part:** the point is placed on the direct route's line by
+distance, the same frame the days use. After a stop changes the route,
+the mark sits on the first route's line, not the new one, until the page
+reloads, just as the days' cut points do today.
 
-## Mutation proofs, before push
+## Built
 
-All 6 are caught:
+- `days.ts`: `NightMark` and `nightMarks(days, road)`, a pure function. It marks only cut days (near, past, hours), at `pointAlong(road, endKm)`, labelled with the heading's name, or "Night N" for a cut said in hours.
+- `RouteMap.tsx`:
+  - `nightIcon()` draws a white ring on a dark fill, on the endpoints' 64 px canvas.
+  - New effect 3b draws the marks at zIndex 1750, not clickable.
+  - In effect 2e, the nights' names come first after the fixed names (start, end, stops) and before the towns, offset 30 px above the ring. A crowded night keeps its ring and loses its name.
+- `PlanWorkspace.tsx`: `dayNightMarks` is passed to the map.
 
-- no minutes cap
-- no km cap
-- points ahead allowed
-- 0 min allowed
-- "past" never used
-- the night reads "in 50 min past"
+## Iteration
+
+The first build placed night names as *fixed* labels, which never yield. On Kansas City → Denver at 4 h, "Night 2" falls 44 min short of Denver and drew "Denveght 2". Night names now yield to the start, end and stop names, ahead of the towns.
+
+## Mutation proofs
+
+All 5 are caught:
+
+- stop nights marked
+- hours night unnamed
+- mark placed at the day's start
+- night names never yield
+- marks not passed to the map
 
 ## Gates
 
-tsc and vitest (all) are clean.
-
-## Live (dev, 4 trips × 4 h/6 h)
-
-| trip at 6 h | day end |
-|---|---|
-| Kansas City → Denver | "40 min past Colby" |
-| Chicago → Nashville | "45 min past Elizabethtown" |
-| Amarillo → Austin | "35 min past Brownwood" |
-| Reno → SLC | still hours: nothing passed within the hour |
-
-All the 4 h cases were already "near X" and are unchanged.
+eslint, vitest (792) and next build are clean.
 
 ## Critic, round 1: REJECT
 
-- **The wrap (real).** "… Elizabethtown · 6" ended a line with "h" alone below it. Fixed in `Figures`: a figure with its unit ("6 h", "45 min", "494 mi"), and the "·" before it, are now one no-wrap span. Six SSR tests that pinned figure HTML were updated with a regex transform. Mutations caught: no grouping, and separator not kept.
-- **Unmatched screenshots (real).** My before and after came from different scroll scripts. Round 2 uses the same script for both, plus top-of-sheet shots showing the shape line.
-- **Named town not on the map.** True, and U19's "near Sweetwater" has the same gap. Logged in the backlog: draw the day's end on the map. Not built here.
+- **The name sat too far from its ring (real).** At 30 px up, "near Hays" read as the diamond's label, and "near Sweetwater" landed on Lubbock's dot. A night's name now sits TOWN_LABEL_DY (18 px) from its ring, as a town's does.
+- **"Night 2" vanished beside Denver (real).** Names now get a second side: `placeLabels` tries above, then below, and only then gives way. The ring's icon follows the chosen side through `nightsBelow`. "Night 2" now reads below its ring, beside Denver.
+- **Salina lost its name.** At this zoom its name overlaps "near Hays" by about 8 px, and the night's name ranks first. That is kept deliberately; zooming in names both.
 
-## Gates (after the fixes)
+Tests: `placeLabels` with sides (above, below, neither). The source guards were updated for the side wiring. Mutations caught: no second side, and icon ignores the side.
 
-tsc, eslint, vitest (790) and next build are clean.
+Gates: vitest (793) and next build are clean.
 
 ## Critic, round 2: APPROVE
 
-Rule 5 is clearly better, and "· 6 h" now wraps whole. Leftovers:
+Rule 5 is now met on the map, and the rings read as distinct from towns and diamonds.
 
-- A wrapped line starts with "·".
-- The named town is not on the map: backlog.
+Weakest spot: "Night 2", only 43 min short of Denver, reads as a second name for Denver. Backlogged: consider no ring when the last day is very short.

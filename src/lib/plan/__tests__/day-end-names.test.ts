@@ -1,3 +1,4 @@
+import { nightMarks } from "../days";
 import { pastCutName, PAST_CUT_KM, PAST_CUT_MINUTES } from "../days";
 import { dayHeadingLine, tripShapeLine } from "../words";
 import { describe, it, expect } from "vitest";
@@ -106,5 +107,24 @@ describe("a cut no town is near, named by the last town passed (U28)", () => {
     expect(tripShapeLine([{ toName: "Winnemucca", endKind: "stop" }, { toName: "50 min past Elko", endKind: "past" }, { toName: "Salt Lake City", endKind: "end" }])).toBe(
       "Three days, with nights in Winnemucca and 50 min past Elko"
     );
+  });
+});
+
+
+describe("the cut nights drawn on the map (U29)", () => {
+  it("marks each cut night where it falls, named as its heading says, and nothing for a stop's night or the end", () => {
+    // Two cuts on the 556 km road at 3 h a day for 470 min: three days.
+    const days = tripDays({ ...base, legMinutes: [470], budgetMinutesPerDay: 180, places: [at("place:Roscoe", "Roscoe", 210)] });
+    expect(days.map((d) => d.endKind)).toEqual(["near", "hours", "end"]);
+    const marks = nightMarks(days, road);
+    expect(marks.map((m) => m.label)).toEqual(["near Roscoe", "Night 2"]);
+    expect(marks.map((m) => m.key)).toEqual(["night-0", "night-1"]);
+    // On the road, at the day's end: due south, so latitude says how far.
+    expect(marks[0].lng).toBeCloseTo(-101, 5);
+    expect((35 - marks[0].lat) * KM).toBeCloseTo(days[0].endKm, 0);
+    // A stop's night has its square already; no mark.
+    const withStop = tripDays({ ...base, stops: [{ id: "lubbock", name: "Lubbock", alongKm: 190 }], legMinutes: [160, 310] });
+    expect(withStop[0].endKind).toBe("stop");
+    expect(nightMarks(withStop, road).every((m) => m.key !== "night-0")).toBe(true);
   });
 });

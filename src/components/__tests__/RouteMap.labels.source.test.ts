@@ -12,7 +12,7 @@ describe("the map names only the towns whose names fit (U20)", () => {
     expect(map).toMatch(/function candidateMarkerIcon[\s\S]*?labelOrigin: new google\.maps\.Point\(22, 22 \+ TOWN_LABEL_DY\)/);
   });
   it("measures which names fit on every zoom, with the start, the end and the stops' names fixed first", () => {
-    expect(map).toContain("const fit = labelsThatFit(fixed, towns);");
+    expect(map).toContain("const fit = placeLabels(fixed, towns);");
     expect(map).toContain('map.addListener("zoom_changed", measure)');
     expect(map).toContain("pin(origin.lat, origin.lng, originName);");
     expect(map).toContain("pin(destination.lat, destination.lng, destinationName);");
@@ -34,5 +34,20 @@ describe("the map names only the towns whose names fit (U20)", () => {
   it("gives the map's names a dark halo so they read over a diamond (round 1 critic)", () => {
     const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
     expect(css).toMatch(/\.rt-candidate-label \{\s*text-shadow: [^;]*#0d1117/);
+  });
+  it("draws each cut night as a ring with its name, above the diamonds and towns, under the endpoints (U29)", () => {
+    expect(map).toMatch(/function nightIcon\(below = false\)[\s\S]*?stroke="#f0f6fc"/);
+    expect(map).toMatch(/zIndex: 1750,\s*clickable: false,\s*optimized: false,\s*icon: nightIcon\(nightsBelow\.has\(n\.key\)\)/);
+    expect(map).toContain("label: crowdedIds.has(n.key) ? undefined : endpointLabel(n.label),");
+    expect(map).toContain("}, [map, nightMarks, crowdedIds, nightsBelow]);");
+    // Just above the ring, or below when above is taken (round 1: 30 px up read as detached).
+    expect(map).toContain("icon: nightIcon(nightsBelow.has(n.key)),");
+    expect(map).toContain("labelOrigin: new google.maps.Point(32, 40 + (below ? -TOWN_LABEL_DY : TOWN_LABEL_DY)),");
+    // The night's name yields to the fixed names and comes before every town's.
+    expect(map).toMatch(/const towns = \[\s*\.\.\.nights,/);
+    expect(map).toContain("return p ? [{ id: n.key, ...p, text: n.label, offsetY: TOWN_LABEL_DY, altOffsetY: -TOWN_LABEL_DY }] : [];");
+    expect(map).toContain("const below = new Set(nights.filter((n) => fit.get(n.id) === -TOWN_LABEL_DY).map((n) => n.id));");
+    expect(sheet).toContain("nightMarks={dayNightMarks}");
+    expect(sheet).toContain("const dayNightMarks = useMemo(() => nightMarks(days, road), [days, road]);");
   });
 });

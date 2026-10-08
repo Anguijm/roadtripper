@@ -42,7 +42,7 @@ import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine } from "@/lib/plan/words";
-import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
+import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
 import {
@@ -902,6 +902,8 @@ export default function PlanWorkspace({
   // with a night in Lubbock and one on the road", for two days or more;
   // it repeats no heading (round 4: the strip of day rows did).
   const dayHeadings = useMemo(() => days.map((day) => dayHeadingLine(day)), [days]);
+  // Where each cut night falls, drawn on the map with its name (U29).
+  const dayNightMarks = useMemo(() => nightMarks(days, road), [days, road]);
   const tripShape = useMemo(() => tripShapeLine(days), [days]);
   // The day the towns that fit are listed under, and so the day the
   // sheet's title names: one assignment, read from the days (round 6: the
@@ -2104,6 +2106,7 @@ export default function PlanWorkspace({
           highlightedCandidateId={highlightedCityId}
           onCandidateClick={handleMapClick}
           tripStops={tripStops}
+          nightMarks={dayNightMarks}
           roadsideStops={roadsideStops}
           onRoadsideClick={handleRoadsideSelect}
           selectedRoadsideId={selectedRoadsideId}

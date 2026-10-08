@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { labelsThatFit, inTitleOrder, labelBox, LABEL_CHAR_PX, TOWN_LABEL_DY, type LabelPlacement } from "../labels";
+import { labelsThatFit, placeLabels, inTitleOrder, labelBox, LABEL_CHAR_PX, TOWN_LABEL_DY, type LabelPlacement } from "../labels";
 
 const town = (id: string, x: number, y: number, text = id): LabelPlacement & { id: string } => ({ id, x, y, text, offsetY: TOWN_LABEL_DY });
 
@@ -68,5 +68,20 @@ describe("the map's towns in the title's order (U20)", () => {
   it("puts the title's towns first, in its order, and keeps the rest after in theirs", () => {
     const towns = [{ id: "abilene" }, { id: "x" }, { id: "sweetwater" }, { id: "lubbock" }, { id: "y" }];
     expect(inTitleOrder(towns, ["lubbock", "sweetwater", "abilene"]).map((t) => t.id)).toEqual(["lubbock", "sweetwater", "abilene", "x", "y"]);
+  });
+});
+
+describe("a name with a second side (U29)", () => {
+  it("sits above its mark when it can, below when above is taken, and gives way when neither fits", () => {
+    const end: LabelPlacement = { x: 100, y: 100, text: "Denver", offsetY: -30 };
+    // A ring 20 px right of Denver's dot and 5 px below it: above collides
+    // with "Denver" (drawn 30 px above its dot), below is clear.
+    const night = { id: "n", x: 120, y: 95, text: "Night 2", offsetY: TOWN_LABEL_DY, altOffsetY: -TOWN_LABEL_DY };
+    expect(placeLabels([end], [night]).get("n")).toBe(-TOWN_LABEL_DY);
+    // Alone, it takes the first side.
+    expect(placeLabels([], [night]).get("n")).toBe(TOWN_LABEL_DY);
+    // Both sides taken: not named.
+    const under: LabelPlacement = { x: 120, y: 113, text: "Something", offsetY: 0 };
+    expect(placeLabels([end, under], [night]).has("n")).toBe(false);
   });
 });
