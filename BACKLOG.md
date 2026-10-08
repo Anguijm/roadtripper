@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-07** (round 2 of the interface build closed — PRs #92, #93, #94, #96 merged: the tag vocabulary, the join, the moods on screen, and "Stop here" from the roadside card).
+Last refreshed: **2026-10-08**: U14–U18 merged (the Food marks, junk names, readable lines, the detour limit #114, and the "only town" line #115).
 
 ## Now (this week)
 
@@ -11,7 +11,8 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 ## Next (scoped, not started)
 
 - **Audit `tripDays`'s one-day fallback.** Undated trips still get `tripDays = 1`. U11 stopped the budget wording believing it; other readers of `tripDays` / `totalBudgetMinutes` are unaudited.
-- **Why Food is thin.** On Amarillo → Austin only two day-1 places answer Food, so a non-food place ranks third. Data, or the 0.35 `MOOD_ANSWERED` cut-off too strict?
+- **Add towns to the atlas where it has none** (operator: "Both", 2026-10-08). Scoped in `docs/atlas-gaps.md`: about 28 towns on 8 corridors, with stretches up to 800 km and no town (KC → Denver). This is cross-project: city-atlas-service writes to Urban Explorer's Firestore at about 3–4 Gemini calls per town. Needs the operator's go on the spend.
+- **Roadside diamonds stacked just below the start read as a misplaced town.** Three blind critics (U17, U18 ×2) read the Amarillo cluster as "Lubbock in the wrong spot" or "the route starts at Lubbock". This is rule 6 territory.
 - **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
 ## Someday (architectural ideas, daydreams)
