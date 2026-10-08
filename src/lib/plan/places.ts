@@ -2,9 +2,11 @@
  * Towns that can name where a cut day ends (Gauntlet U19). The atlas names
  * a cut only when one of its towns is within NEAR_CUT_KM, and on 9,064
  * measured day ends that was 13 %: the atlas is curated cities, a few
- * hundred across the country. A plain list of US towns (GeoNames, 5,000
- * people or more, CC BY 4.0; `scripts/build-places.mjs`) names 72 %. The
- * list only names; the towns that fit, with their places, stay the atlas.
+ * hundred across the country. A plain list of US places (GeoNames, CC BY
+ * 4.0; `scripts/build-places.mjs`) names far more: 72 % at 5,000 people or
+ * more (U19), 89 % at 1,000 or more (U36, the operator's choice, measured
+ * on the same 9,414 day ends). The list only names; the towns that fit,
+ * with their places, stay the atlas.
  *
  * Pure: the route and the list in, the towns on the road out. The plan
  * page calls `placesForRoute` once per render, on the server, so the
