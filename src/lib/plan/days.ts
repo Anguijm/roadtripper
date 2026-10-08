@@ -466,3 +466,30 @@ export function boundsOf(pts: readonly LatLng[]): LatLngBoundsLiteral | null {
   }
   return { northeast: { lat: n, lng: e }, southwest: { lat: s, lng: w } };
 }
+
+/** A night the budget cuts, drawn on the map where it falls (Gauntlet U29). */
+export interface NightMark {
+  key: string;
+  lat: number;
+  lng: number;
+  /** As the heading says it: "near Sweetwater", "45 min past Elizabethtown"; "Night 2" for one said in hours. */
+  label: string;
+}
+
+/**
+ * Where each cut night falls on the road, with its name, for the map
+ * (U29: the headings named "near Sweetwater" and the map showed nothing
+ * there). Only cut days: a stop's night has its numbered square, and the
+ * last day ends at the trip's end. Placed on the direct road by distance,
+ * the same frame the days are cut in. Pure.
+ */
+export function nightMarks(days: readonly TripDay[], road: Road): NightMark[] {
+  const out: NightMark[] = [];
+  for (const d of days) {
+    if (d.endKind !== "near" && d.endKind !== "past" && d.endKind !== "hours") continue;
+    const p = pointAlong(road, d.endKm);
+    if (!p) continue;
+    out.push({ key: `night-${d.index}`, lat: p.lat, lng: p.lng, label: d.endKind === "hours" ? `Night ${d.index + 1}` : d.toName });
+  }
+  return out;
+}

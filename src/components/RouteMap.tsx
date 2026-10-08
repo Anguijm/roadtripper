@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { labelsThatFit, TOWN_LABEL_DY, type LabelPlacement } from "@/lib/map/labels";
+import { placeLabels, TOWN_LABEL_DY, type LabelPlacement } from "@/lib/map/labels";
+import type { NightMark } from "@/lib/plan/days";
 import { isOvernightStop } from "@/lib/plan/visits";
 import {
   APIProvider,
@@ -367,6 +368,8 @@ interface RouteMapProps {
   onCandidateClick?: (cityId: string) => void;
   /** Ordered trip stops — rendered as numbered square markers */
   tripStops?: TripStopMarker[];
+  /** Where each cut night falls, with its name (Gauntlet U29). */
+  nightMarks?: NightMark[];
   /** Subtle dim applied to the polyline while a recompute is pending */
   pending?: boolean;
   /** Roadside survivors along the route — amber diamonds, distinct from cities and trip stops */
@@ -462,6 +465,24 @@ function endpointIcon(fill: string): google.maps.Icon {
     anchor: new google.maps.Point(32, 40),
     scaledSize: new google.maps.Size(64, 64),
     labelOrigin: new google.maps.Point(32, 10),
+  };
+}
+
+/**
+ * A cut night's mark (Gauntlet U29): a ring in the page's text colour on a
+ * dark fill, so it reads as "the day ends here" and not as a town (a
+ * purple dot), a stop (a numbered square) or a place (a gold diamond).
+ * On the endpoints' 64 px canvas, so its name sits 30 px above it in the
+ * map's one label style.
+ */
+function nightIcon(below = false): google.maps.Icon {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="40" r="6" fill="#0d1117" stroke="#f0f6fc" stroke-width="3"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    anchor: new google.maps.Point(32, 40),
+    scaledSize: new google.maps.Size(64, 64),
+    // TOWN_LABEL_DY from the ring, above it or, when that is taken, below.
+    labelOrigin: new google.maps.Point(32, 40 + (below ? -TOWN_LABEL_DY : TOWN_LABEL_DY)),
   };
 }
 
@@ -592,6 +613,8 @@ let warnedBadPolyline = false;
  *       Measures, at the current zoom, which towns' names would sit on a
  *       name already drawn, and hands them to 2d as state (Gauntlet U20).
  *   3.  Trip-stop markers — `[map, tripStops, routeColor]`
+ *   3b. Cut nights — `[map, nightMarks]` (Gauntlet U29)
+ *       A ring and the night's name where each day the budget cuts ends.
  *       Numbered square markers for stops the user has added.
  *   4.  Roadside diamonds — `[map, roadsideStops]`
  *       Built wholesale, each on its place's own point; the zoom rule
@@ -629,6 +652,7 @@ function PolylineRenderer({
   highlightedCandidateId,
   onCandidateClick,
   tripStops,
+  nightMarks,
   pending,
   roadsideStops,
   onRoadsideClick,
@@ -648,6 +672,8 @@ function PolylineRenderer({
   highlightedCandidateId?: string | null;
   onCandidateClick?: (cityId: string) => void;
   tripStops?: TripStopMarker[];
+  /** Where each cut night falls, with its name (Gauntlet U29). */
+  nightMarks?: NightMark[];
   pending?: boolean;
   roadsideStops?: RoadsideMapMarker[];
   onRoadsideClick?: (id: string) => void;
@@ -696,6 +722,8 @@ function PolylineRenderer({
   // The towns whose names would sit on another name at the current zoom
   // (effect 2e); effect 2d leaves them unnamed.
   const [crowdedIds, setCrowdedIds] = useState<ReadonlySet<string>>(NO_CROWDED);
+  // The cut nights whose names sit below their rings, not above (effect 2e).
+  const [nightsBelow, setNightsBelow] = useState<ReadonlySet<string>>(NO_CROWDED);
 
   // ── Effect 1a: polyline geometry / color ───────────────────────────────
   // Rebuilds when the route geometry or persona color changes.
@@ -943,13 +971,29 @@ function PolylineRenderer({
       for (const stop of tripStops ?? []) pin(stop.lat, stop.lng, tripStopLabel(stop)?.text);
       const named = (candidates ?? []).filter((c) => candidateLabelShown(c.id, focusCandidateIds));
       const ordered = focusCandidateIds ? [...named.filter((c) => focusCandidateIds.has(c.id)), ...named.filter((c) => !focusCandidateIds.has(c.id))] : named;
-      const towns = ordered.flatMap((c) => {
-        const p = at(c.lat, c.lng);
-        return p ? [{ id: c.id, ...p, text: c.name, offsetY: TOWN_LABEL_DY }] : [];
+      // A cut night's name (U29) comes first after the fixed names, before
+      // any town's: it yields to the start, the end and a stop (a night 44
+      // min short of Denver wrote "Denveght 2") but not to a town.
+      const nights = (nightMarks ?? []).flatMap((n) => {
+        const p = at(n.lat, n.lng);
+        // Just above its ring, as a town's name sits above its dot (U29,
+        // round 1: 30 px up, "near Hays" read as the diamond's); below it
+        // when above is taken, before it gives way.
+        return p ? [{ id: n.key, ...p, text: n.label, offsetY: TOWN_LABEL_DY, altOffsetY: -TOWN_LABEL_DY }] : [];
       });
-      const fit = labelsThatFit(fixed, towns);
+      const towns = [
+        ...nights,
+        ...ordered.flatMap((c) => {
+          const p = at(c.lat, c.lng);
+          return p ? [{ id: c.id, ...p, text: c.name, offsetY: TOWN_LABEL_DY }] : [];
+        }),
+      ];
+      const fit = placeLabels(fixed, towns);
       const crowded = new Set(towns.filter((t) => !fit.has(t.id)).map((t) => t.id));
-      setCrowdedIds((prev) => (prev.size === crowded.size && [...crowded].every((id) => prev.has(id)) ? prev : crowded));
+      const below = new Set(nights.filter((n) => fit.get(n.id) === -TOWN_LABEL_DY).map((n) => n.id));
+      const same = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...b].every((id) => a.has(id));
+      setCrowdedIds((prev) => (same(prev, crowded) ? prev : crowded));
+      setNightsBelow((prev) => (same(prev, below) ? prev : below));
     };
     // Which names collide depends on the zoom alone: a pan moves every
     // point by the same pixels. So the zoom, like the diamonds' rule, is
@@ -962,7 +1006,7 @@ function PolylineRenderer({
       onZoom.remove();
       onReady.remove();
     };
-  }, [map, candidates, origin, destination, originName, destinationName, tripStops, focusCandidateIds]);
+  }, [map, candidates, origin, destination, originName, destinationName, tripStops, nightMarks, focusCandidateIds]);
 
   // ── Effect 3: trip-stop numbered markers ───────────────────────────────
   // The square with its number, and — for a town — its name above it as
@@ -990,6 +1034,34 @@ function PolylineRenderer({
       stopMarkers.forEach((m) => m.setMap(null));
     };
   }, [map, tripStops, routeColor]);
+
+  // ── Effect 3b: cut nights (Gauntlet U29) ───────────────────────────────
+  // A ring where each day the budget cuts ends, with the night's name above
+  // it as the heading says it ("near Sweetwater"). Its own effect (the
+  // split rule); rebuilt whole when the nights change, which is when the
+  // days are re-cut. Above the diamonds and the towns (1750), under the
+  // endpoints (1800) and the stops (2000); not clickable.
+  useEffect(() => {
+    if (!map || !window.google?.maps || !nightMarks || nightMarks.length === 0) return;
+    const markers = nightMarks.map(
+      (n) =>
+        new google.maps.Marker({
+          position: { lat: n.lat, lng: n.lng },
+          map,
+          title: n.label,
+          zIndex: 1750,
+          clickable: false,
+          optimized: false,
+          icon: nightIcon(nightsBelow.has(n.key)),
+          // Named unless the name would sit on the start's, the end's or a
+          // stop's (2e); the ring stays either way.
+          label: crowdedIds.has(n.key) ? undefined : endpointLabel(n.label),
+        })
+    );
+    return () => {
+      for (const m of markers) m.setMap(null);
+    };
+  }, [map, nightMarks, crowdedIds, nightsBelow]);
 
   // ── Effect 4: roadside survivors ───────────────────────────────────────
   // Diamonds in amber. zIndex 1500 sits between the trip-stop squares
@@ -1168,6 +1240,7 @@ export default function RouteMap({
   highlightedCandidateId = null,
   onCandidateClick,
   tripStops,
+  nightMarks,
   pending = false,
   roadsideStops,
   onRoadsideClick,
@@ -1257,6 +1330,7 @@ export default function RouteMap({
             highlightedCandidateId={highlightedCandidateId}
             onCandidateClick={onCandidateClick}
             tripStops={tripStops}
+            nightMarks={nightMarks}
             roadsideStops={roadsideStops}
             onRoadsideClick={onRoadsideClick}
             selectedRoadsideId={selectedRoadsideId}
