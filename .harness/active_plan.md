@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u29-day-ends-on-the-map`
+Branch: `docs/round-5-close`
 
 ## Ship rule (written before the work)
 
