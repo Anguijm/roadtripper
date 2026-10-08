@@ -4,7 +4,21 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `79debb9`** (last merged: PR #130, U29 night marks).
+**Main is at `69da7b6`** (last merged: PR #144, U42).
+
+**Round 6 shipped (PRs #132–#144, 2026-10-08), each checked on production.**
+
+- **U30 (#132):** "3 days to spare, so here's a town a bit out of the way", said before the detour.
+- **U31 and U33 (#133, #135):** one filled Stop here per screen, on the town nearest where the day runs out, with "Closest to where today's 4 h run out" under it.
+- **U32 and U37 (#134, #138):** a pinned town header covers the scroll padding above it, and the band never covers text when unpinned.
+- **U34 (#136):** audit; no reader of a trip's day count invents one day.
+- **U35 (#139):** a last day under an hour folds into the day before, in every count. This was the operator's choice.
+- **U36 (#137):** day ends are named from US places of 1,000+ people (89 % of day ends named, up from 72 %). Also the operator's choice.
+- **U38 (#140):** a folded day says "36 min over your 4 h, to reach Denver".
+- **U39 (#141):** a town more than 60 km off the real road is out of the way, like a detour.
+- **U40 (#142):** "39 min from Kansas City", not "away".
+- **U41 (#143):** the town's name is its card's title.
+- **U42 (#144):** "Also good" and "★ The pick" are words on the kind line.
 
 **Round 5 shipped (PRs #121–#130, 2026-10-08), all checked on production.**
 

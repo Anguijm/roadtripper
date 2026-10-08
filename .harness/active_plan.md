@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u42-badge-on-the-kind-line`
+Branch: `docs/round-6-close`
 
 ## Ship rule (written before the work)
 
