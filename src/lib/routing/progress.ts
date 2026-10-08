@@ -103,3 +103,17 @@ export const MAX_DETOUR_RATIO_WITH_SLACK = 1.5;
 export function isOutOfTheWay(city: LatLng, origin: LatLng, destination: LatLng): boolean {
   return detourRatio(city, origin, destination) > MAX_DETOUR_RATIO;
 }
+
+/**
+ * Within this many km of the trip's end, a town is the end, not a place to
+ * stop on the way (Gauntlet U26): a metro's radius. The "ahead" rule above
+ * passes the destination itself, since nothing is closer to it, and U25's
+ * live run listed "Elko and Salt Lake City fit in day 2" with a Stop here
+ * on the trip's own end.
+ */
+export const DESTINATION_KM = 25;
+
+/** Whether a town is the trip's destination for the towns that fit: within DESTINATION_KM of its point. */
+export function isAtDestination(city: LatLng, destination: LatLng, km = DESTINATION_KM): boolean {
+  return haversineKm(city, destination) <= km;
+}
