@@ -560,6 +560,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // Drawn both, "Lubbock" read "Lubbockbock" and "Amarillo" hid behind
     // the diamonds (round-2 critic, rule 7).
     expect(DARK_MAP_STYLES).toContainEqual({ featureType: "administrative.locality", elementType: "labels", stylers: [{ visibility: "off" }] });
+    // No country names, and quieter state names (U23).
+    expect(DARK_MAP_STYLES).toContainEqual({ featureType: "administrative.country", elementType: "labels", stylers: [{ visibility: "off" }] });
+    expect(DARK_MAP_STYLES).toContainEqual({ featureType: "administrative.province", elementType: "labels.text.fill", stylers: [{ color: "#4d5560" }] });
     expect(() =>
       renderToString(<RouteMap origin={base.origin} destination={base.destination} originName="Amarillo" destinationName="Austin" encodedPolyline={base.encodedPolyline} />)
     ).not.toThrow();

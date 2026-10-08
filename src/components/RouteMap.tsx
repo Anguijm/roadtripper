@@ -417,6 +417,13 @@ export const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
   // "Lubbock" read "Lubbockbock" and "Amarillo" hid behind the diamonds
   // (Gauntlet U1, round 3, rule 7). Roads, states and water keep theirs.
   { featureType: "administrative.locality", elementType: "labels", stylers: [{ visibility: "off" }] },
+  // No country names, and state names dimmed (Gauntlet U23): "United
+  // States" was the loudest text on the Kansas City to Denver map, drawn
+  // across the route, and the state names crowded the trip's own (two
+  // critics, U20 and U22). A trip is in one country; a state orients, so
+  // it stays, quieter than any town of the trip (#f0f6fc).
+  { featureType: "administrative.country", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.province", elementType: "labels.text.fill", stylers: [{ color: "#4d5560" }] },
 ];
 
 /**
