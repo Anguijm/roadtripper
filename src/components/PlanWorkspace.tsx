@@ -51,7 +51,8 @@ import {
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
 import type { DirectionsResult } from "@/lib/routing/directions";
-import { buildTripState, computeDeadlinePressure, tripBudgetFor, type TripState, type TripLeg } from "@/lib/plan/trip-state";
+import { buildTripState, computeDeadlinePressure, tripBudgetFor, spareDays, SPARE_DAYS_FOR_DETOURS, type TripState, type TripLeg } from "@/lib/plan/trip-state";
+import { offeredTowns, onlyOffered } from "@/lib/plan/detours";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
 import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
@@ -717,7 +718,13 @@ export default function PlanWorkspace({
   // failed passes an empty "fresh" set with `initialCandidateFetchFailed`,
   // and `liveWaypointFetch` is only ever set from a refresh that returned
   // a set. Both members of WaypointFetchResult carry cities and waypoints.
-  const effectiveWaypointFetch = liveWaypointFetch ?? waypointFetch;
+  // The towns offered (U21): out-of-the-way ones only with a day to spare,
+  // and after the rest. Every reader below (the title, the days, the map)
+  // takes this set, so they cannot disagree about what fits.
+  const roomForDetours =
+    (spareDays(tripState.legs, tripDayCount, budgetHours, tripState.directMinutesToDestination) ?? 0) >= SPARE_DAYS_FOR_DETOURS;
+  const rawWaypointFetch = liveWaypointFetch ?? waypointFetch;
+  const effectiveWaypointFetch = useMemo(() => offeredTowns(rawWaypointFetch, roomForDetours), [rawWaypointFetch, roomForDetours]);
 
   // The set the days draw their towns from: the effective set, and every
   // stop's town the set no longer holds, with the places it had when it
@@ -754,15 +761,14 @@ export default function PlanWorkspace({
   // map updates after each refresh (Council ISC-S7-ARCH-1 lat/lng now on
   // CityContext, no client-side lookup needed).
   const liveCandidateMarkers = useMemo<CandidateMarker[]>(() => {
-    if (liveWaypointFetch === null) return candidateMarkers;
-    return liveWaypointFetch.cities.map((c) => ({
-      id: c.id,
-      name: c.name,
-      lat: c.lat,
-      lng: c.lng,
-      detourMinutes: c.detourMinutes,
-    }));
-  }, [liveWaypointFetch, candidateMarkers]);
+    // Only the towns offered (U21): an out-of-the-way town the trip has no
+    // room for is neither listed nor drawn.
+    const all =
+      liveWaypointFetch === null
+        ? candidateMarkers
+        : liveWaypointFetch.cities.map((c) => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng, detourMinutes: c.detourMinutes }));
+    return onlyOffered(all, effectiveWaypointFetch);
+  }, [liveWaypointFetch, candidateMarkers, effectiveWaypointFetch]);
 
   // cityId → {lat,lng} lookup so RecommendationList can build TripStops.
   // Sources from the effective set so refreshed cities become addable.
@@ -1541,7 +1547,9 @@ export default function PlanWorkspace({
   const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
   const sheetTitle = townsFailed
     ? "Couldn't load the towns along the road"
-    : fitsTodayLine(effectiveWaypointFetch.cities.map((c) => c.name), toName, townsDayNumber);
+    : // The towns on the way only (U21, critic): a town out of the way is
+      // offered at the bottom of the list, not counted as today's road.
+      fitsTodayLine(effectiveWaypointFetch.cities.filter((c) => !c.outOfTheWay).map((c) => c.name), toName, townsDayNumber);
 
   return (
     <div className="flex flex-1 min-h-0">

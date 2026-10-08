@@ -4,7 +4,7 @@ import { snapToCity, driveTimesFrom, hasDriveGraphFor } from "@/lib/atlas/querie
 import type { City } from "@/lib/urban-explorer/types";
 import { cacheGet, cacheSet, radialCacheKey } from "./cache";
 import { haversineKm, type LatLng } from "./polyline";
-import { makesProgress } from "./progress";
+import { makesProgress, isOutOfTheWay, MAX_DETOUR_RATIO_WITH_SLACK } from "./progress";
 
 // bearingDeg moved to ./progress (pure, client-safe); re-exported so existing
 // imports keep working.
@@ -15,6 +15,12 @@ export interface RadialCandidate {
   // One-way drive time from the current hop origin to this city. Not doubled —
   // in the radial model the city IS the next destination, so there is no return leg.
   oneWayDriveMinutes: number;
+  /**
+   * Past the on-the-way detour limit (U17) and within the slack one (U21):
+   * the sheet offers it only to a dated trip with a day to spare, after
+   * every on-the-way town. Absent is on the way.
+   */
+  outOfTheWay?: boolean;
 }
 
 interface RouteMatrixElement {
@@ -141,12 +147,17 @@ export async function findCitiesInRadius(
   const allCities = await getAllCities();
   // Ahead means progress: closer to the destination than we are now, and
   // not past it. See ./progress for why the old 180-degree fan went.
-  const ahead = allCities.filter((c) => makesProgress(c, origin, destination));
+  // The slack limit (U21): towns out of the way are fetched too and
+  // tagged, and the sheet decides whether the trip has room for them.
+  const ahead = allCities.filter((c) => makesProgress(c, origin, destination, MAX_DETOUR_RATIO_WITH_SLACK));
+
+  const tag = (cs: RadialCandidate[]) => tagOutOfTheWay(cs, origin, destination);
 
   const fromGraph = candidatesFromGraph(origin, ahead, maxMinutes);
   if (fromGraph.kind === "hit") {
-    cacheSet(cacheKey, fromGraph.candidates);
-    return fromGraph.candidates;
+    const tagged = tag(fromGraph.candidates);
+    cacheSet(cacheKey, tagged);
+    return tagged;
   }
 
   // Fallback: no usable graph row for this origin. Costs money and needs a
@@ -158,8 +169,10 @@ export async function findCitiesInRadius(
 
   // Sort by haversine then cap — keeps API cost bounded while prioritising
   // the most geographically proximate (and therefore most likely reachable) cities.
+  // On-the-way towns first, so an out-of-the-way one never displaces one
+  // from the capped set (U21).
   const capped = [...ahead]
-    .sort((a, b) => haversineKm(origin, a) - haversineKm(origin, b))
+    .sort((a, b) => Number(isOutOfTheWay(a, origin, destination)) - Number(isOutOfTheWay(b, origin, destination)) || haversineKm(origin, a) - haversineKm(origin, b))
     .slice(0, MAX_RADIAL_FAN_OUT);
 
   const driveTimes = await fetchDriveTimes(origin, capped);
@@ -176,12 +189,18 @@ export async function findCitiesInRadius(
     // Exit when candidates found or this was the final retry — empty result is valid.
     if (candidates.length > 0 || attempt === MAX_RETRIES) {
       candidates.sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
-      cacheSet(cacheKey, candidates);
-      return candidates;
+      const tagged = tag(candidates);
+      cacheSet(cacheKey, tagged);
+      return tagged;
     }
   }
 
   return [];
+}
+
+/** Marks the candidates past the on-the-way detour limit (U21); the rest are untouched. Pure. */
+export function tagOutOfTheWay(candidates: readonly RadialCandidate[], origin: LatLng, destination: LatLng): RadialCandidate[] {
+  return candidates.map((c) => (isOutOfTheWay(c.city, origin, destination) ? { ...c, outOfTheWay: true } : c));
 }
 
 /**

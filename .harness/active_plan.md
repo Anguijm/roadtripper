@@ -4,70 +4,110 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/round-4-close`
+Branch: `feat/u21-detours-with-slack`
 
-## Ship rule (written before the export)
+## Ship rule (written before the work)
 
-The operator approved the spend ("Go, all 28", 2026-10-08), scoped in
-`docs/atlas-gaps.md`. This ships when:
+The operator, on U17 (2026-10-08): Oklahoma City from Amarillo on the way
+to Austin is fine "if you have five days to get to Austin… maybe listed as
+an option, but at the bottom of the list". Going west first (Albuquerque,
+El Paso) is out: "go east to go west doesn't make a lot of sense".
 
-- the atlas carries the corridor towns that passed city-atlas-service's
-  pipeline (#61, merged) with places that are actually in those towns
-- the drive graph covers every new town's pairs
-- U20 (label collisions) is merged first, since the new towns crowd the
-  map
-- a live run shows the towns offered on the long corridors
-- the critic approves
+Ships when:
 
-**Cost:** about $1–2 of Gemini upstream (already spent). $0 here: the
-export reads Firestore, and the drive graph's 586 new pairs came from the
-free ORS matrix (calibration reused).
+- **Who sees detours.** A dated trip with at least one spare day is
+  offered towns up to a detour ratio of 1.5. Spare days are the days
+  between the dates, minus the days already used by stops, minus the days
+  the rest of the drive needs. Oklahoma City is at 1.45 on Amarillo →
+  Austin. Below a ratio of 1.25 a town counts as "on the way" (U17).
+- **Where they go.** Those towns sit after every on-the-way town, in the
+  title, the list and the map's naming order, and their row says "out of
+  the way".
+- **Unchanged.** An undated trip, or one with no spare day, sees exactly
+  what U17 shows.
+- **Never further back.** A town that doesn't bring you closer to the
+  destination is still never offered, so going west first (Albuquerque, El
+  Paso) never appears.
 
-**Weakest part:** 11 of the 27 towns didn't make it. Ten were too thin for
-the pipeline's floor of 6 places. Sweetwater was ingested with Miami
-places, caught by the council, deleted, and is now guarded by a spatial
-check. Those towns still name day ends via U19. Most of the 16 came back
-`degraded`, meaning 5–10 places where a town's target is 24.
+Also required:
 
-## What's in it
+- tests: the spare-day count, the tagging, the filter and order on the
+  sheet, the row's words
+- mutation proofs before the push
+- a live run, dated with spare days vs undated, on Amarillo → Austin
+- the critic's approval
 
-- 16 towns: abilene-tx, cedar-city-ut, cheyenne-wy, elko-nv, hays-ks,
-  kearney-ne, laramie-wy, lincoln-ne, north-platte-ne, salina-ks,
-  san-angelo-tx, st-george-ut, topeka-ks, tucumcari-nm, twin-falls-id,
-  winnemucca-nv.
-- 293 cities in all.
-- The drive graph has 5,672 pairs at 100 % coverage. That is 586 fetched,
-  minus the 46 Sweetwater pairs dropped with it.
-- All places in all 16 towns lie within 10 km of the town's point, checked
-  upstream.
+**Cost:** $0. The free drive graph serves it. When the graph misses, the
+paid fallback is capped at MAX_RADIAL_FAN_OUT either way, and it now sorts
+on-the-way towns first so a detour never displaces one.
 
-## Live (dev server, 4 h a day)
+**Weakest part:** 1.5 is a second tuning number, and "one spare day" is a
+guess at when a detour is welcome. Spare days are counted at the budget's
+pace, so a trip whose stops already eat the slack loses its detours as
+stops are added. That is intended, but it may surprise someone.
 
-| trip | prod towns that fit | new |
+## Built
+
+- **`progress.ts`:** `makesProgress` now takes a ratio. Added `MAX_DETOUR_RATIO_WITH_SLACK = 1.5` and `isOutOfTheWay` (above 1.25).
+- **`radial.ts`:** fetches up to 1.5 and tags `outOfTheWay` with `tagOutOfTheWay`. The paid fallback's cap now sorts on-the-way towns first.
+- **`recommend.ts`:**
+  - `waypointCities` puts on-the-way towns first before the 10-town places cap. Without it, Oklahoma City could have taken a slot from a town on the way, which only reading the code revealed.
+  - `cityContextFor` carries the tag.
+- **`trip-state.ts`:** `spareDays` counts dates − days used − days still needed, with visits folded as the deadline does. It returns null when undated.
+- **`detours.ts`:** `offeredTowns` (filter and order: out of the way last) and `onlyOffered` (the map's towns).
+- **`PlanWorkspace.tsx`:** `roomForDetours = spareDays ≥ 1`. `effectiveWaypointFetch` is the offered set, so the title, days and map can't disagree.
+- **`scoring.ts`:** the list sorts out-of-the-way towns last.
+- **`RecommendationList.tsx`:** the row says "· out of the way".
+- **The server action's contract is unchanged:** the tag rides on existing data.
+
+## Mutation proofs, before push
+
+All 17 are caught in the end:
+
+- slack limit set to strict
+- never tagged
+- always offered
+- not last in the title
+- not last in the list
+- stops use no days
+- undated has slack
+- sheet ignores slack
+- map shows unoffered towns
+- sheet skips `onlyOffered`
+- row unmarked
+- tag dropped in `recommend`
+- cap not ordered
+- …plus the reruns
+
+Four **survived first** and were fixed:
+
+| survivor | why it survived | fix |
 |---|---|---|
-| Reno → Salt Lake City | none | Elko, Winnemucca |
-| Las Vegas → Salt Lake City | none | St. George, Cedar City |
-| Kansas City → Denver | Lawrence, Omaha, Wichita | + Hays, Salina, Topeka, Lincoln |
-| Amarillo → Austin | Lubbock | + Abilene, San Angelo |
+| list order | the sheet already reorders | direct `buildRankedGroupsWith` test |
+| map filter | the map is never rendered | pure `onlyOffered` + source guard |
+| tag in recommend | no test reached it | pure `cityContextFor` test |
+| sheet call site | — | source guard |
 
-## What went wrong, kept
+## Live (dev server, Amarillo → Austin, 4 h)
 
-- **Sweetwater, TX was ingested with five Miami places** (Sweetwater, FL).
-  The Infatuation scraper fetched the wrong town, and Gemini's audit,
-  which checks names, passed it. The council on #61 caught it. Fixed by
-  deleting its 49 Firestore docs (re-checked empty) and adding a Phase C
-  check that rejects any place more than 3 radii (at least 30 km) from the
-  registry point. That check fails only the bad Sweetwater output of every
-  output on disk.
-- **The first export of this atlas included it.** It was rebuilt after
-  the cleanup. The earlier local commit was never pushed.
-- **The batch runner logged every failure as "Exit code 1".** It now keeps
-  the tail of stdout, with paths redacted.
+| dates | towns |
+|---|---|
+| none | Lubbock, Abilene, San Angelo |
+| Oct 20–24 (3 spare) | Lubbock, Abilene, San Angelo, **Oklahoma City · out of the way**, last |
+| Oct 20–21 (0 spare) | Lubbock, Abilene, San Angelo |
+
+## Gates
+
+tsc, eslint, vitest (777) and next build are all clean.
 
 ## Critic: APPROVE (round 1)
 
-The critic found Winnemucca and Elko real, and correctly placed along I-80. It judged their places specific and accurate (the 1900 Butch Cassidy bank robbery, the Buckaroo Hall of Fame).
+Two of its points were applied, each with a test and a caught mutation:
 
-Its one data query was an unlabelled dot south-west of Abilene. That is San Angelo, which really is off the road, south-west of Abilene. Its name is withheld by U20 because the label touches Sweetwater's dot by 0.5 px. It is not Sweetwater: Sweetwater is not in the atlas.
+- **Wrapping.** "· out of the way" stays whole (`whitespace-nowrap`), so "way" never sits alone on a line.
+- **Title count.** The title counts only towns on the way ("Lubbock, Abilene and 1 more fit today"). A detour is offered in the list, not counted as today's road.
 
-It also flagged Elko as borderline for a 4 h day. That comes from the fit rule's tolerance, not from this data.
+Two went to the backlog:
+
+- a line saying why a detour appeared ("you have 3 days to spare")
+- "★ The pick" showing on a detour town's places

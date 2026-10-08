@@ -115,6 +115,30 @@ export async function fetchNeighborhoods(cityId: string): Promise<{
   }
 }
 
+/**
+ * The towns whose places are fetched: at most MAX_WAYPOINT_CITIES, every
+ * town on the way before any out of the way (U21), each group in the
+ * order given (nearest first). Without the ordering, the wider set the
+ * slack limit fetches could push a town on the way out of the ten. Pure.
+ */
+export function waypointCities(candidates: readonly RadialCandidate[]): RadialCandidate[] {
+  return [...candidates].sort((a, b) => Number(!!a.outOfTheWay) - Number(!!b.outOfTheWay)).slice(0, MAX_WAYPOINT_CITIES);
+}
+
+/** The lean city the client gets for a candidate, its out-of-the-way tag carried (U21). Pure. */
+export function cityContextFor(cand: RadialCandidate): CityContext {
+  return {
+    id: cand.city.id,
+    name: cand.city.name,
+    vibeClass: (cand.city.vibeClass ?? null) as VibeClass | null,
+    // Doubled: detourMinutes retains round-trip semantics for scoring/display compat.
+    detourMinutes: cand.oneWayDriveMinutes * 2,
+    lat: cand.city.lat,
+    lng: cand.city.lng,
+    ...(cand.outOfTheWay ? { outOfTheWay: true } : {}),
+  };
+}
+
 // ---------- Waypoints core ----------
 
 interface WaypointsCorePayload {
@@ -127,18 +151,7 @@ function fetchWaypointsCore(
   cityById: Map<string, RadialCandidate>,
   uniqueCityIds: string[]
 ): { payload: WaypointsCorePayload; failure?: WaypointFetchFailure } {
-  const cities: CityContext[] = uniqueCityIds.map((id) => {
-    const cand = cityById.get(id)!;
-    return {
-      id: cand.city.id,
-      name: cand.city.name,
-      vibeClass: (cand.city.vibeClass ?? null) as VibeClass | null,
-      // Doubled: detourMinutes retains round-trip semantics for scoring/display compat.
-      detourMinutes: cand.oneWayDriveMinutes * 2,
-      lat: cand.city.lat,
-      lng: cand.city.lng,
-    };
-  });
+  const cities: CityContext[] = uniqueCityIds.map((id) => cityContextFor(cityById.get(id)!));
 
   try {
     // The Firestore version was capped at 10 cities by the `in` operator and at
@@ -185,7 +198,7 @@ export async function fetchWaypointsForCandidates(
   candidates: RadialCandidate[],
   selectedCityId?: string
 ): Promise<WaypointFetchResult> {
-  const activeCandidates = candidates.slice(0, MAX_WAYPOINT_CITIES);
+  const activeCandidates = waypointCities(candidates);
 
   if (activeCandidates.length === 0) {
     return { status: "fresh", cities: [], waypoints: [], neighborhoods: {} };
