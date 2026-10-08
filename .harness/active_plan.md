@@ -4,86 +4,54 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u39-off-the-road-is-out-of-the-way`
+Branch: `fix/u40-away-from-where`
 
 ## Ship rule (written before the work)
 
-Several critics (U20 to U38) read the purple dots near Omaha, Lincoln and
-Wichita on Kansas City → Denver as noise off the route (rule 6). U17's
-"on the way" test is straight-line: the town search runs before the route
-is known, and Omaha passes at 1.16, though it is about 200 km off I-70. The
-sheet does know each town's distance from the real road (`nearestOnRoad`).
+Several critics (U29, U31, U39) said "Lawrence · 39 min away" doesn't
+say from where. Since U39 it can also be misread as "39 min off the
+road".
 
 Ships when:
 
-- **Out of the way.** A town more than OFF_ROAD_OUT_KM (60, tuned from 50 on the measured routes; see below) from the
-  route's road counts as out of the way, as a detour does in U21. It is
-  offered only to a dated trip with a day to spare, after every town on
-  the way, marked "out of the way", and left out of the title's count.
-- **Example.** Undated Kansas City → Denver at 4 h offers only the
-  I-70 towns (Lawrence, Topeka, Salina, Hays). With spare days,
-  Wichita, Lincoln and Omaha come back last.
-- **The road it measures against.** The road is the direct route the
-  days are cut on (the same frame).
+- **The row says where from.** A town's row reads "Lawrence · 39 min from
+  Kansas City": from the place the day that holds the towns starts, which
+  is the trip's start or the last night's stop.
+- **Unchanged.** An added town's row still shows no drive, and other
+  lists without a starting place keep "away".
 
 Also required:
 
-- a pure function, with tests
-- an SSR test of the sheet
+- the SSR tests that pin "· 2 h away" updated
+- a test for the "from" form after a stop
 - mutation proofs
-- a live run
+- a screenshot
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** 60 km is a tuning number. A town 55 km off a fast
-interstate is offered as on the way.
+**Weakest part:** a long start name ("Kansas City, Missouri") wraps the
+row to two lines.
 
 ## Built
 
-- `detours.ts`: `OFF_ROAD_OUT_KM = 60` and `markOffRoad(fetch, road, ends)`.
-  - It measures to the road's segments (`projectOntoPolyline`), not its nearest vertex.
-  - A road that doesn't join the trip's ends (within the limit) marks nothing.
-- `PlanWorkspace.tsx`: the `road` memo moved up, and the offered set is now `offeredTowns(markOffRoad(raw, road, ends), room)`.
+- `RecommendationList.tsx`: a `drivesFrom` prop. The row says "· 39 min from Kansas City", or "away" when it is null.
+- `PlanWorkspace.tsx`: passes the holding day's `fromName`, which is the start or the last stop.
 
-## Tuned on real routes (decoded from the page's own polyline)
+## Tests
 
-Measured distance off the road:
-
-- Lubbock 1 km, Sweetwater 2, Brownwood 2.
-- **Abilene 54.** The route cuts Sweetwater → Brownwood, south of I-20.
-- San Angelo 66.
-- Omaha, Lincoln and Wichita 130+ off I-70.
-
-At 50 km, Amarillo → Austin offered only Lubbock. At **60**, it offers Lubbock and Abilene, and San Angelo is out of the way.
-
-## Tests changed, and why
-
-- **Fredericksburg** (fixture) moved from 200 km to 40 km off the test road. It is still too far to name a cut (15 km), but it is on the way.
-- **Fort Worth** (fixture) moved from 350 km to 28 km.
-- Eight suites render a sample California polyline unrelated to their trips. The ends guard leaves those alone, by design.
+- "Fort Worth · 2 h from Lubbock", after a stop.
+- "Plainview · 2 h from Amarillo · out of the way".
+- The glossary's figure-face pin now ends "… min from Amarillo".
 
 ## Mutation proofs
 
-All 4 are caught:
-
-- nearest vertex instead of segments
-- no ends guard
-- limit 200
-- the sheet does not mark
+Both are caught: not passed, and counted from the end instead.
 
 ## Gates
 
 eslint, vitest (808) and next build are clean.
 
-## Live (dev, 4 h)
-
-| trip | towns |
-|---|---|
-| Kansas City → Denver, undated | Lawrence, Topeka, Salina, Hays |
-| Kansas City → Denver, dated with spare days | + Wichita, Omaha, Lincoln, Tulsa, last, out of the way |
-| Amarillo → Austin, undated | Lubbock, Abilene |
-
 ## Critic: APPROVE (round 1)
 
-The map now shows the I-70 line, and the headline matches the dots. Next, flagged repeatedly: "39 min away" does not say from where.
+Rule 1 is met. Two small points go to the next unit: the double gap before "·", and the town name not standing out as the card's title.
