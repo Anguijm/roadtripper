@@ -4,47 +4,44 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u41-town-name-is-the-title`
+Branch: `fix/u42-badge-on-the-kind-line`
 
 ## Ship rule (written before the work)
 
-U40's critic: on a town card, "Lawrence" is the same grey and weight as
-"· 39 min from Kansas City", so the card has no title. There is also a
-visible double gap before the "·": an 8 px margin and a space.
+Five critics (U24 onward): "Also good" sits in a bordered box at the
+right of a place's row, so it reads as a button, and it takes a column
+that squeezes the description into a narrow strip ("seven lines").
 
 Ships when:
 
-- **The name is the title.** The town's name is in the body white
-  (#f0f6fc) at medium weight. The drive and the "out of the way" mark
-  stay grey.
-- **One gap.** The gap before each "·" is 4 px plus the space, not 8.
+- **The kind line.** The badge moves onto the place's kind line, after
+  the kind: "Culture · Also good" in the kind's grey, and "Culture · ★ The
+  pick" with "★ The pick" in the accent at medium weight. There is no
+  border or box, so it never looks pressable.
+- **Full width.** The description takes the row's full width.
+- **U24's rule unchanged.** One pick per town, none on the lead or a
+  detour.
 
 Also required:
 
-- the SSR tests that pin the header's markup updated, with the name's
-  style pinned
+- the SSR and badge tests updated where they pin the badge's markup
 - a mutation proof
-- a screenshot
+- a screenshot at the same scroll as before
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** a highlighted card (hovered from the map) was already
-white. Its name now reads the same as an unhighlighted one; the
-background still marks it.
+**Weakest part:** "★ The pick" loses its filled pill, which was its
+loudest form. The accent colour and weight carry it now.
 
 ## Built
 
-`RecommendationList.tsx`: the town name gets `<span data-town-name class="font-medium text-[#f0f6fc]">`. The drive and the "out of the way" spans use `ml-1` (was `ml-2`). The RecommendationList SSR pins are updated.
-
-## Mutation proofs
-
-Both are caught: name left plain, and gap back to `ml-2`.
+In `RecommendationList.tsx`, the badge is now a span on the kind line after " · ": grey for "good", and the accent colour at medium weight for "pick". There is no border, padding or column. A new SSR pin checks both forms on the kind line and that no badge carries a border. The mutation that boxes it again is caught.
 
 ## Gates
 
-tsc, eslint, vitest (808) and next build are clean.
+eslint, vitest (808) and next build are clean.
 
 ## Critic: APPROVE (round 1)
 
-The name leads the card, and the gap is even. Next, flagged by several critics: "Also good" is boxed like a button and narrows the description.
+The badge no longer reads as a button, and descriptions run full width. Noted: the kind line sits under the description, which is existing layout. The lead place shows no kind line (out of scope).
