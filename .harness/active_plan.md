@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `data/corridor-towns`
+Branch: `docs/round-4-close`
 
 ## Ship rule (written before the export)
 
