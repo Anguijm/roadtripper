@@ -281,6 +281,10 @@ describe("one pick per town on the list (U24)", () => {
     expect(html.indexOf("Museum one")).toBeLessThan(html.indexOf("★ The pick"));
     expect(html.indexOf("★ The pick")).toBeLessThan(html.indexOf("Museum two"));
     expect(html).toContain("Also good");
+    // On the kind line, as words, not a box at the row's right (U42).
+    expect(html).toMatch(/<p class="text-base text-\[#8b949e\] mt-0\.5">Culture<!-- --> · <span data-badge="good" class="whitespace-nowrap">Also good<\/span><\/p>/);
+    expect(html).toMatch(/<p class="text-base text-\[#8b949e\] mt-0\.5">Culture<!-- --> · <span data-badge="pick" class="font-medium whitespace-nowrap" style="color:#[0-9a-f]{6}">★ The pick<\/span><\/p>/i);
+    expect(html).not.toMatch(/data-badge="[^"]*"[^>]*class="[^"]*border/);
   });
   it("gives a town out of the way no pick", () => {
     const html = render({ ...many, cities: [{ ...many.cities[0], outOfTheWay: true }] });

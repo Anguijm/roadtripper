@@ -457,23 +457,26 @@ export default function RecommendationList({
                     )}
                     <p className="text-base text-[#8b949e] mt-0.5">
                       {kindWord(r.type)}
+                      {/* The badge on the kind line, not boxed at the row's
+                          right (U42: five critics read the box as a button,
+                          and it narrowed the description to a strip). */}
+                      {(() => {
+                        const badge = badges.get(r.waypointId);
+                        return badge ? (
+                          <>
+                            {" · "}
+                            <span
+                              data-badge={badge}
+                              className={badge === "pick" ? "font-medium whitespace-nowrap" : "whitespace-nowrap"}
+                              style={badge === "pick" ? { color: accent } : undefined}
+                            >
+                              {BADGE_LABELS[badge]}
+                            </span>
+                          </>
+                        ) : null;
+                      })()}
                     </p>
                   </div>
-                  {(() => {
-                    const badge = badges.get(r.waypointId);
-                    return badge ? (
-                      <span
-                        data-badge={badge}
-                        className={[
-                          "text-base px-1.5 py-0.5 border whitespace-nowrap self-start",
-                          badge === "pick" ? "text-[#0d1117] border-transparent" : "text-[#b0b9c2] border-[#30363d]",
-                        ].join(" ")}
-                        style={badge === "pick" ? { backgroundColor: accent } : undefined}
-                      >
-                        {BADGE_LABELS[badge]}
-                      </span>
-                    ) : null;
-                  })()}
                 </li>
               ))}
             </ul>
