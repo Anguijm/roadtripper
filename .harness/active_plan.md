@@ -4,65 +4,86 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u16-tag-word-lines`
+Branch: `fix/u17-detour-limit`
 
-## Ship rule (written before the build, recorded once the data was read)
+## Ship rule (written before the work)
 
-U15's critic flagged a card whose only line was "tourism". Ships when a
-place's line is never a bare map tag word — a plain noun becomes the noun
-in the card's own sentence ("On the map as a statue; nothing written about
-it yet."), tag-speak gives way to the place's kind — through the store
-read the app uses and `aboutFor` alike; when the critic approves a
-before/after of a real card; and the mutation proofs ran before the push.
+U14's critic noticed Oklahoma City offered as a town that "fits today" on
+Amarillo → Austin, though it lies north-east, not on the way. Ships when a
+town counts as ahead only if going through it is at most a quarter longer
+than going straight, measured the way the rule already measures — straight
+lines, no API — so OKC drops off that trip and every town on a real route
+stays; with tests from the measured trips; mutation proofs before the
+push; and a live check that OKC is gone and Lubbock is still offered.
 
-**Cost:** $0. Read-side only; the store's text is not edited.
+**Cost:** $0, and can only go down. The filter runs before the free drive
+graph and before the paid Routes fallback; a stricter filter sends that
+fallback a subset, never more, and it is capped either way.
 
-**Weakest part:** `TAG_WORD_NOUNS` is a hand-made list, and every word on
-it is a judgement about what "a ___" a person in a car would say. It
-covers the bulk — 2,388 sculptures, 1,923 statues, 745 observation towers
-— and sends the rest to the kind. A word missing from it costs a place its
-specific noun, not its line; a word that should not be on it would put
-tag-speak back on a card.
+**Weakest part:** 1.25 is a tuning number, chosen from three trips, and it
+measures straight lines, not roads. A town a quarter off the straight line
+can be right on a highway that bends (or the reverse). The three trips
+were picked to cover a near-straight route, a diagonal and a dog-leg; a
+fourth kind of trip could want a different number.
 
-## The data
+## The fault
 
-8,838 of the 27,976 places on the map have no encyclopedia line and a
-mapper's text that is one word: "sculpture" 2,388, "statue" 1,923,
-"observation" 745 (a lookout tower's tag), "history" 643, "arch" 440,
-"mural" 303, … "local" 96, "commercial" 43, "military" 41. The card showed
-that word as the whole line about the place.
+`makesProgress` calls a town ahead when it is closer to the destination in
+a straight line than the start is, and not past it. Its comment says a town
+at right angles is excluded "by Pythagoras" — true only at exactly right
+angles. Oklahoma City is 578 km from Austin against Amarillo's 667, so it
+passes; going through it is about 1,000 km against 667 direct.
 
-## On the hard stop
+## Measured, before choosing the number
 
-The bar's hard stop 2 is "any change to the store's scores or the line",
-and a comment on the card's fallback read "The store's line itself is a
-hard stop and is not touched". In the bar, "the line" is the map threshold
-— survivors.ts calls `MAP_THRESHOLD` "the line for the map" throughout — so
-the stop covers scores and what gets on the map. This edits nothing in the
-store; it changes how a one-word tag already there is shown, read-side and
-reversible. Proceeding on that reading, said in the PR so the operator can
-veto it, and the comment now says the same.
+Detour ratio = (start→town + town→destination) / (start→destination),
+straight lines, for every town today's rule offers within a day:
 
-## Mutation proofs, before the push
+| trip | kept at 1.25 | dropped |
+|---|---|---|
+| Amarillo → Austin | Lubbock 1.07 | **Oklahoma City 1.45** |
+| Dallas → Denver | Fort Worth 1.02, Oklahoma City 1.05, Tulsa 1.19 | — |
+| Chicago → Nashville | Indianapolis 1.05, Louisville 1.07, Cincinnati 1.23 | St. Louis 1.30, Dayton 1.30, Columbus 1.53 |
 
-1. One-word tags shown bare again: 3 fail. 2. **The store's read bypassing
-`readableDetail`: 0 failed the first time** — only `aboutFor` was tested,
-and the store's read is the path the app actually uses. A store test now
-reads a "statue" and a "tourism" row through `survivorsAlongRoute`; the
-mutation fails.
+Every town on the road the trip actually takes — US-84 through Lubbock,
+I-65 through Indianapolis and Louisville — is well under 1.1. Oklahoma
+City is fine on Dallas → Denver (1.05) and wrong on Amarillo → Austin
+(1.45): the same town, judged by the trip.
 
-## Live, before and after
+## Mutation proofs, before push
 
-Lubbock → Midland, the Buddy Holly Statue's card: before, its whole line
-was "statue"; after, "On the map as a statue; nothing written about it
-yet."
+Each mutation was applied to `progress.ts`, the progress tests were run, and the file was restored from a copy (`cmp` identical):
 
-Gates: 730 green across 68 files; `tsc --noEmit` clean; `eslint` 0 errors.
+| mutation | result |
+|---|---|
+| remove the detour clause from `makesProgress` | 2 tests red |
+| loosen the limit to 1.5 | 2 red |
+| tighten the limit to 1.05 | 3 red |
+
+## Gates
+
+tsc, eslint, vitest (734 passed) and next build are all clean.
+
+## Live run
+
+Amarillo → Austin, compared against production, which was still on the old build:
+
+| budget | production (old) | local (new) |
+|---|---|---|
+| 4 h | Lubbock and Oklahoma City fit today | **Lubbock fits today** |
+| 5 h | Lubbock, Oklahoma City, Fort Worth, Dallas | **Lubbock, Fort Worth, Dallas** |
+
+## Cost note
+
+The filter runs before both the free drive graph and the paid Routes fallback in `radial.ts`. A stricter filter can only shrink what the fallback is asked to price. Flagged in the PR for the operator's veto, the same way U16's reading of the hard stop was.
 
 ## Critic
 
-Approved: before, the line was a lowercase category word, not a sentence
-(rule 1); after, a plain sentence wrapping cleanly at full size, the rest
-of the card unchanged. Outside this unit it noted the grey line under each
-name still opens with a lowercase kind ("artwork · 1 mile along") — a
-sentence-case question for a later look.
+APPROVE on the first round. It confirmed that Oklahoma City is gone from the headline, the list and the map, and that nothing else moved.
+
+Issues the critic raised outside this unit, kept here for the next one:
+
+- The route line looks as if it starts at Lubbock, not Amarillo.
+- A diamond sits just south of Amarillo, away from Lubbock's label.
+- Only one town is offered for a 4 h day, and it is 1 h 40 min out.
+- Labels pile up at Austin.

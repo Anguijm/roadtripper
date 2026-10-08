@@ -48,13 +48,44 @@ export function progressToward(city: LatLng, origin: LatLng, destination: LatLng
 }
 
 /**
+ * How much longer the trip is through `city` than straight, as a ratio:
+ * (origin → city + city → destination) / (origin → destination). 1 is on
+ * the straight line; 1.5 is half as long again.
+ */
+export function detourRatio(city: LatLng, origin: LatLng, destination: LatLng): number {
+  const totalKm = haversineKm(origin, destination);
+  if (totalKm === 0) return Infinity;
+  return (haversineKm(origin, city) + haversineKm(city, destination)) / totalKm;
+}
+
+/**
+ * The longest a town may make the trip and still count as ahead: a quarter
+ * longer than going straight (Gauntlet U17).
+ *
+ * Measured on three trips before it was chosen — Amarillo → Austin, Dallas →
+ * Denver, Chicago → Nashville. Every town on the road those trips actually
+ * take is under 1.1 (Lubbock 1.07, Indianapolis 1.05, Louisville 1.07); the
+ * ones a person would call out of the way are over 1.25 (Oklahoma City 1.45
+ * from Amarillo to Austin, Columbus 1.53, St. Louis and Dayton 1.30). The
+ * table is in `__tests__/progress.test.ts`. Straight lines, like the rest of
+ * this file: a road that bends can make a town look further off than it is.
+ */
+export const MAX_DETOUR_RATIO = 1.25;
+
+/**
  * True when a stop at `city` is progress: closer to the destination than the
- * origin is, and not past it. "Closer" already rules out behind and
- * sideways (a city at right angles is farther from the destination than the
- * origin, by Pythagoras); "not past" rules out overshooting and having to
- * come back. When origin and destination coincide nothing is progress.
+ * origin is, not past it, and not far off the way.
+ *
+ * "Closer" rules out behind. It does not rule out sideways, whatever this
+ * comment used to say — "a city at right angles is farther from the
+ * destination than the origin, by Pythagoras" holds only at exactly right
+ * angles. Oklahoma City is 578 km from Austin against Amarillo's 667, so it
+ * passed as ahead on Amarillo → Austin, though going through it is about
+ * 1,000 km against 667 direct. The detour limit is what rules out sideways
+ * (U17). "Not past" rules out overshooting and having to come back. When
+ * origin and destination coincide nothing is progress.
  */
 export function makesProgress(city: LatLng, origin: LatLng, destination: LatLng): boolean {
   const { totalKm, remainingKm, alongKm } = progressToward(city, origin, destination);
-  return remainingKm < totalKm && alongKm <= totalKm;
+  return remainingKm < totalKm && alongKm <= totalKm && detourRatio(city, origin, destination) <= MAX_DETOUR_RATIO;
 }
