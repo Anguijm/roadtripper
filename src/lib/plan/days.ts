@@ -35,6 +35,7 @@
 import { haversineKm, type LatLng } from "@/lib/routing/polyline";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import { ON_ROAD_KM } from "@/lib/roadside/anchor";
+import { stretchDays } from "./trip-state";
 import { formatDurationPlain } from "@/lib/routing/format";
 
 /** A route with the distance along it at every point, built once per plan. */
@@ -196,13 +197,15 @@ export interface TripDaysInput {
 }
 
 /**
- * The days a stretch takes at the budget: ceil(minutes / budget), the
+ * The days a stretch takes at the budget: `stretchDays` (a budget's worth
+ * a day, a last day under an hour folded into the one before), the
  * deadline's own reading (`legsQuantizedDays`), and one while the drive is
  * unknown or the budget is not a positive number.
  */
 export function daysSpannedBy(minutes: number | null, budgetMinutesPerDay: number): number {
   if (minutes === null || !(budgetMinutesPerDay > 0)) return 1;
-  return Math.max(1, Math.ceil(minutes / budgetMinutesPerDay));
+  // A short last day folds into the one before (U35), as the deadline counts it.
+  return stretchDays(minutes, budgetMinutesPerDay);
 }
 
 /**

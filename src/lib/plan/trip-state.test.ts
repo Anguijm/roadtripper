@@ -1,3 +1,4 @@
+import { stretchDays, FOLD_MINUTES, spareDays as spare } from "./trip-state";
 import { describe, it, expect } from "vitest";
 import {
   legsTotalMinutes,
@@ -357,5 +358,29 @@ describe("the budget a trip gets from its dates (U13)", () => {
     const sheet = readFileSync(new URL("../../components/PlanWorkspace.tsx", import.meta.url), "utf8");
     expect(sheet).toContain("const tripBudget = tripBudgetFor(tripDayCount, budgetHours);");
     expect(sheet).not.toMatch(/tripDayCount \?\? 1/);
+  });
+});
+
+
+describe("a short last day folds into the one before (U35)", () => {
+  it("counts a budget's worth a day, and folds a last day under an hour", () => {
+    expect(FOLD_MINUTES).toBe(60);
+    expect(stretchDays(200, 240)).toBe(1);
+    expect(stretchDays(240, 240)).toBe(1);
+    expect(stretchDays(241, 240)).toBe(1); // a minute over: drive on
+    expect(stretchDays(299, 240)).toBe(1);
+    expect(stretchDays(300, 240)).toBe(2); // an hour over: a night
+    expect(stretchDays(517, 240)).toBe(2); // KC to Denver at 4 h: 37 min left, folded
+    expect(stretchDays(780, 240)).toBe(4);
+    expect(stretchDays(0, 240)).toBe(1);
+    expect(stretchDays(300, 0)).toBe(1);
+  });
+  it("is the count the deadline and the spare days use, so they agree with the day list", () => {
+    // 4 h 5 min to the end on a one-day trip at 4 h: not a day late, it folds.
+    const p = computeDeadlinePressure([{ originCityId: "__origin__", destinationCityId: "x", durationSeconds: 60 * 60, distanceMeters: 1 }], 2, 4, 245);
+    expect(p?.daysLate).toBe(0);
+    // A 2-day window for 8 h 37 min at 4 h: two days, folded; none to spare, none late.
+    expect(spare([], 2, 4, 517)).toBe(0);
+    expect(spare([], 3, 4, 517)).toBe(1);
   });
 });
