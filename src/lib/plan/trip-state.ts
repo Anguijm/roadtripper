@@ -18,7 +18,39 @@ export interface TripLeg {
 export const WARNING_BUFFER_MINUTES = 30;
 
 /**
+ * The trip's total driving budget, or that it has none (Gauntlet U13).
+ *
+ * A trip with dates has a total: its days times the hours a day. A trip
+ * without dates has no total — it takes the days it takes — and is
+ * `undated`, not "one day long". Until U13 the plan sheet passed a number
+ * either way, inventing one day for an undated trip "so a non-zero budget
+ * is always available on legacy URLs", and an undated multi-day trip was
+ * then scored tight or over budget against a single day. U11's false
+ * "Tight" box was that number shown on a screen. A union rather than a
+ * number, so nothing can compute against a budget that does not exist
+ * without first being told by the compiler that it might not.
+ */
+export type TripBudget = { kind: "dated"; totalMinutes: number } | { kind: "undated" };
+
+/**
+ * The budget for a trip of `dayCount` days, or none when it has no dates.
+ *
+ * The one place an undated trip is told apart from a dated one, so the
+ * sheet cannot quietly go back to inventing a day: the first cut of U13 did
+ * it inline, and a mutation that wrote `(tripDayCount ?? 1)` there passed
+ * every test, because since U11 nothing on screen reads an undated trip's
+ * status. A trap that re-arms invisibly is the one worth guarding.
+ */
+export function tripBudgetFor(dayCount: number | null, budgetHours: number): TripBudget {
+  return dayCount === null ? { kind: "undated" } : { kind: "dated", totalMinutes: dayCount * budgetHours * 60 };
+}
+
+/**
  * - `empty`        — no legs added yet; no budget consumed.
+ * - `undated`      — legs added, but the trip has no total budget to be
+ *                    measured against (no dates), so it is never tight or
+ *                    over. Its own kind so no reader can mistake it for one
+ *                    of the three below (U13).
  * - `in_progress`  — legs added, budget comfortable.
  * - `warning`      — remaining budget ≤ directMinutesToDestination + WARNING_BUFFER_MINUTES;
  *                    user should consider heading to the destination soon.
@@ -26,13 +58,14 @@ export const WARNING_BUFFER_MINUTES = 30;
  */
 export type TripStatus =
   | { kind: "empty" }
+  | { kind: "undated" }
   | { kind: "in_progress"; remainingBudgetMinutes: number; directMinutesToDestination: number }
   | { kind: "warning"; remainingBudgetMinutes: number; directMinutesToDestination: number }
   | { kind: "over_budget"; overageMinutes: number };
 
 export interface TripState {
   legs: TripLeg[];
-  totalBudgetMinutes: number;
+  budget: TripBudget;
   directMinutesToDestination: number;
   status: TripStatus;
 }
@@ -144,12 +177,13 @@ export function remainingBudgetMinutes(
  */
 export function computeTripStatus(
   legs: readonly TripLeg[],
-  totalBudgetMinutes: number,
+  budget: TripBudget,
   directMinutesToDestination: number
 ): TripStatus {
   if (legs.length === 0) return { kind: "empty" };
+  if (budget.kind === "undated") return { kind: "undated" };
 
-  const remaining = remainingBudgetMinutes(legs, totalBudgetMinutes);
+  const remaining = remainingBudgetMinutes(legs, budget.totalMinutes);
 
   if (remaining < 0) {
     return { kind: "over_budget", overageMinutes: -remaining };
@@ -165,14 +199,14 @@ export function computeTripStatus(
 /** Builds a TripState from its constituent parts. */
 export function buildTripState(
   legs: readonly TripLeg[],
-  totalBudgetMinutes: number,
+  budget: TripBudget,
   directMinutesToDestination: number
 ): TripState {
   return {
     legs: [...legs],
-    totalBudgetMinutes,
+    budget,
     directMinutesToDestination,
-    status: computeTripStatus(legs, totalBudgetMinutes, directMinutesToDestination),
+    status: computeTripStatus(legs, budget, directMinutesToDestination),
   };
 }
 
@@ -182,5 +216,5 @@ export function appendLeg(
   leg: TripLeg,
   directMinutesToDestination: number
 ): TripState {
-  return buildTripState([...state.legs, leg], state.totalBudgetMinutes, directMinutesToDestination);
+  return buildTripState([...state.legs, leg], state.budget, directMinutesToDestination);
 }

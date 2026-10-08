@@ -49,7 +49,7 @@ import {
   type RecomputeErrorCode,
 } from "@/app/plan/actions";
 import type { DirectionsResult } from "@/lib/routing/directions";
-import { buildTripState, computeDeadlinePressure, type TripState, type TripLeg } from "@/lib/plan/trip-state";
+import { buildTripState, computeDeadlinePressure, tripBudgetFor, type TripState, type TripLeg } from "@/lib/plan/trip-state";
 import { totalDays as dateTotalDays } from "@/lib/plan/types";
 import { saveTrip, MAX_SAVED_TRIPS } from "@/lib/trips/storage";
 import type { SaveTripInput } from "@/lib/trips/types";
@@ -524,11 +524,14 @@ export default function PlanWorkspace({
   const [startDateAnnouncement, setStartDateAnnouncement] = useState("");
   const [startDateDerivationFailed, setStartDateDerivationFailed] = useState(false);
 
-  // Total trip budget derived from date range.
-  // Default to 1 day when no date range is provided — ensures a non-zero budget is
-  // always available for calculation on legacy URLs that predate the date fields.
-  const tripDays = effectiveStartDate && endDate ? dateTotalDays({ startDate: effectiveStartDate, endDate }) : 1;
-  const totalBudgetMins = tripDays * budgetHours * 60;
+  // The trip's days and total driving budget — only when it has dates
+  // (Gauntlet U13). An undated trip used to be given one day here, "so a
+  // non-zero budget is always available on legacy URLs", and was then
+  // scored tight or over budget against that one day: U11's false "Tight"
+  // box. It has no total now; it takes the days it takes, and the day
+  // list says how many.
+  const tripDayCount = effectiveStartDate && endDate ? dateTotalDays({ startDate: effectiveStartDate, endDate }) : null;
+  const tripBudget = tripBudgetFor(tripDayCount, budgetHours);
 
   // Trip + recompute state.
   // `liveRoute === null` / `liveWaypointFetch === null` means "use the
@@ -552,7 +555,7 @@ export default function PlanWorkspace({
   // TripState tracks accumulated leg times + budget status. Built from
   // route legs returned by recomputeAndRefreshAction; empty until first stop.
   const [tripState, setTripState] = useState<TripState>(() =>
-    buildTripState(initialTrip?.legs ?? [], totalBudgetMins, initialTrip?.directMinutesToDestination ?? initialDurationSeconds / 60)
+    buildTripState(initialTrip?.legs ?? [], tripBudget, initialTrip?.directMinutesToDestination ?? initialDurationSeconds / 60)
   );
   const [candidatePoolAnnouncement, setCandidatePoolAnnouncement] = useState("");
   const [liveRoute, setLiveRoute] = useState<DirectionsResult | null>(null);
@@ -764,10 +767,11 @@ export default function PlanWorkspace({
   // day to reach the destination by the end date. Only shown when a date range
   // was provided and at least one stop has been added.
   const deadlinePressure = useMemo(() => {
-    if (!effectiveStartDate || !endDate) return null;
+    // Only a dated trip has a deadline; the count is null otherwise (U13).
+    if (tripDayCount === null) return null;
     // `computeDeadlinePressure` folds visits out itself (Gauntlet U10).
-    return computeDeadlinePressure(tripState.legs, tripDays, budgetHours, tripState.directMinutesToDestination);
-  }, [tripState, tripDays, budgetHours, effectiveStartDate, endDate]);
+    return computeDeadlinePressure(tripState.legs, tripDayCount, budgetHours, tripState.directMinutesToDestination);
+  }, [tripState, tripDayCount, budgetHours]);
 
   // ── Roadside stops (Gauntlet U1) ───────────────────────────────────────
   // The card: one stop, opened by a tap on its diamond or its row, closed
@@ -1202,7 +1206,7 @@ export default function PlanWorkspace({
       if (recomputeError !== null) setRecomputeError(null);
       if (recommendationsDegraded) setRecommendationsDegraded(false);
       if (failedStopId !== null) setFailedStopId(null);
-      setTripState(buildTripState([], totalBudgetMins, initialDurationSeconds / 60));
+      setTripState(buildTripState([], tripBudget, initialDurationSeconds / 60));
       return;
     }
 
@@ -1268,7 +1272,7 @@ export default function PlanWorkspace({
         const directMinsToDest = routeLegs[stopsForRequest.length]
           ? routeLegs[stopsForRequest.length].durationSeconds / 60
           : initialDurationSeconds / 60;
-        setTripState(buildTripState(tripLegs, totalBudgetMins, directMinsToDest));
+        setTripState(buildTripState(tripLegs, tripBudget, directMinsToDest));
 
         if (result.waypointStatus === "fresh") {
           setLiveWaypointFetch(result.waypointFetch);
@@ -1446,8 +1450,7 @@ export default function PlanWorkspace({
   // blown against; an undated one says what is left of day 1's hours and
   // never warns, because it has no total to exceed.
   const budget = budgetWords({
-    dated: Boolean(effectiveStartDate && endDate),
-    tripDays,
+    trip: tripDayCount === null ? { dated: false } : { dated: true, days: tripDayCount },
     budgetMinutesPerDay: budgetHours * 60,
     status: tripState.status,
     dayOneMinutes: days[0]?.minutes ?? null,

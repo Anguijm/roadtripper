@@ -5,12 +5,16 @@ import {
   remainingBudgetMinutes,
   computeTripStatus,
   buildTripState,
+  tripBudgetFor,
   appendLeg,
   computeDeadlinePressure,
   WARNING_BUFFER_MINUTES,
   type TripLeg,
   type TripStatus,
 } from "./trip-state";
+
+/** A dated trip's total budget, in minutes (U13: a budget is dated or undated, never a bare number). */
+const dated = (totalMinutes: number) => ({ kind: "dated" as const, totalMinutes });
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -92,13 +96,13 @@ describe("remainingBudgetMinutes", () => {
 
 describe("computeTripStatus", () => {
   it("returns 'empty' when no legs", () => {
-    const status = computeTripStatus([], 480, 60);
+    const status = computeTripStatus([], dated(480), 60);
     expect(status.kind).toBe("empty");
   });
 
   it("returns 'in_progress' when budget is comfortable", () => {
     // 60 min spent → 420 remaining; 60 min to dest → buffer gap = 360 > 30
-    const status = computeTripStatus([LEG_60], 480, 60) as Extract<TripStatus, { kind: "in_progress" }>;
+    const status = computeTripStatus([LEG_60], dated(480), 60) as Extract<TripStatus, { kind: "in_progress" }>;
     expect(status.kind).toBe("in_progress");
     expect(status.remainingBudgetMinutes).toBeCloseTo(420);
     expect(status.directMinutesToDestination).toBe(60);
@@ -106,7 +110,7 @@ describe("computeTripStatus", () => {
 
   it("returns 'warning' when remaining barely covers destination + buffer", () => {
     // 60 min spent → 60 remaining; 50 min to dest → 60 - 50 = 10 ≤ WARNING_BUFFER_MINUTES (30)
-    const status = computeTripStatus([LEG_60], 120, 50) as Extract<TripStatus, { kind: "warning" }>;
+    const status = computeTripStatus([LEG_60], dated(120), 50) as Extract<TripStatus, { kind: "warning" }>;
     expect(status.kind).toBe("warning");
     expect(status.remainingBudgetMinutes).toBeCloseTo(60);
     expect(status.directMinutesToDestination).toBe(50);
@@ -114,33 +118,33 @@ describe("computeTripStatus", () => {
 
   it("returns 'warning' at the exact buffer boundary", () => {
     // 60 min spent → 90 remaining; 60 min to dest → 90 - 60 = 30 = WARNING_BUFFER_MINUTES exactly
-    const status = computeTripStatus([LEG_60], 150, 60);
+    const status = computeTripStatus([LEG_60], dated(150), 60);
     expect(status.kind).toBe("warning");
   });
 
   it("returns 'in_progress' just above the buffer boundary", () => {
     // remaining - direct = 31 > 30
-    const status = computeTripStatus([LEG_60], 151, 60);
+    const status = computeTripStatus([LEG_60], dated(151), 60);
     expect(status.kind).toBe("in_progress");
   });
 
   it("returns 'warning' when remaining is positive but insufficient to reach destination", () => {
     // 60 min spent → 50 remaining; 60 min to dest → remaining - direct = -10 ≤ 30 → warning
-    const status = computeTripStatus([LEG_60], 110, 60) as Extract<TripStatus, { kind: "warning" }>;
+    const status = computeTripStatus([LEG_60], dated(110), 60) as Extract<TripStatus, { kind: "warning" }>;
     expect(status.kind).toBe("warning");
     expect(status.remainingBudgetMinutes).toBeCloseTo(50);
   });
 
   it("returns 'over_budget' when legs exceed total budget", () => {
     // 90 min spent, 60 min total → 30 min over
-    const status = computeTripStatus([LEG_90], 60, 10) as Extract<TripStatus, { kind: "over_budget" }>;
+    const status = computeTripStatus([LEG_90], dated(60), 10) as Extract<TripStatus, { kind: "over_budget" }>;
     expect(status.kind).toBe("over_budget");
     expect(status.overageMinutes).toBeCloseTo(30);
   });
 
   it("over_budget takes precedence over warning check", () => {
     // Even with directMinutesToDestination being small, over_budget fires first
-    const status = computeTripStatus([LEG_90], 60, 5);
+    const status = computeTripStatus([LEG_90], dated(60), 5);
     expect(status.kind).toBe("over_budget");
   });
 
@@ -153,21 +157,21 @@ describe("computeTripStatus", () => {
 
 describe("buildTripState", () => {
   it("builds an empty-status state from an empty leg list", () => {
-    const state = buildTripState([], 480, 60);
+    const state = buildTripState([], dated(480), 60);
     expect(state.legs).toEqual([]);
-    expect(state.totalBudgetMinutes).toBe(480);
+    expect(state.budget).toEqual(dated(480));
     expect(state.status.kind).toBe("empty");
   });
 
   it("derives status correctly from provided legs", () => {
-    const state = buildTripState([LEG_60], 480, 60);
+    const state = buildTripState([LEG_60], dated(480), 60);
     expect(state.legs).toHaveLength(1);
     expect(state.status.kind).toBe("in_progress");
   });
 
   it("returns a new array for legs (does not share reference with input)", () => {
     const input = [LEG_60];
-    const state = buildTripState(input, 480, 60);
+    const state = buildTripState(input, dated(480), 60);
     expect(state.legs).not.toBe(input);
     expect(state.legs).toEqual(input);
   });
@@ -177,7 +181,7 @@ describe("buildTripState", () => {
 
 describe("appendLeg", () => {
   it("appends a leg and recalculates status", () => {
-    const initial = buildTripState([], 480, 60);
+    const initial = buildTripState([], dated(480), 60);
     const next = appendLeg(initial, LEG_60, 60);
     expect(next.legs).toHaveLength(1);
     expect(next.legs[0]).toEqual(LEG_60);
@@ -185,7 +189,7 @@ describe("appendLeg", () => {
   });
 
   it("accumulates legs across multiple appends", () => {
-    const s0 = buildTripState([], 480, 60);
+    const s0 = buildTripState([], dated(480), 60);
     const s1 = appendLeg(s0, LEG_60, 60);
     const s2 = appendLeg(s1, LEG_30, 60);
     expect(s2.legs).toHaveLength(2);
@@ -194,27 +198,27 @@ describe("appendLeg", () => {
   });
 
   it("does not mutate the original state", () => {
-    const original = buildTripState([], 480, 60);
+    const original = buildTripState([], dated(480), 60);
     appendLeg(original, LEG_60, 60);
     expect(original.legs).toHaveLength(0);
   });
 
   it("transitions to warning when budget tightens", () => {
     // Start with 120 min budget, add a 60 min leg, 50 min left to destination
-    const s0 = buildTripState([], 120, 50);
+    const s0 = buildTripState([], dated(120), 50);
     const s1 = appendLeg(s0, LEG_60, 50);
     // 60 remaining, 50 to dest → 10 ≤ 30 → warning
     expect(s1.status.kind).toBe("warning");
   });
 
   it("transitions to over_budget when legs exceed total", () => {
-    const s0 = buildTripState([], 60, 10);
+    const s0 = buildTripState([], dated(60), 10);
     const s1 = appendLeg(s0, LEG_90, 10); // 90 min leg on 60 min budget
     expect(s1.status.kind).toBe("over_budget");
   });
 
   it("stores directMinutesToDestination on TripState", () => {
-    const s = buildTripState([LEG_30], 300, 42);
+    const s = buildTripState([LEG_30], dated(300), 42);
     expect(s.directMinutesToDestination).toBe(42);
   });
 });
@@ -301,5 +305,57 @@ describe("computeDeadlinePressure", () => {
     );
     expect(dp!.daysLate).toBe(2);
     expect(dp!.daysRemaining).toBe(0);
+  });
+});
+
+describe("a trip with no dates has no total budget (U13)", () => {
+  // The plan sheet used to give an undated trip one day's budget "so a
+  // non-zero budget is always available on legacy URLs", and an undated
+  // multi-day trip then scored tight or over budget against that one day.
+  // U11's false "Tight" box was that status on a screen.
+  const UNDATED = { kind: "undated" as const };
+
+  it("is never tight or over, however long the drive", () => {
+    expect(computeTripStatus([LEG_90], UNDATED, 6000).kind).toBe("undated");
+    expect(computeTripStatus([LEG_60, LEG_90, LEG_30], UNDATED, 6000).kind).toBe("undated");
+  });
+
+  it("is empty before anything is added, like a dated one", () => {
+    expect(computeTripStatus([], UNDATED, 60)).toEqual({ kind: "empty" });
+  });
+
+  it("carries the undated budget through the state and an appended leg", () => {
+    const s0 = buildTripState([], UNDATED, 60);
+    expect(s0.budget).toEqual(UNDATED);
+    const s1 = appendLeg(s0, LEG_90, 6000);
+    expect(s1.budget).toEqual(UNDATED);
+    expect(s1.status.kind).toBe("undated");
+  });
+
+  it("still scores a dated trip of the same legs, so the change is only the undated case", () => {
+    expect(computeTripStatus([LEG_90], dated(60), 10).kind).toBe("over_budget");
+  });
+});
+
+describe("the budget a trip gets from its dates (U13)", () => {
+  it("is undated when the trip has no dates, never one invented day", () => {
+    expect(tripBudgetFor(null, 4)).toEqual({ kind: "undated" });
+  });
+
+  it("is the days times the hours when it has them", () => {
+    expect(tripBudgetFor(3, 4)).toEqual({ kind: "dated", totalMinutes: 720 });
+    expect(tripBudgetFor(1, 4)).toEqual({ kind: "dated", totalMinutes: 240 });
+  });
+
+  it("is what the plan sheet builds its budget from", async () => {
+    // Since U11 nothing on screen reads an undated trip's status, so the
+    // sheet going back to inventing a day — `(tripDayCount ?? 1)` — would
+    // pass every rendered test. Reading the source is the guard that
+    // catches it; the first cut of U13 had no guard, and that mutation
+    // passed.
+    const { readFileSync } = await import("node:fs");
+    const sheet = readFileSync(new URL("../../components/PlanWorkspace.tsx", import.meta.url), "utf8");
+    expect(sheet).toContain("const tripBudget = tripBudgetFor(tripDayCount, budgetHours);");
+    expect(sheet).not.toMatch(/tripDayCount \?\? 1/);
   });
 });

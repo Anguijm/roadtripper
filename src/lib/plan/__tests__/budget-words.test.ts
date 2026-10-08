@@ -6,7 +6,7 @@ import { budgetWords } from "../words";
  * only has a total budget when it has dates.
  */
 
-const base = { budgetMinutesPerDay: 240, toName: "Austin", tripDays: 1 };
+const base = { budgetMinutesPerDay: 240, toName: "Austin" };
 
 describe("an undated trip", () => {
   it("never warns: it has no total budget to be tight against", () => {
@@ -14,7 +14,7 @@ describe("an undated trip", () => {
     // "Tight: 5 h 57 min straight on to Austin, with 2 h of driving left".
     const w = budgetWords({
       ...base,
-      dated: false,
+      trip: { dated: false as const },
       status: { kind: "warning", remainingBudgetMinutes: 121, directMinutesToDestination: 357 },
       dayOneMinutes: 119,
     });
@@ -22,7 +22,7 @@ describe("an undated trip", () => {
   });
 
   it("never says over budget either, however long the trip", () => {
-    const w = budgetWords({ ...base, dated: false, status: { kind: "over_budget", overageMinutes: 300 }, dayOneMinutes: 119 });
+    const w = budgetWords({ ...base, trip: { dated: false as const }, status: { kind: "over_budget", overageMinutes: 300 }, dayOneMinutes: 119 });
     expect(w.box).toBeNull();
     expect(w.line).not.toContain("more driving than fits");
   });
@@ -30,7 +30,7 @@ describe("an undated trip", () => {
   it("says what is left of day 1's hours once day 1's drive is done", () => {
     const w = budgetWords({
       ...base,
-      dated: false,
+      trip: { dated: false as const },
       status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 },
       dayOneMinutes: 119,
     });
@@ -44,7 +44,7 @@ describe("an undated trip", () => {
     // on its first day. Day 1 alone leaves 130.
     const w = budgetWords({
       ...base,
-      dated: false,
+      trip: { dated: false as const },
       status: { kind: "over_budget", overageMinutes: 20 },
       dayOneMinutes: 110,
     });
@@ -53,20 +53,20 @@ describe("an undated trip", () => {
   });
 
   it("has the whole day left before anything is planned, or while day 1 is still being worked out", () => {
-    expect(budgetWords({ ...base, dated: false, status: { kind: "empty" }, dayOneMinutes: null }).line).toBe("4 h of driving left today");
+    expect(budgetWords({ ...base, trip: { dated: false as const }, status: { kind: "empty" }, dayOneMinutes: null }).line).toBe("4 h of driving left today");
     expect(
-      budgetWords({ ...base, dated: false, status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 }, dayOneMinutes: null }).line
+      budgetWords({ ...base, trip: { dated: false as const }, status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 }, dayOneMinutes: null }).line
     ).toBe("4 h of driving left today");
   });
 
   it("does not go below nothing when day 1 runs the whole budget", () => {
-    const w = budgetWords({ ...base, dated: false, status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 }, dayOneMinutes: 240 });
+    const w = budgetWords({ ...base, trip: { dated: false as const }, status: { kind: "in_progress", remainingBudgetMinutes: 0, directMinutesToDestination: 0 }, dayOneMinutes: 240 });
     expect(w.line).toBe("0 min of driving left today");
   });
 });
 
 describe("a dated trip", () => {
-  const dated = { ...base, dated: true, tripDays: 3, dayOneMinutes: 119 };
+  const dated = { ...base, trip: { dated: true as const, days: 3 }, dayOneMinutes: 119 };
 
   it("keeps its warning, because it does have a total to be tight against", () => {
     const w = budgetWords({ ...dated, status: { kind: "warning", remainingBudgetMinutes: 90, directMinutesToDestination: 100 } });
@@ -91,6 +91,6 @@ describe("a dated trip", () => {
   });
 
   it("says today for a one-day dated trip", () => {
-    expect(budgetWords({ ...dated, tripDays: 1, status: { kind: "empty" } }).line).toBe("4 h of driving left today");
+    expect(budgetWords({ ...dated, trip: { dated: true, days: 1 }, status: { kind: "empty" } }).line).toBe("4 h of driving left today");
   });
 });
