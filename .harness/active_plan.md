@@ -4,66 +4,69 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u24-one-pick`
+Branch: `fix/u25-one-obvious-action`
 
 ## Ship rule (written before the work)
 
-Two critics (the atlas round, and U21) noticed "★ The pick" on several
-places in one town. It is set on every place whose kind is among the
-mood's primary kinds, so Lubbock showed three picks. "The pick" is
-singular. U21's critic also saw it on the places of a town out of the way,
-where it reads as recommending the detour over towns on the way.
+About five critics (U17, U18, U20, the atlas round, U24) said each town's
+card has no single obvious action. "What's in Lubbock" and "+ Stop here"
+are the same size, the same grey outline and the same weight (rule 3).
+The thing to do next on the plan is to choose where the day ends:
+"+ Stop here".
 
 Ships when:
 
-- **One pick per town.** Each town's list shows at most one "★ The pick":
-  its highest-scoring primary-kind place, which is the list's first such
-  row since rows are ordered by score.
-- **The rest.** Other primary-kind places say "Also good", as
-  secondary-kind places do, and the rest say nothing, as before.
-- **Detours.** A town out of the way shows no "★ The pick" at all; its best
-  says "Also good".
+- **"+ Stop here" stands out** in the town's accent, as its border and its
+  text, at medium weight. "✓ Added" stays filled in the accent, and a
+  disabled "Stop here" stays dim with its reason beside it, as now.
+- **"What's in" stays** the neutral grey outline.
+- **Same size.** Both keep their size and 44 px height (rule 7), so a long
+  town name still wraps inside "What's in".
 
 Also required:
 
-- a pure function for the badge, with tests
+- an SSR test pins which button carries the accent
 - mutation proofs
-- an SSR check on a town with several primary places
+- a before/after screenshot
 - the critic's approval
+
+Not changed: the sort control's filled "best first", which two critics
+called the loudest control. Its fill is U6's deliberate language for
+"this one is on", the same as a chosen mood chip, and not an action.
+Noted for the operator rather than undone.
 
 **Cost:** $0.
 
-**Weakest part:** "Also good" now covers two tiers, primary-but-not-first
-and secondary, so the badge says less about how strong a match is.
+**Weakest part:** the accent is the trip's route colour (purple by
+default), so the emphasis is colour and weight, not size. A colour-blind
+reader gets the weight alone.
 
 ## Built
 
-- `rowBadges(rows, leadId, outOfTheWay)` in `RecommendationList.tsx` is pure. It gives:
-  - "pick" to the first primary place, or no badge when that place is the lead
-  - "good" to the other primary places and the secondary ones
-  - nothing to the rest
-  - no pick at all when the town is out of the way
-- The render reads the badge from this map, and it carries a `data-badge` attribute.
-- The glossary test's "★ The pick" check became "Also good". On that fixture, Lubbock's pick is its lead, so it shows no badge. "★ The pick" itself is now pinned by the new SSR test.
+In `RecommendationList.tsx`, an enabled "+ Stop here" now gets the `font-medium` class and the style `{ borderColor: accent, color: accent }`. "✓ Added" and the disabled state are unchanged. An SSR test pins the accent and weight on "Stop here", and pins that "What's in" has no inline style and keeps the neutral border.
 
-## Mutation proofs, before push
+## Mutation proofs
 
-All 5 are caught:
-
-- every primary is a pick
-- detour towns get picks
-- the lead gets a badge
-- other primaries get no badge
-- the render ignores the detour flag
+Both are caught: no accent, no weight.
 
 ## Gates
 
-tsc, eslint, vitest (782) and next build are all clean.
+eslint, vitest (783) and next build are clean.
 
-## Critic: APPROVE (round 1)
+## Critic, round 1: REJECT
 
-The duplicate pick is gone and "Also good" reads well. Out of scope, noted:
+Fair. Rule 3 asks for the *largest* control, and an accent outline the same size as "What's in" still read as a matched pair. The accent purple also blends with the route, the dots and the list bars.
 
-- the badge column wastes width beside long descriptions
-- "Towns that fit today" repeats the title
-- the lead has no kind line
+Round 2:
+
+- "+ Stop here" is now the only filled control: accent background with dark text, `flex-[3]` against "What's in"'s `flex-[2]`, semibold, on the right.
+- "✓ Added" becomes an accent outline, because the action is done.
+- The SSR tests now pin the fill, the 3:2 split and the added outline. The old "both flex-1" regexes were updated.
+- Mutations caught: outline again, same size, added filled.
+- Gates: vitest (784) and next build are clean.
+
+## Critic, round 2: APPROVE
+
+It asked to see the "✓ Added" state before merging, so I added Winnemucca in headless Chrome, which made one live recompute. The screenshot shows "✓ Added" as an accent outline. The recompute worked: "Day 1 · Reno to Winnemucca · 2 h 26 min".
+
+That run also exposed a separate wart, left for U26: after the stop, the title reads "Elko and Salt Lake City fit in day 2". The destination itself is offered as a town to stop in.

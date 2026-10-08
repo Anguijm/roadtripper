@@ -303,7 +303,7 @@ export default function RecommendationList({
                     onClick={() => onCityPreview(cityId)}
                     aria-pressed={previewedCityId === cityId}
                     className={[
-                      "flex-1 min-h-[44px] text-base border px-2 py-1 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                      "flex-[2] min-w-0 min-h-[44px] text-base border px-2 py-1 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                       previewedCityId === cityId
                         ? "border-[#f0f6fc] text-[#f0f6fc]"
                         : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
@@ -324,15 +324,26 @@ export default function RecommendationList({
                       : "Stop here"
                   }
                   className={[
-                    "flex-1 min-h-[44px] text-base border px-2 py-1 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    "flex-[3] min-h-[44px] text-base border px-2 py-1 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                     isAdded
-                      ? "border-transparent bg-[#3fb950] text-[#0d1117] hover:bg-[#46c356]"
+                      ? "font-medium"
                       : canAdd
-                      ? "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]"
+                      ? "font-semibold border-transparent hover:brightness-110"
                       : "border-[#21262d] text-[#6e7681] cursor-not-allowed",
                   ].join(" ")}
+                  // The card's one obvious action (rule 3, Gauntlet U25):
+                  // choosing where the day ends is the largest control and
+                  // the only filled one, three parts of the row to "What's
+                  // in"'s two (five critics: the two read alike; round 1's
+                  // accent outline alone was not enough). Once added, the
+                  // action is done and it steps back to an accent outline;
+                  // disabled stays dim with its reason beside it.
                   style={
-                    isAdded ? { backgroundColor: accent, color: "#0d1117" } : undefined
+                    isAdded
+                      ? { borderColor: accent, color: accent }
+                      : canAdd
+                      ? { backgroundColor: accent, color: "#0d1117" }
+                      : undefined
                   }
                 >
                   {isAdded ? "✓ Added" : "+ Stop here"}

@@ -97,8 +97,10 @@ describe("the candidate list shows the reason under every stop", () => {
     // buttons on a row of their own, each 44 px tall and sharing the
     // width, with no invisible hit area.
     expect(open).toMatch(/<h3 class="text-base leading-6 break-words">Amarillo<span class="ml-2 text-\[#8b949e\]">· <span class="num">20<\/span> min away<\/span><\/h3><div class="mt-1 flex gap-2"><button/);
-    expect(open).toMatch(/<button[^>]*class="flex-1 min-h-\[44px\] [^"]*"[^>]*>What&#x27;s in Amarillo<\/button>/);
-    expect(open).toMatch(/<button[^>]*class="flex-1 min-h-\[44px\] [^"]*"[^>]*>\+ Stop here<\/button>/);
+    // Both 44 px tall; Stop here takes three parts of the row to What's
+    // in's two (U25, rule 3: the next action is the largest control).
+    expect(open).toMatch(/<button[^>]*class="flex-\[2\] min-w-0 min-h-\[44px\] [^"]*"[^>]*>What&#x27;s in Amarillo<\/button>/);
+    expect(open).toMatch(/<button[^>]*class="flex-\[3\] min-h-\[44px\] [^"]*"[^>]*>\+ Stop here<\/button>/);
     expect(open).not.toContain("before:");
   });
 
@@ -281,5 +283,50 @@ describe("one pick per town on the list (U24)", () => {
   it("gives a town out of the way no pick", () => {
     const html = render({ ...many, cities: [{ ...many.cities[0], outOfTheWay: true }] });
     expect(html).not.toContain("★ The pick");
+  });
+});
+
+describe("one obvious action on a town's card (U25)", () => {
+  it("draws Stop here in the town's accent and What's in in the neutral outline", () => {
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={result}
+        moodProfile={PROFILE}
+        moodKey="museums"
+        cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+        onCityPreview={() => {}}
+      />
+    );
+    const stop = html.match(/<button[^>]*>\+ Stop here<\/button>/)?.[0] ?? "";
+    const whats = html.match(/<button[^>]*>What&#x27;s in (<!-- -->)?Amarillo<\/button>/)?.[0] ?? "";
+    // The largest control and the only filled one (round 2: an accent
+    // outline the same size as "What's in" was not enough for rule 3).
+    expect(stop).toMatch(/style="background-color:#[0-9a-f]{6};color:#0d1117"/i);
+    expect(stop).toContain("flex-[3]");
+    expect(whats).not.toBe("");
+    expect(whats).not.toMatch(/style=/);
+    expect(whats).toContain("border-[#30363d]");
+    expect(whats).toContain("flex-[2]");
+  });
+
+  it("steps an added town's button back to an outline: the action is done", () => {
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={result}
+        moodProfile={PROFILE}
+        moodKey="museums"
+        cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
+        addedCityIds={new Set(["amarillo"])}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+        onCityPreview={() => {}}
+      />
+    );
+    const added = html.match(/<button[^>]*>✓ Added<\/button>/)?.[0] ?? "";
+    expect(added).toMatch(/style="border-color:#[0-9a-f]{6};color:#[0-9a-f]{6}"/i);
+    expect(added).not.toMatch(/background-color/);
   });
 });
