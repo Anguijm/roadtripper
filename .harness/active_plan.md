@@ -4,54 +4,47 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u40-away-from-where`
+Branch: `fix/u41-town-name-is-the-title`
 
 ## Ship rule (written before the work)
 
-Several critics (U29, U31, U39) said "Lawrence · 39 min away" doesn't
-say from where. Since U39 it can also be misread as "39 min off the
-road".
+U40's critic: on a town card, "Lawrence" is the same grey and weight as
+"· 39 min from Kansas City", so the card has no title. There is also a
+visible double gap before the "·": an 8 px margin and a space.
 
 Ships when:
 
-- **The row says where from.** A town's row reads "Lawrence · 39 min from
-  Kansas City": from the place the day that holds the towns starts, which
-  is the trip's start or the last night's stop.
-- **Unchanged.** An added town's row still shows no drive, and other
-  lists without a starting place keep "away".
+- **The name is the title.** The town's name is in the body white
+  (#f0f6fc) at medium weight. The drive and the "out of the way" mark
+  stay grey.
+- **One gap.** The gap before each "·" is 4 px plus the space, not 8.
 
 Also required:
 
-- the SSR tests that pin "· 2 h away" updated
-- a test for the "from" form after a stop
-- mutation proofs
+- the SSR tests that pin the header's markup updated, with the name's
+  style pinned
+- a mutation proof
 - a screenshot
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** a long start name ("Kansas City, Missouri") wraps the
-row to two lines.
+**Weakest part:** a highlighted card (hovered from the map) was already
+white. Its name now reads the same as an unhighlighted one; the
+background still marks it.
 
 ## Built
 
-- `RecommendationList.tsx`: a `drivesFrom` prop. The row says "· 39 min from Kansas City", or "away" when it is null.
-- `PlanWorkspace.tsx`: passes the holding day's `fromName`, which is the start or the last stop.
-
-## Tests
-
-- "Fort Worth · 2 h from Lubbock", after a stop.
-- "Plainview · 2 h from Amarillo · out of the way".
-- The glossary's figure-face pin now ends "… min from Amarillo".
+`RecommendationList.tsx`: the town name gets `<span data-town-name class="font-medium text-[#f0f6fc]">`. The drive and the "out of the way" spans use `ml-1` (was `ml-2`). The RecommendationList SSR pins are updated.
 
 ## Mutation proofs
 
-Both are caught: not passed, and counted from the end instead.
+Both are caught: name left plain, and gap back to `ml-2`.
 
 ## Gates
 
-eslint, vitest (808) and next build are clean.
+tsc, eslint, vitest (808) and next build are clean.
 
 ## Critic: APPROVE (round 1)
 
-Rule 1 is met. Two small points go to the next unit: the double gap before "·", and the town name not standing out as the card's title.
+The name leads the card, and the gap is even. Next, flagged by several critics: "Also good" is boxed like a button and narrows the description.
