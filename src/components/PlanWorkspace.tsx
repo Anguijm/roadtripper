@@ -40,7 +40,7 @@ import {
 import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading } from "@/lib/plan/words";
+import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
@@ -1821,6 +1821,7 @@ export default function PlanWorkspace({
               const endStop = day.endStopId ? tripStops.find((s) => s.cityId === day.endStopId) ?? null : null;
               const townIds = cityIdsByDay[day.index];
               const heading = dayHeadings[day.index];
+              const lastTown = lastTownLine({ ...day, towns: day.towns.filter((t) => townIds.has(t.id)) });
               const townProps = {
                 moodProfile,
                 moodKey,
@@ -1876,6 +1877,13 @@ export default function PlanWorkspace({
                       day ends at no stop. */}
                   {day.holdsTowns && townIds.size > 0 && (
                     <h2 data-towns-heading className="text-base leading-6 text-[#8b949e] px-2">{townsFitHeading(n)}</h2>
+                  )}
+                  {/* No town near where the day runs out: said under the
+                      heading, before the rows, so it reads with the day's
+                      "4 h down the road" and not after a town's places
+                      (U18, round 1 critic). */}
+                  {lastTown && (
+                    <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
                   )}
                   <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} />
                   {endStop && (

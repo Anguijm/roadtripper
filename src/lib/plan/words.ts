@@ -143,6 +143,24 @@ export function townsFitHeading(day = 1): string {
 }
 
 /**
+ * Under the towns that fit, when the day holding them ends on open road
+ * (a cut with no town near): "Lubbock is the last town before your 4 h
+ * are up", the farthest of them along the road (Gauntlet U18: Amarillo to
+ * Austin at 4 h offered Lubbock, 1 h 40 min out, under "4 h down the road
+ * from Amarillo", and nothing said that was all there was). "Last" is the
+ * last the atlas has, which is what the sheet can offer. Null on any other
+ * day: one ending near a town, at a stop or at the destination, one with no
+ * towns, or one whose drive is not known.
+ */
+export function lastTownLine(day: Pick<TripDay, "holdsTowns" | "endKind" | "minutes" | "towns">): string | null {
+  if (!day.holdsTowns || day.endKind !== "hours" || day.towns.length === 0 || day.minutes === null) return null;
+  const last = day.towns.reduce((a, b) => (b.alongKm > a.alongKm ? b : a));
+  // One town is "the only" one: "last" would imply others before it (round 2 critic).
+  const which = day.towns.length === 1 ? "only" : "last";
+  return `${last.name} is the ${which} town before your ${formatDurationPlain(Math.round(day.minutes * 60))} are up`;
+}
+
+/**
  * The line under the home's title: what comes back, said with two real
  * places (Gauntlet U4, deliverable 2). "the" goes before each name and is
  * folded when the name already starts with it, so "The Big Texan Steak
