@@ -555,6 +555,16 @@ describe("the plan sheet told as days", () => {
     }
   });
 
+  it("fills one Stop here, the town nearest where the day runs out, and outlines the rest (U31)", () => {
+    const html = renderToString(<PlanWorkspace {...base} />);
+    const filled = [...clean(html).matchAll(/<section data-town="([^"]+)"(?:(?!<\/section>)[\s\S])*?<button[^>]*style="background-color:[^"]*"[^>]*>\+ Stop here/g)].map((m) => m[1]);
+    // The cut is near Snyder (284 km): Snyder is the night to choose.
+    expect(filled).toEqual(["snyder"]);
+    // A one-day trip has no night to choose: nothing filled.
+    const one = renderToString(<PlanWorkspace {...base} initialDurationSeconds={3 * 3600} />);
+    expect(one).not.toMatch(/style="background-color:[^"]*"[^>]*>\+ Stop here/);
+  });
+
   it("shows the ten strongest places per day and one Show all per day only where a day has more than ten", () => {
     // Fourteen places in day 1 (before Lubbock at 167 km) and three in day 2.
     const many = [

@@ -1,3 +1,4 @@
+import { primaryTownId } from "../days";
 import { nightMarks } from "../days";
 import { pastCutName, PAST_CUT_KM, PAST_CUT_MINUTES } from "../days";
 import { dayHeadingLine, tripShapeLine } from "../words";
@@ -126,5 +127,27 @@ describe("the cut nights drawn on the map (U29)", () => {
     const withStop = tripDays({ ...base, stops: [{ id: "lubbock", name: "Lubbock", alongKm: 190 }], legMinutes: [160, 310] });
     expect(withStop[0].endKind).toBe("stop");
     expect(nightMarks(withStop, road).every((m) => m.key !== "night-0")).toBe(true);
+  });
+});
+
+
+describe("the one obvious Stop here (U31)", () => {
+  const towns = [at("plainview", "Plainview", 111), at("snyder", "Snyder", 278), at("brady", "Brady", 445), at("okc", "Oklahoma City", 300)];
+  const all = new Set(towns.map((t) => t.id));
+  it("is the town nearest where the day's driving runs out, never one out of the way", () => {
+    const day = tripDays({ ...base, towns })[0]; // cut at 284 km
+    expect(primaryTownId(day, all, new Set())).toBe("snyder");
+    expect(primaryTownId(day, all, new Set(["snyder"]))).toBe("okc");
+    // Without Snyder and Oklahoma City: Brady is 161 km past, Plainview 173 short.
+    expect(primaryTownId(day, all, new Set(["snyder", "okc"]))).toBe("brady");
+  });
+  it("only counts towns the list shows", () => {
+    const day = tripDays({ ...base, towns })[0];
+    expect(primaryTownId(day, new Set(["plainview", "brady"]), new Set())).toBe("brady");
+  });
+  it("is nobody when the day ends at the destination", () => {
+    const day = tripDays({ ...base, towns, budgetMinutesPerDay: 600 })[0];
+    expect(day.endKind).toBe("end");
+    expect(primaryTownId(day, all, new Set())).toBeNull();
   });
 });

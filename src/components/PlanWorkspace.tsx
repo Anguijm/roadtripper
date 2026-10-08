@@ -42,7 +42,7 @@ import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine } from "@/lib/plan/words";
-import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
+import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, primaryTownId, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
 import {
@@ -726,7 +726,8 @@ export default function PlanWorkspace({
   const rawWaypointFetch = liveWaypointFetch ?? waypointFetch;
   const effectiveWaypointFetch = useMemo(() => offeredTowns(rawWaypointFetch, roomForDetours), [rawWaypointFetch, roomForDetours]);
   // Why a town out of the way is offered, said before the first one (U30).
-  const detourCount = effectiveWaypointFetch.cities.filter((c) => c.outOfTheWay).length;
+  const outOfTheWayIds = useMemo(() => new Set(effectiveWaypointFetch.cities.filter((c) => c.outOfTheWay).map((c) => c.id)), [effectiveWaypointFetch]);
+  const detourCount = outOfTheWayIds.size;
   // Only offered towns reach here, so a count above nothing means room.
   const detourNote = detourCount > 0 ? detourNoteLine(sparedDays, detourCount) : null;
 
@@ -1859,6 +1860,8 @@ export default function PlanWorkspace({
               const townIds = cityIdsByDay[day.index];
               const heading = dayHeadings[day.index];
               const lastTown = lastTownLine({ ...day, towns: day.towns.filter((t) => townIds.has(t.id)) });
+              // The one filled Stop here (U31): the town nearest where the day ends.
+              const primaryTown = primaryTownId(day, townIds, outOfTheWayIds);
               const townProps = {
                 moodProfile,
                 moodKey,
@@ -1922,7 +1925,7 @@ export default function PlanWorkspace({
                   {lastTown && (
                     <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
                   )}
-                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} />
+                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} />
                   {endStop && (
                     <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />
                   )}
