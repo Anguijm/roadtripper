@@ -571,6 +571,16 @@ describe("the plan sheet told as days", () => {
     expect(one).not.toContain("data-primary-note");
   });
 
+  it("says when a folded day runs over the budget, under that day's heading only (U38)", () => {
+    // 4 h 30 min on a 4 h budget, no stop: folded into one day (U35), 30 min over.
+    const html = renderToString(<PlanWorkspace {...base} initialDurationSeconds={270 * 60} />);
+    const days = daySections(html);
+    expect(days).toHaveLength(1);
+    expect(days[0].text).toContain("Day 1 · Amarillo to Austin · 4 h 30 min See it on the map 30 min over your 4 h, to reach Austin");
+    // A day within the budget says nothing.
+    expect(visible(renderToString(<PlanWorkspace {...base} />))).not.toContain("over your");
+  });
+
   it("shows the ten strongest places per day and one Show all per day only where a day has more than ten", () => {
     // Fourteen places in day 1 (before Lubbock at 167 km) and three in day 2.
     const many = [

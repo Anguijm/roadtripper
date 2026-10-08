@@ -1,3 +1,4 @@
+import { overrunLine } from "../words";
 import { primaryTownLine } from "../words";
 import { detourNoteLine } from "../words";
 import { describe, it, expect } from "vitest";
@@ -117,5 +118,18 @@ describe("why one Stop here is filled (U33)", () => {
   it("says it is the town nearest where the day's hours run out, day 1 as today", () => {
     expect(primaryTownLine(1, 240)).toBe("Closest to where today's 4 h run out");
     expect(primaryTownLine(2, 390)).toBe("Closest to where day 2's 6 h 30 min run out");
+  });
+});
+
+describe("a day over the budget says so (U38)", () => {
+  it("says how far over, against the budget, and where the day reaches", () => {
+    expect(overrunLine({ minutes: 276.6, toName: "Denver" }, 240)).toBe("36 min over your 4 h, to reach Denver");
+    expect(overrunLine({ minutes: 300, toName: "Austin" }, 240)).toBe("1 h over your 4 h, to reach Austin");
+  });
+  it("says nothing at or under the budget, or while the drive is unknown", () => {
+    expect(overrunLine({ minutes: 240, toName: "Denver" }, 240)).toBeNull();
+    expect(overrunLine({ minutes: 240.4, toName: "Denver" }, 240)).toBeNull(); // shows as 4 h
+    expect(overrunLine({ minutes: 200, toName: "Denver" }, 240)).toBeNull();
+    expect(overrunLine({ minutes: null, toName: "Denver" }, 240)).toBeNull();
   });
 });

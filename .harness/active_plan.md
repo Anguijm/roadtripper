@@ -4,79 +4,57 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u35-fold-a-short-last-day`
+Branch: `feat/u38-say-the-overrun`
 
 ## Ship rule (written before the work)
 
-The operator's choice, 2026-10-08: "Fold it in". When a stretch's last
-day would be under about an hour (Kansas City → Denver at 4 h: day 3 is
-37 min to Denver, with a night "near Byers" 37 min short of it), drive on
-to the stretch's end the day before. That day runs up to an hour over
-the budget, and the trip has one night fewer.
+U35's critic: since U35, a last day under an hour folds into the one
+before ("Day 2 · near Hays to Denver · 4 h 36 min" on a 4 h budget). The
+heading shows the figure, but nothing says it is over on purpose.
 
 Ships when:
 
-- **One helper.** A single `stretchDays(minutes, budget)` counts the days
-  a stretch takes: ceil(minutes / budget), less one when the last day
-  would be under FOLD_MINUTES (60). Every count uses it: the day list
-  (`daysSpannedBy`), the deadline (`legsQuantizedDays`, the remaining
-  drive) and the spare days, so they can never disagree.
-- **Every stretch.** It applies to a stretch that ends at a stop and to
-  one that ends at the destination; a 20 min overrun to a stop folds too.
-- **Live.** Kansas City → Denver at 4 h shows two days, "Day 2 · near
-  Hays to Denver · 4 h 37 min".
+- **The line.** A day whose drive is over the daily budget carries one
+  line under its heading: "36 min over your 4 h, to reach Denver", where
+  the place is the day's end as the heading names it.
+- **Only there.** No line on a day at or under the budget, or whose drive
+  is unknown.
 
 Also required:
 
-- tests: the helper, the days, the deadline count
-- the old expectations that encoded the extra night updated
+- a pure function for the words, with tests
+- an SSR test of where the line sits
 - mutation proofs
-- a live run
+- a live run on Kansas City → Denver at 4 h
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** 60 min is a guess at what a person will push on for.
-The folded day's heading shows more than the budget, and nothing says
-why.
+**Weakest part:** a stop the person chose more than a budget away (a 5 h
+leg to a stop on a 4 h budget) gets the same line. That's true, and it's
+said once.
 
 ## Built
 
-- `trip-state.ts`: `FOLD_MINUTES = 60` and `stretchDays(minutes, budget)`. All three deadline counts now use it: `legsQuantizedDays` per leg, `spareDays`'s remaining drive, and `computeDeadlinePressure`'s days late.
-- `days.ts`: `daysSpannedBy` calls `stretchDays`. The cutting loop needs no change: a smaller count makes the last day drive `minutes - (count - 1) × budget`, which is the budget plus the folded remainder.
-
-## Tests changed, and why
-
-The days fixtures were built on a 4 h 30 min stretch on a 4 h budget, cut into 4 h and 30 min. That is exactly the case the operator chose to fold.
-
-- **Moved the fixture to 5 h**, which cuts at 478 km and leaves an hour (not folded), and **moved Llano to 478 km** so "near Llano" still names the cut. This keeps the cut, near-naming and past-naming paths exercised instead of deleting them.
-- **The 12 h 1 min fixture became 13 h.**
-- **One original claim no longer holds** ("the end can name a cut": 4 h of a 4 h 5 min stretch, "near Austin"). A cut within 30 km of the end always leaves under an hour, so it always folds. That assertion is now a fold assertion.
-
-New tests: `stretchDays` across the boundary (241, 299, 300, 517, 780). The deadline and the spare days agree with the folded count.
+- `words.ts`: `overrunLine(day, budget)` gives "36 min over your 4 h, to reach Denver". It counts from the minutes the heading shows (whole minutes, cut), so the two agree.
+- `PlanWorkspace.tsx`: the line sits under the day's heading button, only when there is an overrun.
 
 ## Mutation proofs
 
-All 6 are caught:
+All 3 are caught:
 
-- no fold
-- fold at 30
-- deadline legs unfolded
-- spare days unfolded
-- days late unfolded
-- day list unfolded
+- unrounded minutes
+- says "0 min over"
+- never shown
 
 ## Gates
 
-tsc, eslint, vitest (800+) and next build are clean.
+tsc, eslint, vitest (805) and next build are clean.
 
-## Live (dev, 4 h and 6 h)
+## Live
 
-| trip | result |
-|---|---|
-| Kansas City → Denver, 4 h | **two days**: "Day 2 · near Hays to Denver · 4 h 36 min", "Two days, with a night near Hays" (was three, with a night near Byers 37 min short) |
-| Amarillo → Austin, Chicago → Nashville | unchanged; their last days are over an hour |
+Kansas City → Denver at 4 h, day 2: "35 min over your 4 h, to reach Denver". There is no line on day 1, which is within the budget.
 
 ## Critic: APPROVE (round 1)
 
-Rule 5 is met better, and Denver reads as one clear end. Its suggestion is backlogged: say plainly when a folded day runs over the budget ("a little over your 4 h").
+Rules 1, 2 and 5 pass. Nit, noted: the line sits under the heading button, after "See it on the map". It is kept there because the button is the 44 px heading control, and the line is not part of it.
