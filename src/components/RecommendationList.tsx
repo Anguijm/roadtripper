@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import React, { useMemo, type ReactNode } from "react";
 import type { PersonaConfig, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDrive } from "@/lib/today/presets";
@@ -16,6 +16,8 @@ export interface AddCityPayload {
 
 interface RecommendationListProps {
   fetchResult: WaypointFetchResult;
+  /** Said before the first town out of the way (U30): why the trip is offered it. */
+  detourNote?: string | null;
   /**
    * The scoring profile the chosen moods make (U6), not an id: a mood's
    * profile is built by `waypointProfileForMoods`, and two moods do not
@@ -181,6 +183,7 @@ const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
  * an empty list says nothing here.
  */
 export default function RecommendationList({
+  detourNote = null,
   fetchResult,
   moodProfile,
   moodKey,
@@ -207,6 +210,8 @@ export default function RecommendationList({
   }, [fetchResult, moodProfile, cityIds]);
 
   const hasRows = groups.some((g) => g.rows.length > 0);
+  // The first town out of the way the list draws, where the note goes (U30).
+  const firstDetourId = groups.find((g) => g.outOfTheWay && (g.rows.length > 0 || keepEmpty))?.cityId ?? null;
 
   // Both kinds of result carry cities. A page whose town read failed
   // passes an empty "fresh" set and tells the workspace, which says the
@@ -231,6 +236,7 @@ export default function RecommendationList({
       {groups.map((group) => {
         const { cityId, cityName, rows, detourMinutes, outOfTheWay } = group;
         if (rows.length === 0 && !keepEmpty) return null;
+        const noteHere = detourNote && cityId === firstDetourId;
         const isHighlighted = cityId === highlightedCityId;
         const isAdded = addedCityIds.has(cityId);
         const coords = cityCoords.get(cityId);
@@ -254,7 +260,13 @@ export default function RecommendationList({
         };
 
         return (
-          <section key={cityId} data-town={cityId} className="mb-3">
+          <React.Fragment key={cityId}>
+          {noteHere && (
+            <p data-detour-note className="text-base text-[#b0b9c2] px-2 pt-1 pb-2">
+              <Figures text={detourNote} />
+            </p>
+          )}
+          <section data-town={cityId} className="mb-3">
             {/* The town's header: its name with the drive to it on one
                 line that wraps, then its two buttons on a row of their
                 own, each 44 px tall on the screen and sharing the width
@@ -428,6 +440,7 @@ export default function RecommendationList({
             {/* The answer to "What's in Lubbock", under Lubbock. */}
             {detail && detail.cityId === cityId && detail.node}
           </section>
+          </React.Fragment>
         );
       })}
     </div>

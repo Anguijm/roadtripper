@@ -249,3 +249,15 @@ export function budgetWords(input: {
   }
   return { line, box: null };
 }
+
+/**
+ * Why a town out of the way is offered (Gauntlet U30; U21's critic: the
+ * list grew when the trip got dates, and nothing said why): "3 days to
+ * spare, so here's a town a bit out of the way", "1 day to spare, so here
+ * are 2 towns a bit out of the way". Said once, before the first such town.
+ */
+export function detourNoteLine(spareDays: number, outOfTheWay: number): string {
+  const days = spareDays === 1 ? "1 day" : `${spareDays} days`;
+  // "here's a town", not "one" (critic: the reader had to work out what "one" meant).
+  return `${days} to spare, so ${outOfTheWay === 1 ? "here's a town" : `here are ${outOfTheWay} towns`} a bit out of the way`;
+}
