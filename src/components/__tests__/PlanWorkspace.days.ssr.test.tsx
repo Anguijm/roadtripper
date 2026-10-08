@@ -348,7 +348,10 @@ describe("the plan sheet told as days", () => {
     // gold on a trip that was fine; the line's colour follows the same rule
     // as the box, and the first cut of the fix left it on the raw status,
     // which every other test passed with.
-    const left = /<p class="([^"]*)"[^>]*>(?:(?!<\/p>)[\s\S])*?of driving left/.exec(html);
+    // With a stop ending day 1 the line says what is spare (U27).
+    const left = /<p class="([^"]*)"[^>]*>(?:(?!<\/p>)[\s\S])*?(?:of driving left|to spare on day)/.exec(html);
+    expect(visible(html)).toContain("to spare on day 1");
+    expect(visible(html)).not.toContain("of driving left today");
     expect(left).not.toBeNull();
     expect(left![1]).toContain("text-[#f0f6fc]");
     expect(left![1]).not.toContain("text-[#d29922]");

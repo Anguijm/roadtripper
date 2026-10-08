@@ -4,64 +4,72 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u26-destination-not-a-stop`
+Branch: `fix/u27-no-time-left-after-the-night`
 
 ## Ship rule (written before the work)
 
-U25's live run found it. On Reno → Salt Lake City, after a stop in
-Winnemucca, the title reads "Elko and Salt Lake City fit in day 2", with
-a "+ Stop here" on Salt Lake City, the trip's own destination. The
-"ahead" rule (makesProgress) passes any town closer to the destination
-than the start, and the destination is as close as a town can be.
-Stopping for the night at the end of the trip isn't a choice; the days
-already end there.
+U26's critic: on Reno → Salt Lake City with a night in Winnemucca, the
+sheet says "1 h 34 min of driving left today" under the title "Elko fits
+in day 2". Day 1 already ends in Winnemucca, so "left today" reads as
+driving still to do today, and a reader can't tell which day "today" is.
+The figure, the day's hours less day 1's drive (U11), is right; the words
+aren't.
 
-Ships when:
+Ships when an undated trip's line reads:
 
-- **The destination is never a town that fits.** A town within
-  DESTINATION_KM (25) of the trip's end is not offered: not in the title,
-  the list or the map's town dots.
-- **The rest is unchanged.** A town short of the destination is still
-  offered (Elko on the way to Salt Lake City is tested), and the start
-  stays excluded, as now.
+- **"4 h of driving left today"** with no stop yet, as now.
+- **"1 h 34 min to spare on day 1"** once day 1's drive is known, which
+  means a stop ends it.
+- **"No time to spare on day 1"** when day 1 drives the whole budget.
+
+A dated trip's line is unchanged: it is the whole trip's budget ("over 5
+days").
 
 Also required:
 
-- atlas-based tests
+- the budget-words tests updated
 - mutation proofs
-- a live run that adds Winnemucca and reads the title
-- the critic's approval if the screen changes (it does: the title)
+- a live run adding Winnemucca
+- the critic's approval
 
-**Cost:** $0. It only shrinks the set.
+**Cost:** $0.
 
-**Weakest part:** 25 km is a metro's radius. A destination given as a
-suburb's point could still list its central city just over 25 km away.
+**Weakest part:** "to spare" invites pushing on further on day 1, which
+the sheet can't offer once a stop is set except by removing it.
 
 ## Built
 
-- `progress.ts`: `DESTINATION_KM = 25` and `isAtDestination`.
-- `radial.ts`: the "ahead" filter now also excludes any town at the destination.
-- `radial-graph.test.ts` is rebased on a real trip, Winnemucca → Salt Lake City. Its first test used to aim at the origin's nearest graph neighbour and expect it back, which amounted to asserting that the destination is offered as a stop.
-- The ceiling and sort tests now also assert a non-empty result, so they can't pass on an empty list.
+In `words.ts`, `budgetWords` for an undated trip now says one of three things:
+
+- no stop yet: "X of driving left today", as before
+- a stop ends day 1: "X to spare on day 1"
+- day 1 drives the whole budget: "No time to spare on day 1"
+
+Three budget-words tests were updated (the old "left today" wording after a stop, and "0 min of driving left today"). The days SSR test's colour check now also matches "to spare on day", and it asserts that "of driving left today" is gone once a stop exists.
 
 ## Mutation proofs
 
-All three are caught in the end:
+All 3 are caught:
 
-- filter removed
-- radius 400, which also drops Elko
-- radius 0
-
-**Radius 0 survived twice first.** The test aimed at Salt Lake City's own atlas point, which matches at 0 km. It then aimed at the airport, which is west of downtown, so the ahead rule already dropped downtown. The fix aims at an address on the east bench, so downtown is ahead and only the destination rule can drop it.
+- the old words back
+- no zero case
+- empty treated as planned
 
 ## Gates
 
-tsc, eslint and vitest (785) are clean.
+tsc, eslint, vitest (785) and next build are clean.
 
 ## Live
 
-Reno → Salt Lake City, adding Winnemucca in headless Chrome: the title reads "Elko fits in day 2". Before, it was "Elko and Salt Lake City fit in day 2".
+Reno → Salt Lake City, adding Winnemucca in headless Chrome: the line reads "1 h 34 min to spare on day 1", under "Elko fits in day 2".
 
-## Critic: APPROVE (round 1)
+## Critic: APPROVE (round 1), and one fix applied
 
-The title is accurate and the destination keeps its red marker. Its leftover goes to the next unit, U27: "1 h 34 min of driving left today" still shows after the night stop that ends day 1.
+It caught that 4 h minus "2 h 25 min" (day 1's heading) is 1 h 35 min, but the line said 1 h 34 min. The heading cuts to whole minutes (145.6 → 2 h 25 min), while the line rounded the remainder (94.4 → 1 h 34 min).
+
+The line now subtracts day 1's minutes as the heading shows them. A test pins both lines together, and the mutation back to the unrounded subtraction is caught.
+
+Out of scope, noted:
+
+- "one on the road" in the trip shape doesn't name where
+- the title is centred while the rest is left-aligned
