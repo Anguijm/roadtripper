@@ -41,3 +41,62 @@ function wholeChars(s: string, n: number): string {
   const h = s.slice(0, n);
   return /[\uD800-\uDBFF]$/.test(h) ? h.slice(0, -1) : h;
 }
+
+/**
+ * The map's own one-word tags that name a thing a person would recognise,
+ * as the noun to say it with (Gauntlet U16).
+ *
+ * A place with no encyclopedia line falls back to what the mapper typed,
+ * and for 8,838 of the 27,976 places on the map that is not a sentence but
+ * a single tag value: "sculpture", "statue", "observation", "history",
+ * "local". The card showed it as the whole line about the place — the
+ * critic of U15 named it on a card that read only "tourism". A tag word is
+ * not plain words (quality bar, rule 1).
+ *
+ * The ones that are plain nouns become the noun in the card's own sentence
+ * — "On the map as a statue; nothing written about it yet." — which says
+ * more than the kind ("artwork") would. A few become the phrase they mean:
+ * "observation" is an observation tower's tag. Everything not listed —
+ * "history", "local", "commercial", "military", "animal", "art" — is
+ * tag-speak, and the card says the place's kind instead.
+ *
+ * Kept short and plain on purpose: a word belongs here only if "a ___" is
+ * something a person in a car would say. Adding one is a judgement, and
+ * this list is where it is made.
+ */
+export const TAG_WORD_NOUNS: Readonly<Record<string, string>> = {
+  sculpture: "sculpture", statue: "statue", arch: "arch", mural: "mural", rock: "rock",
+  installation: "art installation", carousel: "carousel", house: "house", lighthouse: "lighthouse",
+  peak: "peak", stone: "standing stone", tree: "tree", cliff: "cliff", memorial: "memorial",
+  obelisk: "obelisk", beach: "beach", bridge: "bridge", museum: "museum", maze: "maze",
+  tower: "tower", ruins: "ruin", bust: "bust", hangar: "hangar", ship: "ship", valley: "valley",
+  spring: "spring", cross: "cross", barn: "barn", watermill: "watermill", pier: "pier",
+  painting: "painting", gorge: "gorge", fountain: "fountain", church: "church", caboose: "caboose",
+  theatre: "theatre", restaurant: "restaurant", mosaic: "mosaic", fort: "fort", cannon: "cannon",
+  bell: "bell", waterfall: "waterfall", windmill: "windmill", sinkhole: "sinkhole", ridge: "ridge",
+  cabin: "cabin", clock: "clock", garden: "garden", train: "train", column: "column", park: "park",
+  observation: "observation tower",
+};
+
+/** "On the map as a statue; nothing written about it yet." The card's one sentence for a place with no line of its own. */
+export function onTheMapLine(noun: string): string {
+  return `On the map as ${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}; nothing written about it yet.`;
+}
+
+/**
+ * The line the mapper's own text gives a place, or null when it gives none
+ * worth showing (U16).
+ *
+ * Text of more than one word is what the mapper wrote, and is shown as it
+ * is. A single word is a tag value: a plain noun in `TAG_WORD_NOUNS` becomes
+ * the card's sentence, and anything else is no line at all, so the card
+ * falls back to the place's kind. The store's text is never changed; this
+ * is only how it is read.
+ */
+export function readableDetail(detail: string | null | undefined): string | null {
+  const d = detail?.trim();
+  if (!d) return null;
+  if (/\s/.test(d)) return d;
+  const noun = TAG_WORD_NOUNS[d.toLowerCase()];
+  return noun ? onTheMapLine(noun) : null;
+}

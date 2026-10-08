@@ -57,6 +57,7 @@ import type { SaveTripInput } from "@/lib/trips/types";
 import { isCityId } from "@/lib/urban-explorer/cityAtlas";
 import { MAX_TRIP_STOPS } from "@/lib/trips/types";
 import { foldVisitMinutes, isOvernightStop, stretchEnds } from "@/lib/plan/visits";
+import { onTheMapLine } from "@/lib/roadside/text";
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -159,12 +160,17 @@ const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
  * for. The line says so in the map's terms, "On the map as a historic
  * place; nothing written about it yet.", rather than a placeholder ("No
  * write-up for this one.", the round-5 critic) or the bare kind as a
- * sentence, which only repeated the line beneath (round 1). The store's
- * line itself is a hard stop and is not touched.
+ * sentence, which only repeated the line beneath (round 1).
+ *
+ * The store's *text* is never edited here or anywhere on the read side. Since
+ * U16 a one-word map tag is no longer shown as a whole line — it becomes the
+ * noun in this same sentence, via `readableDetail` — and that is a reading of
+ * the store, not a change to it. The quality bar's hard stop on "the store's
+ * scores or the line" is the scores and the map threshold, "the line for the
+ * map" (`MAP_THRESHOLD`), which this does not touch.
  */
 export function roadsideMapLine(kind: RoadsideMarker["kind"]): string {
-  const word = ROADSIDE_KIND_WORDS[kind] ?? "place";
-  return `On the map as ${/^[aeiou]/.test(word) ? "an" : "a"} ${word}; nothing written about it yet.`;
+  return onTheMapLine(ROADSIDE_KIND_WORDS[kind] ?? "place");
 }
 
 /**

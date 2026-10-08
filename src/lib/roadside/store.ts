@@ -16,6 +16,7 @@ import { corridorTiles, DEFAULT_BUFFER_KM } from "./corridor";
 import { roadsideAlong, type RoadsideMarker } from "./along";
 import { MAP_THRESHOLD, RoadsideSurvivorSchema, type RoadsideSurvivor } from "./survivors";
 import { ROADSIDE_TAGS, type TagScores } from "./tags";
+import { readableDetail } from "./text";
 
 /**
  * The main checkout's directory when `cwd` is a linked git worktree, else
@@ -306,7 +307,9 @@ export function survivorsAlongRoute(db: Database.Database, route: LatLng[], thre
       // description is a few words of type ("art museum in Austin, Texas");
       // the map's own line is whatever the mapper typed, from a sentence to
       // "statue". The same order as `aboutFor` in survivors.ts.
-      const about = r.extract?.trim() || r.short?.trim() || r.detail?.trim() || null;
+      // The mapper's text through `readableDetail` (U16): a one-word tag is
+      // never the whole line about a place.
+      const about = r.extract?.trim() || r.short?.trim() || readableDetail(r.detail);
       const parsed = RoadsideSurvivorSchema.safeParse({ id: r.id, name: r.name, lat: r.lat, lng: r.lng, kind: r.kind, p: r.p, about, url: r.url });
       if (parsed.success) byId.set(r.id, parsed.data);
     }

@@ -12,6 +12,7 @@
 import { z } from "zod/v4";
 import { RoadsideKindSchema, type RoadsideStop } from "./record";
 import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
+import { readableDetail } from "./text";
 
 /**
  * The line for the map. The sheet drew it at 0.5; the bench's three near
@@ -87,7 +88,9 @@ export interface AboutSource {
  * (the record's `detail`), else nothing. Clipped by the schema's bound.
  */
 export function aboutFor(stop: RoadsideStop, desc: AboutSource | undefined): string | null {
-  const text = desc?.extract?.trim() || desc?.short?.trim() || stop.detail?.trim() || "";
+  // The same order and the same reading of the mapper's text as the store's
+  // read in store.ts: a one-word tag is never the whole line (U16).
+  const text = desc?.extract?.trim() || desc?.short?.trim() || readableDetail(stop.detail) || "";
   if (!text) return null;
   return text.length <= MAX_REASON_LENGTH ? text : text.slice(0, MAX_REASON_LENGTH - 1).replace(/\s+\S*$/, "") + "…";
 }

@@ -21,7 +21,11 @@ describe("the survivors", () => {
     const s = stop(1, { detail: "mural" });
     expect(aboutFor(s, { extract: "A large steakhouse. Known for eating.", short: "restaurant" })).toBe("A large steakhouse. Known for eating.");
     expect(aboutFor(s, { short: "restaurant" })).toBe("restaurant");
-    expect(aboutFor(s, undefined)).toBe("mural");
+    // The map's own line, when it is a single tag word, is said as the noun
+    // in the card's sentence rather than shown bare (U16); before U16 this
+    // read just "mural".
+    expect(aboutFor(s, undefined)).toBe("On the map as a mural; nothing written about it yet.");
+    expect(aboutFor(stop(4, { detail: "A mural of the plains, painted in 1999." }), undefined)).toBe("A mural of the plains, painted in 1999.");
     expect(aboutFor(stop(2), { extract: "  " })).toBeNull();
     const long = "word ".repeat(100);
     expect(aboutFor(stop(3, { detail: long }), undefined)!.length).toBeLessThanOrEqual(240);
