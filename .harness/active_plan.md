@@ -4,69 +4,64 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u25-one-obvious-action`
+Branch: `fix/u26-destination-not-a-stop`
 
 ## Ship rule (written before the work)
 
-About five critics (U17, U18, U20, the atlas round, U24) said each town's
-card has no single obvious action. "What's in Lubbock" and "+ Stop here"
-are the same size, the same grey outline and the same weight (rule 3).
-The thing to do next on the plan is to choose where the day ends:
-"+ Stop here".
+U25's live run found it. On Reno → Salt Lake City, after a stop in
+Winnemucca, the title reads "Elko and Salt Lake City fit in day 2", with
+a "+ Stop here" on Salt Lake City, the trip's own destination. The
+"ahead" rule (makesProgress) passes any town closer to the destination
+than the start, and the destination is as close as a town can be.
+Stopping for the night at the end of the trip isn't a choice; the days
+already end there.
 
 Ships when:
 
-- **"+ Stop here" stands out** in the town's accent, as its border and its
-  text, at medium weight. "✓ Added" stays filled in the accent, and a
-  disabled "Stop here" stays dim with its reason beside it, as now.
-- **"What's in" stays** the neutral grey outline.
-- **Same size.** Both keep their size and 44 px height (rule 7), so a long
-  town name still wraps inside "What's in".
+- **The destination is never a town that fits.** A town within
+  DESTINATION_KM (25) of the trip's end is not offered: not in the title,
+  the list or the map's town dots.
+- **The rest is unchanged.** A town short of the destination is still
+  offered (Elko on the way to Salt Lake City is tested), and the start
+  stays excluded, as now.
 
 Also required:
 
-- an SSR test pins which button carries the accent
+- atlas-based tests
 - mutation proofs
-- a before/after screenshot
-- the critic's approval
+- a live run that adds Winnemucca and reads the title
+- the critic's approval if the screen changes (it does: the title)
 
-Not changed: the sort control's filled "best first", which two critics
-called the loudest control. Its fill is U6's deliberate language for
-"this one is on", the same as a chosen mood chip, and not an action.
-Noted for the operator rather than undone.
+**Cost:** $0. It only shrinks the set.
 
-**Cost:** $0.
-
-**Weakest part:** the accent is the trip's route colour (purple by
-default), so the emphasis is colour and weight, not size. A colour-blind
-reader gets the weight alone.
+**Weakest part:** 25 km is a metro's radius. A destination given as a
+suburb's point could still list its central city just over 25 km away.
 
 ## Built
 
-In `RecommendationList.tsx`, an enabled "+ Stop here" now gets the `font-medium` class and the style `{ borderColor: accent, color: accent }`. "✓ Added" and the disabled state are unchanged. An SSR test pins the accent and weight on "Stop here", and pins that "What's in" has no inline style and keeps the neutral border.
+- `progress.ts`: `DESTINATION_KM = 25` and `isAtDestination`.
+- `radial.ts`: the "ahead" filter now also excludes any town at the destination.
+- `radial-graph.test.ts` is rebased on a real trip, Winnemucca → Salt Lake City. Its first test used to aim at the origin's nearest graph neighbour and expect it back, which amounted to asserting that the destination is offered as a stop.
+- The ceiling and sort tests now also assert a non-empty result, so they can't pass on an empty list.
 
 ## Mutation proofs
 
-Both are caught: no accent, no weight.
+All three are caught in the end:
+
+- filter removed
+- radius 400, which also drops Elko
+- radius 0
+
+**Radius 0 survived twice first.** The test aimed at Salt Lake City's own atlas point, which matches at 0 km. It then aimed at the airport, which is west of downtown, so the ahead rule already dropped downtown. The fix aims at an address on the east bench, so downtown is ahead and only the destination rule can drop it.
 
 ## Gates
 
-eslint, vitest (783) and next build are clean.
+tsc, eslint and vitest (785) are clean.
 
-## Critic, round 1: REJECT
+## Live
 
-Fair. Rule 3 asks for the *largest* control, and an accent outline the same size as "What's in" still read as a matched pair. The accent purple also blends with the route, the dots and the list bars.
+Reno → Salt Lake City, adding Winnemucca in headless Chrome: the title reads "Elko fits in day 2". Before, it was "Elko and Salt Lake City fit in day 2".
 
-Round 2:
+## Critic: APPROVE (round 1)
 
-- "+ Stop here" is now the only filled control: accent background with dark text, `flex-[3]` against "What's in"'s `flex-[2]`, semibold, on the right.
-- "✓ Added" becomes an accent outline, because the action is done.
-- The SSR tests now pin the fill, the 3:2 split and the added outline. The old "both flex-1" regexes were updated.
-- Mutations caught: outline again, same size, added filled.
-- Gates: vitest (784) and next build are clean.
-
-## Critic, round 2: APPROVE
-
-It asked to see the "✓ Added" state before merging, so I added Winnemucca in headless Chrome, which made one live recompute. The screenshot shows "✓ Added" as an accent outline. The recompute worked: "Day 1 · Reno to Winnemucca · 2 h 26 min".
-
-That run also exposed a separate wart, left for U26: after the stop, the title reads "Elko and Salt Lake City fit in day 2". The destination itself is offered as a town to stop in.
+The title is accurate and the destination keeps its red marker. Its leftover goes to the next unit, U27: "1 h 34 min of driving left today" still shows after the night stop that ends day 1.

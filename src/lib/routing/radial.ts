@@ -4,7 +4,7 @@ import { snapToCity, driveTimesFrom, hasDriveGraphFor } from "@/lib/atlas/querie
 import type { City } from "@/lib/urban-explorer/types";
 import { cacheGet, cacheSet, radialCacheKey } from "./cache";
 import { haversineKm, type LatLng } from "./polyline";
-import { makesProgress, isOutOfTheWay, MAX_DETOUR_RATIO_WITH_SLACK } from "./progress";
+import { makesProgress, isOutOfTheWay, isAtDestination, MAX_DETOUR_RATIO_WITH_SLACK } from "./progress";
 
 // bearingDeg moved to ./progress (pure, client-safe); re-exported so existing
 // imports keep working.
@@ -149,7 +149,8 @@ export async function findCitiesInRadius(
   // not past it. See ./progress for why the old 180-degree fan went.
   // The slack limit (U21): towns out of the way are fetched too and
   // tagged, and the sheet decides whether the trip has room for them.
-  const ahead = allCities.filter((c) => makesProgress(c, origin, destination, MAX_DETOUR_RATIO_WITH_SLACK));
+  // Never the destination itself (U26): the days already end there.
+  const ahead = allCities.filter((c) => makesProgress(c, origin, destination, MAX_DETOUR_RATIO_WITH_SLACK) && !isAtDestination(c, destination));
 
   const tag = (cs: RadialCandidate[]) => tagOutOfTheWay(cs, origin, destination);
 
