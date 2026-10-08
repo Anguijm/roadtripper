@@ -14,6 +14,7 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 - **The zoom buttons cover the start's name on a phone** ("Kansas City" shows as "Ka"). Since U20, that hidden name also blocks the names of the towns beside it (Lawrence, Topeka). Rule 6. Flagged by four critics.
 - **Ten corridor towns too thin for the pipeline** (Grand Island, Rock Springs, Rawlins, Snyder, Santa Rosa, Brownwood, Colby, Ogallala, Elk City, West Wendover) and Sweetwater. They still name day ends via U19. Adding them needs a new source upstream (city-atlas-service's "thin cities" problem).
 - **Day ends beyond 30 km of any 5k town stay "on the road"**, about a quarter of 6 h days. Options: GeoNames `cities1000`, or a smaller population floor. Product call: "near X" for a village of 1,500.
+- **Say why a detour appeared** (U21 critic). A dated trip with spare days now offers a town "out of the way" at the bottom, and nothing says why the list changed. Something like "3 days to spare, so one a bit out of the way". It also shows "★ The pick" on the detour's places, which reads as a recommendation over towns on the way.
 - **One "The pick" per town?** Two critics noticed several picks on one town's list.
 - **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
