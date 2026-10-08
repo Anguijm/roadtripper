@@ -1,3 +1,5 @@
+import { pastCutName, PAST_CUT_KM, PAST_CUT_MINUTES } from "../days";
+import { dayHeadingLine, tripShapeLine } from "../words";
 import { describe, it, expect } from "vitest";
 import { buildRoad, nearestOnRoad, tripDays, type DayTown, type TripDaysInput } from "../days";
 import { placesNearRoute, type PlaceRow } from "../places";
@@ -77,5 +79,32 @@ describe("the towns on a route's road (U19)", () => {
 
   it("finds nothing on a route too short to have a direction", () => {
     expect(placesNearRoute(route.slice(0, 1), rows)).toEqual([]);
+  });
+});
+
+
+describe("a cut no town is near, named by the last town passed (U28)", () => {
+  const named = [{ name: "Reno", alongKm: 0 }, { name: "Winnemucca", alongKm: 270 }, { name: "Elko", alongKm: 470 }, { name: "Wells", alongKm: 550 }];
+  // 1 min per km: highway-ish, so minutes equal km.
+  it("names the last point passed, in minutes at the day's pace, rounded to five", () => {
+    expect(pastCutName(522, named, 1)).toBe("50 min past Elko");
+    expect(pastCutName(473, named, 0.8)).toBe("5 min past Elko"); // never "0 min"
+  });
+  it("never names a point ahead of the cut", () => {
+    expect(pastCutName(540, named, 0.5)).toBe("35 min past Elko");
+  });
+  it("says nothing when the last point passed is too far back, in km or in time, or the pace is unknown", () => {
+    expect(PAST_CUT_KM).toBe(100);
+    expect(PAST_CUT_MINUTES).toBe(60);
+    expect(pastCutName(380, named, 0.5)).toBeNull(); // Winnemucca 110 km back
+    expect(pastCutName(540, named, 1)).toBeNull(); // Elko 70 km back, but 70 min
+    expect(pastCutName(522, named, null)).toBeNull();
+  });
+  it("reads as where the day ends, in the heading and the trip's shape", () => {
+    const day = { index: 1, fromKind: "stop" as const, fromName: "Winnemucca", endKind: "past" as const, toName: "50 min past Elko", minutes: 240 };
+    expect(dayHeadingLine(day)).toBe("Day 2 · Winnemucca to 50 min past Elko · 4 h");
+    expect(tripShapeLine([{ toName: "Winnemucca", endKind: "stop" }, { toName: "50 min past Elko", endKind: "past" }, { toName: "Salt Lake City", endKind: "end" }])).toBe(
+      "Three days, with nights in Winnemucca and 50 min past Elko"
+    );
   });
 });

@@ -4,72 +4,82 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/u27-no-time-left-after-the-night`
+Branch: `feat/u28-past-the-last-town`
 
-## Ship rule (written before the work)
+## Ship rule (written late, after the first build; recorded as a miss, as U20's and U11's were)
 
-U26's critic: on Reno → Salt Lake City with a night in Winnemucca, the
-sheet says "1 h 34 min of driving left today" under the title "Elko fits
-in day 2". Day 1 already ends in Winnemucca, so "left today" reads as
-driving still to do today, and a reader can't tell which day "today" is.
-The figure, the day's hours less day 1's drive (U11), is right; the words
-aren't.
+U26's and U27's critics: "Three days, with a night in Winnemucca and one
+on the road" doesn't say where the second night is. A cut with no town
+within 30 km (even after U19's town list) is said in hours: "Day 2 · 4 h
+down the road from Winnemucca".
 
-Ships when an undated trip's line reads:
+Ships when such a cut is named by the last town passed, in the time it
+takes to get there at the day's own pace, rounded to 5 minutes:
 
-- **"4 h of driving left today"** with no stop yet, as now.
-- **"1 h 34 min to spare on day 1"** once day 1's drive is known, which
-  means a stop ends it.
-- **"No time to spare on day 1"** when day 1 drives the whole budget.
+- "Day 2 · Lubbock to 45 min past Brady · 4 h"
+- "Three days, with nights in Winnemucca and 50 min past Elko"
 
-A dated trip's line is unchanged: it is the whole trip's budget ("over 5
-days").
+Bounds:
+
+- Only when that town is at most 100 km and 60 minutes back. Past an hour,
+  "1 h 30 min past Brady" names a town left long ago, so it stays in
+  hours, as now.
+- A town near the cut (U17/U19) still wins.
+- A town ahead of the cut never names it.
 
 Also required:
 
-- the budget-words tests updated
+- pure tests
+- the days tests updated: the canonical "hours" fixture now reads "45 min
+  past Brady", and the other one still reads hours, at 1 h 30 min back
 - mutation proofs
-- a live run adding Winnemucca
+- a live run
 - the critic's approval
 
 **Cost:** $0.
 
-**Weakest part:** "to spare" invites pushing on further on day 1, which
-the sheet can't offer once a stop is set except by removing it.
+**Weakest part:** the minutes are the day's average pace applied to
+straight-line km along the road. A slow stretch past the town reads short.
 
-## Built
+## Mutation proofs, before push
 
-In `words.ts`, `budgetWords` for an undated trip now says one of three things:
+All 6 are caught:
 
-- no stop yet: "X of driving left today", as before
-- a stop ends day 1: "X to spare on day 1"
-- day 1 drives the whole budget: "No time to spare on day 1"
-
-Three budget-words tests were updated (the old "left today" wording after a stop, and "0 min of driving left today"). The days SSR test's colour check now also matches "to spare on day", and it asserts that "of driving left today" is gone once a stop exists.
-
-## Mutation proofs
-
-All 3 are caught:
-
-- the old words back
-- no zero case
-- empty treated as planned
+- no minutes cap
+- no km cap
+- points ahead allowed
+- 0 min allowed
+- "past" never used
+- the night reads "in 50 min past"
 
 ## Gates
 
-tsc, eslint, vitest (785) and next build are clean.
+tsc and vitest (all) are clean.
 
-## Live
+## Live (dev, 4 trips × 4 h/6 h)
 
-Reno → Salt Lake City, adding Winnemucca in headless Chrome: the line reads "1 h 34 min to spare on day 1", under "Elko fits in day 2".
+| trip at 6 h | day end |
+|---|---|
+| Kansas City → Denver | "40 min past Colby" |
+| Chicago → Nashville | "45 min past Elizabethtown" |
+| Amarillo → Austin | "35 min past Brownwood" |
+| Reno → SLC | still hours: nothing passed within the hour |
 
-## Critic: APPROVE (round 1), and one fix applied
+All the 4 h cases were already "near X" and are unchanged.
 
-It caught that 4 h minus "2 h 25 min" (day 1's heading) is 1 h 35 min, but the line said 1 h 34 min. The heading cuts to whole minutes (145.6 → 2 h 25 min), while the line rounded the remainder (94.4 → 1 h 34 min).
+## Critic, round 1: REJECT
 
-The line now subtracts day 1's minutes as the heading shows them. A test pins both lines together, and the mutation back to the unrounded subtraction is caught.
+- **The wrap (real).** "… Elizabethtown · 6" ended a line with "h" alone below it. Fixed in `Figures`: a figure with its unit ("6 h", "45 min", "494 mi"), and the "·" before it, are now one no-wrap span. Six SSR tests that pinned figure HTML were updated with a regex transform. Mutations caught: no grouping, and separator not kept.
+- **Unmatched screenshots (real).** My before and after came from different scroll scripts. Round 2 uses the same script for both, plus top-of-sheet shots showing the shape line.
+- **Named town not on the map.** True, and U19's "near Sweetwater" has the same gap. Logged in the backlog: draw the day's end on the map. Not built here.
 
-Out of scope, noted:
+## Gates (after the fixes)
 
-- "one on the road" in the trip shape doesn't name where
-- the title is centred while the rest is left-aligned
+tsc, eslint, vitest (790) and next build are clean.
+
+## Critic, round 2: APPROVE
+
+Rule 5 is clearly better, and "· 6 h" now wraps whole. Leftovers:
+
+- A wrapped line starts with "·".
+- The named town is not on the map: backlog.

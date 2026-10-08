@@ -88,15 +88,16 @@ describe("the trip as days", () => {
     // the budget, so it is cut where 4 h runs out (240/270 of the way,
     // 512.8 km) into a day of 4 h and a day of 30 min. Three days, each
     // saying where it ends; no town on the road is within 30 km of the
-    // cut, so it is said in hours.
+    // cut, so it is named by the last town passed, Brady 68 km back, at
+    // the day's pace (U28; it was said in hours before).
     const days = tripDays({ ...base, stops: [lubbock], legMinutes: [200, 270], towns: fromLubbock });
     expect(days).toHaveLength(3);
-    expect(days.map((d) => [d.fromName, d.toName])).toEqual([["Amarillo", "Lubbock"], ["Lubbock", ON_THE_ROAD], [ON_THE_ROAD, "Austin"]]);
+    expect(days.map((d) => [d.fromName, d.toName])).toEqual([["Amarillo", "Lubbock"], ["Lubbock", "45 min past Brady"], ["45 min past Brady", "Austin"]]);
     expect(days.map((d) => d.minutes)).toEqual([200, 240, 30]);
     expect(days.map((d) => d.legIndex)).toEqual([0, 1, 1]);
     expect(days.map((d) => d.endStopId)).toEqual(["lubbock", null, null]);
-    expect(days.map((d) => d.endKind)).toEqual(["stop", "hours", "end"]);
-    expect(days.map((d) => d.fromKind)).toEqual(["start", "stop", "hours"]);
+    expect(days.map((d) => d.endKind)).toEqual(["stop", "past", "end"]);
+    expect(days.map((d) => d.fromKind)).toEqual(["start", "stop", "past"]);
     expect(days[0].startKm).toBe(0);
     expect(days[0].endKm).toBeCloseTo(1.5 * KM_PER_DEG, 0);
     expect(days[1].startKm).toBe(days[0].endKm);
