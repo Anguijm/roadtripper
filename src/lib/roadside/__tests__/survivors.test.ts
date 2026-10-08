@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSurvivors, aboutFor, MAP_THRESHOLD, SurvivorsFileSchema } from "../survivors";
+import { buildSurvivors, aboutFor, MAP_THRESHOLD, SurvivorsFileSchema, RoadsideSurvivorSchema, hasRealName } from "../survivors";
 import type { RoadsideStop } from "../record";
 
 const stop = (i: number, extra: Partial<RoadsideStop> = {}): RoadsideStop => ({
@@ -33,5 +33,26 @@ describe("the survivors", () => {
     const file = { corridor: "c", builtAt: "2026-09-28T00:00:00Z", threshold: 0.45, model: "jev-1.13.0", stops: out };
     expect(SurvivorsFileSchema.safeParse(file).success).toBe(true);
     expect(SurvivorsFileSchema.safeParse({ ...file, stops: [{ ...out[0], p: 1.5 }] }).success).toBe(false);
+  });
+});
+
+describe("a place's name is a name (U15)", () => {
+  it("refuses a symbol, a bare number, or a single character", () => {
+    // 54 places on the map, all in Midland, Texas, are named "*".
+    for (const name of ["*", "4", "18", "S", "a", " * ", "", "  "]) {
+      expect(hasRealName(name), JSON.stringify(name)).toBe(false);
+    }
+  });
+
+  it("keeps the real short names the map does have", () => {
+    for (const name of ["Owl", "Ram", "Zia", "B52", "Oz", "U-Drop Inn", "Ol' Rip", "Café", "Zoë"]) {
+      expect(hasRealName(name), name).toBe(true);
+    }
+  });
+
+  it("is applied at the boundary, so a nameless row never becomes a place on the sheet", () => {
+    const row = { id: "osm:node:5872811324", lat: 32, lng: -102.1, kind: "attraction", p: 0.6, about: null, url: null };
+    expect(RoadsideSurvivorSchema.safeParse({ ...row, name: "*" }).success).toBe(false);
+    expect(RoadsideSurvivorSchema.safeParse({ ...row, name: "Owl" }).success).toBe(true);
   });
 });

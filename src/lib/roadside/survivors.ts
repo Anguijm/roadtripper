@@ -29,9 +29,30 @@ import { MAX_REASON_LENGTH } from "@/lib/routing/scoring";
  */
 export const MAP_THRESHOLD = 0.45;
 
+/**
+ * Whether a place's name is a name (Gauntlet U15): it has a letter and at
+ * least two characters.
+ *
+ * The map's own `name` tag is sometimes not one. 54 places on the map, all
+ * in Midland, Texas, are named `*`; others are a bare number ("4", "18")
+ * or a single letter ("S", "M"). Each scored well enough to be shown, and
+ * each would have been a row and a card titled `*` with nothing written
+ * about it. Real short names have letters and are kept: Owl, Ram, Zia, B52.
+ *
+ * A heuristic, and it says so: a real place called "X" is dropped, and a
+ * two-letter piece of junk is kept. It reads the name only; the places stay
+ * in the store.
+ */
+export function hasRealName(name: string): boolean {
+  const n = name.trim();
+  return n.length >= 2 && /\p{L}/u.test(n);
+}
+
 export const RoadsideSurvivorSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
+  // Refused here, at the boundary, so `survivorsAlongRoute` skips the row
+  // as it skips any other the schema will not take (U15).
+  name: z.string().min(1).refine(hasRealName, "not a name"),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   kind: RoadsideKindSchema,

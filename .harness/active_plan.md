@@ -4,59 +4,63 @@
 
 # Active plan — roadtripper
 
-Branch: `feat/u14-mood-marks`
+Branch: `fix/u15-nameless-places`
 
 ## Ship rule (written before the work)
 
-"Food is thin" on Amarillo → Austin. Ships when, with a mood chosen, a row
-in the day's list that answers it says so — the mood's word in the mood's
-colour, where the place's kind was — so the reader can see where the
-matches end; the row grows no line (`ROADSIDE_LIST_PX`, one pixel of
-slack); "✓ In the trip" still wins (U8); the critic approves; the mutation
-proofs ran before the push.
+Ships when a roadside place whose "name" is not a name — `*`, a bare
+number, a single letter — never reaches the plan sheet or its map, while
+real short names ("Owl", "Ram", "B52", "Zia") still do; when a live run on
+a route past them shows them gone; and the mutation proofs ran before the
+push.
 
-**Cost:** $0.
+**Cost:** $0. Read-side only: no store rebuild, no republish.
 
-**Weakest part:** The mood's word replaces the place's kind, and the
-longest mood word ("Outdoors", "Museums", "Oddities", "Machines" — eight
-letters) is longer than the shortest kinds ("zoo", "arch", "cave"), so
-for those rows the line grows and can wrap. The same honest limit U8 has.
+**Weakest part:** The rule is a heuristic about strings: a name needs a
+letter and at least two characters. A real place called "X" — there are
+letter sculptures — is dropped, and a junk name that happens to be two
+letters ("Rr") is kept. Filtered at read, so the places still sit in the
+store and the build; a store rebuild that dropped them there would be the
+deeper fix and is not this unit.
 
-## The investigation: the data, not the cut
+## The data
 
-The question was whether the 0.35 `MOOD_ANSWERED` line is too strict. On
-the Amarillo–Austin corridor, 643 places are on the map and 9 answer Food:
-Franklin Barbecue, The Big Texan, Pontotoc Winery, Scholz Garten, U-Drop
-Inn, Dawson's Saloon, Oasis, Stubb's — all real food and drink landmarks.
-The 24 just under the line, 0.20 to 0.35, are not: Ol' Rip (a horned toad),
-a statue, a locomotive, a longhorn statue, a drive-in *theatre*, two
-Cadillacs, a cafe's neon *sign*. Lowering the line would add nothing but
-noise. The model is precise; the stretch is simply thin on food.
+Found during U14's investigation. 54 map-visible places are named `*`, all
+at one spot — Midland, Texas, 32.0, -102.1 — scoring 0.58 to 0.63 with no
+line about them; and more named a bare digit ("4", "6", "18") or a single
+letter ("S", "M", "A"). On the sheet each would be a row and a card titled
+`*`. Short names with letters are real and stay: Ram, Cow, Urn, Sun, Owl,
+Rex, Zia, Elk, B52.
 
-So the fix is presentation, not the threshold. Under Food the list showed
-two matches and then Helium Monument with nothing to say where the matches
-stopped, and a thin answer read as a broken one.
-
-## Found on the way
-
-54 map-visible places are named `*`, and more are single characters —
-"4", "S", "M" — scoring 0.58 to 0.63 with no line about them. They would
-show on the map and the list as a place called `*`. Their own unit next.
+The home's example line reads the store too but requires a Wikipedia page,
+which none of these have, so it cannot pick one. The plan sheet's one read
+path is `survivorsAlongRoute`, which skips any row the survivor schema
+refuses — so the rule goes in the schema, the boundary, as #93 put the tag
+checks there.
 
 ## Mutation proofs, before the push
 
-1. Answering below the line too: 3 fail. 2. The row never marking the
-mood: 3 fail. 3. **The mood mark winning over "✓ In the trip": 0 failed
-the first time** — no test had a place both in the trip and answering the
-mood, which is the only case where the order matters. Added; it fails now.
+1. The schema not applying the rule: 2 fail, among them the real read path
+   through a SQLite store holding a row named `*`. 2. A single letter
+   counting as a name: 1 fails. 3. No letter required: 3 fail. All three
+   caught on the first run.
+
+## Live, before and after
+
+Lubbock → Midland, where the `*` places are. Production, before: "52
+places worth pulling over for", and one row named `*` — opened, its card
+is titled `*`, its only line is "tourism" (the mapper's raw tag), and it
+offers "+ Stop here", so a place called `*` could be added to a trip. Local,
+after: 51 places, no row named `*`. The day's count is server-rendered, so
+a `curl` comparison was valid here, unlike U11's box.
 
 ## Critic
 
-Approved on the first round: the two food places read "Food" in orange,
-from Helium Monument down the kind is grey, and every row is the same
-height. Outside this unit it flagged that **Oklahoma City is offered as a
-town that "fits today" on Amarillo → Austin**, though it lies north-east,
-not on the way — possibly a fault in which towns count as making progress.
-Logged for its own look.
+Approved: before, a place named `*` with its own card, a line reading
+"tourism" and a "+ Stop here" — rules 1 and 4; after, 52 places become 51,
+no `*` row or diamond, and every remaining name reads as a name. Outside
+this unit it flagged that **the card's line was a bare tag word,
+"tourism"**: the mapper's raw value used as the line about a place. A real
+place whose only line is a tag word has the same fault; next unit.
 
-Gates: 719 green across 67 files; `tsc --noEmit` clean; `eslint` 0 errors.
+Gates: 723 green across 67 files; `tsc --noEmit` clean; `eslint` 0 errors.
