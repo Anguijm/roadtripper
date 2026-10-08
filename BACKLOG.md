@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-08** (round 5): U21–U29 merged (#121–#130).
+Last refreshed: **2026-10-08** (round 6): U30–U42 merged (#132–#144).
 
 ## Now (this week)
 
@@ -12,8 +12,6 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 - **Ten corridor towns too thin for the pipeline** (Grand Island, Rock Springs, Rawlins, Snyder, Santa Rosa, Brownwood, Colby, Ogallala, Elk City, West Wendover) and Sweetwater. They still name day ends via U19. Adding them needs a new source upstream (city-atlas-service's "thin cities" problem).
 
-- **Say why a detour appeared** (U21 critic). A dated trip with spare days now offers a town "out of the way" at the bottom, and nothing says why the list changed. Something like "3 days to spare, so one a bit out of the way". It also shows "★ The pick" on the detour's places, which reads as a recommendation over towns on the way.
-- **The sticky town header lets text show around it** (U31, U25 critics). While a town's places scroll under its pinned header, a line of the card above peeks over the header's top and the text below is sliced mid-line. The header needs an opaque band above it, or a hard edge.
 - **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
 ## Done, recorded
