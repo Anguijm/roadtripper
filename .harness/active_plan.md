@@ -4,25 +4,28 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/title-names-stop`
+Branch: `data/wiki-descriptions`
 
 ## Ship rule (written before the work)
 
-U47. The U45 critic, on Salt Lake City → Denver: the title read "Park City,
-Rock Springs and 1 more fit today", but the first card under it was Rawlins,
-marked "Closest to where today's 4 h run out". The title names towns in the
-fetch's order, the list sorts them nearest-detour first, and neither puts
-the day's stop town first.
+U48. The U46 critic: an OSM town's pick can lead its list with a bare or
+plain line. city-atlas-service #63 gives a place the OSM listing could only
+name the first sentence of its Wikipedia article, when the article is about
+the same subject by name. Five places get one, among them Grand Island's
+pick, the Stuhr Museum of the Prairie Pioneer.
 
-The rule: one order for the title, the map's names and the list. The town
-the sheet marks as where today's drive runs out comes first, then the rest
-nearest-detour first, with out-of-the-way towns last (and still left out of
-the title). Checked in a unit test of the order, and live: on Salt Lake City
-→ Denver the title starts with "Rawlins", which the old build fails.
+First attempt rejected by the critic. Rawlins' Wyoming Frontier Prison
+redirects to "Wyoming State Penitentiary", and that article's "historic and
+current prison" read as a working prison a driver can't visit, worse than no
+line. A redirect now counts only to the same subject ("Stuhr Museum of the
+Prairie Pioneer" → "Stuhr Museum"). The prison is back to no line.
 
-**Cost:** None. This is rendering only.
+The rule: on production, Grand Island's lead row on Omaha → Denver carries a
+`data-reason` that starts "The Stuhr Museum of the Prairie Pioneer is a
+museum". The old build says "Museum on US-34.". Waypoint counts are unchanged.
 
-**Weakest part:** the map keeps the first of two colliding names (U20). If the
-stop town is now first, a different town may lose its map name on a crowded
-view. That is intended, since the stop is the one to keep, but it should be
-seen on the screenshot.
+**Cost:** None at run time. The atlas changes by six description strings.
+
+**Weakest part:** Wikipedia's first sentence is written for an encyclopedia,
+not a driver. It is longer than the listing's lines and may restate the town.
+The critic judges whether it helps.
