@@ -452,10 +452,9 @@ export default function RecommendationList({
             {/* The reason leads (step 14): the mood's top-ranked spot that
                 has a description, name and description, before anything else
                 in the card. It is the answer to "why this town" and must be
-                the first thing seen. Every atlas place has a description
-                today (asserted in the atlas tests), so in practice this is the
-                top-ranked spot; the fallback to a spot without one only
-                matters if that ever changes. */}
+                the first thing seen. Since U45 the OSM-grounded towns have
+                places without one, so the lead can be a spot below the
+                town's top-ranked (the U45 critic saw "The pick" second; U46). */}
             {lead && (
               <div
                 data-lead
