@@ -157,7 +157,7 @@ describe("the plan sheet told as days", () => {
     expect(text.indexOf("Day 2 ·")).toBeLessThan(text.indexOf("Day 3 ·"));
     // The sheet's title stays above the days, and names the day the
     // towns are listed under.
-    expect(text).toContain("Post, Snyder and 3 more fit in day 2");
+    expect(text).toContain("Llano, Post and 3 more fit in day 2");
     expect(text.indexOf("fit in day 2")).toBeLessThan(text.indexOf("Day 1 ·"));
     const days = daySections(html);
     expect(days.map((d) => d.n)).toEqual(["1", "2", "3"]);
@@ -479,7 +479,12 @@ describe("the plan sheet told as days", () => {
     for (const name of ["Cadillac Ranch", "Prairie Dog Town", "+ Stop here"]) expect(days[1].text).not.toContain(name);
     // The title counts the towns that fit as today's, day 1, the day they
     // are listed under.
-    expect(visible(rest)).toContain("Plainview, Lubbock and 4 more fit today");
+    expect(visible(rest)).toContain("Snyder, Plainview and 4 more fit today");
+    // U47: the title's first town is the list's first, the one marked as
+    // where today's drive runs out.
+    const firstTown = days[0].text.indexOf("What's in");
+    expect(days[0].text.indexOf("What's in Snyder")).toBe(firstTown);
+    expect(days[0].text.indexOf("Closest to where today's 4 h run out")).toBeLessThan(days[0].text.indexOf("What's in Snyder"));
     // Within the budget, a plain "Day 1" of the whole road holding everything.
     const one = renderToString(<PlanWorkspace {...base} initialDurationSeconds={3 * 3600} />);
     expect(daySections(one)).toHaveLength(1);
@@ -547,7 +552,7 @@ describe("the plan sheet told as days", () => {
     // Last in the list, though nearest; not counted in the title, which
     // is today's road (round 1 critic).
     expect(roomy.indexOf("What's in Plainview")).toBeGreaterThan(roomy.indexOf("What's in Llano"));
-    expect(roomy).toContain("Lubbock, Post and 3 more fit today");
+    expect(roomy).toContain("Snyder, Lubbock and 3 more fit today");
     // The tag stays whole: "way" never wraps alone onto a line.
     expect(renderToString(<PlanWorkspace {...detour} startDate="2026-10-20" endDate="2026-10-24" />)).toMatch(/data-out-of-the-way="[^"]*" class="[^"]*whitespace-nowrap/);
     // Why it is there, said once, right before it (U30): 5 days for a
@@ -559,7 +564,7 @@ describe("the plan sheet told as days", () => {
       expect(html).not.toContain("Plainview");
       expect(html).not.toContain("out of the way");
       expect(html).not.toContain("to spare, so");
-      expect(html).toContain("Lubbock, Post and 3 more fit today");
+      expect(html).toContain("Snyder, Lubbock and 3 more fit today");
     }
   });
 
@@ -702,7 +707,7 @@ describe("the sheet's set and the answer under a town, in every state the type a
     expect(days[0].text).toContain("Cadillac Ranch");
     expect(days[1].text).toContain("What's in Post");
     expect(days[1].text).toContain("Loading what's in Post…");
-    expect(visible(fresh)).toContain("Post, Snyder and 3 more fit in day 2");
+    expect(visible(fresh)).toContain("Llano, Post and 3 more fit in day 2");
     // "degraded": the towns read, some places and some parts of town not.
     // The one field a single member carries, `failures`, is read at the
     // panel behind `status === "degraded"`; Post's parts failed by it, so
@@ -731,7 +736,7 @@ describe("the sheet's set and the answer under a town, in every state the type a
     expect(days[1].text).toContain("Post cotton gin");
     expect(days[1].text).not.toContain("Loading what's in");
     expect(visible(degraded)).toContain("Some of the places did not load.");
-    expect(visible(degraded)).toContain("Post, Snyder and 3 more fit in day 2");
+    expect(visible(degraded)).toContain("Llano, Post and 3 more fit in day 2");
     // The empty "fresh" set with the flag: what the page passes when the
     // town read failed (there is no "failed" member to pass). A stop in
     // the URL still has its day, its row by its name alone, and its

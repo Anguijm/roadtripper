@@ -15,6 +15,8 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 ## Done, recorded
 
+- **One town order for title, map and list (U47, 2026-10-11).** The town where today's drive runs out is first, then nearest detour, with out-of-the-way towns last (`townOrder`, scoring.ts). Before, the title used the fetch's order and named Park City over a sheet that said Rawlins was the stop.
+
 - **The pick leads its town (U46, 2026-10-11).** A town's first row is its top-ranked place, described or not. Before, the first described place led, which put "The pick" second in the OSM towns.
 
 - **Ten thin towns added via OpenStreetMap (U45, 2026-10-11).** city-atlas-service #62 grounds research on OSM: exact names are confirmed, invented places are dropped, and OSM-only places get a plain description or none. Added: Grand Island, Colby, Ogallala, West Wendover, Snyder, Sweetwater, Brownwood, Santa Rosa, Rock Springs and Rawlins. The atlas has 303 cities, and the drive graph 6,116 pairs.

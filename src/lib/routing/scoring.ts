@@ -170,6 +170,27 @@ export interface RankedCityGroup {
 }
 
 /**
+ * The one order the towns are named in: the sheet's title, the map's names
+ * and the list (U47). The town where today's drive runs out first (the
+ * sheet marks it "Closest to where today's 4 h run out"), then nearest
+ * detour first, and every town out of the way after every town on it
+ * (U21: "at the bottom of the list"). Before U47 the title used the fetch's
+ * order and the list this one without the stop, and on Salt Lake City to
+ * Denver the title named Park City and Rock Springs over a card for Rawlins.
+ */
+export function townOrder<T extends { id: string; detourMinutes: number; outOfTheWay?: boolean }>(
+  cities: readonly T[],
+  stopTownId: string | null = null
+): T[] {
+  return [...cities].sort(
+    (a, b) =>
+      Number(!!a.outOfTheWay) - Number(!!b.outOfTheWay) ||
+      Number(b.id === stopTownId) - Number(a.id === stopTownId) ||
+      a.detourMinutes - b.detourMinutes
+  );
+}
+
+/**
  * Build ranked waypoints grouped by city for a given persona. Cities are
  * sorted by detour ascending (nearest first). Within each city, the top
  * TOP_WAYPOINTS_PER_CITY waypoints by score are kept. Pure and
@@ -193,7 +214,8 @@ export function buildRankedGroups(
  */
 export function buildRankedGroupsWith(
   fetchResult: WaypointFetchResult,
-  persona: PersonaConfig
+  persona: PersonaConfig,
+  stopTownId: string | null = null
 ): RankedCityGroup[] {
 
   // Pre-group waypoints by cityId in a single pass. O(W) instead of
@@ -205,11 +227,7 @@ export function buildRankedGroupsWith(
     else waypointsByCity.set(w.cityId, [w]);
   }
 
-  // Nearest first, and every town out of the way after every town on it
-  // (U21: "at the bottom of the list").
-  const citiesByDetour = [...fetchResult.cities].sort(
-    (a, b) => Number(!!a.outOfTheWay) - Number(!!b.outOfTheWay) || a.detourMinutes - b.detourMinutes
-  );
+  const citiesByDetour = townOrder(fetchResult.cities, stopTownId);
 
   const groups: RankedCityGroup[] = [];
 

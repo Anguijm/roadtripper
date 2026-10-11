@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  townOrder,
   tierForType,
   scoreWaypoint,
   scoreNeighborhood,
@@ -192,5 +193,26 @@ describe("scoreNeighborhood", () => {
     const foodieNature = scoreNeighborhood(trendingScore, natureWaypoint, foodie);
     const foodieFood = scoreNeighborhood(trendingScore, foodWaypoint, foodie);
     expect(foodieFood).toBeGreaterThan(foodieNature);
+  });
+});
+
+describe("townOrder (U47)", () => {
+  const towns = [
+    { id: "park-city", detourMinutes: 5 },
+    { id: "okc", detourMinutes: 1, outOfTheWay: true },
+    { id: "rock-springs", detourMinutes: 12 },
+    { id: "rawlins", detourMinutes: 30 },
+  ];
+  it("puts the day's stop town first, then nearest detour, out of the way last", () => {
+    expect(townOrder(towns, "rawlins").map((t) => t.id)).toEqual(["rawlins", "park-city", "rock-springs", "okc"]);
+  });
+  it("is nearest detour first with no stop town, and never lifts an out-of-the-way stop above the road", () => {
+    expect(townOrder(towns).map((t) => t.id)).toEqual(["park-city", "rock-springs", "rawlins", "okc"]);
+    expect(townOrder(towns, "okc").map((t) => t.id)).toEqual(["park-city", "rock-springs", "rawlins", "okc"]);
+  });
+  it("leaves its input alone", () => {
+    const copy = towns.map((t) => t.id);
+    townOrder(towns, "rawlins");
+    expect(towns.map((t) => t.id)).toEqual(copy);
   });
 });

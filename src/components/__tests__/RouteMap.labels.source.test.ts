@@ -29,7 +29,9 @@ describe("the map names only the towns whose names fit (U20)", () => {
   });
   it("hands the map its towns in the title's order", () => {
     expect(sheet).toContain("candidates={mapCandidates}");
-    expect(sheet).toContain("inTitleOrder(liveCandidateMarkers, effectiveWaypointFetch.cities.map((c) => c.id))");
+    expect(sheet).toContain("inTitleOrder(liveCandidateMarkers, titleTowns.map((c) => c.id))");
+    // and the title is said from the same order (U47)
+    expect(sheet).toContain("fitsTodayLine(titleTowns.filter(");
   });
   it("gives the map's names a dark halo so they read over a diamond (round 1 critic)", () => {
     const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");

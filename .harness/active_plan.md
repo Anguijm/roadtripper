@@ -4,23 +4,25 @@
 
 # Active plan — roadtripper
 
-Branch: `fix/pick-first`
+Branch: `fix/title-names-stop`
 
 ## Ship rule (written before the work)
 
-U46. The U45 critic: in Rawlins and Snyder, "★ The pick" sat second, under
-a plainer place. That breaks quality bar rule 4 (the strongest first). The
-cause: the lead row was the first place *with a description*. Since U45 some
-places have none, so the lead skipped past the top-ranked one.
+U47. The U45 critic, on Salt Lake City → Denver: the title read "Park City,
+Rock Springs and 1 more fit today", but the first card under it was Rawlins,
+marked "Closest to where today's 4 h run out". The title names towns in the
+fetch's order, the list sorts them nearest-detour first, and neither puts
+the day's stop town first.
 
-The rule: a town's first row is its top-ranked place, whether or not it has
-a description. When the town has a pick, the pick is first. Checked in SSR
-(the first `data-badge` in a town is "pick" when a pick exists, even when
-that place has no description) and live on Salt Lake City → Denver's Rawlins,
-where the old build fails it.
+The rule: one order for the title, the map's names and the list. The town
+the sheet marks as where today's drive runs out comes first, then the rest
+nearest-detour first, with out-of-the-way towns last (and still left out of
+the title). Checked in a unit test of the order, and live: on Salt Lake City
+→ Denver the title starts with "Rawlins", which the old build fails.
 
 **Cost:** None. This is rendering only.
 
-**Weakest part:** a lead with no description shows just its name and kind line
-before the rest. Whether it still reads as the answer to "why this town" is
-judged by the critic on the screenshot.
+**Weakest part:** the map keeps the first of two colliding names (U20). If the
+stop town is now first, a different town may lose its map name on a crowded
+view. That is intended, since the stop is the one to keep, but it should be
+seen on the screenshot.

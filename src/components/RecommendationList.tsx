@@ -224,9 +224,9 @@ export default function RecommendationList({
   const accent = moodProfile.accentColor;
 
   const groups = useMemo(() => {
-    const all = buildRankedGroupsWith(fetchResult, moodProfile);
+    const all = buildRankedGroupsWith(fetchResult, moodProfile, primaryCityId ?? null);
     return cityIds ? all.filter((g) => cityIds.has(g.cityId)) : all;
-  }, [fetchResult, moodProfile, cityIds]);
+  }, [fetchResult, moodProfile, cityIds, primaryCityId]);
 
   const hasRows = groups.some((g) => g.rows.length > 0);
   // The first town out of the way the list draws, where the note goes (U30).
