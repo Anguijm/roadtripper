@@ -4,26 +4,23 @@
 
 # Active plan — roadtripper
 
-Branch: `data/osm-towns`
+Branch: `fix/pick-first`
 
 ## Ship rule (written before the work)
 
-U45. Ten towns the pipeline used to reject as too thin are now in the atlas,
-grounded on OpenStreetMap (city-atlas-service #62): Grand Island, Colby,
-Ogallala, West Wendover, Snyder, Sweetwater, Brownwood, Santa Rosa, Rock
-Springs and Rawlins. The atlas goes from 293 to 303 cities, and the drive graph
-gains 444 pairs (6,116, complete).
+U46. The U45 critic: in Rawlins and Snyder, "★ The pick" sat second, under
+a plainer place. That breaks quality bar rule 4 (the strongest first). The
+cause: the lead row was the first place *with a description*. Since U45 some
+places have none, so the lead skipped past the top-ranked one.
 
-The rule: on production, routes along those corridors offer the new towns as
-towns that fit, with their places. Each check reads a rendered
-`data-town-name` that the old build cannot show, because the town was not in
-its atlas. Sweetwater's places are in Texas, not Florida (spatial check). No
-existing town disappears from the routes checked.
+The rule: a town's first row is its top-ranked place, whether or not it has
+a description. When the town has a pick, the pick is first. Checked in SSR
+(the first `data-badge` in a town is "pick" when a pick exists, even when
+that place has no description) and live on Salt Lake City → Denver's Rawlins,
+where the old build fails it.
 
-**Cost:** None at run time. The atlas grows by about 0.1 MB, and the drive graph
-was built from OSM-calibrated ORS (444 pairs, no Routes calls).
+**Cost:** None. This is rendering only.
 
-**Weakest part:** OSM-only places carry a plain description ("Cafe on North
-Walnut Street.") or none. A town's lead row may have no reason line under it.
-The list already handles a missing description. That it reads acceptably is
-judged on the screenshot.
+**Weakest part:** a lead with no description shows just its name and kind line
+before the rest. Whether it still reads as the answer to "why this town" is
+judged by the critic on the screenshot.

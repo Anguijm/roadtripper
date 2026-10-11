@@ -10,12 +10,12 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 ## Next (scoped, not started)
 
-- **The pick can sit second (U46).** In OSM towns, the lead row is the first place with a description, which is not always the pick. The U45 critic flagged it for Rawlins and Snyder (quality bar rule 4).
-
 - **Elk City, OK** is still too thin: 4 mapped places within 3 km. It names day ends via U19.
 
 
 ## Done, recorded
+
+- **The pick leads its town (U46, 2026-10-11).** A town's first row is its top-ranked place, described or not. Before, the first described place led, which put "The pick" second in the OSM towns.
 
 - **Ten thin towns added via OpenStreetMap (U45, 2026-10-11).** city-atlas-service #62 grounds research on OSM: exact names are confirmed, invented places are dropped, and OSM-only places get a plain description or none. Added: Grand Island, Colby, Ogallala, West Wendover, Snyder, Sweetwater, Brownwood, Santa Rosa, Rock Springs and Rawlins. The atlas has 303 cities, and the drive graph 6,116 pairs.
 

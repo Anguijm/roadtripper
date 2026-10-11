@@ -46,9 +46,7 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(html).toContain("A bare name");
   });
 
-  it("leads each card with the top spot that has a reason, before every other row", () => {
-    // For the nerd persona the fixture ranks the food spot first, and it has
-    // no description; the lead must be the first spot with a reason.
+  it("leads each card with its top spot, before every other row", () => {
     const html = renderToString(
       <RecommendationList
         fetchResult={result}
@@ -68,6 +66,37 @@ describe("the candidate list shows the reason under every stop", () => {
     expect(secondRow).toBeGreaterThan(leadReason);
     // the lead is not repeated as a row below
     expect(html.match(/Cadillac Ranch/g)?.length).toBe(1);
+  });
+
+  it("leads with the top-ranked spot even when it has no reason, so the pick is first (U46)", () => {
+    // Rawlins, U45: the museum pick has no description in the OSM-grounded
+    // atlas. Leading with the first described spot put "The pick" second.
+    const rawlins: WaypointFetchResult = {
+      ...result,
+      waypoints: [
+        { id: "m1", cityId: "amarillo", name: "Carbon County Museum", type: "culture", trendingScore: 0.9, neighborhoodId: null, description: null },
+        { id: "m2", cityId: "amarillo", name: "Rose's Lariat", type: "food", trendingScore: 0.4, neighborhoodId: null, description: "Restaurant on East Cedar Street." },
+      ],
+    };
+    const html = renderToString(
+      <RecommendationList
+        fetchResult={rawlins}
+        moodProfile={PROFILE}
+        moodKey="museums"
+        cityCoords={new Map([["amarillo", { lat: 35.22, lng: -101.83 }]])}
+        addedCityIds={new Set()}
+        onAddCity={() => {}}
+        onRemoveCity={() => {}}
+      />
+    );
+    const lead = html.indexOf("data-lead");
+    const museum = html.indexOf("Carbon County Museum");
+    const restaurant = html.indexOf("Rose&#x27;s Lariat");
+    expect(lead).toBeGreaterThan(-1);
+    expect(museum).toBeGreaterThan(lead);
+    expect(restaurant).toBeGreaterThan(museum);
+    expect(html.match(/Carbon County Museum/g)?.length).toBe(1);
+    expect(html.match(/data-badge="(\w+)"/)?.[1]).toBe("pick");
   });
 
   it("offers to show a city's lore before it is added, and marks the open one as pressed", () => {
