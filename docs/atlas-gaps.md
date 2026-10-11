@@ -61,3 +61,12 @@ validation, or come back with a thin place list. Even a town with zero
 places still fixes the day's end ("near Hays"), because `cutEndName` only
 needs a name and a position. Whether a town with no places should be
 offered as a "town that fits" is a product call for when it happens.
+
+## Outcome (2026-10-11)
+
+- **Round 1 (#119):** 16 of the 27 towns ingested.
+- **Round 2 (U45):** 10 of the remaining 11, once city-atlas-service #62 added OpenStreetMap as a source.
+  - OSM lists a town's named places with coordinates.
+  - Phase C confirms waypoints against it and drops the ones Gemini invented.
+  - OSM-only places carry a plain line ("Cafe on North Walnut Street.") or no description, never a guessed one.
+- **Elk City** remains: OSM maps 4 places within its 3 km radius.

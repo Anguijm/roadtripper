@@ -306,7 +306,7 @@ export default async function TodayPage({
                       <div className="flex items-baseline justify-between gap-3">
                         {/* A place's name wraps; it is never cut (rule 2). */}
                         <span className="text-[#f0f6fc] min-w-0 break-words">{w.name}</span>
-                        <span className="text-base text-[#8b949e] whitespace-nowrap">{kindWord(w.type)}</span>
+                        <span className="text-base text-[#8b949e] whitespace-nowrap" data-kind>{kindWord(w.type)}</span>
                       </div>
                       {/* The reason to stop. Untrusted text, rendered as text; React escapes it. */}
                       {/* It wraps whole: the longest description in the atlas is 234 characters, about five lines here, and a painted ellipsis is a cut (quality bar, rule 2). */}
