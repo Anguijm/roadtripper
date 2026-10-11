@@ -10,6 +10,8 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 ## Next (scoped, not started)
 
+- **Shorter Wikipedia lines.** The U48 critic: "The Stuhr Museum of the Prairie Pioneer is a museum located in Grand Island, Nebraska…" repeats the name and the town already on screen. Trimming the lead-in and the "located in" clause would halve it, but it rewrites sourced text, so it needs care.
+
 - **Elk City, OK** is still too thin: 4 mapped places within 3 km. It names day ends via U19.
 
 
