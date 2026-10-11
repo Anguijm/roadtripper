@@ -263,7 +263,10 @@ export default function RecommendationList({
         // One filled Stop here on the screen (U31): the town the sheet names
         // as the natural night, or every town on a list that stands alone.
         const isPrimary = primaryCityId === undefined || cityId === primaryCityId;
-        const lead = rows.find((r) => r.description) ?? rows[0];
+        // The top-ranked place leads, described or not: "The pick" is first
+        // (rule 4). U46: skipping to the first described place put the pick
+        // second in the OSM-grounded towns.
+        const lead = rows[0];
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
         const badges = rowBadges(rows, !!outOfTheWay);
         // One layout for every place, the lead included (U44: the lead ran
@@ -449,12 +452,10 @@ export default function RecommendationList({
             {rows.length === 0 && (
               <p className="text-base text-[#8b949e] px-2 py-2">Nothing written up for {cityName} yet.</p>
             )}
-            {/* The reason leads (step 14): the mood's top-ranked spot that
-                has a description, name and description, before anything else
-                in the card. It is the answer to "why this town" and must be
-                the first thing seen. Since U45 the OSM-grounded towns have
-                places without one, so the lead can be a spot below the
-                town's top-ranked (the U45 critic saw "The pick" second; U46). */}
+            {/* The lead: the mood's top-ranked spot, before anything else in
+                the card. It is the answer to "why this town". Step 14 led
+                with the first spot that had a description; U46 leads with
+                the top one, described or not, so the pick is first. */}
             {lead && (
               <div
                 data-lead
