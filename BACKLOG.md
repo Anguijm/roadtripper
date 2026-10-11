@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-08** (round 6): U30–U42 merged (#132–#144).
+Last refreshed: **2026-10-11**: U30–U44 merged (#132–#149); phone smoke test passed.
 
 ## Now (this week)
 
@@ -12,9 +12,11 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 - **Ten corridor towns too thin for the pipeline** (Grand Island, Rock Springs, Rawlins, Snyder, Santa Rosa, Brownwood, Colby, Ogallala, Elk City, West Wendover) and Sweetwater. They still name day ends via U19. Adding them needs a new source upstream (city-atlas-service's "thin cities" problem).
 
-- **Mobile smoke test** — pending since May. Food, Museums and the stop flows all now work live and can be checked on a phone.
 
 ## Done, recorded
+
+- **Phone smoke test passed (2026-10-11).** The operator ran the 19-step checklist on production: sheet snaps, gestures, live Stop here, save and reopen, geolocation, date pickers, cellular, notch, landscape. Everything looked good.
+
 
 - **The one-day fallback is gone (audited 2026-10-08, U34).** Every reader of a trip's day count handles a trip with no dates explicitly:
   - `RouteInput` shows no count without both dates.
