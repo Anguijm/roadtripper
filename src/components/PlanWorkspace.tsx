@@ -40,6 +40,7 @@ import {
 } from "@/lib/roadside/tags";
 import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
+import { townOrder } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
 import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine, primaryTownLine, overrunLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, primaryTownId, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
@@ -1553,16 +1554,26 @@ export default function PlanWorkspace({
   // The map names towns in the title's order (U20): when names would
   // collide it keeps the first, so the towns the title names are the ones
   // the map names. Order only; the set is the same.
+  // One order for the title, the map and the list (U47): the day's stop
+  // town first, as the list draws it.
+  const titleStopTown = useMemo(() => {
+    const d = townsDay(days);
+    return primaryTownId(d, cityIdsByDay[d.index] ?? new Set(), outOfTheWayIds);
+  }, [days, cityIdsByDay, outOfTheWayIds]);
+  const titleTowns = useMemo(
+    () => townOrder(effectiveWaypointFetch.cities, titleStopTown),
+    [effectiveWaypointFetch, titleStopTown]
+  );
   const mapCandidates = useMemo(
-    () => inTitleOrder(liveCandidateMarkers, effectiveWaypointFetch.cities.map((c) => c.id)),
-    [liveCandidateMarkers, effectiveWaypointFetch]
+    () => inTitleOrder(liveCandidateMarkers, titleTowns.map((c) => c.id)),
+    [liveCandidateMarkers, titleTowns]
   );
   const townsFailed = initialCandidateFetchFailed && liveWaypointFetch === null;
   const sheetTitle = townsFailed
     ? "Couldn't load the towns along the road"
     : // The towns on the way only (U21, critic): a town out of the way is
       // offered at the bottom of the list, not counted as today's road.
-      fitsTodayLine(effectiveWaypointFetch.cities.filter((c) => !c.outOfTheWay).map((c) => c.name), toName, townsDayNumber);
+      fitsTodayLine(titleTowns.filter((c) => !c.outOfTheWay).map((c) => c.name), toName, townsDayNumber);
 
   return (
     <div className="flex flex-1 min-h-0">
