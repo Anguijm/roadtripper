@@ -22,7 +22,7 @@
 - **U43 (#146):** "See it on the map" in the sheet's link style.
 - **U44 (#147):** the lead place is laid out like the rest, and named the pick when it is.
 
-**What's left.** The backlog's two items need the operator: a new upstream source for ten thin towns, and a phone smoke test. The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
+**What's left.** The phone smoke test passed on 2026-10-11. The one backlog item left is a new upstream source for the ten thin towns. The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
 
 **Round 5 shipped (PRs #121–#130, 2026-10-08), all checked on production.**
 
