@@ -15,6 +15,8 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 ## Done, recorded
 
+- **Wikipedia sentences for OSM-only places (U48, 2026-10-11).** city-atlas-service #63. Five places get one, including Grand Island's pick, the Stuhr Museum. The critic rejected the first try: Rawlins' prison redirects to a broader article ("historic and current prison"). A redirect now counts only to the same subject. Ingest also now deletes a description the JSON no longer has; the merge write used to keep it.
+
 - **One town order for title, map and list (U47, 2026-10-11).** The town where today's drive runs out is first, then nearest detour, with out-of-the-way towns last (`townOrder`, scoring.ts). Before, the title used the fetch's order and named Park City over a sheet that said Rawlins was the stop.
 
 - **The pick leads its town (U46, 2026-10-11).** A town's first row is its top-ranked place, described or not. Before, the first described place led, which put "The pick" second in the OSM towns.
