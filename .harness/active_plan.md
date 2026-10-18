@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `data/wiki-descriptions`
+Branch: `docs/status-sweep-2026-10-18`
 
 ## Ship rule (written before the work)
 

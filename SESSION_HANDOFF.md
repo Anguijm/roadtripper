@@ -4,7 +4,15 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `3661492`** (last merged: PR #147, U44).
+**Main is at `815e988`** (last merged: PR #154, U48). Docs refreshed 2026-10-18.
+
+**Shipped 2026-10-11 (PRs #150–#154), after round 6.**
+
+- **Phone smoke test (#150):** the operator ran the 19-step checklist on production and everything passed.
+- **U45 (#151):** ten thin towns added to the atlas through OpenStreetMap grounding (city-atlas-service #62): Grand Island, Colby, Ogallala, West Wendover, Snyder, Sweetwater, Brownwood, Santa Rosa, Rock Springs, Rawlins. The atlas has 303 cities and the drive graph 6,116 pairs.
+- **U46 (#152):** a town's top-ranked place leads its list, described or not.
+- **U47 (#153):** one town order for the title, the map and the list (`townOrder` in scoring.ts): the day's stop town first.
+- **U48 (#154):** Wikipedia sentences for OpenStreetMap-only places (city-atlas-service #63). A redirect counts only when it is to the same subject.
 
 **Round 6 shipped (PRs #132–#144, 2026-10-08), each checked on production.**
 
@@ -22,7 +30,7 @@
 - **U43 (#146):** "See it on the map" in the sheet's link style.
 - **U44 (#147):** the lead place is laid out like the rest, and named the pick when it is.
 
-**What's left.** The phone smoke test passed on 2026-10-11. The one backlog item left is a new upstream source for the ten thin towns. The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
+**What's left.** The phone smoke test passed on 2026-10-11. The ten thin towns got their source in U45. What is left is in `BACKLOG.md` under Next: shorter Wikipedia lines, and Elk City, OK, which is still thin. The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
 
 **Round 5 shipped (PRs #121–#130, 2026-10-08), all checked on production.**
 
@@ -66,11 +74,18 @@ After merging, check production in a real browser, not with curl.
 `gauntlet/round-3-report.md`: the `tripDays` one-day fallback's other
 readers (unaudited), and why Food is thin on Amarillo → Austin.
 
-Then `BACKLOG.md`, current as of 2026-10-07.
-2. Map polygon rendering for neighborhoods (schema doesn't carry polygons today — schema change needed first)
-3. CitySchema reconciliation: nested `location.{latitude,longitude}` vs flat `lat/lng` (deferred from city-atlas-service#26)
+Then `BACKLOG.md`, current as of 2026-10-11.
 
-**Known dirty files (not a blocker):** `.harness/session_state.json` and `.harness/yolo_log.jsonl` are dirtied by the post-commit hook on every commit. Ignore in `git status`.
+**Where it runs.** Production is Firebase App Hosting, deployed from GitHub
+`main` on its own a few minutes after each merge:
+https://roadtripper--roadtripper-planner.us-central1.hosted.app. Nothing runs
+on either machine: no cron, no service, no port, except `bun run dev` while a
+session is working. Copies live on the laptop and on ms-s1, both at
+`~/projects/roadtripper`; fetch before starting, because the laptop copy sat
+60 commits behind until 2026-10-18.
+
+The older notes below (Sessions 15 to 17) predate the gitignored hook files
+and the end of Clerk; read them as history.
 
 **Session 17 shipped (2026-04-30):**
 - Harness infrastructure update merged to main (`1c5b44d`, `4d54462`): `budget` pre-flight CI job, `council.py` cross-round drift prevention, session-start hook, `ci.yml`, `branch-guard.yml`, `drift-check.yml`, `check-branch-not-merged.sh`.
