@@ -14,7 +14,7 @@ bun run dev          # local dev server
 bun run type-check   # tsc --noEmit — run before every commit
 bun run lint         # ESLint
 bun run build        # production build
-bun run test         # vitest run (53 unit tests, isomorphic layer)
+bun run test         # vitest run (unit tests plus jsdom interaction tests)
 bun run test:watch   # vitest watch mode
 ```
 
@@ -90,7 +90,7 @@ make sure the check is one the *old* build would fail.
 
 **Rate limit layers are all non-redundant.** `recomputeAndRefreshAction` has burst + spacing + daily quota guards. All three must stay. ONE call to the action = ONE charge across all three layers — do not add per-service charges inside the action.
 
-**Server-only boundary.** `src/lib/firebaseAdmin.ts`, `src/lib/routing/recommend.ts`, `src/lib/routing/cache.ts`, and `src/lib/urban-explorer/cities.ts` all import `server-only`. No client component may import them directly or through a barrel. `scoring.ts` is intentionally isomorphic — keep it free of server-only imports.
+**Server-only boundary.** `src/lib/atlas/db.ts` (the SQLite atlas), `src/lib/roadside/store.ts`, `src/lib/routing/recommend.ts`, `src/lib/routing/cache.ts`, `src/lib/urban-explorer/cities.ts` and the other modules that `grep -rl server-only src/lib` lists all import `server-only`. No client component may import them directly or through a barrel. `scoring.ts` is intentionally isomorphic — keep it free of server-only imports.
 
 **`dangerouslySetInnerHTML` is banned in `NeighborhoodPanel.tsx`.** Gemini-enriched `name.en` / `summary.en` are untrusted. Render as React children only. CI grep (`dangerouslySetInnerHTML=`) enforces this on every PR.
 
@@ -107,22 +107,22 @@ src/
     PlanWorkspace.tsx         — client root for /plan
     RouteMap.tsx              — map + PolylineRenderer (7-effect split: 1a/1b/2a/2b/2c/3/4)
     RecommendationList.tsx    — persona-ranked stop cards
-    Itinerary.tsx             — ordered trip stop list
     NeighborhoodPanel.tsx     — per-stop neighborhood drill-down
     MoodChips.tsx             — the mood chips, one component for every screen (U5)
     TodayMoodChips.tsx        — the today results' wiring for them (the URL)
   lib/
-    firebaseAdmin.ts          — server-only Firestore client
+    atlas/                    — server-only read of the Urban Explorer atlas from data/atlas.sqlite (replaced cross-project Firestore, #42)
+    roadside/                 — the nationwide roadside store, looked up at plan time (#75, docs/roadside-store.md)
+    today/, plan/, trips/     — the today screen, trip state, saved trips (in the browser since Clerk was removed, #47)
     urban-explorer/
       cityAtlas.ts            — canonical Zod schemas + localizedText()
-      firestore.ts            — server-only typed read helpers (getCity, listCities, listNeighborhoods, listWaypoints)
       cities.ts               — server-only getAllCities() + lookupCity() with 24h LRU cache
       types.ts                — barrel re-export of cityAtlas
     routing/
       recommend.ts            — fetchWaypointsForCandidates + fetchNeighborhoods
       scoring.ts              — isomorphic scoring + WaypointFetchResult type
       cache.ts                — LRU cache + candidateCacheKey + waypointsCacheKey + neighborhoodsCacheKey (all SHA-256)
-      candidates.ts           — findCandidateCities (Routes API matrix)
+      radial.ts               — findCitiesInRadius: towns within reach (drive graph, else Routes API matrix; detour limits)
       directions.ts           — computeRoute / computeRouteWithStops
       rate-limit.ts           — burst / spacing / daily quota
     personas/                 — persona configs + types
@@ -131,8 +131,15 @@ src/
   council/                    — persona markdown files
   learnings.md                — session KEEP/IMPROVE/INSIGHT/COUNCIL log
   memory/decisions/           — per-session council review artifacts
-Plans/                        — tracked plan files (required for council)
+Plans/                        — older tracked plan files; current work uses .harness/active_plan.md
+gauntlet/                     — quality bar, specs U1 onward, round reports
+docs/                         — roadside-store.md, atlas-gaps.md
+scripts/                      — offline builds: atlas export, drive graph, roadside store, labels
 ```
+
+Production: Firebase App Hosting deploys `main` on its own,
+https://roadtripper--roadtripper-planner.us-central1.hosted.app. Nothing runs
+on the machines (no cron, service or port) beyond `bun run dev` in a session.
 
 ## New CI workflows (added 2026-04-30, harness update)
 
