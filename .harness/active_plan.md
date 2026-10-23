@@ -4,7 +4,7 @@
 
 # Active plan — roadtripper
 
-Branch: `docs/status-sweep-2026-10-18`
+Branch: `docs/refresh-2026-10-23`
 
 ## Ship rule (written before the work)
 
