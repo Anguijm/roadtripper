@@ -84,9 +84,9 @@ make sure the check is one the *old* build would fail.
 
 **Discriminated unions from the start.** When a return type has fields whose presence depends on an outcome, split into tagged arms immediately — never `field: T | null` for mutually-exclusive states. Example: `WaypointFetchResult = {status:"fresh", ...} | {status:"degraded", ..., failures}`. The TypeScript compiler is the only enforcement across the server-action boundary.
 
-**PolylineRenderer — multi-effect split is load-bearing.** `src/components/RouteMap.tsx` has seven `useEffect` blocks and a `hasFitOnceRef`. Do not collapse them. Each split exists because a specific UX bug shipped when they were combined. The effects are: 1a (polyline geometry), 1b (polyline opacity in-place), 2a (endpoint markers), 2b (candidate bulk-cleanup on map change — declared before 2c), 2c (candidate diff — NO cleanup returned), 3 (trip-stop markers), 4 (highlight). Add a new effect rather than expanding an existing one.
+**PolylineRenderer: the multi-effect split is load-bearing.** `src/components/RouteMap.tsx`'s PolylineRenderer has a `hasFitOnceRef` and thirteen named effects (the file has seventeen `useEffect` calls in all, three of them keeping click and selection refs current). Do not collapse them. Each split exists because a specific UX bug shipped when they were combined. The effects, as the comment block above `NO_CROWDED` lists them: 1a (polyline geometry), 1b (polyline opacity in place), 1c (a day's stretch), 2a (endpoint markers), 2b (candidate bulk cleanup on map change, declared before 2c), 2c (candidate diff, NO cleanup returned), 2d (the open day's towns), 2e (crowded names), 3 (trip-stop markers), 3b (cut nights), 4 (roadside diamonds), 4b (the tapped diamond), 5 (highlight). Add a new effect rather than expanding an existing one.
 
-**Force-dynamic + client state — never `router.replace`.** `/plan` is `export const dynamic = "force-dynamic"`. Routing state changes via `router.replace` or `router.push` re-invoke the Server Component and re-bill the Routes API. All UI state (persona, trip stops) lives in `useState` + `window.history.replaceState` only.
+**Force-dynamic + client state: never `router.replace`.** `/plan` is `export const dynamic = "force-dynamic"`. Routing state changes via `router.replace` or `router.push` re-invoke the Server Component and re-bill the Routes API. All UI state (moods, trip stops) lives in `useState` + `window.history.replaceState` only.
 
 **Rate limit layers are all non-redundant.** `recomputeAndRefreshAction` has burst + spacing + daily quota guards. All three must stay. ONE call to the action = ONE charge across all three layers — do not add per-service charges inside the action.
 
@@ -105,8 +105,8 @@ src/
       actions.ts              — recomputeAndRefreshAction (server action)
   components/
     PlanWorkspace.tsx         — client root for /plan
-    RouteMap.tsx              — map + PolylineRenderer (7-effect split: 1a/1b/2a/2b/2c/3/4)
-    RecommendationList.tsx    — persona-ranked stop cards
+    RouteMap.tsx              — map + PolylineRenderer (13-effect split: 1a-1c, 2a-2e, 3, 3b, 4, 4b, 5)
+    RecommendationList.tsx    — a town's places, ranked by the chosen moods (takes a PersonaConfig profile and a moodKey)
     NeighborhoodPanel.tsx     — per-stop neighborhood drill-down
     MoodChips.tsx             — the mood chips, one component for every screen (U5)
     TodayMoodChips.tsx        — the today results' wiring for them (the URL)
@@ -125,7 +125,7 @@ src/
       radial.ts               — findCitiesInRadius: towns within reach (drive graph, else Routes API matrix; detour limits)
       directions.ts           — computeRoute / computeRouteWithStops
       rate-limit.ts           — burst / spacing / daily quota
-    personas/                 — persona configs + types
+    personas/                 — persona configs + types, and moodProfile.ts (two chosen moods as one ranking profile; the eight moods are in roadside/tags.ts)
 .harness/
   scripts/council.py          — council runner (6 angles + resolver)
   council/                    — persona markdown files

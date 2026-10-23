@@ -4,7 +4,7 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `815e988`** (last merged: PR #154, U48). Docs refreshed 2026-10-18.
+**Main is at `162f124`** (last merged: PR #155, a docs sweep; last code: PR #154, U48). Docs refreshed 2026-10-23.
 
 **Shipped 2026-10-11 (PRs #150–#154), after round 6.**
 

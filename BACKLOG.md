@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-18** (docs sweep, no code change). Last code: U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-10-23** (docs refresh, no code change). Last code: U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -11,6 +11,8 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 ## Next (scoped, not started)
 
 - **Shorter Wikipedia lines.** The U48 critic: "The Stuhr Museum of the Prairie Pioneer is a museum located in Grand Island, Nebraska…" repeats the name and the town already on screen. Trimming the lead-in and the "located in" clause would halve it, but it rewrites sourced text, so it needs care.
+
+- **The home page says "258 cities"** (`src/app/page.tsx`); the atlas has 303 since U45. A one-line code fix, found in the 2026-10-23 docs refresh and not made there.
 
 - **Elk City, OK** is still too thin: 4 mapped places within 3 km. It names day ends via U19.
 
