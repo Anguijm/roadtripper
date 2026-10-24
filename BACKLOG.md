@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-23** (docs refresh, no code change). Last code: U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-10-24** (docs refresh, no code change). Last code: U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
