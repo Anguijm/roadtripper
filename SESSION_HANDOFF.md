@@ -4,7 +4,7 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Main is at `162f124`** (last merged: PR #155, a docs sweep; last code: PR #154, U48). Docs refreshed 2026-10-23.
+**Last code: PR #154 (U48, 2026-10-11).** Every merge since is docs only: #155 (2026-10-18), #156 (2026-10-23) and the 2026-10-24 refresh. Run `git log --oneline -1 origin/main` for the current hash. Open items are in the section of that name below.
 
 **Shipped 2026-10-11 (PRs #150–#154), after round 6.**
 
@@ -30,7 +30,7 @@
 - **U43 (#146):** "See it on the map" in the sheet's link style.
 - **U44 (#147):** the lead place is laid out like the rest, and named the pick when it is.
 
-**What's left.** The phone smoke test passed on 2026-10-11. The ten thin towns got their source in U45. What is left is in `BACKLOG.md` under Next: shorter Wikipedia lines, and Elk City, OK, which is still thin. The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
+**What's left.** The phone smoke test passed on 2026-10-11. The ten thin towns got their source in U45. What is left is in `BACKLOG.md` under Next and in Open items below: shorter Wikipedia lines, Elk City, OK, which is still thin, and the home page's "258 cities". The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
 
 **Round 5 shipped (PRs #121–#130, 2026-10-08), all checked on production.**
 
@@ -70,11 +70,10 @@ After merging, check production in a real browser, not with curl.
 - `SaveTripInputSchema.personaId` is optional and `moods` sits beside it; trips saved before U6 still parse and reopen.
 - A trip stop's `cityId` may be an OSM id, because a roadside place can be a stop now. The field name is wrong for those values and the compiler cannot say so.
 
-**Next: nothing is queued.** Open threads, none urgent, are at the end of
-`gauntlet/round-3-report.md`: the `tripDays` one-day fallback's other
-readers (unaudited), and why Food is thin on Amarillo → Austin.
-
-Then `BACKLOG.md`, current as of 2026-10-11.
+**Next: nothing is queued.** One open thread from the end of
+`gauntlet/round-3-report.md`, not urgent: why Food is thin on Amarillo → Austin.
+(Its other thread, the `tripDays` one-day fallback's readers, was audited and
+closed by U34.) Then `BACKLOG.md`, current as of 2026-10-23.
 
 **Where it runs.** Production is Firebase App Hosting, deployed from GitHub
 `main` on its own a few minutes after each merge:
@@ -103,6 +102,20 @@ and the end of Clerk; read them as history.
 - PR #11 `c757abf` — mobile bottom sheet: `.plan-sheet` CSS utility (Tailwind v4, `@layer utilities`, media-scoped), `sheetSnap` state (0=peek/1=half/2=full), drag handle (44px min-height, `#6e7681` contrast-safe, tap/drag split in `touchEnd`, `touchcancel` cleanup), `sheetAnnouncement` aria-live, `dragBasePctRef` for closure-free drag. 2 council rounds + `[skip council]`.
 
 ---
+
+## Open items
+
+Refreshed 2026-10-24. One line each: what, since when, who it waits on.
+
+- **Home page says "258 cities"** (`src/app/page.tsx:98`); the atlas has 303. One-line code fix, found 2026-10-23. Waits on John to queue it.
+- **Shorter Wikipedia lines** (U48 critic note, 2026-10-11): rewrites sourced text, so it needs care. Waits on John to queue it.
+- **Elk City, OK is still thin** (4 mapped places within 3 km), noted 2026-10-11. Waits on John to queue it.
+- **Why Food is thin on Amarillo → Austin** (round 3 open thread, 2026-10-08). Not urgent. Waits on John.
+- **The laptop's local `data/roadside.sqlite` does not match `data/roadside.sqlite.sha256`** (seen 2026-10-22). Production fetches its own copy at build and is unaffected; re-fetch the release `roadside-store` before local dev. Waits on me, at the next code session.
+
+Work not recorded elsewhere:
+
+- **2026-10-22: a phone quality bar (BAR.md) was drafted from a headless 390 px measurement of production, then cancelled by John.** Branch `docs/bar` was deleted at his decision and nothing from it is to be acted on unless he asks.
 
 ## Historical log
 
