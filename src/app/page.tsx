@@ -5,6 +5,7 @@ import { pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { parseDateMode, parseIsoDate } from "@/lib/plan/deadline";
 import { exampleLine } from "@/lib/plan/words";
 import { homeExampleNames } from "@/lib/roadside/examples";
+import { getAllCities } from "@/lib/urban-explorer/cities";
 
 interface HomeSearchParams {
   fromName?: string;
@@ -47,6 +48,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
   // two everybody knows when the store is not here). Read on the server,
   // no network, no model.
   const example = exampleLine(homeExampleNames());
+  // Counted from the atlas that ships with the build, so the line cannot go
+  // stale the way the hand-typed "258" did after U45 took it to 303.
+  const cityCount = (await getAllCities()).length;
   return (
     <div className="flex flex-col min-h-screen">
       {/* The masthead in sentence case, the body face, 16 px (quality bar,
@@ -95,7 +99,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Hom
             initialMoreOpen={initialMoreOpen}
           />
           <p className="mt-6 text-base text-center text-[#7d8590]">
-            Built on Urban Explorer: <span className="num">258</span> cities and thousands of places.
+            Built on Urban Explorer: <span className="num">{cityCount}</span> cities and thousands of places.
           </p>
         </div>
       </main>

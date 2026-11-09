@@ -4,28 +4,29 @@
 
 # Active plan — roadtripper
 
-Branch: docs/refresh-2026-10-24
+Branch: fix/home-city-count
 
 ## Ship rule (written before the work)
 
-U48. The U46 critic: an OSM town's pick can lead its list with a bare or
-plain line. city-atlas-service #63 gives a place the OSM listing could only
-name the first sentence of its Wikipedia article, when the article is about
-the same subject by name. Five places get one, among them Grand Island's
-pick, the Stuhr Museum of the Prairie Pioneer.
+The home page said "Built on Urban Explorer: 258 cities"; the atlas has had
+303 since U45 (#151). Found in the 2026-10-23 docs refresh, queued by John
+2026-11-10. The number is now counted from the atlas that ships with the build
+(`getAllCities().length` in `src/app/page.tsx`), so the next atlas change
+cannot leave it stale again.
 
-First attempt rejected by the critic. Rawlins' Wyoming Frontier Prison
-redirects to "Wyoming State Penitentiary", and that article's "historic and
-current prison" read as a working prison a driver can't visit, worse than no
-line. A redirect now counts only to the same subject ("Stuhr Museum of the
-Prairie Pioneer" → "Stuhr Museum"). The prison is back to no line.
+The rule: on production, the home page's `document.body.innerText` contains
+"Built on Urban Explorer: 303 cities". The old build says 258, so it fails.
 
-The rule: on production, Grand Island's lead row on Omaha → Denver carries a
-`data-reason` that starts "The Stuhr Museum of the Prairie Pioneer is a
-museum". The old build says "Museum on US-34.". Waypoint counts are unchanged.
+Mutation proof: with "258" put back, the new test in
+`src/app/__tests__/home.ssr.test.tsx` fails (1 failed, 4 passed); restored
+from a copy, `cmp` identical, 5 passed.
 
-**Cost:** None at run time. The atlas changes by six description strings.
+No critic round: the screen's layout is unchanged (three digits for three
+digits); the 390 px screenshot goes with the PR as a record.
 
-**Weakest part:** Wikipedia's first sentence is written for an encyclopedia,
-not a driver. It is longer than the listing's lines and may restate the town.
-The critic judges whether it helps.
+**Cost:** None. One local SQLite read of about 300 rows per home render, the
+same read the plan page already makes.
+
+**Weakest part:** The home page now reads the atlas, so a missing
+`data/atlas.sqlite` would break the landing page rather than only /plan. It
+already ships with every build and /plan cannot work without it.
