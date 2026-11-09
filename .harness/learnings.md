@@ -734,3 +734,9 @@ the waiter was wrong, not the process.
 - **KEEP: open data files read-only.** A bare `sqlite3 <path>` created an empty store that shadowed the real one.
 - **KEEP: when live output contradicts passing tests, restart the dev server first.**
 - **INSIGHT: measure the route.** Decoding the real polyline showed Abilene 54 km off Amarillo → Austin's road, which set U39's threshold.
+
+## 2026-11-10: back up on the MS-S1, #158
+
+- **KEEP: a stale number in copy is fixed by counting, not retyping.** The home's "258 cities" became `getAllCities().length`; the mutation proof (258 put back, test red) took a minute.
+- **IMPROVE: commit and push in separate tool calls.** `.claude/hooks/check-branch-not-merged.sh` judges a command containing `git push` against the tree before the commit in the same command lands, so a fresh branch's `commit && push` is blocked as "already merged".
+- **INSIGHT: App Hosting took about 4 minutes from merge to the new build answering** (merged ~07:59 JST, 258 at 08:00 to 08:02, 303 at 08:03), polled with the CDP phone script.

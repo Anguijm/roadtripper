@@ -4,7 +4,9 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Last code: PR #154 (U48, 2026-10-11).** Every merge since is docs only: #155 (2026-10-18), #156 (2026-10-23) and the 2026-10-24 refresh. Run `git log --oneline -1 origin/main` for the current hash. Open items are in the section of that name below.
+**Last code: PR #158 (2026-11-10), the home page counts the atlas's cities instead of saying 258.** Before it, PR #154 (U48, 2026-10-11), then docs only (#155 to #157).
+
+**Where this session runs (since 2026-11-10):** the MS-S1, supervised (`roadtripper-session.service`, tmux socket `roadtripper`), clone at `~/projects/roadtripper`. The laptop is unreachable. Bun 1.4.4 came from `npm install -g bun` (into `~/opt/node22/bin`, symlinked from `~/.local/bin`). Install dependencies with `npm ci`, as CI does, because bun.lock is behind package.json (see Open items). **John ruled 2026-11-10 that a PR is pushed and merged without asking once the gates hold.** Run `git log --oneline -1 origin/main` for the current hash. Open items are in the section of that name below.
 
 **Shipped 2026-10-11 (PRs #150–#154), after round 6.**
 
@@ -30,7 +32,7 @@
 - **U43 (#146):** "See it on the map" in the sheet's link style.
 - **U44 (#147):** the lead place is laid out like the rest, and named the pick when it is.
 
-**What's left.** The phone smoke test passed on 2026-10-11. The ten thin towns got their source in U45. What is left is in `BACKLOG.md` under Next and in Open items below: shorter Wikipedia lines, Elk City, OK, which is still thin, and the home page's "258 cities". The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
+**What's left.** The phone smoke test passed on 2026-10-11. The ten thin towns got their source in U45. What is left is in `BACKLOG.md` under Next and in Open items below: shorter Wikipedia lines, Elk City, OK, which is still thin, The critics' remaining notes are either glossary-fixed wording ("towns that fit today" repeats the title by design) or decided trade-offs (U25's 2:3 button split).
 
 **Round 5 shipped (PRs #121–#130, 2026-10-08), all checked on production.**
 
@@ -107,11 +109,12 @@ and the end of Clerk; read them as history.
 
 Refreshed 2026-10-24. One line each: what, since when, who it waits on.
 
-- **Home page says "258 cities"** (`src/app/page.tsx:98`); the atlas has 303. One-line code fix, found 2026-10-23. Waits on John to queue it.
 - **Shorter Wikipedia lines** (U48 critic note, 2026-10-11): rewrites sourced text, so it needs care. Waits on John to queue it.
 - **Elk City, OK is still thin** (4 mapped places within 3 km), noted 2026-10-11. Waits on John to queue it.
 - **Why Food is thin on Amarillo → Austin** (round 3 open thread, 2026-10-08). Not urgent. Waits on John.
-- **The laptop's local `data/roadside.sqlite` does not match `data/roadside.sqlite.sha256`** (seen 2026-10-22). Production fetches its own copy at build and is unaffected; re-fetch the release `roadside-store` before local dev. Waits on me, at the next code session.
+- **No `data/roadside.sqlite` on the MS-S1 clone** (the 2026-10-22 mismatch was on the laptop's copy). Production fetches its own at build and is unaffected; the home example line falls back to the Cadillac Ranch and the Big Texan locally. Fetch the release `roadside-store` before any local roadside work. Waits on me, at the next code session that needs it.
+- **bun.lock is behind package.json** (missing `@testing-library/jest-dom`, seen 2026-11-10: `bun install --frozen-lockfile` refuses). CI and App Hosting use `npm ci` and are unaffected. A chore PR regenerates it. Waits on me.
+- **The phone screenshot script** (CDP 390 by 844 emulation plus `innerText`) was rewritten 2026-11-10 in a session scratchpad, the second time it has been lost there. It belongs in `scripts/`. Waits on John to say yes.
 
 Work not recorded elsewhere:
 

@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-10-24** (docs refresh, no code change). Last code: U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last code: #158 (home city count, 2026-11-10). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -12,12 +12,12 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 - **Shorter Wikipedia lines.** The U48 critic: "The Stuhr Museum of the Prairie Pioneer is a museum located in Grand Island, Nebraska…" repeats the name and the town already on screen. Trimming the lead-in and the "located in" clause would halve it, but it rewrites sourced text, so it needs care.
 
-- **The home page says "258 cities"** (`src/app/page.tsx`); the atlas has 303 since U45. A one-line code fix, found in the 2026-10-23 docs refresh and not made there.
-
 - **Elk City, OK** is still too thin: 4 mapped places within 3 km. It names day ends via U19.
 
 
 ## Done, recorded
+
+- **The home page counts the atlas's cities (#158, 2026-11-10).** It said "258 cities" while the atlas had 303 since U45. The number is now `getAllCities().length` at render, so the next atlas change cannot leave it stale. Checked on production: the old build said 258, the new one 303.
 
 - **Wikipedia sentences for OSM-only places (U48, 2026-10-11).** city-atlas-service #63. Five places get one, including Grand Island's pick, the Stuhr Museum. The critic rejected the first try: Rawlins' prison redirects to a broader article ("historic and current prison"). A redirect now counts only to the same subject. Ingest also now deletes a description the JSON no longer has; the merge write used to keep it.
 

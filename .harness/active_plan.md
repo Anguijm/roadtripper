@@ -4,7 +4,9 @@
 
 # Active plan — roadtripper
 
-Branch: fix/home-city-count
+Branch: docs/refresh-2026-11-10
+
+(Docs only: records #158, below, which shipped and was checked on production 2026-11-10 08:03 JST.)
 
 ## Ship rule (written before the work)
 
