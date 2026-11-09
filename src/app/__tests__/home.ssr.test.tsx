@@ -11,6 +11,12 @@ vi.mock("@/lib/roadside/examples", () => ({
   homeExampleNames: () => ["Cadillac Ranch", "the Big Texan"] as const,
 }));
 
+// The city count is read from the atlas; a fixture of three so the test
+// says the line is counted, not typed.
+vi.mock("@/lib/urban-explorer/cities", () => ({
+  getAllCities: async () => [{ id: "a" }, { id: "b" }, { id: "c" }],
+}));
+
 import Home from "@/app/page";
 
 /** The page's markup with the date spans opened: a chosen date sits in a `.num` span (the mono face is for numbers only, U2), and React puts a comment between adjacent text and an expression. */
@@ -26,6 +32,10 @@ describe("the home page, server-rendered", () => {
     expect(html).toContain("Places like the Cadillac Ranch and the Big Texan, along your road.");
     expect(html).toContain("Just today");
     expect(html).not.toContain('value="Near Amarillo"');
+  });
+
+  it("counts the atlas's cities rather than naming a fixed number", async () => {
+    expect(await render({})).toContain("Built on Urban Explorer: 3 cities and thousands of places.");
   });
 
   it("opens with both ends filled when handed off from the today screen", async () => {
