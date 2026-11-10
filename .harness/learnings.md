@@ -769,3 +769,8 @@ the waiter was wrong, not the process.
 - **KEEP: a hand-written line lives in a tracked file that wins at the one write every ingest passes through.** Editing Firestore alone would have been undone by the next pipeline run.
 - **KEEP: rewrite only from the source's stated facts, show the exact lines, ship on approval.** The critic still wanted facts the lead does not give (racing season); those wait for a source.
 - **INSIGHT: a CI job that fails early hides every later step.** city-atlas-service's validate stops at npm audit, so seven writer tests had failed unseen since #63.
+
+## 2026-11-10: U52, the border label (#169)
+
+- **IMPROVE: a background job must never switch branches in the checkout I am editing.** The U51 docs merge job ran `git switch main` while U52's edits were uncommitted; git carried them over and nothing was lost, but by luck. Background jobs now only report; the merge and pull run in the foreground, or in a worktree.
+- **KEEP: a field added to a shared contract goes in the doc and to its consumer in the same hour.** `country` was documented in docs/car-api.md and messaged to roadtripper-car once live.
