@@ -774,3 +774,11 @@ the waiter was wrong, not the process.
 
 - **IMPROVE: a background job must never switch branches in the checkout I am editing.** The U51 docs merge job ran `git switch main` while U52's edits were uncommitted; git carried them over and nothing was lost, but by luck. Background jobs now only report; the merge and pull run in the foreground, or in a worktree.
 - **KEEP: a field added to a shared contract goes in the doc and to its consumer in the same hour.** `country` was documented in docs/car-api.md and messaged to roadtripper-car once live.
+
+## 2026-11-10: Toledo joins the atlas (#171, city-atlas-service #67)
+
+- **INSIGHT: Google's route matrix bills the rectangle, not the pairs.** The planner packs origins for ORS, which counts requests; for a one-town top-up through Google that computed 630 elements for 74 wanted pairs. `--plan-only` shows the bill before any call, and `--max-pairs` keeps it to the pairs.
+- **KEEP: diff the exported atlas against a copy taken first.** Toledo was the only change, row for row, which is what made a data-only merge safe.
+- **KEEP: answer a council round with numbers from the code.** Round 1's "5-mile Phase C threshold" does not exist (`spatial_check.py` allows 60 km here), and 35 live metros already sit under the 48-place floor; round 2 went 🟢 10/10 on those answers.
+- **INSIGHT: a new town can push an old one out of a capped list.** /api/today carries ten towns; from Detroit, Toledo took Toronto's place, and the U52 border test had to move to Buffalo.
+- **INSIGHT: App Hosting again took about 5 minutes from merge to the new build answering** (merged 12:24 JST, Toledo in /api/today at 12:29).

@@ -70,3 +70,44 @@ offered as a "town that fits" is a product call for when it happens.
   - Phase C confirms waypoints against it and drops the ones Gemini invented.
   - OSM-only places carry a plain line ("Cafe on North Walnut Street.") or no description, never a guessed one.
 - **Elk City** remains: OSM maps 4 places within its 3 km radius.
+
+## Toledo (2026-11-10)
+
+Found by the roadtripper-car session: nothing on I-75 between Ann Arbor and
+Dayton. city-atlas-service #67 added it as a metro (20 km, like Lincoln):
+6 neighbourhoods, 17 places, "degraded" under the metro floor of 48. Roadtripper
+#171 exported it and added its 74 drive pairs.
+
+## Adding one town, as it was done for Toledo
+
+1. **city-atlas-service, on a branch:** add the registry entry to
+   `configs/global_city_cache.json` (copy a town of similar size for
+   `coverageTier` and `maxRadiusKm`).
+2. **Scrape every source**, one at a time: `npx tsx src/scrapers/wikipedia.ts
+   --city <id>`, then `osm.ts`, `atlas-obscura.ts`, `local-sources.ts --source
+   the-infatuation|timeout|locationscout`, and `reddit.ts`. The MS-S1 has no
+   Playwright browser: the browser scrapers ran on the installed Google Chrome
+   through a preload, passed as `npx tsx --import <file> src/scrapers/...`:
+
+   ```js
+   import { chromium } from "<city-atlas-service>/node_modules/playwright/index.mjs";
+   const orig = chromium.launch.bind(chromium);
+   chromium.launch = (opts = {}) => orig({ channel: "chrome", ...opts });
+   ```
+
+   The import must be an absolute path, because the file lives outside the
+   repo and Node resolves `playwright` from the file's own folder.
+3. **Research and ingest:** `research_city.py --city <id> --mode gemini
+   --ingest`, with `GEMINI_API_KEY` read from Secret Manager in
+   `urban-explorer-483600` (the script's firebase-tools fallback needs a login
+   this machine lacks).
+4. **Roadtripper, on a branch:** `GOOGLE_CLOUD_QUOTA_PROJECT=urban-explorer-483600
+   node scripts/export-atlas.mjs` (`--force` only if no process holds the
+   atlas, and an empty `-wal`), diffed against a copy taken first.
+5. **Drive pairs:** `node scripts/build-drive-graph.mjs --provider=google
+   --plan-only` reports the pairs still to fetch, twice the new town's
+   neighbours. Set `--max-pairs` a little over half that (Toledo: 74 pairs,
+   cap 40), check that the plan's elements equal the pairs, then run it
+   without `--plan-only`. Google bills every origin x destination a request computes;
+   the cap keeps a one-town top-up to its own pairs. The ORS key is not on the
+   MS-S1, and Google needs no recalibration.

@@ -18,7 +18,7 @@ A road trip planner that tells a trip as days: where each day's driving runs out
 - **Styling:** Tailwind v4
 - **Auth:** none. Clerk was removed in #47; saved trips live in the browser's localStorage
 - **Data:** the Urban Explorer atlas as read-only SQLite (`data/atlas.sqlite`, better-sqlite3), exported from the `urbanexplorer` Firestore database by `scripts/export-atlas.mjs`; the app makes no Firestore calls at run time. The roadside store (`data/roadside.sqlite`) is downloaded at build from the `roadside-store` GitHub release and checked against `data/roadside.sqlite.sha256`
-- **Routing:** Google Maps Routes API v2 (computeRoutes, and computeRouteMatrix where the precomputed drive graph has no answer). The drive graph (6,116 city pairs in the atlas, from openrouteservice) answers most town-to-town drive times
+- **Routing:** Google Maps Routes API v2 (computeRoutes, and computeRouteMatrix where the precomputed drive graph has no answer). The drive graph (6,190 city pairs in the atlas, from openrouteservice, with later towns topped up through Google) answers most town-to-town drive times
 - **Maps rendering:** `@vis.gl/react-google-maps`
 - **Validation:** Zod v4
 - **Tests:** Vitest, with jsdom for interaction tests
