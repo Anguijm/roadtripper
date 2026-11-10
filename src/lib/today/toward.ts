@@ -59,6 +59,14 @@ export const ARRIVED_KM = 15;
  * 2026-11-11 ("Cap at 40 min"), after the cone alone offered a monument near
  * Cleveland 65 minutes off a Detroit to Louisville drive: the cone says
  * "toward", the cap says "on the way". The destination's own row adds 0.
+ *
+ * It is a straight-line estimate at the drive graph's median pace, not road
+ * time: a place 35 minutes off by straight line can be more by road (a river
+ * with one bridge) or less (a highway that bends toward it). With the cap at
+ * 40 the test trips keep 13 to 15 rows; much under 25 thins them to towns on
+ * the line itself, and over 60 lets the cone's widest side trips back in.
+ * Changing it: read the lists on a few real trips, update this comment and
+ * run src/lib/today/__tests__/toward.test.ts, which pins every row within it.
  */
 export const MAX_DETOUR_MINUTES = 40;
 /** A town without its own radius in the registry is matched within this. */
