@@ -169,7 +169,7 @@ describe("the plan sheet told as days", () => {
     expect(days[0].text).toContain("What's in Lubbock");
     expect(days[0].text).toContain("✓ Added");
     expect(days[0].text).toContain("Buddy Holly Center");
-    expect(days[0].text).toContain("1 place worth pulling over for");
+    expect(days[0].text).toContain("Along the way: 1 place");
     expect(days[0].text).toContain("Cadillac Ranch");
     expect(days[0].text).not.toContain("Towns that fit");
     expect(days[0].text).not.toContain("+ Stop here");
@@ -182,7 +182,7 @@ describe("the plan sheet told as days", () => {
     expect(days[1].text).toContain("Towns that fit in day 2");
     for (const name of ["What's in Post", "What's in Snyder", "What's in Brady", "What's in Llano", "What's in Fredericksburg", "Pacific war museum"]) expect(days[1].text).toContain(name);
     expect(days[1].text).toContain("+ Stop here");
-    expect(days[1].text).toContain("2 places worth pulling over for");
+    expect(days[1].text).toContain("Along the way: 2 places");
     expect(days[1].text).toContain("Prairie Dog Town");
     expect(days[1].text).toContain("Windmill");
     expect(days[1].text).not.toContain("What's in Lubbock");
@@ -197,8 +197,9 @@ describe("the plan sheet told as days", () => {
     const titled = Number(/fit in day (\d)/.exec(text)![1]);
     expect(days.map((d) => d.text.includes("What's in Fredericksburg"))).toEqual(days.map((d) => Number(d.n) === titled));
     expect(days.map((d) => d.text.includes("+ Stop here"))).toEqual(days.map((d) => Number(d.n) === titled));
-    // Under each day with both, the towns come first, then the places.
-    for (const d of days.slice(0, 2)) expect(d.text.indexOf("What's in")).toBeLessThan(d.text.indexOf("worth pulling over for"));
+    // Under each day with both, Along the way comes first, then the towns
+    // (U50, John 2026-11-10; before U50 the towns came first).
+    for (const d of days.slice(0, 2)) expect(d.text.indexOf("Along the way")).toBeLessThan(d.text.indexOf("What's in"));
     // Lubbock is drawn once, as day 1's end.
     expect(clean(html).match(/data-town="lubbock"/g)).toHaveLength(1);
     expect(clean(html).match(/data-towns-heading/g)).toHaveLength(1);
@@ -289,9 +290,11 @@ describe("the plan sheet told as days", () => {
     // the day's heading says the route's drive; the town that fits keeps
     // its own, the only figure for that drive on the sheet.
     const row = (id: string) => /<section[^>]*data-town="ID"[\s\S]*?<\/h3>/.source.replace("ID", id);
-    expect(visible(new RegExp(row("lubbock")).exec(html)![0]).trim()).toBe("Lubbock");
+    // The closed drawer's mark and its summary (U50) follow the name; still
+    // no drive figure.
+    expect(visible(new RegExp(row("lubbock")).exec(html)![0]).trim()).toBe("▸ Lubbock Buddy Holly Center");
     // From where the towns' day starts, the stop (U40: "away" said not from where).
-    expect(visible(new RegExp(row("fort-worth")).exec(html)![0]).trim()).toBe("Fort Worth · 2 h from Lubbock");
+    expect(visible(new RegExp(row("fort-worth")).exec(html)![0]).trim()).toBe("▸ Fort Worth · 2 h from Lubbock Stockyards");
     expect(days[0].text).toContain("Amarillo to Lubbock · 3 h 20 min");
     expect(text.indexOf("on the road")).toBeLessThan(text.indexOf("Day 1 ·"));
     expect(html).not.toContain("itinerary");
@@ -320,7 +323,8 @@ describe("the plan sheet told as days", () => {
     expect(answer).toBeGreaterThan(lubbock);
     expect(answer).toBeGreaterThan(html.indexOf("Buddy Holly Center"));
     expect(answer).toBeLessThan(html.indexOf('<section data-day="2"'));
-    expect(html).toMatch(/aria-pressed="true"[^>]*>What's in Lubbock<\/button>/);
+    // Inside the town's drawer since U50, and named for what it opens.
+    expect(html).toMatch(/aria-pressed="true"[^>]*>What's in Lubbock: its parts of town<\/button>/);
   });
 
   it("says the trip's shape in one line under the numbers naming every night, tells each day once, and says nothing for a one-day trip", () => {
@@ -468,29 +472,32 @@ describe("the plan sheet told as days", () => {
     expect(visible(rest)).not.toMatch(/Days \d|over the/);
     expect(days[0].text).toContain("Towns that fit today");
     for (const name of ["What's in Plainview", "What's in Lubbock", "What's in Post", "What's in Snyder", "What's in Brady", "What's in Llano", "Cadillac Ranch", "Prairie Dog Town"]) expect(days[0].text).toContain(name);
-    expect(days[0].text).toContain("2 places worth pulling over for");
+    expect(days[0].text).toContain("Along the way: 2 places");
     expect(days[0].text).toContain("+ Stop here");
     expect(days[0].text).not.toContain("Windmill");
     expect(days[0].text.indexOf("Towns that fit today")).toBeLessThan(days[0].text.indexOf("What's in"));
     expect(days[1].text).toContain("Windmill");
-    expect(days[1].text).toContain("1 place worth pulling over for");
+    expect(days[1].text).toContain("Along the way: 1 place");
     expect(days[1].text).not.toContain("What's in");
     expect(days[1].text).not.toContain("Towns that fit");
     for (const name of ["Cadillac Ranch", "Prairie Dog Town", "+ Stop here"]) expect(days[1].text).not.toContain(name);
     // The title counts the towns that fit as today's, day 1, the day they
     // are listed under.
     expect(visible(rest)).toContain("Snyder, Plainview and 4 more fit today");
-    // U47: the title's first town is the list's first, the one marked as
-    // where today's drive runs out.
-    const firstTown = days[0].text.indexOf("What's in");
-    expect(days[0].text.indexOf("What's in Snyder")).toBe(firstTown);
+    // U47 put the title's first town first in the list. U50 (John,
+    // 2026-11-10) lists the towns in the order you pass them, so the
+    // title's first town, the one marked as where today's drive runs out,
+    // keeps its mark wherever it falls: right under its own name.
+    const snyder = days[0].text.indexOf("▸ Snyder");
+    expect(snyder).toBeGreaterThan(-1);
+    expect(days[0].text.indexOf("Closest to where today's 4 h run out")).toBeGreaterThan(snyder);
     expect(days[0].text.indexOf("Closest to where today's 4 h run out")).toBeLessThan(days[0].text.indexOf("What's in Snyder"));
     // Within the budget, a plain "Day 1" of the whole road holding everything.
     const one = renderToString(<PlanWorkspace {...base} initialDurationSeconds={3 * 3600} />);
     expect(daySections(one)).toHaveLength(1);
     expect(visible(one)).toContain("Day 1 · Amarillo to Austin · 3 h See it on the map");
     for (const name of ["Towns that fit today", "Plainview", "Lubbock", "Post", "Snyder", "Brady", "Llano", "Cadillac Ranch", "Prairie Dog Town", "Windmill"]) expect(daySections(one)[0].text).toContain(name);
-    expect(daySections(one)[0].text).toContain("3 places worth pulling over for");
+    expect(daySections(one)[0].text).toContain("Along the way: 3 places");
     // A stop whose recompute has not returned: the legs are fewer than the
     // stops, so neither day has a time yet, and nothing says "0 min".
     const pending = visible(renderToString(<PlanWorkspace {...base} initialTrip={{ stops: [lubbock], legs: [], directMinutesToDestination: 470 }} />));
@@ -557,7 +564,8 @@ describe("the plan sheet told as days", () => {
     expect(renderToString(<PlanWorkspace {...detour} startDate="2026-10-20" endDate="2026-10-24" />)).toMatch(/data-out-of-the-way="[^"]*" class="[^"]*whitespace-nowrap/);
     // Why it is there, said once, right before it (U30): 5 days for a
     // 2-day drive is 3 to spare.
-    expect(roomy).toContain("3 days to spare, so here's a town a bit out of the way Plainview");
+    // A town's name now follows its drawer's mark (U50).
+    expect(roomy).toContain("3 days to spare, so here's a town a bit out of the way ▸ Plainview");
     expect(roomy.match(/a bit out of the way/g)).toHaveLength(1);
     for (const props of [{}, { startDate: "2026-10-20", endDate: "2026-10-21" }]) {
       const html = visible(renderToString(<PlanWorkspace {...detour} {...props} />));
@@ -600,16 +608,17 @@ describe("the plan sheet told as days", () => {
     ];
     const html = clean(renderToString(<PlanWorkspace {...base} roadsideStops={many} initialTrip={twoLegs} />));
     const days = daySections(html);
-    expect(days[0].text).toContain("14 places worth pulling over for");
+    expect(days[0].text).toContain("Along the way: 14 places");
     expect(days[0].text).toContain("Show all 14");
-    expect(days[1].text).toContain("3 places worth pulling over for");
+    expect(days[1].text).toContain("Along the way: 3 places");
     expect(days[1].text).not.toContain("Show all");
     expect(html.match(/data-roadside-show-all/g)).toHaveLength(1);
-    // Ten rows in day 1, strongest first (the fixture's strength rises with the index).
+    // Ten rows in day 1: the ten strongest (the fixture's strength rises
+    // with the index), in the order you pass them (U50), so 5 to 14.
     const rows1 = [...days[0].text.matchAll(/Early (\d+)/g)].map((m) => Number(m[1]));
     expect(rows1).toHaveLength(10);
-    expect(rows1[0]).toBe(14);
-    expect(rows1[9]).toBe(5);
+    expect(rows1[0]).toBe(5);
+    expect(rows1[9]).toBe(14);
   });
 
   it("lists a place once in a day whatever the store's spellings, leaves to its town a place the town lists, and still opens the card for it", () => {
@@ -626,12 +635,14 @@ describe("the plan sheet told as days", () => {
     ];
     const html = clean(renderToString(<PlanWorkspace {...base} roadsideStops={repeats} initialTrip={twoLegs} />));
     const days = daySections(html);
-    expect(days[0].text).toContain("1 place worth pulling over for");
+    expect(days[0].text).toContain("Along the way: 1 place");
     expect(days[0].text).toContain("Cadillac Ranch");
     expect(days[0].text).not.toContain("The Cadillac Ranch");
-    expect(days[0].text.match(/Buddy Holly Center/g)).toHaveLength(1);
+    // Once as Lubbock's place and once as its closed drawer's summary
+    // (U50), never as a roadside row (asserted by id below).
+    expect(days[0].text.match(/Buddy Holly Center/g)).toHaveLength(2);
     expect(days[0].text.match(/Cadillac Ranch/g)).toHaveLength(1);
-    expect(days[1].text).toContain("1 place worth pulling over for");
+    expect(days[1].text).toContain("Along the way: 1 place");
     // The rows are by id, so the one kept is the stronger.
     expect(html).toContain('data-roadside-stop="a"');
     expect(html).not.toContain('data-roadside-stop="a2"');
@@ -646,6 +657,7 @@ describe("the plan sheet told as days", () => {
     const alone = clean(renderToString(<PlanWorkspace {...base} roadsideStops={[place("bh", "Buddy Holly Center", 160, 0.8)]} initialTrip={twoLegs} initialSelectedRoadsideId="bh" />));
     expect(alone).toContain('data-roadside-card="bh"');
     expect(visible(alone)).not.toContain("worth pulling over for");
+    expect(visible(alone)).not.toContain("Along the way:");
     expect(alone).not.toContain("<ul>");
     expect(alone).toMatch(/<section data-roadside="true" aria-label="A place worth pulling over for"/);
   });

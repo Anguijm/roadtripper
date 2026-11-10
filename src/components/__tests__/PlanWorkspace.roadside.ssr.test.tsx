@@ -17,6 +17,7 @@ import PlanWorkspace, {
   SWIPE_PX,
   ROADSIDE_SHOWN_FIRST,
   ROADSIDE_LIST_PX,
+  ALONG_HANDLE_PX,
   SHEET_SNAPS,
   SHEET_HEIGHT_DVH,
   SHEET_HANDLE_PX,
@@ -117,7 +118,9 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const html = render({ roadsideStops: stops });
     expect(html).toContain("data-roadside");
     expect(html).not.toContain("<details");
-    expect(html).toContain("2 places worth pulling over for");
+    // U50: the drawer's handle, "Along the way" and the count it holds.
+    expect(html).toContain("Along the way: 2 places");
+    expect(html).toMatch(/data-along-toggle[^>]*aria-expanded="true"/);
     expect(html).toContain('data-roadside-stop="osm:way:1"');
     expect(html).toContain("The Big Texan Steak Ranch");
     // The sheet's unit (the summary says "497 mi") and the town, the card's
@@ -139,19 +142,23 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // A drive within the budget, so the road is one day and one list
     // (since U3 a day over the budget is cut, and the list with it).
     const html = render({ roadsideStops: fourteen, initialDurationSeconds: 4 * 3600 });
-    expect(html).toContain("14 places worth pulling over for");
+    expect(html).toContain("Along the way: 14 places");
     const ids = rowIds(html);
     expect(ids).toHaveLength(ROADSIDE_SHOWN_FIRST);
     expect(ROADSIDE_SHOWN_FIRST).toBe(10);
-    // Strongest first: the fixture's strength rises with the index, so the
-    // rows come in reverse road order, the last stop (p 0.89) at the top.
-    expect(ids[0]).toBe("osm:node:113");
-    expect(ids[9]).toBe("osm:node:104");
+    // The ten strongest, in the order you pass them (U50, quality bar rule
+    // 4 as amended): the fixture's strength rises with the index along the
+    // road, so the four weakest (100 to 103) are left for Show all and the
+    // ten shown run 104 to 113 in road order. Before U50 they ran 113 down.
+    expect(ids[0]).toBe("osm:node:104");
+    expect(ids[9]).toBe("osm:node:113");
     expect(html).toContain("Show all 14");
     expect(html).toContain("data-roadside-show-all");
   });
 
-  it("sits inside its day, after that day's towns, with the sheet's title above everything and the numbers and the mood before the days", () => {
+  it("sits inside its day, before that day's towns, with the sheet's title above everything and the numbers and the mood before the days", () => {
+    // U50 (John, 2026-11-10): Along the way first, then the towns, each a
+    // drawer. Before U50 the list came after the towns.
     // U1 put the list first in the box (rounds 3 to 6: under the header
     // it showed seven rows and no "Show all"; after the towns a sticky
     // town header sat over a half-clipped row). Since U3 the sheet is told
@@ -163,13 +170,14 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     const section = html.indexOf('<section data-roadside="true"');
     expect(day).toBeGreaterThan(0);
     expect(section).toBeGreaterThan(day);
-    expect(html.indexOf("sticky top-0")).toBeGreaterThan(day);
-    expect(html.indexOf("sticky top-0")).toBeLessThan(section);
-    expect(html.indexOf("What&#x27;s in Lubbock")).toBeLessThan(section);
+    expect(html.indexOf("sticky top-0")).toBeGreaterThan(section);
+    expect(html.indexOf("What&#x27;s in Lubbock")).toBeGreaterThan(section);
     // The trip's numbers and the mood come before the days.
     expect(html.indexOf("on the road")).toBeLessThan(day);
     expect(html.indexOf("of driving left today")).toBeLessThan(day);
     expect(html.indexOf("I&#x27;m in the mood for")).toBeLessThan(day);
+    // The town comes after the list, closed (U50).
+    expect(html).toMatch(/data-town-toggle[^>]*aria-expanded="false"/);
     // The sheet's title on the handle row is above everything (U2, round
     // 2: the sentence over the towns is the first thing seen), not in the
     // scroll box, so it costs the box nothing.
@@ -177,6 +185,7 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html.indexOf("Lubbock fits today")).toBeLessThan(day);
     // The Save button stays last.
     expect(html.indexOf("Save trip")).toBeGreaterThan(html.indexOf("data-roadside-show-all"));
+    expect(html.indexOf("Save trip")).toBeGreaterThan(html.indexOf("What&#x27;s in Lubbock"));
   });
 
   it("keeps the sheet's geometry: the box is the visible part, at rest it holds a day's list of ten and the control, and the map is told where the edge is", () => {
@@ -189,7 +198,11 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // the day's towns, so it is reached by a scroll, not on the first
     // screen; the snap and the box keep their size, so a day's list still
     // fits the box whole once scrolled to.
+    // U50: the rows and the control fit the box at rest with the drawer's
+    // handle scrolled off; the handle (44) is the 19 px the whole block runs
+    // over, a trade judged on the screenshot (ALONG_HANDLE_PX's comment).
     expect(SHEET_BOX_PADDING_PX + ROADSIDE_LIST_PX).toBeLessThanOrEqual(sheetScrollBoxPx(844, 1) - 16);
+    expect(SHEET_BOX_PADDING_PX + ALONG_HANDLE_PX + ROADSIDE_LIST_PX - (sheetScrollBoxPx(844, 1) - 16)).toBe(19);
     expect(SHEET_BOX_PADDING_PX).toBe(8);
     // At the old half snap, 45 percent hidden, it could not have fit.
     expect(Math.floor((844 * 92 * 55) / 10_000) - 45).toBeLessThan(ROADSIDE_LIST_PX);
@@ -198,7 +211,8 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(SHEET_SNAPS).toEqual([80, 25, 8]);
     expect(SHEET_HEIGHT_DVH).toBe(92);
     expect(SHEET_HANDLE_PX).toBe(45);
-    expect(ROADSIDE_LIST_PX).toBe(512);
+    expect(ROADSIDE_LIST_PX).toBe(488);
+    expect(ALONG_HANDLE_PX).toBe(44);
     // The sheet opens at the rest snap, and the scroll box carries the class
     // whose CSS makes it the visible part.
     const html = render({ roadsideStops: fourteen });
@@ -219,9 +233,11 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(css).toMatch(/\.plan-sheet\s*\{[^}]*height:\s*92dvh/);
     // Nothing above the heading, nothing between it and the first row.
     expect(html).toMatch(/<section data-roadside="true" [^>]*class="font-sans px-1 pt-0 pb-2"/);
-    expect(html).toMatch(/<\/h2><ul><li data-roadside-stop="osm:node:113">/);
+    // Day 1 holds 100 to 112 here (the drive is cut into two days); its
+    // ten strongest are 103 to 112, in road order, so 103 leads (U50).
+    expect(html).toMatch(/<\/h2><div id="along-1"[^>]*><ul><li data-roadside-stop="osm:node:103">/);
     // The rows are two lines of 22 px with no vertical padding, so ten are 440.
-    expect(html).toMatch(/data-roadside-stop="osm:node:113"><button[^>]*class="w-full min-h-\[44px\] text-left px-2 py-0 /);
+    expect(html).toMatch(/data-roadside-stop="osm:node:103"><button[^>]*class="w-full min-h-\[44px\] text-left px-2 py-0 /);
     // The map is told where the sheet's edge is, so its fit can frame the
     // road in the strip above it: 100 - 92 * 0.75.
     expect(sheetTopDvh(1)).toBe(31);
@@ -353,7 +369,7 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     expect(html).not.toContain("×");
     // Above the list: the card comes before the heading and the first row,
     // inside the day the stop belongs to (U3), which is after the numbers.
-    expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("places worth pulling over for"));
+    expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("Along the way: "));
     expect(html.indexOf("data-roadside-card")).toBeLessThan(html.indexOf("data-roadside-stop="));
     expect(html.indexOf("data-roadside-card")).toBeGreaterThan(html.indexOf('<section data-day="1"'));
     expect(html.indexOf("data-roadside-card")).toBeGreaterThan(html.indexOf("on the road"));

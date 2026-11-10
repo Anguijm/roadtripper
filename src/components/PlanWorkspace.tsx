@@ -25,20 +25,16 @@ import RecommendationList, {
 import NeighborhoodPanel from "@/components/NeighborhoodPanel";
 import Figures from "@/components/Figures";
 import { panelCityFor, nextPanelCityId } from "@/lib/plan/panel-city";
-import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
-import { orderRoadside } from "@/lib/roadside/order";
+import { waypointProfileForMoods, MOODS_THAT_MOVE_TOWNS } from "@/lib/personas/moodProfile";
+import { alongTheWay, orderRoadside } from "@/lib/roadside/order";
 import {
   toggleMood,
   parseMoods,
   answeredMood,
   MOOD_CONFIG,
-  SORT_LABELS,
   MOODS_PARAM,
-  SORT_MODES,
   type MoodId,
-  type SortMode,
 } from "@/lib/roadside/tags";
-import SortControl from "./SortControl";
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { townOrder } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
@@ -259,16 +255,22 @@ export function sheetTopDvh(snap: 0 | 1 | 2): number {
   return 100 - (SHEET_HEIGHT_DVH * (100 - SHEET_SNAPS[snap])) / 100;
 }
 /**
- * A day's roadside list from its heading through the "Show all" control:
- * the heading's 24 with nothing between it and the first row, ten rows of
- * 44 (two lines of 22, no padding), a 4 px gap and the 44 px control. 512,
- * which U1 sized the rest snap for when the list was first in the box
- * (520 of the 537 px on screen with the box's padding); since U3 the list
- * sits inside its day, under that day's towns, and the rest snap keeps
- * the box's size. The classes on the section add up to this; change both
- * together.
+ * A day's "Along the way" list from its first row through the "Show all"
+ * control: ten rows of 44 (two lines of 22, no padding), a 4 px gap and the
+ * 44 px control, 488. Above it sits the drawer's handle, ALONG_HANDLE_PX.
+ *
+ * U1 sized the rest snap (537 px of box at 390 by 844) for a 24 px heading
+ * plus this, 512. U50 made the heading the drawer's 44 px handle (rule 7:
+ * a control is a 44 px target), so handle and list are 532 and, scrolled
+ * to the handle, "Show all" sits 19 px under the box's edge at rest; with
+ * the handle scrolled off, the ten rows and the control fit with 25 px to
+ * spare. That trade is U50's, judged by its critic on the screenshot; the
+ * rest snap is unchanged. The classes on the section add up to these;
+ * change both together.
  */
-export const ROADSIDE_LIST_PX = 24 + ROADSIDE_SHOWN_FIRST * 44 + 4 + 44;
+export const ROADSIDE_LIST_PX = ROADSIDE_SHOWN_FIRST * 44 + 4 + 44;
+/** The Along the way drawer's handle (U50), a 44 px target. */
+export const ALONG_HANDLE_PX = 44;
 
 /** The route's points, or none: a loading or error state can hand an empty or malformed polyline, and the decoder throws past its vertex limit. */
 function safeDecode(encoded: string): ReturnType<typeof decodePolyline> {
@@ -527,10 +529,15 @@ export default function PlanWorkspace({
   // stable to watch: `initialMoods` is an array prop and gets a new
   // identity on every render.
   const initialMoodKey = initialMoods.join(",");
-  // How the day's places are ordered. "best" is the chosen moods through
-  // rankFor; "along" is the order they come up on the road. Not in the URL:
-  // it is how you are reading the list right now, not part of the trip.
-  const [sortMode, setSortMode] = useState<SortMode>(SORT_MODES[0]);
+  // The chosen moods that hide town places, in words (U50): "History or
+  // Food". Machines and Sports map to no town place, so alone they leave
+  // the towns whole; null then, and with no mood chosen.
+  const townMoodFilter = useMemo(() => {
+    const moving = chosenMoods.filter((m) => MOODS_THAT_MOVE_TOWNS.includes(m));
+    return moving.length > 0 ? moving.map((m) => MOOD_CONFIG[m].label).join(" or ") : null;
+  }, [chosenMoods]);
+  // The chosen moods in words, for "Nothing along the way for Machines today".
+  const moodWords = chosenMoods.map((m) => MOOD_CONFIG[m].label).join(" or ");
   // The shape scoreWaypoint takes, rebuilt only when the moods change.
   const moodProfile = useMemo(() => waypointProfileForMoods(chosenMoods), [chosenMoods]);
   const moodKey = chosenMoods.join(",");
@@ -922,29 +929,33 @@ export default function PlanWorkspace({
   // title said "Fort Worth fits in day 2" over a list that put Fort Worth
   // under Day 3 by its position along the road).
   const townsDayNumber = townsDay(days).index + 1;
-  // Each day's places strongest first, not road order: the diamonds on the
-  // map already say where, and a person scanning ten rows wants the best
-  // ten. A name listed twice in the day is listed once (round 4: the Buddy
-  // Holly Center three times in Day 1, twice from the store under two
-  // spellings and once under Lubbock): the stronger row stays, and a place
-  // already under one of the day's towns is left to that town. The
-  // diamonds and the card are the day's whole list still.
+  // Each day's "Along the way" (U50, John's design 2026-11-10): the places
+  // in the order you pass them, the chosen moods hiding what answers none
+  // of them, the ten strongest first and "Show all" for the rest, all in
+  // road order. A name listed twice in the day is listed once (round 4:
+  // the Buddy Holly Center three times in Day 1), the stronger row kept,
+  // so the dedupe runs on strength order before the road order is taken;
+  // a place already under one of the day's towns is left to that town.
+  // The diamonds and the card are the day's whole list still.
   const roadsideByDay = useMemo(
     () =>
       days.map((d) => {
         const townIds = new Set(d.towns.map((t) => t.id));
         if (d.endStopId) townIds.add(d.endStopId);
         const underTowns = sheetFetch.waypoints.filter((w) => townIds.has(w.cityId)).map((w) => w.name);
-        // "Best match" is the chosen moods through rankFor, which with
-        // nothing chosen is the general score the list always used, so the
-        // sheet at rest is ordered exactly as it was before U6. "Along the
-        // road" is the order they come up while driving. Both fall back to
-        // the same tie-breaks, so the order is total either way and never
-        // depends on what the database happened to return.
-        return uniqueByName(orderRoadside(d.roadside, chosenMoods, sortMode), underTowns);
+        const unique = uniqueByName(orderRoadside(d.roadside, chosenMoods, "best"), underTowns);
+        return { ...alongTheWay(unique, chosenMoods, ROADSIDE_SHOWN_FIRST), before: unique.length };
       }),
-    [days, sheetFetch.waypoints, chosenMoods, sortMode]
+    [days, sheetFetch.waypoints, chosenMoods]
   );
+  // Each town's place along the road, for the towns' order (U50).
+  const townRoadKm = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of days) for (const t of d.towns) if (!m.has(t.id)) m.set(t.id, t.alongKm);
+    return m as ReadonlyMap<string, number>;
+  }, [days]);
+  // The days whose Along the way drawer was closed by a tap; open by default.
+  const [closedAlongDays, setClosedAlongDays] = useState<readonly number[]>([]);
   // A day's towns that fit (the next day's, all of them), the stops among
   // them left out: a stop is drawn as its day's end, never twice.
   const cityIdsByDay = useMemo(
@@ -1825,36 +1836,6 @@ export default function PlanWorkspace({
               days are the trip: there is no itinerary above them. Council
               ISC-S7-PROD-2: the brief highlight on each successful refresh
               proves the towns actually updated. */}
-          {/* How the places are ordered (Gauntlet U6, round 2). Directly
-              above the days, because the days are the lists it orders; it
-              was under the chips in round 1 and the critic read it as two
-              more moods (rule 3).
-
-              Once for the sheet rather than once per day, and that is a
-              constraint rather than a preference: `ROADSIDE_LIST_PX` is
-              the height of a day's list from its heading through "Show
-              all", and the rest snap was sized so that whole block fits
-              the scroll box once scrolled to, with one pixel to spare. A
-              44 px control inside each day's list would cost that, which
-              is a U1 decision and not this component's to spend.
-
-              Hidden when no day has a place: a control that orders an
-              empty list is the machinery rule 3 and rule 6 keep off the
-              screen. The test "shows nothing and says nothing when no
-              pulled corridor is near the route" is what caught it, and
-              its name is the rule. Its label also avoids the heading's
-              own words, since two tests find that phrase by position. */}
-          {roadsideByDay.some((d) => d.length > 0) && (
-            <SortControl
-              mode={sortMode}
-              onChange={(next) => {
-                setSortMode(next);
-                setListAnnouncement(`The places are ordered ${SORT_LABELS[next]}.`);
-              }}
-              label="Order the day's places"
-            />
-          )}
-
           <div
             className={
               highlightRefresh
@@ -1865,9 +1846,10 @@ export default function PlanWorkspace({
             {days.map((day) => {
               const n = day.index + 1;
               const open = openDay === day.index;
-              const dayRoadside = roadsideByDay[day.index];
+              const { all: dayRoadside, first: firstRoadside, before: roadsideBefore } = roadsideByDay[day.index];
               const showAll = showAllDays.includes(day.index);
-              const shown = showAll ? dayRoadside : dayRoadside.slice(0, ROADSIDE_SHOWN_FIRST);
+              const shown = showAll ? dayRoadside : firstRoadside;
+              const alongOpen = !closedAlongDays.includes(day.index);
               // The card opens in the day whose road the place is on, listed or not.
               const cardHere = selectedRoadside !== null && day.roadside.some((s) => s.id === selectedRoadside.id);
               // The stop the day ends at, when it ends at one; a cut day
@@ -1937,30 +1919,6 @@ export default function PlanWorkspace({
                       The route didn&apos;t update for {endStop.cityName}; the drive shown is the old one.
                     </p>
                   )}
-                  {/* The towns that fit, under what they are, on the day
-                      they are the choices for; then the day's end: the
-                      stop's town with its places and "✓ Added", from the
-                      set it was added from, since the towns that fit have
-                      moved on past it. A day holds one or the other: the
-                      towns are the day after the last stop's, and that
-                      day ends at no stop. */}
-                  {day.holdsTowns && townIds.size > 0 && (
-                    <h2 data-towns-heading className="text-base leading-6 text-[#8b949e] px-2">{townsFitHeading(n)}</h2>
-                  )}
-                  {/* No town near where the day runs out: said under the
-                      heading, before the rows, so it reads with the day's
-                      "4 h down the road" and not after a town's places
-                      (U18, round 1 critic). */}
-                  {lastTown && (
-                    <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
-                  )}
-                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} primaryNote={primaryTown ? primaryTownLine(n, budgetHours * 60) : null} drivesFrom={day.holdsTowns ? day.fromName : null} />
-                  {endStop && (
-                    <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty />
-                  )}
-                  {townIds.size === 0 && !endStop && dayRoadside.length === 0 && (
-                    <p className="text-base text-[#8b949e] px-2 py-2">Nothing listed along this stretch.</p>
-                  )}
                   {/* Roadside stops (step 22, first-class in Gauntlet U1): what
                       the model says is worth pulling over for on this day's
                       road, from a corridor pulled and scored ahead of time.
@@ -1990,18 +1948,29 @@ export default function PlanWorkspace({
                           />
                         </div>
                       )}
-                      {/* The heading, ten rows and the control add up to
-                          ROADSIDE_LIST_PX: nothing above the heading (24)
-                          or between it and the rows, the rows two lines of
-                          22 px with no vertical padding (44, the target),
-                          4 px, then the control (44). */}
+                      {/* The handle (ALONG_HANDLE_PX, 44), then the rows
+                          and the control (ROADSIDE_LIST_PX): nothing between
+                          the handle and the rows, the rows two lines of 22 px
+                          with no vertical padding (44, the target), 4 px,
+                          then the control (44). */}
                       {dayRoadside.length > 0 && (
                       <>
-                      <h2 id={`roadside-heading-${n}`} className="text-base leading-6 text-[#e3b341] px-2">
-                        {dayRoadside.length === 1
-                          ? "1 place worth pulling over for"
-                          : `${dayRoadside.length} places worth pulling over for`}
+                      <h2 id={`roadside-heading-${n}`} className="text-base leading-6 text-[#e3b341]">
+                        {/* The drawer's handle (U50): "Along the way", open
+                            until tapped, then the count it holds. */}
+                        <button
+                          type="button"
+                          data-along-toggle
+                          onClick={() => setClosedAlongDays((curr) => (curr.includes(day.index) ? curr.filter((i) => i !== day.index) : [...curr, day.index]))}
+                          aria-expanded={alongOpen}
+                          aria-controls={`along-${n}`}
+                          className="w-full min-h-[44px] text-left px-2 focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                        >
+                          <span aria-hidden className="inline-block w-4">{alongOpen ? "▾" : "▸"}</span>
+                          Along the way: {dayRoadside.length === 1 ? "1 place" : `${dayRoadside.length} places`}
+                        </button>
                       </h2>
+                      <div id={`along-${n}`} hidden={!alongOpen}>
                       <ul>
                         {shown.map((s) => (
                           <li key={s.id} data-roadside-stop={s.id}>
@@ -2027,9 +1996,9 @@ export default function PlanWorkspace({
                                   A place in the trip says so here, in place
                                   of its kind (Gauntlet U8, #97), rather than
                                   on a line of its own: the row is two lines
-                                  of 22 px and `ROADSIDE_LIST_PX` has one
-                                  pixel of slack, so a third line would spend
-                                  U1's sizing.
+                                  of 22 px and `ROADSIDE_LIST_PX` has 25 px
+                                  of slack under the box (U50), so a third
+                                  line on a row or two would spend it.
 
                                   It takes the kind's place because the kind
                                   is the least useful word on the row once
@@ -2068,9 +2037,10 @@ export default function PlanWorkspace({
                           </li>
                         ))}
                       </ul>
+                      </div>
                       </>
                       )}
-                      {dayRoadside.length > ROADSIDE_SHOWN_FIRST && (
+                      {alongOpen && dayRoadside.length > firstRoadside.length && (
                         <button
                           type="button"
                           data-roadside-show-all
@@ -2082,6 +2052,35 @@ export default function PlanWorkspace({
                         </button>
                       )}
                     </section>
+                  )}
+                  {/* The moods hid every place on this day's road (U50): said,
+                      so an empty drawer does not read as an empty road. */}
+                  {chosenMoods.length > 0 && roadsideBefore > 0 && dayRoadside.length === 0 && (
+                    <p data-along-empty className="text-base text-[#8b949e] px-2 py-1">Nothing along the way for {moodWords} today.</p>
+                  )}
+                  {/* The towns that fit, under what they are, on the day
+                      they are the choices for; then the day's end: the
+                      stop's town with its places and "✓ Added", from the
+                      set it was added from, since the towns that fit have
+                      moved on past it. A day holds one or the other: the
+                      towns are the day after the last stop's, and that
+                      day ends at no stop. */}
+                  {day.holdsTowns && townIds.size > 0 && (
+                    <h2 data-towns-heading className="text-base leading-6 text-[#8b949e] px-2">{townsFitHeading(n)}</h2>
+                  )}
+                  {/* No town near where the day runs out: said under the
+                      heading, before the rows, so it reads with the day's
+                      "4 h down the road" and not after a town's places
+                      (U18, round 1 critic). */}
+                  {lastTown && (
+                    <p data-last-town className="text-base text-[#f0f6fc] px-2 pb-1">{lastTown}</p>
+                  )}
+                  <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={townIds} detourNote={detourNote} primaryCityId={primaryTown} primaryNote={primaryTown ? primaryTownLine(n, budgetHours * 60) : null} drivesFrom={day.holdsTowns ? day.fromName : null} roadKm={townRoadKm} drawers moodFilter={townMoodFilter} />
+                  {endStop && (
+                    <RecommendationList {...townProps} fetchResult={sheetFetch} cityIds={new Set([endStop.cityId])} keepEmpty drawers moodFilter={townMoodFilter} />
+                  )}
+                  {townIds.size === 0 && !endStop && dayRoadside.length === 0 && (
+                    <p className="text-base text-[#8b949e] px-2 py-2">Nothing listed along this stretch.</p>
                   )}
                 </section>
               );

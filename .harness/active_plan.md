@@ -4,38 +4,51 @@
 
 # Active plan — roadtripper
 
-Branch: docs/u49-record
-
-(Docs only: records U49, below, shipped as #160; production checked 09:13 JST; blind critic APPROVE, high.)
+Branch: feat/u50-drawers
 
 ## Ship rule (written before the work)
 
-U49. The U48 critic: a Wikipedia line repeats the name and the town already
-on screen ("The Stuhr Museum of the Prairie Pioneer is a museum located in
-Grand Island, Nebraska ..."). city-atlas-service #64 trims a sentence's own
-subject and its town, deleting words only; a trim under 25 characters keeps
-the whole sentence (John's choice 2026-11-10, so Howard Payne University is
-unchanged). Applied to Firestore the same day; this PR is the re-exported
-atlas.
+U50, spec `gauntlet/specs/U50-drawers.md`, from John's design and four
+choices on 2026-11-10. Within each day: "Along the way" first, a drawer that
+starts open, its places in the order you pass them (the ten strongest, in
+road order; Show all for every one); then the towns, each a drawer that
+starts closed, in the order you pass them, the day's stop town in place with
+its filled Stop here. A chosen mood hides what answers none of the chosen
+moods in both drawers, using each mood's main kinds for town places; a town
+left empty is hidden and one line counts them. Machines and Sports leave the
+towns whole. The sort control goes.
 
-The rule: on production, Omaha to Denver, Grand Island's lead row has a
-`data-reason` of "A museum intended to preserve the legacy of the Pioneers
-who settled the plains of Central Nebraska in the late 19th century." The
-old build says "The Stuhr Museum of the Prairie Pioneer is a museum
-located in Grand Island, ...", so it fails.
+The rule: on Omaha to Denver at 390 px, the day's towns read Lincoln, Grand
+Island, Kearney, North Platte, Ogallala (old: North Platte first); every
+town is closed; Along the way is above them and its first rows' miles rise.
+With History chosen, no Food row shows in either drawer. A fresh blind
+critic approves against the amended quality bar before merge.
 
-Atlas diff against the previous file: 4 waypoint descriptions changed (Fonner
-Park, Stuhr Museum, Reliance Tipple, Wendover Will); 0 added or removed in
-cities, neighborhoods, waypoints or the drive graph. Counts 303 / 2,241 /
-13,659 / 6,116 unchanged.
+## Rounds
 
-Critic: the plan page cannot run on the MS-S1 (no .env.local; the keys were
-on the laptop). John approved the four exact lines in chat on 2026-11-10.
-The matched 390 px pair (production before, production after, Stuhr row
-centered) goes to a fresh blind critic after deploy; a reject reverts.
+- Round 1, fresh blind critic: REJECT. Real: "What's in" beside the town's
+  name read as a second way to open it and led somewhere else (rule 3). My
+  error: the screenshot script tapped "What's in", not the drawer. Fixed:
+  the header holds the name (the drawer's toggle) and a full-width Stop
+  here; "What's in Grand Island: its parts of town" moved inside the open
+  drawer; a town whose write-up is asked for (its map marker) opens its
+  drawer. Larger arrow, summary in the link style.
+- Round 2, fresh blind critic: APPROVE, medium, nothing to fix. Its three
+  notes predate U50 (stop town shows no drive figure by U3's design; row
+  spacing is U1's height budget; Ogallala past the day's end is a reach
+  rule) and go to the backlog.
 
-**Cost:** None at run time. Four Firestore updates (two documents each)
-and one atlas export read.
+Mutation proofs: road order off (3 tests red), town filter off (1),
+drawers open (2), first ten in strength order (3), along-the-way filter off
+(8), What's in back in the header (1), no auto-open on a write-up (1). Each
+restored from a copy, `cmp` identical. 827 tests pass.
 
-**Weakest part:** The critic runs after the merge, not before, because
-there is no local plan page on this machine. A reject means a revert PR.
+**Cost:** None at run time: no new fetch, no new Routes call. The list is
+reordered and filtered in the browser.
+
+**Weakest part:** Two. The drawer's 44 px handle makes the along-the-way
+block 19 px taller than the box at the rest snap (ROADSIDE_LIST_PX's
+comment); scrolled past the handle, ten rows and Show all fit. And closed
+towns hide their places, so a person who never
+opens one sees only the pick's name. The summary line ("Stuhr Museum and 4
+more") carries the town; the critic judges whether it is enough.

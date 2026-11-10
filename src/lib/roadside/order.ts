@@ -1,4 +1,4 @@
-import { rankFor, type MoodId, type SortMode } from "./tags";
+import { answeredMood, rankFor, type MoodId, type SortMode } from "./tags";
 import type { RoadsideMarker } from "./along";
 
 /**
@@ -35,4 +35,28 @@ export function orderRoadside(
       a.alongKm - b.alongKm ||
       a.name.localeCompare(b.name, "en")
   );
+}
+
+/**
+ * A day's "Along the way" drawer (Gauntlet U50, John's design 2026-11-10):
+ * the places in the order you pass them, filtered by the chosen moods.
+ *
+ * - With a mood chosen, a place that answers none of them (`answeredMood`)
+ *   is left out. With none chosen, nothing is.
+ * - `all` is every place left, in road order (`orderRoadside` "along").
+ * - `first` is the `firstN` strongest of them (`orderRoadside` "best", the
+ *   chosen moods through `rankFor`), put back into road order: the list
+ *   still reads like the drive, and the ten rows are the ten worth most
+ *   (quality bar rule 4 as amended: "its first ten are the ten strongest,
+ *   in that order").
+ */
+export function alongTheWay(
+  stops: readonly RoadsideMarker[],
+  chosen: readonly MoodId[],
+  firstN: number
+): { all: RoadsideMarker[]; first: RoadsideMarker[] } {
+  const kept = chosen.length === 0 ? [...stops] : stops.filter((s) => answeredMood(s.scores, chosen) !== null);
+  const all = orderRoadside(kept, chosen, "along");
+  const strongest = new Set(orderRoadside(kept, chosen, "best").slice(0, firstN).map((s) => s.id));
+  return { all, first: all.filter((s) => strongest.has(s.id)) };
 }

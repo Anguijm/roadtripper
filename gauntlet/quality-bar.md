@@ -35,7 +35,11 @@ the gate for a screen.
    beside them, not in their own label.
 4. **Roadside stops are first-class.** A diamond on the map answers a tap with a card:
    the name, the line about it, how far along the road, open in Maps. The list of
-   them is open, not collapsed, and shows the strongest first.
+   them is open, not collapsed, and shows the strongest first. **Amended by the
+   operator 2026-11-10 (U50):** the list is "Along the way", a drawer that starts
+   open, in the order you pass the places; its first ten are the ten strongest,
+   in that order. Each town is its own drawer, closed by default, in road order.
+   The chosen moods hide what does not match.
 5. **The trip is told as days.** A daily budget means the screen says where each day
    ends and what fits in it, and the map can show one day at a time.
 6. **The map shows the trip, not the machinery.** No search arc, no internal

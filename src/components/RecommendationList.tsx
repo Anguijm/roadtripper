@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, type ReactNode } from "react";
+import React, { useMemo, useState, type ReactNode } from "react";
 import type { PersonaConfig, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDrive } from "@/lib/today/presets";
@@ -82,6 +82,45 @@ interface RecommendationListProps {
    * town is in this list, so the workspace can hand it to every list.
    */
   detail?: { cityId: string; node: ReactNode } | null;
+  /**
+   * Each town's distance along the road, in km (U50): with it, the towns
+   * are listed in the order you pass them, a town out of the way still
+   * last. Without it, `townOrder`'s order (stop town first, then detour).
+   */
+  roadKm?: ReadonlyMap<string, number>;
+  /**
+   * Each town a drawer, closed until tapped (U50, John 2026-11-10). The
+   * header stays: name, drive, Stop here, What's in; a line under the
+   * name says what is inside ("Stuhr Museum and 4 more").
+   */
+  drawers?: boolean;
+  /**
+   * The chosen moods that map onto town places, in words ("History",
+   * "History or Food"), or null (U50). With a label, a place that is not
+   * one of those moods' main kinds is hidden, a town left with none is
+   * hidden, and one line says how many: "2 towns have nothing for History
+   * today." Null when no mood is chosen, or only Machines or Sports, which
+   * map to no town place (MOOD_WAYPOINTS) and so leave the towns whole.
+   */
+  moodFilter?: string | null;
+}
+
+/** Two towns' places along the road, for a sort: unknown last, two unknowns equal. */
+export function byRoad(a: number | undefined, b: number | undefined): number {
+  if (a === undefined || b === undefined) return Number(a === undefined) - Number(b === undefined);
+  return a - b;
+}
+
+/** The line that counts the towns a mood left empty (U50). */
+export function hiddenTownsLine(count: number, moods: string): string | null {
+  if (count <= 0) return null;
+  return count === 1 ? `1 town has nothing for ${moods} today.` : `${count} towns have nothing for ${moods} today.`;
+}
+
+/** What a closed town's drawer holds, said under its name (U50): "Stuhr Museum and 4 more". */
+export function drawerSummary(rows: ReadonlyArray<{ name: string }>): string {
+  if (rows.length === 0) return "Nothing written up yet";
+  return rows.length === 1 ? rows[0].name : `${rows[0].name} and ${rows.length - 1} more`;
 }
 
 /**
@@ -220,13 +259,61 @@ export default function RecommendationList({
   notices = true,
   keepEmpty = false,
   detail = null,
+  roadKm,
+  drawers = false,
+  moodFilter = null,
 }: RecommendationListProps) {
   const accent = moodProfile.accentColor;
+  // Each town's drawer as last set by a tap (U50). A town never tapped is
+  // closed, except while its write-up is showing (asked for from its map
+  // marker, or from "What's in" inside it), so the answer is never drawn
+  // inside a closed drawer (round 1). Derived rather than set from an
+  // effect, so a tap after that still closes it.
+  //
+  // A tap remembers which town's write-up was showing when it was made: a
+  // later request for this town's write-up (its marker tapped after the
+  // drawer was closed by hand) opens it again (PR #162 council), while a
+  // close made with the write-up already showing is kept.
+  const [tapped, setTapped] = useState<ReadonlyMap<string, { open: boolean; during: string | null }>>(() => new Map());
+  const townOpen = (id: string) => {
+    const t = tapped.get(id);
+    if (previewedCityId === id && t?.during !== id) return true;
+    return t?.open ?? false;
+  };
+  const toggleTown = (id: string) => {
+    const next = !townOpen(id);
+    setTapped((curr) => new Map(curr).set(id, { open: next, during: previewedCityId ?? null }));
+  };
 
-  const groups = useMemo(() => {
+  const { groups, hiddenTowns } = useMemo(() => {
     const all = buildRankedGroupsWith(fetchResult, moodProfile, primaryCityId ?? null);
-    return cityIds ? all.filter((g) => cityIds.has(g.cityId)) : all;
-  }, [fetchResult, moodProfile, cityIds, primaryCityId]);
+    let shown = cityIds ? all.filter((g) => cityIds.has(g.cityId)) : all;
+    // The order you pass them (U50); a town out of the way stays last, as
+    // the detour note before it says (U30). Ties keep townOrder's order.
+    if (roadKm) {
+      shown = shown
+        .map((g, i) => ({ g, i }))
+        .sort(
+          (a, b) =>
+            Number(!!a.g.outOfTheWay) - Number(!!b.g.outOfTheWay) ||
+            // A town with no place on the road goes after those with one;
+            // two without keep their order (Infinity - Infinity is NaN,
+            // which leaves a sort undefined: PR #162 council).
+            byRoad(roadKm.get(a.g.cityId), roadKm.get(b.g.cityId)) ||
+            a.i - b.i
+        )
+        .map(({ g }) => g);
+    }
+    // The chosen moods hide what is not one of their main kinds (U50). The
+    // rows come tiered by the mood profile, and "primary" is exactly a
+    // place whose kind is primary for a chosen mood (MOOD_WAYPOINTS).
+    let hidden = 0;
+    if (moodFilter) {
+      shown = shown.map((g) => ({ ...g, rows: g.rows.filter((r) => r.tier === "primary") }));
+      hidden = shown.filter((g) => g.rows.length === 0).length;
+    }
+    return { groups: shown, hiddenTowns: keepEmpty ? 0 : hidden };
+  }, [fetchResult, moodProfile, cityIds, primaryCityId, roadKm, moodFilter, keepEmpty]);
 
   const hasRows = groups.some((g) => g.rows.length > 0);
   // The first town out of the way the list draws, where the note goes (U30).
@@ -242,7 +329,9 @@ export default function RecommendationList({
   // Nothing to show: the note, unless the caller says the notes itself
   // (a day's slice of the towns says nothing; the sheet does, once), or
   // keeps a town's row without its places.
+  const hiddenLine = moodFilter ? hiddenTownsLine(hiddenTowns, moodFilter) : null;
   if (!hasRows && !keepEmpty) {
+    if (hiddenLine) return <p data-hidden-towns className="text-base text-[#8b949e] px-2 py-1">{hiddenLine}</p>;
     return notices ? <RecommendationNotices fetchResult={fetchResult} moodProfile={moodProfile} moodKey={moodKey} atCap={atCap} /> : null;
   }
 
@@ -269,6 +358,8 @@ export default function RecommendationList({
         const lead = rows[0];
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
         const badges = rowBadges(rows, !!outOfTheWay);
+        // A drawer's places show once it is opened (U50).
+        const isOpen = !drawers || townOpen(cityId);
         // One layout for every place, the lead included (U44: the lead ran
         // its reason flush under the glyph and had no kind line).
         const placeBody = (r: (typeof rows)[number]) => (
@@ -368,6 +459,36 @@ export default function RecommendationList({
                   drive (Gauntlet U3, round 3: "Lubbock · 1 h 40 min away"
                   under "Amarillo to Lubbock · 1 h 43 min"). */}
               <h3 className="text-base leading-6 break-words">
+                {drawers ? (
+                  <button
+                    type="button"
+                    data-town-toggle
+                    onClick={() => toggleTown(cityId)}
+                    aria-expanded={isOpen}
+                    aria-controls={`town-places-${cityId}`}
+                    className="w-full min-h-[44px] text-left focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none"
+                  >
+                    <span aria-hidden className="inline-block w-5 text-lg leading-6 text-[#f0f6fc]">{isOpen ? "▾" : "▸"}</span>
+                    <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
+                    {detourMinutes > 0 && !isAdded && (
+                      <span className="ml-1 text-[#8b949e]">
+                        · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}
+                      </span>
+                    )}
+                    {outOfTheWay && !isAdded && (
+                      <span data-out-of-the-way className="ml-1 text-[#8b949e] whitespace-nowrap">· out of the way</span>
+                    )}
+                    {/* What the drawer holds, said while it is closed. */}
+                    {!isOpen && (
+                      <span data-drawer-summary className="block pl-5 text-[#b0b9c2]">
+                        {/* In the sheet's link style, as the day's "See it on
+                            the map" (U43): it reads as something to tap. */}
+                        <span className="underline decoration-[#6e7681] underline-offset-4">{drawerSummary(rows)}</span>
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                <>
                 {/* The card's title (U41): the name in the body white, the
                     rest of the line grey, so the eye finds the town first. */}
                 <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
@@ -381,6 +502,8 @@ export default function RecommendationList({
                 {outOfTheWay && !isAdded && (
                   <span data-out-of-the-way className="ml-1 text-[#8b949e] whitespace-nowrap">· out of the way</span>
                 )}
+                </>
+                )}
               </h3>
               {primaryNote && cityId === primaryCityId && (
                 <p data-primary-note className="text-base text-[#b0b9c2]">
@@ -392,7 +515,7 @@ export default function RecommendationList({
                     under this row the same way a tap on a stop's square
                     does; nothing is added. The glossary's words ("what's
                     in Lubbock"); a long name wraps inside the button. */}
-                {onCityPreview && (
+                {onCityPreview && !drawers && (
                   <button
                     type="button"
                     onClick={() => onCityPreview(cityId)}
@@ -419,7 +542,8 @@ export default function RecommendationList({
                       : "Stop here"
                   }
                   className={[
-                    "flex-[3] min-h-[44px] text-base border px-2 py-1 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                    drawers ? "flex-1" : "flex-[3]",
+                    "min-h-[44px] text-base border px-2 py-1 whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
                     isAdded
                       ? "font-medium"
                       : canAdd
@@ -449,6 +573,7 @@ export default function RecommendationList({
             </div>
             {/* A stop's town with nothing written up keeps its row and
                 says so, rather than standing as a bare name. */}
+            <div id={`town-places-${cityId}`} hidden={!isOpen}>
             {rows.length === 0 && (
               <p className="text-base text-[#8b949e] px-2 py-2">Nothing written up for {cityName} yet.</p>
             )}
@@ -482,12 +607,36 @@ export default function RecommendationList({
               ))}
             </ul>
             )}
+            {/* In a drawer (U50), the town's write-up is asked for from
+                inside it, after its places: the header keeps one way to
+                open the town and one action, Stop here (round 1 critic:
+                "What's in" beside the name read as a second way to open
+                it, and led somewhere else). */}
+            {drawers && onCityPreview && (
+              <button
+                type="button"
+                data-whats-in
+                onClick={() => onCityPreview(cityId)}
+                aria-pressed={previewedCityId === cityId}
+                className={[
+                  "mt-1 w-full min-h-[44px] text-base border px-2 py-1 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none",
+                  previewedCityId === cityId
+                    ? "border-[#f0f6fc] text-[#f0f6fc]"
+                    : "border-[#30363d] text-[#b0b9c2] hover:border-[#6e7681] hover:text-[#f0f6fc]",
+                ].join(" ")}
+              >
+                What&apos;s in {cityName}: its parts of town
+              </button>
+            )}
+            {drawers && detail && detail.cityId === cityId && detail.node}
+            </div>
             {/* The answer to "What's in Lubbock", under Lubbock. */}
-            {detail && detail.cityId === cityId && detail.node}
+            {!drawers && detail && detail.cityId === cityId && detail.node}
           </section>
           </React.Fragment>
         );
       })}
+      {hiddenLine && <p data-hidden-towns className="text-base text-[#8b949e] px-2 py-1">{hiddenLine}</p>}
     </div>
   );
 }
