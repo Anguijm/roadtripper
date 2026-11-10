@@ -122,3 +122,34 @@ export function splitRequest(request, maxRoutes) {
     );
   return [...sub(request.sources.slice(0, half)), ...sub(request.sources.slice(half))];
 }
+
+/**
+ * The per-request cap a build plans under: the provider's own, or a lower one
+ * asked for with `--max-pairs`.
+ *
+ * Why a lower cap exists: Google bills every origin x destination element a
+ * request computes, wanted or not, while ORS counts requests. Packing up to
+ * Google's 625 suits a full build, where origins in one band share most of
+ * their neighbours, so a request is nearly all wanted pairs. A top-up for one
+ * new city is the opposite: each neighbour wants only the new city, the new
+ * city wants every neighbour, and packing them together computes every
+ * neighbour-to-neighbour pair too. Toledo's 74 pairs planned as 630 billed
+ * elements at 625 (2026-11-10), and as exactly 74 at a cap of 40, just over
+ * its 37 neighbours. A cap can only lower the provider's, never raise it.
+ *
+ * @param asked  the flag's text, or undefined when the flag was not given.
+ * @param providerMax  the provider's own cap (`maxRoutesPerRequest`).
+ */
+export function requestCap(asked, providerMax) {
+  if (asked === undefined) return providerMax;
+  const n = Number(asked);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error(`--max-pairs must be a positive integer, got ${JSON.stringify(asked)}`);
+  }
+  return Math.min(n, providerMax);
+}
+
+/** Elements the provider computes for these requests, which is what Google
+ *  bills: sources x destinations per request, including pairs nobody wanted. */
+export const billedElements = (requests) =>
+  requests.reduce((sum, r) => sum + r.sources.length * r.destinations.length, 0);

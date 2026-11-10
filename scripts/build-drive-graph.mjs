@@ -19,11 +19,13 @@
  *   bun run atlas:drive-graph -- --provider=google
  *   bun run atlas:drive-graph -- --limit=10   # first 10 cities, for a dry run
  *   bun run atlas:drive-graph -- --calibrate-only
+ *   bun run atlas:drive-graph -- --provider=google --max-pairs=40 --plan-only
+ *                                             # a one-city top-up: see the bill, spend nothing
  */
 import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { openRouteService, googleRoutes, sleep } from "./lib/routing-providers.mjs";
-import { planRequests, splitRequest, neighboursWithin } from "./lib/matrix-plan.mjs";
+import { planRequests, splitRequest, neighboursWithin, requestCap, billedElements } from "./lib/matrix-plan.mjs";
 import { loadEnv } from "./lib/env.mjs";
 
 // ---------------------------------------------------------------------------
@@ -180,8 +182,13 @@ console.log(`  provider: ${provider.name}`);
 // quota, so one request per city (the first build's shape) spent the day on
 // 13 cities. The planner packs origins that share neighbours into requests of
 // up to the provider's cap; the US graph is about a dozen ORS requests.
-const requests = planRequests(plan, provider.maxRoutesPerRequest);
-console.log(`  ${requests.length} matrix requests at up to ${provider.maxRoutesPerRequest} pairs each`);
+// `--max-pairs=N` lowers the cap for a sparse top-up through Google, which
+// bills every element a request computes (requestCap in lib/matrix-plan.mjs).
+// `--plan-only` prints the plan and exits before any provider is called.
+const cap = requestCap(args.get("max-pairs"), provider.maxRoutesPerRequest);
+const requests = planRequests(plan, cap);
+console.log(`  ${requests.length} matrix requests at up to ${cap} pairs each, ${billedElements(requests)} elements computed for ${totalPairs} wanted`);
+if (args.has("plan-only")) { db.close(); process.exit(0); }
 
 // ---------------------------------------------------------------------------
 // Calibration
@@ -349,7 +356,7 @@ while (queue.length && !quotaHit) {
       console.warn("  the rows fetched so far are saved; rerun when the window reopens to resume");
       break;
     }
-    const halves = err.status >= 400 && err.status < 500 ? splitRequest(r, provider.maxRoutesPerRequest) : [];
+    const halves = err.status >= 400 && err.status < 500 ? splitRequest(r, cap) : [];
     if (halves.length > 0) {
       queue.unshift(...halves);
       console.warn(`  request rejected, split into ${halves.length}: ${String(err.message).slice(0, 120)}`);
