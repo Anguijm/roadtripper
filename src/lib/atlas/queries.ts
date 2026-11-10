@@ -157,6 +157,25 @@ export function waypointsForCities(cityIds: readonly string[]) {
 }
 
 /**
+ * Where each of these places is (the car endpoint, docs/car-api.md): the
+ * ranking pipeline's LiteWaypoint carries no coordinates, and a car needs
+ * them to put a place on the map and to navigate there. Ids not in the
+ * atlas are left out. Bounded like `waypointsForCities`.
+ */
+export function waypointCoords(idsIn: readonly string[]): Map<string, { lat: number; lng: number }> {
+  const ids = [...new Set(idsIn)];
+  if (ids.length === 0) return new Map();
+  if (ids.length > MAX_BOUND_CITY_IDS) {
+    throw new Error(`waypointCoords called with ${ids.length} ids, above the ${MAX_BOUND_CITY_IDS} bound-parameter ceiling`);
+  }
+  const holes = ids.map(() => "?").join(",");
+  const rows = atlasDb()
+    .prepare<string[], { id: string; lat: number; lng: number }>(`select id, lat, lng from waypoints where id in (${holes})`)
+    .all(...ids);
+  return new Map(rows.map((r) => [r.id, { lat: r.lat, lng: r.lng }]));
+}
+
+/**
  * Waypoints inside a bounding box, via the R-tree. This is the query Firestore
  * could not answer and the reason the atlas moved here: stage 4 walks a route
  * polyline and asks this for each segment.
