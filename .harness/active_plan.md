@@ -4,33 +4,30 @@
 
 # Active plan — roadtripper
 
-Branch: feat/client-tag
+Branch: feat/detour-cap
 
 ## Ship rule (written before the work)
 
-The car session asked (2026-11-10) to tell its calls apart in our logs: App
-Hosting hands every request to the app with the User-Agent "Google", so the
-`ua=` part of the log lines never said anything. The car sends
-`client=car-<version>` in the query on all four car paths; each logs it
-beside the status (or `-`), never a position. A malformed tag is ignored,
-never a 400. docs/car-api.md says so, and the records for #177 and #178 go in
-with it.
+John chose (2026-11-11) "Cap at 40 min" for /api/today/toward: a town or
+roadside stop that adds more than 40 estimated minutes against heading
+straight to the destination is left out, the same minutes the row shows as
+detourMinutes. The cone alone offered a monument near Cleveland 65 minutes
+off a Detroit to Louisville drive (the car session's find).
 
 ## Done
 
-- `src/lib/today/client.ts` (`clientTag`), used by /api/today, /toward,
-  /towns (which now logs a line) and /town-requests.
-- Contract, privacy section, the car's template finding, BACKLOG,
-  SESSION_HANDOFF, learnings.
+- `MAX_DETOUR_MINUTES = 40` in toward.ts, applied to towns and stops.
+- Tests: every row within the cap; Columbus (about 43 min, toward Louisville)
+  left out. Lists on the three test trips: 13, 14 and 15 rows.
 
 ## Mutation proofs
 
 Each was restored and `cmp` clean.
-- The tag passed through unchecked: red.
-- /api/today dropping the tag: red.
-- /towns logging nothing: red.
+- No cap: red.
+- Cap on towns only: red where the real roadside store is, not in CI, which
+  has none, as with the other real-store check.
 
 Cost: None.
 
-Weakest part: the tag is what the client says it is; it identifies an app
-version, not a person, and anyone can send any tag that fits the pattern.
+Weakest part: the detour is a straight-line estimate, so a place 35 minutes
+off by straight line can be more by road, and the reverse.

@@ -150,8 +150,10 @@ A place counts when going there first costs at most a quarter more straight
 distance than heading straight to the destination (`km(here, place) +
 km(place, destination) <= 1.25 x km(here, destination)`: an ellipse), **and**
 it leaves you nearer the destination than you are, **and** it is within
-today's hours. Straight lines only: a road that bends can pass a place the
-cone leaves out. From the towns that qualify, the 8 most on the way (least
+today's hours, **and** it adds at most 40 minutes against heading straight
+there (`detourMinutes`, John's cap, 2026-11-11: the cone says "toward", the
+cap says "on the way"). Straight lines only: a road that bends can pass a
+place the cone leaves out. From the towns that qualify, the 8 most on the way (least
 detour) are chosen; from the roadside stops, the 8 strongest by the moods, as
 the web's Along the way ranks them. Then everything is merged by time and
 capped at 15.

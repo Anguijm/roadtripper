@@ -10,7 +10,6 @@ Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
-- **A cap on detour for /api/today/toward?** (roadtripper-car, 2026-11-10). The cone is John's "very general direction", and it lets in a row 65 minutes off the road (a monument near Cleveland, Detroit to Louisville). The car shows "adds 65 min" on the row. A 30 to 40 minute cap would tighten it; John's call.
 - **Read the car's town requests** (`[town-request]` in Cloud Logging, roadtripper-planner, 30 days) and add the real towns with the one-town recipe (`docs/atlas-gaps.md`). The first entry, "Deploy Check, Nowhere" (2026-11-10 23:55 JST), is the live check; skip it.
 - **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
 - **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
@@ -27,6 +26,7 @@ Nothing queued. Open questions for John are in Next.
   - `GET /api/today/towns` is the pick list, with US states.
   - `POST /api/today/town-requests` keeps a typed town's name as one log line.
   - Every call is tagged `client=car-<version>` in its log line (the User-Agent arrives as "Google").
+  - A 40-minute detour cap (John, 2026-11-11), after the cone alone offered a monument 65 minutes off the road: the cone says "toward", the cap says "on the way". Lists stay at 13 to 15 rows.
   - All live under /api/today, so the request-log exclusion covers them. Checked on production: no entries in either request log.
   - Contract agreed with roadtripper-car-a3, in `docs/car-api.md`. Live 23:46 and 23:55 JST.
 

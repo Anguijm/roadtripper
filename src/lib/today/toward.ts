@@ -53,6 +53,14 @@ export const MAX_ROWS = 15;
  * Tested in toward.test.ts ("says arrived within 15 km").
  */
 export const ARRIVED_KM = 15;
+/**
+ * The most a row may add against heading straight to the destination, in
+ * the same estimated minutes the row shows as detourMinutes. John's choice,
+ * 2026-11-11 ("Cap at 40 min"), after the cone alone offered a monument near
+ * Cleveland 65 minutes off a Detroit to Louisville drive: the cone says
+ * "toward", the cap says "on the way". The destination's own row adds 0.
+ */
+export const MAX_DETOUR_MINUTES = 40;
 /** A town without its own radius in the registry is matched within this. */
 const DEFAULT_TOWN_RADIUS_KM = 10;
 
@@ -214,8 +222,9 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
   // are chosen (least detour), then shown by time: choosing the nearest let
   // wide early detours crowd out towns on the road further down (Cleveland
   // and Akron over Cincinnati, toward Mammoth Cave, on the first run).
+  const addsAtMost = (p: LatLng) => estimateMinutes(detourKm(origin, destAt, p), pace) <= MAX_DETOUR_MINUTES;
   const towns = plan.reachable
-    .filter((r) => r.city.id !== here.cityId && r.city.id !== destCity?.id && inCone(origin, destAt, r.city))
+    .filter((r) => r.city.id !== here.cityId && r.city.id !== destCity?.id && inCone(origin, destAt, r.city) && addsAtMost(r.city))
     .map((r) => ({ r, detour: detourKm(origin, destAt, r.city) }))
     .sort((a, b) => a.detour - b.detour || a.r.oneWayDriveMinutes - b.r.oneWayDriveMinutes)
     .slice(0, MAX_TOWN_ROWS)
@@ -249,7 +258,7 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
   // graph's pace, chosen by pickStops.
   const named = new Set(townRows.flatMap((t) => (t.type === "town" ? t.places.map((p) => placeNameKey(p.name)) : [])));
   const stopRows: TowardRow[] = [];
-  for (const s of pickStops(roadsideToward(origin, destAt, (hours * 60) / pace), moods, named)) {
+  for (const s of pickStops(roadsideToward(origin, destAt, (hours * 60) / pace).filter(addsAtMost), moods, named)) {
     stopRows.push({
       type: "stop",
       id: s.id,
