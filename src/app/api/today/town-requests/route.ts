@@ -11,7 +11,13 @@ import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limi
  */
 export const dynamic = "force-dynamic";
 
-/** A body larger than this is not a town name. */
+/**
+ * A body larger than this is not a town name. The only field is a name of at
+ * most 80 characters (MAX_TOWN_REQUEST_CHARS), which is under 400 bytes as
+ * JSON even in a script of four-byte characters; 1 KB leaves room for that
+ * and refuses a padded body before it is parsed, so a large post costs the
+ * server nothing. Tested in __tests__/route.test.ts ("a big body").
+ */
 const MAX_BODY_BYTES = 1024;
 
 type Body =
