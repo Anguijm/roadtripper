@@ -10,6 +10,7 @@ import { kindWord } from "@/lib/plan/words";
 import { rowBadges } from "@/lib/plan/badges";
 import { waypointCoords } from "@/lib/atlas/queries";
 import type { LatLng } from "@/lib/plan/types";
+import type { RadialCandidate } from "@/lib/routing/radial";
 
 /**
  * GET /api/today for the car app (docs/car-api.md, agreed with the
@@ -119,39 +120,16 @@ export async function todayAnswer(origin: LatLng, hours: number, moods: MoodId[]
   };
   if (plan.reach === "no-graph") return { version: 1, status: "no-graph", generatedAt, here };
 
-  // As the /today page does: a pipeline that throws still answers with the
-  // towns from the graph, and says the places are incomplete.
-  let fetchResult: WaypointFetchResult;
-  try {
-    fetchResult = await fetchWaypointsForCandidates(plan.reachable);
-  } catch (err) {
-    console.error("[api/today] waypoint pipeline threw:", err instanceof Error ? err.constructor.name : "unknown");
-    fetchResult = {
-      status: "degraded",
-      cities: plan.reachable.slice(0, MAX_WAYPOINT_CITIES).map((r) => ({
-        id: r.city.id, name: r.city.name, vibeClass: null, detourMinutes: r.oneWayDriveMinutes * 2, lat: r.city.lat, lng: r.city.lng,
-      })),
-      waypoints: [],
-      neighborhoods: {},
-      failures: [{ kind: "waypoints", reason: err instanceof Error ? err.message : "unknown" }],
-    };
-  }
-  const groups = buildRankedGroupsWith(fetchResult, waypointProfileForMoods(moods));
+  const fetchResult = await waypointsOrDegraded(plan.reachable, "[api/today]");
+  const placesByTown = rankedPlaces(fetchResult, moods);
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
   const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
-  const coords = waypointCoords(groups.flatMap((g) => g.rows.map((r) => r.waypointId)));
 
-  const towns: TodayApiTown[] = groups.flatMap((g) => {
-    const city = cityById.get(g.cityId);
-    const minutes = oneWay.get(g.cityId);
+  const towns: TodayApiTown[] = [...placesByTown].flatMap(([cityId, { cityName, places }]) => {
+    const city = cityById.get(cityId);
+    const minutes = oneWay.get(cityId);
     if (!city || minutes === undefined) return [];
-    const badges = rowBadges(g.rows, false);
-    const places = g.rows.flatMap((r): TodayApiPlace[] => {
-      const at = coords.get(r.waypointId);
-      if (!at) return [];
-      return [{ id: r.waypointId, name: r.name, lat: at.lat, lng: at.lng, kind: kindWord(r.type), line: r.description ?? null, badge: badges.get(r.waypointId) ?? null }];
-    });
-    return [{ id: g.cityId, name: g.cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), country: city.country ?? "", places }];
+    return [{ id: cityId, name: cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), country: city.country ?? "", places }];
   });
 
   return {
@@ -165,4 +143,48 @@ export async function todayAnswer(origin: LatLng, hours: number, moods: MoodId[]
     placesComplete: fetchResult.status === "fresh",
     towns,
   };
+}
+
+/**
+ * The waypoints for these towns, as the /today page reads them. A pipeline
+ * that throws still answers: the towns come back with no places and the
+ * result says "degraded", so the caller can say the places are incomplete.
+ * Shared by /api/today and /api/today/toward.
+ */
+export async function waypointsOrDegraded(candidates: readonly RadialCandidate[], logTag: string): Promise<WaypointFetchResult> {
+  try {
+    return await fetchWaypointsForCandidates([...candidates]);
+  } catch (err) {
+    console.error(`${logTag} waypoint pipeline threw:`, err instanceof Error ? err.constructor.name : "unknown");
+    return {
+      status: "degraded",
+      cities: candidates.slice(0, MAX_WAYPOINT_CITIES).map((r) => ({
+        id: r.city.id, name: r.city.name, vibeClass: null, detourMinutes: r.oneWayDriveMinutes * 2, lat: r.city.lat, lng: r.city.lng,
+      })),
+      waypoints: [],
+      neighborhoods: {},
+      failures: [{ kind: "waypoints", reason: err instanceof Error ? err.message : "unknown" }],
+    };
+  }
+}
+
+/**
+ * Each town's places, ranked by the chosen moods with their badges, in the
+ * ranking's town order: the five the /today page shows, as the car reads
+ * them. Shared by /api/today and /api/today/toward.
+ */
+export function rankedPlaces(fetchResult: WaypointFetchResult, moods: readonly MoodId[]): Map<string, { cityName: string; places: TodayApiPlace[] }> {
+  const groups = buildRankedGroupsWith(fetchResult, waypointProfileForMoods([...moods]));
+  const coords = waypointCoords(groups.flatMap((g) => g.rows.map((r) => r.waypointId)));
+  const out = new Map<string, { cityName: string; places: TodayApiPlace[] }>();
+  for (const g of groups) {
+    const badges = rowBadges(g.rows, false);
+    const places = g.rows.flatMap((r): TodayApiPlace[] => {
+      const at = coords.get(r.waypointId);
+      if (!at) return [];
+      return [{ id: r.waypointId, name: r.name, lat: at.lat, lng: at.lng, kind: kindWord(r.type), line: r.description ?? null, badge: badges.get(r.waypointId) ?? null }];
+    });
+    out.set(g.cityId, { cityName: g.cityName, places });
+  }
+  return out;
 }

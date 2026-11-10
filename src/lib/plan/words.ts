@@ -5,6 +5,7 @@
  */
 
 import type { WaypointType } from "@/lib/urban-explorer/types";
+import type { RoadsideKind } from "@/lib/roadside/record";
 import type { TripDay } from "@/lib/plan/days";
 import type { TripStatus } from "@/lib/plan/trip-state";
 import { formatDurationPlain } from "@/lib/routing/format";
@@ -63,6 +64,25 @@ const KIND_WORDS: Record<WaypointType, string> = {
 
 export function kindWord(type: WaypointType): string {
   return KIND_WORDS[type] ?? "Place";
+}
+
+/**
+ * The roadside kinds as the sheet says them, one or two plain words;
+ * anything unknown is "place". Moved here from PlanWorkspace.tsx (2026-11-10)
+ * so the car API can use them: anything exported from a "use client" file
+ * reaches server code as a client reference, not a value (the rowBadges
+ * lesson, #164).
+ */
+export const ROADSIDE_KIND_WORDS: Record<RoadsideKind, string> = {
+  attraction: "attraction", museum: "museum", viewpoint: "viewpoint", artwork: "artwork", theme_park: "theme park", zoo: "zoo",
+  historic: "historic place", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
+  notable: "well-known place", other: "place",
+};
+
+/** A roadside kind as a capitalised word, the car's form ("Museum", "Historic place"). */
+export function roadsideKindWord(kind: string): string {
+  const word = (ROADSIDE_KIND_WORDS as Record<string, string>)[kind] ?? "place";
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 // ── The days (Gauntlet U3) ──────────────────────────────────────────────

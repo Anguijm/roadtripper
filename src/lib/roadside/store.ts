@@ -11,7 +11,8 @@ import "server-only";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import Database from "better-sqlite3";
-import { decodePolyline, type LatLng } from "@/lib/routing/polyline";
+import { decodePolyline, haversineKm, type LatLng } from "@/lib/routing/polyline";
+import { coneBox, inCone } from "@/lib/today/cone";
 import { corridorTiles, DEFAULT_BUFFER_KM } from "./corridor";
 import { roadsideAlong, type RoadsideMarker } from "./along";
 import { MAP_THRESHOLD, RoadsideSurvivorSchema, type RoadsideSurvivor } from "./survivors";
@@ -302,24 +303,75 @@ export function survivorsAlongRoute(db: Database.Database, route: LatLng[], thre
   for (const t of tiles) {
     for (const r of q.all(threshold, t.box.minLat, t.box.maxLat, t.box.minLng, t.box.maxLng) as Row[]) {
       if (byId.has(r.id)) continue;
-      // The one line to read, best first: the Wikipedia opening is a
-      // sentence a person wrote about this place; Wikidata's short
-      // description is a few words of type ("art museum in Austin, Texas");
-      // the map's own line is whatever the mapper typed, from a sentence to
-      // "statue". The same order as `aboutFor` in survivors.ts.
-      // The mapper's text through `readableDetail` (U16): a one-word tag is
-      // never the whole line about a place.
-      const about = r.extract?.trim() || r.short?.trim() || readableDetail(r.detail);
-      const parsed = RoadsideSurvivorSchema.safeParse({ id: r.id, name: r.name, lat: r.lat, lng: r.lng, kind: r.kind, p: r.p, about, url: r.url });
-      if (parsed.success) byId.set(r.id, parsed.data);
+      const survivor = survivorFromRow(r);
+      if (survivor) byId.set(r.id, survivor);
     }
   }
   // Tags after the corridor narrows, never before: see `tagScoresByStop`.
   return withTagScores(db, roadsideAlong([...byId.values()], route, bufferKm));
 }
 
+/**
+ * A store row as a survivor, or null when the schema refuses it (a non-name,
+ * a bad kind), which the caller then skips (U15).
+ *
+ * The one line to read, best first: the Wikipedia opening is a sentence a
+ * person wrote about this place; Wikidata's short description is a few words
+ * of type ("art museum in Austin, Texas"); the map's own line is whatever the
+ * mapper typed, from a sentence to "statue". The same order as `aboutFor` in
+ * survivors.ts. The mapper's text goes through `readableDetail` (U16): a
+ * one-word tag is never the whole line about a place.
+ */
+function survivorFromRow(r: Row): RoadsideSurvivor | null {
+  const about = r.extract?.trim() || r.short?.trim() || readableDetail(r.detail);
+  const parsed = RoadsideSurvivorSchema.safeParse({ id: r.id, name: r.name, lat: r.lat, lng: r.lng, kind: r.kind, p: r.p, about, url: r.url });
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * The survivors in the cone toward a destination and within `reachKm` of
+ * `from` (the car app's /api/today/toward; src/lib/today/cone.ts says what
+ * the cone is). There is no route to measure along, so `alongKm` is the
+ * straight km from `from`, which the car's order is built on.
+ */
+export function survivorsInCone(db: Database.Database, from: LatLng, to: LatLng, reachKm: number, threshold = MAP_THRESHOLD): RoadsideMarker[] {
+  const box = coneBox(from, to, reachKm);
+  if (!box) return [];
+  const q = db.prepare(`
+    SELECT id, name, lat, lng, kind, p, short, extract, detail, url FROM roadside_stop
+    WHERE p >= ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?`);
+  const out: RoadsideMarker[] = [];
+  for (const r of q.all(threshold, box.minLat, box.maxLat, box.minLng, box.maxLng) as Row[]) {
+    const at = { lat: r.lat, lng: r.lng };
+    const km = haversineKm(from, at);
+    if (km > reachKm || !inCone(from, to, at)) continue;
+    const survivor = survivorFromRow(r);
+    if (survivor) out.push({ ...survivor, alongKm: km });
+  }
+  // Tags after the cone narrows, never before, as along a route.
+  return withTagScores(db, out);
+}
+
 let warnedMissing = false;
 let saidPath = false;
+
+/** The survivors toward a destination (survivorsInCone), or none if the store is missing or the read fails. */
+export function roadsideToward(from: LatLng, to: LatLng, reachKm: number): RoadsideMarker[] {
+  try {
+    const db = roadsideStore(resolveStore()?.path ?? null);
+    if (!db) {
+      if (!warnedMissing) {
+        warnedMissing = true;
+        console.warn(`[roadside] no store found (ROADSIDE_STORE_PATH, data/roadside.sqlite, or the standalone output); no roadside stops toward a destination. See docs/roadside-store.md.`);
+      }
+      return [];
+    }
+    return survivorsInCone(db, from, to, reachKm);
+  } catch (err) {
+    console.warn(`[roadside] no stops toward this destination: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
+}
 
 /** The survivors along a planned route, or none if the store is missing or the route cannot be read. */
 export function roadsideForRoute(encodedPolyline: string): RoadsideMarker[] {

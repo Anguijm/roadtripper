@@ -4,6 +4,8 @@ For the Android Auto app (project `~/projects/roadtripper-car`, its own
 session). Agreed between the roadtripper and roadtripper-car sessions on
 2026-11-10, at John's request (relayed by ops). Code:
 `src/app/api/today/route.ts` and `src/lib/today/api.ts`; tests beside them.
+The destination-aware list (`/api/today/toward`, `/api/today/towns`) was
+agreed the same night: `src/lib/today/toward.ts`, `cone.ts`, `towns.ts`.
 
 `version` bumps only on a breaking change. Every 200 carries `generatedAt`.
 
@@ -98,6 +100,127 @@ Every answer is JSON, the 500 included (added after the PR #164 council,
   one line per call with the status, the town count and that agent, and no
   coordinates.
 
+## GET /api/today/towns
+
+The atlas's towns as a pick list, so a destination can be chosen without
+typing (John, 2026-11-10: "the list should be available in the car app").
+The car matches names itself.
+
+```json
+{ "version": 1, "status": "ok", "atlasVersion": "2026-11-10T13:12:26.433Z",
+  "towns": [ { "id": "toledo-oh", "name": "Toledo", "state": "OH", "country": "United States", "lat": 41.6528, "lng": -83.5379 } ] }
+```
+
+- 304 towns, about 32 KB, sorted by name then state.
+- `state`: the two-letter US state, null outside the US. It is read from the
+  app's US places list (the nearest same-named place within 50 km, else the
+  nearest place within 15 km, else the state the atlas id ends in).
+- `Cache-Control: public, max-age=86400` and `ETag` = `"<atlasVersion>"`.
+  Send `If-None-Match` to re-check: a 304 means unchanged. The atlas changes
+  every few weeks at most.
+
+## GET /api/today/toward
+
+Today's towns and roadside stops in the general direction of a destination,
+as one list ordered by the time to reach each from here. John's rulings
+(2026-11-10): the destination is typed on the phone (it arrives as a point)
+or picked from `/api/today/towns`; the direction is a rough cone with **no
+Routes call** (`src/lib/today/cone.ts`); the car navigates to one stop at a
+time and keeps the stops it adds by `id`. No paid call of any kind.
+
+```
+GET .../api/today/toward?lat=42.33&lng=-83.05&to=louisville&hours=5&moods=history,food
+GET .../api/today/toward?lat=42.33&lng=-83.05&toLat=37.19&toLng=-86.10&hours=8
+```
+
+| parameter | | |
+|---|---|---|
+| `lat`, `lng`, `hours`, `moods` | | as `/api/today` |
+| `to` | one of | an atlas town id from `/api/today/towns` |
+| `toLat`, `toLng` | one of | a typed place's position (the phone geocodes; send 2 decimals) |
+
+Exactly one destination form; both, or neither, is a 400.
+
+### The direction
+
+A place counts when going there first costs at most a quarter more straight
+distance than heading straight to the destination (`km(here, place) +
+km(place, destination) <= 1.25 x km(here, destination)`: an ellipse), **and**
+it leaves you nearer the destination than you are, **and** it is within
+today's hours. Straight lines only: a road that bends can pass a place the
+cone leaves out. From the towns that qualify, the 8 most on the way (least
+detour) are chosen; from the roadside stops, the 8 strongest by the moods, as
+the web's Along the way ranks them. Then everything is merged by time and
+capped at 15.
+
+### 200, `status: "ok"`
+
+```json
+{
+  "version": 1, "status": "ok", "generatedAt": "...",
+  "origin": { "lat": 42.33, "lng": -83.05 },
+  "here": { "cityId": "detroit", "name": "Detroit", ... },
+  "hours": 5, "moods": [],
+  "destination": { "cityId": "louisville", "name": "Louisville", "lat": 38.2527, "lng": -85.7585,
+                   "country": "United States", "driveMinutes": 334, "estimated": false, "withinToday": false },
+  "placesComplete": true,
+  "stops": [
+    { "type": "stop", "id": "osm:node:...", "name": "Beer Can Tree", "lat": ..., "lng": ..., "reachMinutes": 26, "estimated": true,
+      "detourMinutes": 33, "kind": "Attraction", "line": "...", "badge": null, "country": null, "near": "Detroit", "isDestination": false },
+    { "type": "town", "id": "toledo-oh", "name": "Toledo", "lat": 41.6528, "lng": -83.5379, "reachMinutes": 59, "estimated": false,
+      "detourMinutes": 0, "kind": "Town", "line": null, "badge": null, "country": "United States", "near": null, "isDestination": false,
+      "places": [ { ...as /api/today... } ] }
+  ]
+}
+```
+
+- `destination`: `cityId` and `name` when the point is within an atlas
+  town's own radius (25 km for a metro, 10 a town, 3 a village), else null
+  and the car shows its own name. `lat`/`lng` are the point asked for, or
+  the town's centre when picked by id. `driveMinutes` is the drive graph
+  when both ends are atlas towns with a stored pair, else an estimate
+  (`estimated: true`). `withinToday`: whether today's hours reach it.
+- `stops`: nearest first by `reachMinutes`, at most 15, possibly empty.
+  - `type: "town"` rows: `reachMinutes` from `here` on the drive graph
+    (`estimated: false`), `kind` "Town", `line`, `badge` and `near` null,
+    and `places` exactly as `/api/today` (up to 5).
+  - `type: "stop"` rows (roadside): `reachMinutes` is straight-line km from
+    your actual position at the graph's median pace (`estimated: true`;
+    say "about"). `kind` is the web's word, capitalised. `line` is the
+    stop's description or null (**untrusted text, render as plain text**).
+    `badge` is `"good"` when it answers a chosen mood, else null. `near` is
+    the nearest atlas town within 40 km, else null. No `places`.
+  - `detourMinutes`: always a number, always an estimate: the extra minutes
+    against heading straight to the destination.
+  - `isDestination`: true on one town row when the destination is an atlas
+    town that today reaches; it carries its places and sorts by time like
+    the rest. Past the cap, the farthest rows go first, never this one.
+- Ids are unique across the answer: atlas city ids, atlas place ids, and
+  OSM ids (`osm:node:...`), which atlas ids never resemble. A roadside stop
+  named like a place in one of the answer's towns is that place and appears
+  once, as the place. The here town is never a row.
+
+### Other answers
+
+```json
+200 { "version": 1, "status": "arrived", "generatedAt": "...", "here": {...}, "hours": 5, "moods": [], "destination": {...} }
+200 { "version": 1, "status": "no-city", "generatedAt": "..." }
+200 { "version": 1, "status": "no-graph", "generatedAt": "...", "here": {...} }
+404 { "version": 1, "status": "unknown-destination", "message": "..." }
+400, 429, 500 as /api/today
+```
+
+`arrived`: here is within 15 km of the destination, or both are the same
+atlas town (then ask `/api/today` for the town's own list).
+
+### Caching and limits
+
+As `/api/today`: 200s `private, max-age=300`; 400, 404, 429 and 500
+`no-store`; the per-IP burst limit; no daily quota, since nothing here is
+paid. The car re-asks at most every 10 minutes and after about 10 km. One
+log line per call: status, row count and user agent, never a position or a
+destination.
+
 ## What the server keeps of a request
 
 Checked 2026-11-10 in the code and in the project's Cloud Logging settings,
@@ -114,8 +237,12 @@ for the car app's Play privacy policy.
 - **IP address:** only the in-memory burst limiter, per server instance,
   swept after about 2 minutes.
 - **Other identifiers:** no cookies, ids or analytics. The app logs one
-  line per call, `[api/today] <status> towns=<n> ua=<first 40 characters>`,
-  kept 30 days.
+  line per call, `[api/today] <status> towns=<n> ua=<first 40 characters>`
+  (`[api/today/toward] <status> rows=<n> ua=...` for the list toward a
+  destination), kept 30 days.
+- **The destination** (`/api/today/toward`): as the position. Every car path
+  starts `/api/today`, so the same exclusion drops its request entries, and
+  the app's log line carries none.
 
 Changing any of this (a new log line, a cache keyed on position, a header)
 changes the privacy policy too: say so to the car session and ops.
