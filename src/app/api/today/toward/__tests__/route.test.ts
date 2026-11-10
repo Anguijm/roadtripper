@@ -10,13 +10,13 @@ const call = (qs: string, ip: string) =>
 describe("GET /api/today/toward", () => {
   it("answers 200 JSON with a private five-minute cache, and logs no position", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await call("lat=42.33&lng=-83.05&to=louisville&hours=5", "10.1.0.1");
+    const res = await call("lat=42.33&lng=-83.05&to=louisville&hours=5&client=car-0.2.0", "10.1.0.1");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("private, max-age=300");
     expect(await res.json()).toMatchObject({ version: 1, status: "ok", hours: 5 });
     const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[api/today/toward]"));
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(/^\[api\/today\/toward\] ok rows=\d+ ua="RoadtripperCar\/test"$/);
+    expect(lines[0]).toMatch(/^\[api\/today\/toward\] ok rows=\d+ client=car-0\.2\.0$/);
     expect(lines[0]).not.toMatch(/42\.33|83\.05|louisville/);
     log.mockRestore();
   });

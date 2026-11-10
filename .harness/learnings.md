@@ -793,3 +793,11 @@ the waiter was wrong, not the process.
 - **IMPROVE: a mutation applied with `sed` must be checked to have applied.** Two of four mutants "passed" because the sed pattern never matched the regex literal; a count of 0 said so. Exact string replacement with an assertion, then rerun.
 - **KEEP: show the whole merge list before a data rule ships.** Reading all 80 found the one pair that was two places (Little Rock's two streets), now a named exception.
 - **INSIGHT: a log exclusion takes a few minutes to take hold, and App Hosting keeps its own request log beside Cloud Run's.** Test with a control request and wait until the control appears in every log before trusting an absence.
+
+## 2026-11-10: the car's destination-aware list (#177, #178) and its client tag
+
+- **INSIGHT: App Hosting hands every request to the app with the User-Agent "Google".** Our log lines said `ua="Google"` for every call, the car's included; a client that needs telling apart sends its own tag (`client=car-<version>`).
+- **IMPROVE: first tests of a new filter passed with the filter removed, four times.** Real data happened not to hit the case (nothing behind Detroit on that trip, no roadside stop sharing a town place's name). Pull the rule into a pure function and test it on made-up rows that do hit it; then mutate.
+- **IMPROVE: a test that needs the 160 MB roadside store fails in CI, which has none.** Test the store's reads on a made-up store and `skipIf` the real-store check; run the suite once with the store moved aside to see CI's view.
+- **KEEP: grep for an existing helper before writing one.** `driveMinutesBetween` and the graph's median pace already existed in queries.ts; the duplicates were caught by the type-checker, not by looking first.
+- **IMPROVE: a merge plus `git switch` went into a background job again,** against the rule written the same day. Harmless this time (clean checkout, nothing edited while it ran); merges stay in the foreground.

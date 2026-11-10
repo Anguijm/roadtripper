@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { GET } from "@/app/api/today/towns/route";
 import { stateFor, townList } from "@/lib/today/towns";
 
@@ -44,5 +44,12 @@ describe("GET /api/today/towns", () => {
     expect(await res.json()).toMatchObject({ version: 1, status: "ok" });
     const again = await call("10.2.0.1", { "if-none-match": etag! });
     expect(again.status).toBe(304);
+  });
+
+  it("logs one line per call with the car's client tag", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await GET(new Request("http://localhost/api/today/towns?client=car-0.2.0", { headers: { "x-forwarded-for": "10.2.0.2" } }));
+    expect(log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[api/today/towns]"))).toEqual(["[api/today/towns] ok client=car-0.2.0"]);
+    log.mockRestore();
   });
 });

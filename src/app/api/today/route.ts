@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseTodayQuery, todayAnswer, type TodayApiResponse } from "@/lib/today/api";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { clientTag } from "@/lib/today/client";
 
 /**
  * GET /api/today, read-only JSON for the car app. The contract is
@@ -43,9 +44,8 @@ export async function GET(request: Request) {
     console.error("[api/today] failed:", err instanceof Error ? err.constructor.name : "unknown");
     return json({ version: 1, status: "error", message: "Something went wrong on our side. Try again." }, 500, { "Cache-Control": "no-store" });
   }
-  // One line per call, so car traffic can be told apart (it sends
-  // "RoadtripperCar/<version>"); no coordinates in the log.
-  const ua = (request.headers.get("user-agent") ?? "").slice(0, 40);
-  console.log(`[api/today] ${body.status} towns=${body.status === "ok" ? body.towns.length : 0} ua=${JSON.stringify(ua)}`);
+  // One line per call, so car traffic can be told apart by its client tag
+  // (the User-Agent arrives as "Google"); no coordinates in the log.
+  console.log(`[api/today] ${body.status} towns=${body.status === "ok" ? body.towns.length : 0} client=${clientTag(request.url)}`);
   return json(body, 200);
 }

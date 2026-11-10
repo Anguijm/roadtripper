@@ -16,6 +16,17 @@ describe("GET /api/today", () => {
     expect(body).toMatchObject({ version: 1, status: "ok", hours: 4 });
   });
 
+  it("logs one line with the status, the town count and the car's client tag, and no position", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await call("lat=41.2565&lng=-95.9345&hours=4&client=car-0.2.0", "10.0.0.5");
+    await call("lat=41.2565&lng=-95.9345&hours=4", "10.0.0.5");
+    const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[api/today]"));
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(/^\[api\/today\] ok towns=\d+ client=car-0\.2\.0$/);
+    expect(lines[1]).toMatch(/^\[api\/today\] ok towns=\d+ client=-$/);
+    log.mockRestore();
+  });
+
   it("answers 400 with a message for a bad query, not cached", async () => {
     const res = await call("lat=41&lng=-95&moods=nope", "10.0.0.2");
     expect(res.status).toBe(400);

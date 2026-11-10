@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { townList, type TownsApiResponse } from "@/lib/today/towns";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { clientTag } from "@/lib/today/client";
 
 /**
  * GET /api/today/towns: the atlas's towns as the car app's pick list
@@ -31,6 +32,8 @@ export async function GET(request: Request) {
   }
   const etag = `"${list.atlasVersion ?? "unknown"}"`;
   const cache = { "Cache-Control": "public, max-age=86400", ETag: etag };
-  if (request.headers.get("if-none-match") === etag) return new NextResponse(null, { status: 304, headers: cache });
+  const fresh = request.headers.get("if-none-match") === etag;
+  console.log(`[api/today/towns] ${fresh ? "not-modified" : "ok"} client=${clientTag(request.url)}`);
+  if (fresh) return new NextResponse(null, { status: 304, headers: cache });
   return json({ version: 1, status: "ok", atlasVersion: list.atlasVersion, towns: list.towns }, 200, cache);
 }

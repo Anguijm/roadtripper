@@ -4,8 +4,8 @@ import { parseTownRequest, MAX_TOWN_REQUEST_CHARS } from "@/lib/today/town-reque
 
 /** The car app's "add this town" button (docs/car-api.md): a name, checked, kept as one log line. */
 
-const post = (body: string, ip: string, type = "application/json") =>
-  POST(new Request("http://localhost/api/today/town-requests", { method: "POST", body, headers: { "content-type": type, "x-forwarded-for": ip } }));
+const post = (body: string, ip: string, type = "application/json", qs = "") =>
+  POST(new Request(`http://localhost/api/today/town-requests${qs}`, { method: "POST", body, headers: { "content-type": type, "x-forwarded-for": ip } }));
 
 describe("parseTownRequest", () => {
   it("takes a place name as the phone's geocoder gives it, tidied", () => {
@@ -34,7 +34,14 @@ describe("POST /api/today/town-requests", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(await res.json()).toEqual({ version: 1, status: "accepted" });
     const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[town-request]"));
-    expect(lines).toEqual(['[town-request] "Springfield, Illinois, United States"']);
+    expect(lines).toEqual(['[town-request] client=- "Springfield, Illinois, United States"']);
+    log.mockRestore();
+  });
+
+  it("puts the car's client tag before the name", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await post(JSON.stringify({ name: "Toledo, Ohio" }), "10.3.0.4", "application/json", "?client=car-0.2.0");
+    expect(log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[town-request]"))).toEqual(['[town-request] client=car-0.2.0 "Toledo, Ohio"']);
     log.mockRestore();
   });
 

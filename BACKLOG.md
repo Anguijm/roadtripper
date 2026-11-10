@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #175 (bracketed duplicates merged) and the /api/today log exclusion, after #173 (Toledo's Cloister line), #171 (Toledo joins the atlas), #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: the car's destination-aware list (#177), its add-this-town button (#178) and its client tag in the logs, after #175 (bracketed duplicates merged) and the /api/today log exclusion, #173 (Toledo's Cloister line), #171 (Toledo joins the atlas), #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -10,6 +10,8 @@ Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
+- **A cap on detour for /api/today/toward?** (roadtripper-car, 2026-11-10). The cone is John's "very general direction", and it lets in a row 65 minutes off the road (a monument near Cleveland, Detroit to Louisville). The car shows "adds 65 min" on the row. A 30 to 40 minute cap would tighten it; John's call.
+- **Read the car's town requests** (`[town-request]` in Cloud Logging, roadtripper-planner, 30 days) and add the real towns with the one-town recipe (`docs/atlas-gaps.md`). The first entry, "Deploy Check, Nowhere" (2026-11-10 23:55 JST), is the live check; skip it.
 - **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
 - **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
 - **`GET /api/trip` for the car app**, phase two: the plan's days and Along the way are computed in the browser, so this is a port of that logic to the server. Shape agreed after the car app's Today screen has been used.
@@ -19,6 +21,14 @@ Nothing queued. Open questions for John are in Next.
 
 
 ## Done, recorded
+
+- **The car knows where you're going (#177, #178, 2026-11-10).** John: "we are roadtripping and generally have a destination". His choices: the destination typed on the phone or picked from the town list, a rough cone with no Routes call, one stop at a time, and an add-this-town button.
+  - `GET /api/today/toward` lists towns (drive graph) and roadside stops (estimates) toward the destination as one list by time, at most 15, with the destination town as a row when today reaches it. The cone is 1.25 times the straight distance, and a place must leave you nearer the destination. Towns are chosen by least detour.
+  - `GET /api/today/towns` is the pick list, with US states.
+  - `POST /api/today/town-requests` keeps a typed town's name as one log line.
+  - Every call is tagged `client=car-<version>` in its log line (the User-Agent arrives as "Google").
+  - All live under /api/today, so the request-log exclusion covers them. Checked on production: no entries in either request log.
+  - Contract agreed with roadtripper-car-a3, in `docs/car-api.md`. Live 23:46 and 23:55 JST.
 
 - **One place written two ways is one place (#175, 2026-11-10).** The car session found Grand Rapids' Calder twice, as "La Grande Vitesse (The Calder)" and "La Grande Vitesse". The export now runs a second pass: the same name but for a bracketed aside, same town, within 300 m, keeping the richest row. John read all 80 merges first and kept Little Rock's two Quapaw Quarter streets apart (`KEEP_APART`): 79 merges, 80 rows. The export diff showed nothing else changed. Live 22:21 JST: from Detroit, Grand Rapids lists the Calder once, with The Blue Bridge in the freed slot; /today shows it once at 390 px in headless Chrome.
 - **/api/today positions are no longer logged (2026-11-10, John's choice).** The platform's two request logs kept the URL (lat, lng), IP and user agent for 30 days. A `_Default` sink exclusion, `drop-api-today-requests`, drops those entries since 13:11 UTC; a test call left none while a control request was logged. `docs/car-api.md` says what the server keeps; the runbook has the filter and the undo.
