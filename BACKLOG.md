@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last code: #158 (home city count, 2026-11-10). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #160 (U49 shorter Wikipedia lines, data), after #158 (home city count). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -10,12 +10,14 @@ Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
 
 ## Next (scoped, not started)
 
-- **Shorter Wikipedia lines.** The U48 critic: "The Stuhr Museum of the Prairie Pioneer is a museum located in Grand Island, Nebraska…" repeats the name and the town already on screen. Trimming the lead-in and the "located in" clause would halve it, but it rewrites sourced text, so it needs care.
+- **Plainer Wikipedia lines?** The U49 critic (2026-11-10) approved the trimmed lines, then suggested going further: the Stuhr Museum's "intended to preserve the legacy of" is still encyclopedia wording, and something like "Pioneer village and museum of 1800s prairie life" would read faster. That is a rewrite, not a deletion, so the line would stop being Wikipedia's own words. Waits on John: is a rewritten line acceptable? Same critic: Studio 10 in Grand Island has no line at all.
 
 - **Elk City, OK** is still too thin: 4 mapped places within 3 km. It names day ends via U19.
 
 
 ## Done, recorded
+
+- **Shorter Wikipedia lines (U49, #160, 2026-11-10).** city-atlas-service #64 trims a Wikipedia sentence's own subject and its town, deleting words only; a trim leaving under 25 characters keeps the whole sentence (John's choice, so Howard Payne University is unchanged). Four lines changed: Stuhr Museum, Fonner Park, Wendover Will, Reliance Tipple. Council on #64 blocked round 1 on real bugs ("X is located in <town>." became "X is.", "was a" lost past tense), fixed with tests; CLEAR on round 2. Production checked at 09:13 JST; a fresh blind critic picked the trimmed screen over the old one, APPROVE, high confidence.
 
 - **The home page counts the atlas's cities (#158, 2026-11-10).** It said "258 cities" while the atlas had 303 since U45. The number is now `getAllCities().length` at render, so the next atlas change cannot leave it stale. Checked on production: the old build said 258, the new one 303.
 
