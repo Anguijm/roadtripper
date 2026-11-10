@@ -4,15 +4,25 @@
 
 # Active plan — roadtripper
 
-Branch: docs/toledo-record
+Branch: data/cloister-line
 
-(Docs only: records Toledo, shipped as #171 and city-atlas-service #67.)
+## Ship rule (written before the work)
 
-Ship rule: README, BACKLOG, SESSION_HANDOFF, docs/atlas-gaps.md and the
-learnings say 304 cities and 6,190 drive pairs wherever they state the
-current count, and atlas-gaps.md holds the one-town recipe as run.
+Toledo's Cloister read "Museum on Monroe Street." (the OSM listing). John
+approved "A courtyard framed by centuries-old columns from French
+monasteries." (2026-11-10), every fact from the Atlas Obscura listing.
+city-atlas-service #70 (🟢 10/10 on round 2) put it in the approved-lines
+file and wrote it to the live atlas. Here: re-export, so /plan and /today
+show it.
 
-Cost: None.
+## Done
 
-Weakest part: the recipe was run once, on this machine. The Chrome preload
-for Playwright is written out in the doc, not kept as a file in either repo.
+- Export diffed row by row against a copy taken first: one waypoint row
+  changed, the Cloister's description. Cities, neighbourhoods and the drive
+  graph are identical.
+- A test pins the approved line in the app's read. Proof: with the previous
+  atlas swapped back in, it is red; restored, `cmp` clean.
+
+Cost: None. One re-export.
+
+Weakest part: the line says only what Atlas Obscura's one sentence says.
