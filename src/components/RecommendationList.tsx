@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, { useMemo, useState, type ReactNode } from "react";
 import type { PersonaConfig, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDrive } from "@/lib/today/presets";
@@ -258,22 +258,14 @@ export default function RecommendationList({
   moodFilter = null,
 }: RecommendationListProps) {
   const accent = moodProfile.accentColor;
-  // The towns opened by a tap (U50); every town starts closed.
-  const [openTowns, setOpenTowns] = useState<ReadonlySet<string>>(() => new Set());
-  // A town whose write-up is asked for from anywhere (its marker on the
-  // map, or "What's in" inside it) opens its drawer, so the answer is not
-  // drawn inside a closed one (U50, round 1).
-  useEffect(() => {
-    if (!drawers || !previewedCityId) return;
-    setOpenTowns((curr) => (curr.has(previewedCityId) ? curr : new Set(curr).add(previewedCityId)));
-  }, [drawers, previewedCityId]);
-  const toggleTown = (id: string) =>
-    setOpenTowns((curr) => {
-      const next = new Set(curr);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // Each town's drawer as last set by a tap (U50). A town never tapped is
+  // closed, except while its write-up is showing (asked for from its map
+  // marker, or from "What's in" inside it), so the answer is never drawn
+  // inside a closed drawer (round 1). Derived rather than set from an
+  // effect, so a tap after that still closes it.
+  const [tapped, setTapped] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const townOpen = (id: string) => tapped.get(id) ?? previewedCityId === id;
+  const toggleTown = (id: string) => setTapped((curr) => new Map(curr).set(id, !(curr.get(id) ?? previewedCityId === id)));
 
   const { groups, hiddenTowns } = useMemo(() => {
     const all = buildRankedGroupsWith(fetchResult, moodProfile, primaryCityId ?? null);
@@ -346,7 +338,7 @@ export default function RecommendationList({
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
         const badges = rowBadges(rows, !!outOfTheWay);
         // A drawer's places show once it is opened (U50).
-        const isOpen = !drawers || openTowns.has(cityId);
+        const isOpen = !drawers || townOpen(cityId);
         // One layout for every place, the lead included (U44: the lead ran
         // its reason flush under the glyph and had no kind line).
         const placeBody = (r: (typeof rows)[number]) => (
