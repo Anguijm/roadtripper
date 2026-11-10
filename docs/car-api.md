@@ -221,6 +221,30 @@ paid. The car re-asks at most every 10 minutes and after about 10 km. One
 log line per call: status, row count and user agent, never a position or a
 destination.
 
+## POST /api/today/town-requests
+
+The "add this town" button (John, 2026-11-10: "Plus 'add this town'
+button"): a typed destination the atlas lacks, asked for by name, once per
+place, on the driver's tap. Requested towns are added to the atlas in
+batches with the one-town recipe (`docs/atlas-gaps.md`), so they gain their
+own places; nothing happens at once.
+
+```
+POST .../api/today/town-requests
+Content-Type: application/json
+
+{ "name": "Springfield, Illinois, United States" }
+```
+
+- `name`: the place as the phone's geocoder names it, 2 to 80 characters
+  of letters (any script), digits, spaces and `. , ' ’ ( ) -`. Runs of
+  spaces are tidied. No position or id travels.
+- `202 { "version": 1, "status": "accepted" }`; `400 bad-request` for a
+  wrong `Content-Type`, a body that is not JSON or is over 1 KB, or a name
+  outside those rules; `429` as /api/today. All `no-store`.
+- Kept: one app log line, `[town-request] "<name>"`, quoted so a name can
+  never start another line, for 30 days.
+
 ## What the server keeps of a request
 
 Checked 2026-11-10 in the code and in the project's Cloud Logging settings,
@@ -240,6 +264,9 @@ for the car app's Play privacy policy.
   line per call, `[api/today] <status> towns=<n> ua=<first 40 characters>`
   (`[api/today/toward] <status> rows=<n> ua=...` for the list toward a
   destination), kept 30 days.
+- **A requested town's name** (`/api/today/town-requests`): one app log
+  line, kept 30 days, read in batches to add towns. Nothing else about the
+  request.
 - **The destination** (`/api/today/toward`): as the position. Every car path
   starts `/api/today`, so the same exclusion drops its request entries, and
   the app's log line carries none.
