@@ -4,7 +4,9 @@
 
 # Active plan — roadtripper
 
-Branch: feat/abroad-label
+Branch: docs/u52-record
+
+(Docs only: records U52, shipped as #169, live 10:49 JST.)
 
 ## Ship rule (written before the work)
 

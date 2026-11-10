@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #167 (U51 plain-word lines), after #165 (CI type-check), #164 (/api/today), #162 (U50 drawers), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #169 (U52 border label), after #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -10,7 +10,6 @@ Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
-- **Cross-border towns in /api/today and /today** (roadtripper-car, 2026-11-10): from Detroit, Toronto is offered at 3 h 41 min like any other town, with no sign it is across a border. Leave out, label (an optional `country` on a town; the car app would label it), or leave as is. Waits on John.
 - **Toledo, Ohio is not in the atlas** (roadtripper-car, 2026-11-10): nothing between Ann Arbor and Dayton on I-75, so a Detroit to Ohio drive can never stop there. An atlas addition through city-atlas-service, like U45.
 - **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
 - **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
@@ -21,6 +20,8 @@ Nothing queued. Open questions for John are in Next.
 
 
 ## Done, recorded
+
+- **A town across a border says so (U52, #169, 2026-11-10).** From Detroit, Toronto was offered like any other town (roadtripper-car's note); John chose to label it. "· in Canada" right after the name on /plan and /today, and `country` on each town and on `here` in /api/today (docs/car-api.md). The start's country is the nearest atlas town's. Critic APPROVE (medium); its "same place on both screens" note done. Live 10:49 JST. Left for John: the critic's idea of more weight on the label.
 
 - **Plain-word lines for five places (U51, #167, 2026-11-10).** John allowed rewrites and approved five exact lines, each from facts in its Wikipedia article: Stuhr Museum ("Prairie pioneer museum with Railroad Town, a living-history 1890s village of original buildings."), Fonner Park, Wendover Will, Reliance Tipple, Howard Payne University. city-atlas-service #66 keeps them in `data/description-overrides.json`, applied at ingest so no pipeline run can undo them. Blind critic before merge: APPROVE, high. Live 10:35 JST.
 
