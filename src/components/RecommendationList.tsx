@@ -6,6 +6,11 @@ import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/s
 import { formatDrive } from "@/lib/today/presets";
 import { kindWord } from "@/lib/plan/words";
 import Figures from "@/components/Figures";
+// In a plain module so server code (the car endpoint) can call it: a
+// function exported from a "use client" file reaches the server as a
+// client reference, not as the function.
+import { rowBadges, type RowBadge } from "@/lib/plan/badges";
+export { rowBadges, type RowBadge };
 
 export interface AddCityPayload {
   cityId: string;
@@ -189,31 +194,7 @@ export function RecommendationNotices({ fetchResult, moodProfile, atCap = false 
 /** The sheet's scroll box padding (`p-2` on .plan-sheet-scroll in PlanWorkspace), which a pinned town header must cover above it (U32). */
 export const STICKY_BAND_PX = 8;
 
-const BADGE_LABELS = { pick: "★ The pick", good: "Also good" } as const;
-export type RowBadge = keyof typeof BADGE_LABELS | null;
-
-/**
- * Each row's badge (Gauntlet U24). "The pick" is singular: one per town,
- * its highest-scoring primary-kind place (rows come ordered by score),
- * named wherever it sits, the lead included (U44: since the badge became
- * words on the kind line, U42, saying it on the lead costs nothing, and
- * three critics found the ranking half shown without it). Every other primary-kind place, and every
- * secondary-kind one, is "Also good"; the rest say nothing. A town out of
- * the way (U21) has no pick, so its best does not read as recommending
- * the detour over the towns on the way. Pure: keyed by waypoint id.
- */
-export function rowBadges(
-  rows: ReadonlyArray<Pick<RankedWaypoint, "waypointId" | "tier">>,
-  outOfTheWay: boolean
-): Map<string, RowBadge> {
-  const out = new Map<string, RowBadge>();
-  const pickId = outOfTheWay ? null : rows.find((r) => r.tier === "primary")?.waypointId ?? null;
-  for (const r of rows) {
-    if (r.waypointId === pickId) out.set(r.waypointId, "pick");
-    else out.set(r.waypointId, r.tier === "other" ? null : "good");
-  }
-  return out;
-}
+const BADGE_LABELS: Record<Exclude<RowBadge, null>, string> = { pick: "★ The pick", good: "Also good" };
 
 const TYPE_GLYPHS: Record<RankedWaypoint["type"], string> = {
   landmark: "◆",
