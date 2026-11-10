@@ -98,6 +98,28 @@ Every answer is JSON, the 500 included (added after the PR #164 council,
   one line per call with the status, the town count and that agent, and no
   coordinates.
 
+## What the server keeps of a request
+
+Checked 2026-11-10 in the code and in the project's Cloud Logging settings,
+for the car app's Play privacy policy.
+
+- **Position:** used to answer the request, then dropped. No database row
+  and no cache is keyed on it, and the app's log line carries none. The
+  platform's request logs (`run.googleapis.com/requests` and
+  `firebaseapphosting.googleapis.com/requests`) kept the full URL, query
+  string included, for 30 days until 2026-11-10 13:11 UTC. Since then the
+  `_Default` sink's exclusion `drop-api-today-requests` drops /api/today
+  entries from both logs (John's choice; `~/ops/RUNBOOK.md` has the filter
+  and the undo). Older entries age out by about 2026-12-10.
+- **IP address:** only the in-memory burst limiter, per server instance,
+  swept after about 2 minutes.
+- **Other identifiers:** no cookies, ids or analytics. The app logs one
+  line per call, `[api/today] <status> towns=<n> ua=<first 40 characters>`,
+  kept 30 days.
+
+Changing any of this (a new log line, a cache keyed on position, a header)
+changes the privacy policy too: say so to the car session and ops.
+
 ## GET /api/trip
 
 Phase two, not built. The plan's days and "Along the way" are computed in

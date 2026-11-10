@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #173 (Toledo's Cloister line), after #171 (Toledo joins the atlas), #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #175 (bracketed duplicates merged) and the /api/today log exclusion, after #173 (Toledo's Cloister line), #171 (Toledo joins the atlas), #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -10,8 +10,6 @@ Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
-- **The platform keeps /api/today's position for 30 days** (found 2026-11-10 for the car app's Play privacy policy). The app stores nothing, but Cloud Run's request log (`run.googleapis.com/requests`, `_Default` bucket, 30 days) keeps the full URL with lat and lng, the IP address and the user agent. Options: say so in the policy, exclude those entries from the log, or move the position out of the URL. John's call.
-- **Near-duplicate places** (roadtripper-car, 2026-11-10): Grand Rapids lists the Calder twice, as "La Grande Vitesse (The Calder)" and "La Grande Vitesse". The export merges only identical names within 2 km. Dropping a bracketed part and merging within 300 m would collapse 82 pairs, 31 of them in the US (Old North Church / Old North Church (Christ Church) in Boston, among others).
 - **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
 - **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
 - **`GET /api/trip` for the car app**, phase two: the plan's days and Along the way are computed in the browser, so this is a port of that logic to the server. Shape agreed after the car app's Today screen has been used.
@@ -21,6 +19,9 @@ Nothing queued. Open questions for John are in Next.
 
 
 ## Done, recorded
+
+- **One place written two ways is one place (#175, 2026-11-10).** The car session found Grand Rapids' Calder twice, as "La Grande Vitesse (The Calder)" and "La Grande Vitesse". The export now runs a second pass: the same name but for a bracketed aside, same town, within 300 m, keeping the richest row. John read all 80 merges first and kept Little Rock's two Quapaw Quarter streets apart (`KEEP_APART`): 79 merges, 80 rows. The export diff showed nothing else changed. Live 22:21 JST: from Detroit, Grand Rapids lists the Calder once, with The Blue Bridge in the freed slot; /today shows it once at 390 px in headless Chrome.
+- **/api/today positions are no longer logged (2026-11-10, John's choice).** The platform's two request logs kept the URL (lat, lng), IP and user agent for 30 days. A `_Default` sink exclusion, `drop-api-today-requests`, drops those entries since 13:11 UTC; a test call left none while a control request was logged. `docs/car-api.md` says what the server keeps; the runbook has the filter and the undo.
 
 - **Toledo's Cloister line (#173, city-atlas-service #70, 2026-11-10).** It read the OSM listing's "Museum on Monroe Street."; John approved "A courtyard framed by centuries-old columns from French monasteries.", facts from the Atlas Obscura listing, kept in the U51 approved-lines file. One waypoint row changed in the export; a test pins the line. Live 22:01 JST, checked in headless Chrome.
 
