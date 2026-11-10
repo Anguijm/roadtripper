@@ -2,20 +2,25 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #160 (U49 shorter Wikipedia lines, data), after #158 (home city count). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #162 (U50 drawers), after #160 (U49 shorter Wikipedia lines) and #158 (home city count). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
-Nothing queued. Round 3 closed with #108; see `gauntlet/round-3-report.md`.
+- **`GET /api/today` for the car app.** Contract agreed with the roadtripper-car session on 2026-11-10 (to be written to `docs/car-api.md` in the PR): today's towns and places from lat, lng, hours and up to two moods, the /today page's computation, behind the per-IP rate limit. The car app (Kotlin, Android Auto, project `~/projects/roadtripper-car`) builds against a fixture until it is live.
+- **CI type-check fix, blocked.** Branch `fix/ci-type-check` (local commit) makes `ci.yml` run `npm run type-check`; GitHub refuses the push because this machine's GitHub token lacks the `workflow` scope. Waits on John: grant the scope, or push it from elsewhere.
 
 ## Next (scoped, not started)
 
-- **Plainer Wikipedia lines?** The U49 critic (2026-11-10) approved the trimmed lines, then suggested going further: the Stuhr Museum's "intended to preserve the legacy of" is still encyclopedia wording, and something like "Pioneer village and museum of 1800s prairie life" would read faster. That is a rewrite, not a deletion, so the line would stop being Wikipedia's own words. Waits on John: is a rewritten line acceptable? Same critic: Studio 10 in Grand Island has no line at all.
+- **Plainer Wikipedia lines (John said yes, 2026-11-10).** The U49 critic suggested rewriting, not just trimming: the Stuhr Museum's "intended to preserve the legacy of" is encyclopedia wording; "Pioneer village and museum of 1800s prairie life" reads faster. John allowed rewrites; each rewritten line is shown to him before it ships. Same critic: Studio 10 in Grand Island has no line at all.
+- **`GET /api/trip` for the car app**, phase two: the plan's days and Along the way are computed in the browser, so this is a port of that logic to the server. Shape agreed after the car app's Today screen has been used.
+- **U50 critic notes (round 2), all predating U50:** a stop town's drawer shows no drive figure (U3's choice: the day heading carries it); Along the way rows have no gap between places; a town past where the day runs out (Ogallala on Omaha to Denver, 4 h 15 min on a 4 h day) is listed under "Towns that fit today", which road order now makes plain.
 
 - **Elk City, OK** is still too thin: 4 mapped places within 3 km. It names day ends via U19.
 
 
 ## Done, recorded
+
+- **Along the way, then the towns, as drawers (U50, #162, 2026-11-10).** John's design: per day, "Along the way" first (a drawer, open, the ten strongest in road order, Show all), then each town a closed drawer in road order with its pick and count, Stop here in the header and "What's in X: its parts of town" inside. A chosen mood hides what answers none of the chosen moods in both drawers, and counts the towns it emptied; Machines and Sports leave the towns whole. Sort control removed; quality bar rule 4 amended. Critic round 1 REJECT ("What's in" beside the name was a second way to open a town), round 2 APPROVE. Council CLEAR; its two real items (a marker reopening a drawer closed by hand, a NaN sort) fixed with tests. Live on production 09:57 JST.
 
 - **Shorter Wikipedia lines (U49, #160, 2026-11-10).** city-atlas-service #64 trims a Wikipedia sentence's own subject and its town, deleting words only; a trim leaving under 25 characters keeps the whole sentence (John's choice, so Howard Payne University is unchanged). Four lines changed: Stuhr Museum, Fonner Park, Wendover Will, Reliance Tipple. Council on #64 blocked round 1 on real bugs ("X is located in <town>." became "X is.", "was a" lost past tense), fixed with tests; CLEAR on round 2. Production checked at 09:13 JST; a fresh blind critic picked the trimmed screen over the old one, APPROVE, high confidence.
 
