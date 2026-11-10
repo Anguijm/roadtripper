@@ -296,6 +296,11 @@ export function overrunLine(day: Pick<TripDay, "minutes" | "toName">, budgetMinu
  * a town is labelled only when we know it is abroad.
  */
 export function abroadLabel(townCountry: string | null | undefined, homeCountry: string | null | undefined): string | null {
-  if (!townCountry || !homeCountry || townCountry === homeCountry) return null;
-  return `in ${townCountry}`;
+  const town = (townCountry ?? "").trim();
+  const home = (homeCountry ?? "").trim();
+  // Compared without case or stray spaces (PR #169 council): the atlas is
+  // consistent today, but a "canada" from a later export must not label
+  // every Canadian town for a Canadian start.
+  if (!town || !home || town.toLowerCase() === home.toLowerCase()) return null;
+  return `in ${town}`;
 }
