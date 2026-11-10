@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #169 (U52 border label), after #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #171 (Toledo joins the atlas), after #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -10,7 +10,6 @@ Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
-- **Toledo, Ohio is not in the atlas** (roadtripper-car, 2026-11-10): nothing between Ann Arbor and Dayton on I-75, so a Detroit to Ohio drive can never stop there. An atlas addition through city-atlas-service, like U45.
 - **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
 - **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
 - **`GET /api/trip` for the car app**, phase two: the plan's days and Along the way are computed in the browser, so this is a port of that logic to the server. Shape agreed after the car app's Today screen has been used.
@@ -20,6 +19,8 @@ Nothing queued. Open questions for John are in Next.
 
 
 ## Done, recorded
+
+- **Toledo, Ohio joins the atlas (#171, city-atlas-service #67, 2026-11-10).** The car session found nothing between Ann Arbor and Dayton on I-75; John picked the addition. The October path: every scraper, then Gemini research with OpenStreetMap grounding. 6 neighbourhoods and 17 places, "degraded" against the metro floor of 48 (35 live metros are under it; follow-up city-atlas-service #68). The atlas has 304 cities and the drive graph 6,190 pairs. `build-drive-graph.mjs` gained `--max-pairs` and `--plan-only`: under Google's 625 cap the planner packed Toledo's 74 pairs into 630 billed elements, and a cap of 40 billed exactly 74. From Detroit, Toledo is now the second town and Toronto falls out of /api/today's ten. Live 12:29 JST: /api/today from Detroit lists Toledo second (the old build: Ann Arbor, Flint), and /today shows it at 59 min with its places, checked in headless Chrome at 390 px.
 
 - **A town across a border says so (U52, #169, 2026-11-10).** From Detroit, Toronto was offered like any other town (roadtripper-car's note); John chose to label it. "· in Canada" right after the name on /plan and /today, and `country` on each town and on `here` in /api/today (docs/car-api.md). The start's country is the nearest atlas town's. Critic APPROVE (medium); its "same place on both screens" note done. Live 10:49 JST. Left for John: the critic's idea of more weight on the label.
 

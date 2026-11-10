@@ -4,7 +4,7 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Last change: PR #169 (2026-11-10), U52: a town across a border says "in Canada".** The same day: #167 (U51 plain-word lines), #165 (CI type-checks), #164 (`GET /api/today`, `docs/car-api.md`), #162 (U50 drawers), #160 (U49), #158 (home city count). Before it, PR #154 (U48, 2026-10-11), then docs only (#155 to #157).
+**Last change: PR #171 (2026-11-10): Toledo, Ohio joins the atlas** (city-atlas-service #67), 304 cities and 6,190 drive pairs. To add a town: `docs/atlas-gaps.md`, "Adding one town". The same day: #169 (U52 border label), #167 (U51 plain-word lines), #165 (CI type-checks), #164 (`GET /api/today`, `docs/car-api.md`), #162 (U50 drawers), #160 (U49), #158 (home city count). Before it, PR #154 (U48, 2026-10-11), then docs only (#155 to #157).
 
 **Where this session runs (since 2026-11-10):** the MS-S1, supervised (`roadtripper-session.service`, tmux socket `roadtripper`), clone at `~/projects/roadtripper`. The laptop is unreachable. Bun 1.4.4 came from `npm install -g bun` (into `~/opt/node22/bin`, symlinked from `~/.local/bin`). Install dependencies with `npm ci`, as CI does, because bun.lock is behind package.json (see Open items). **John ruled 2026-11-10 that a PR is pushed and merged without asking once the gates hold.** Run `git log --oneline -1 origin/main` for the current hash. Open items are in the section of that name below.
 
