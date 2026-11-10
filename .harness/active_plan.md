@@ -4,27 +4,19 @@
 
 # Active plan — roadtripper
 
-Branch: feat/api-today
+Branch: fix/ci-type-check
 
 ## Ship rule (written before the work)
 
-GET /api/today for the car app, the contract in docs/car-api.md (agreed with
-the roadtripper-car session 2026-11-10, relayed from John by ops): today's
-towns and places from lat, lng, hours and up to two moods, computed as the
-/today page computes them, plus each place's coordinates. Discriminated on
-`status`; `generatedAt` on every 200; 400 on an unknown mood or more than
-two; 429 with Retry-After from the /today page's per-IP burst limit.
+`.github/workflows/ci.yml` ran `npm run typecheck --if-present`; the script
+is `type-check`, so `--if-present` made the step a silent no-op and CI never
+type-checked (found by ops' survey 2026-11-10, confirmed). The step now runs
+`npm run type-check` with no `--if-present`, so a future rename fails loudly.
 
-The rule: on production, `/api/today?lat=41.2565&lng=-95.9345&hours=4`
-answers 200 with status "ok", here "Omaha", and Lincoln (51 min) first.
-The old build answers 404 there.
+The rule: this PR's CI run shows the Typecheck step running `tsc --noEmit`
+in its log. The old workflow's log for the same step shows npm doing nothing.
 
-`rowBadges` moved from RecommendationList.tsx ("use client") to
-src/lib/plan/badges.ts: a function exported from a client module reaches
-server code as a client reference, so the route could not have called it.
+**Cost:** About ten seconds of CI per push.
 
-**Cost:** None per call beyond atlas reads; no Routes API call.
-
-**Weakest part:** The daily quota is not charged (by design, the call is
-free), so the burst limit (20 a minute per IP) is the only bound. A
-scripted client could read the atlas at that rate; it costs CPU, not money.
+**Weakest part:** Gate 1 already type-checks locally, so this mainly catches
+pushes that skip the hook (SKIP_GATE1=1) and changes made in the GitHub UI.
