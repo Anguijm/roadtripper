@@ -24,7 +24,7 @@ export type TodayReach =
 export interface TodayPlan {
   origin: LatLng;
   hours: number;
-  here: { city: { id: string; name: string; lat: number; lng: number }; distanceKm: number } | null;
+  here: { city: { id: string; name: string; lat: number; lng: number; country: string }; distanceKm: number } | null;
   reach: TodayReach;
   /** Cities within `hours` of one-way driving, nearest first. */
   reachable: RadialCandidate[];
@@ -37,8 +37,8 @@ export function planToday(origin: LatLng, hours: number): TodayPlan {
   const snapped = snapToCity(origin);
   if (!snapped) return { origin, hours, here: null, reach: "no-city", reachable: [] };
 
-  const { id, name, lat, lng } = snapped.city;
-  const here = { city: { id, name, lat, lng }, distanceKm: snapped.distanceKm };
+  const { id, name, lat, lng, country } = snapped.city;
+  const here = { city: { id, name, lat, lng, country: country ?? "" }, distanceKm: snapped.distanceKm };
   if (!hasDriveGraphFor(id)) return { origin, hours, here, reach: "no-graph", reachable: [] };
 
   const byId = new Map(allCities().map((c) => [c.id, c]));

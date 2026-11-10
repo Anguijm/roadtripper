@@ -20,6 +20,7 @@ import { formatDeadline, localTodayIso } from "@/lib/plan/deadline";
 import Figures from "@/components/Figures";
 import { roadsideForRoute } from "@/lib/roadside/store";
 import { placesForRoute } from "@/lib/plan/places";
+import { snapToCity } from "@/lib/atlas/queries";
 
 interface PlanSearchParams {
   from?: string;
@@ -314,6 +315,8 @@ export default async function PlanPage({
           dateMode={isArrivalMode ? "arrival" : undefined}
           today={localTodayIso()}
           initialCandidateFetchFailed={candidateFetchFailed}
+          // The start's country, so a town across a border says so (U52).
+          homeCountry={snapToCity(origin)?.city.country || null}
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">

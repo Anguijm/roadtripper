@@ -154,3 +154,28 @@ describe("PR #162 council: two edge cases", () => {
     expect(byRoad(undefined, undefined)).toBe(0);
   });
 });
+
+describe("a town across a border (U52)", () => {
+  const abroadResult: WaypointFetchResult = {
+    ...fetchResult,
+    cities: fetchResult.cities.map((c) => (c.id === "kearney" ? { ...c, country: "Canada" } : { ...c, country: "United States" })),
+  };
+
+  it("says 'in Canada' beside a town in another country than the start, and nothing beside the rest", () => {
+    const html = renderToString(<RecommendationList {...props([], null)} fetchResult={abroadResult} homeCountry="United States" />).replace(/<!-- -->/g, "");
+    expect(html.match(/data-abroad/g)).toHaveLength(1);
+    expect(/<section data-town="kearney"[\s\S]*?<\/h3>/.exec(html)![0]).toContain("· in Canada");
+    expect(/<section data-town="lincoln"[\s\S]*?<\/h3>/.exec(html)![0]).not.toContain("in Canada");
+  });
+
+  it("labels nothing when the start's country is unknown", () => {
+    expect(renderToString(<RecommendationList {...props([], null)} fetchResult={abroadResult} homeCountry={null} />)).not.toContain("data-abroad");
+  });
+});
+
+it("puts 'in Canada' right after the town's name, before its drive (U52 critic)", () => {
+  const r: WaypointFetchResult = { ...fetchResult, cities: fetchResult.cities.map((c) => ({ ...c, country: c.id === "kearney" ? "Canada" : "United States" })) };
+  const html = renderToString(<RecommendationList {...props([], null)} fetchResult={r} homeCountry="United States" />).replace(/<!-- -->/g, "");
+  const head = /<section data-town="kearney"[\s\S]*?<\/h3>/.exec(html)![0].replace(/<[^>]+>/g, "");
+  expect(head).toMatch(/^▸Kearney· in Canada· 5 min from|^▸Kearney· in Canada· 5 min away/);
+});

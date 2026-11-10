@@ -288,3 +288,19 @@ export function overrunLine(day: Pick<TripDay, "minutes" | "toName">, budgetMinu
   if (over <= 0) return null;
   return `${formatDurationPlain(over * 60)} over your ${formatDurationPlain(Math.round(budgetMinutes) * 60)}, to reach ${day.toName}`;
 }
+
+/**
+ * A town across a border from where the trip starts, said beside its name
+ * (U52, John 2026-11-10: from Detroit, Toronto was offered like any other
+ * town). "in Canada", or null when either country is unknown or they match:
+ * a town is labelled only when we know it is abroad.
+ */
+export function abroadLabel(townCountry: string | null | undefined, homeCountry: string | null | undefined): string | null {
+  const town = (townCountry ?? "").trim();
+  const home = (homeCountry ?? "").trim();
+  // Compared without case or stray spaces (PR #169 council): the atlas is
+  // consistent today, but a "canada" from a later export must not label
+  // every Canadian town for a Canadian start.
+  if (!town || !home || town.toLowerCase() === home.toLowerCase()) return null;
+  return `in ${town}`;
+}

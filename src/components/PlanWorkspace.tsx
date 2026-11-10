@@ -82,6 +82,8 @@ interface PlanWorkspaceProps {
   endDate?: string;
   dateMode?: string;
   initialCandidateFetchFailed?: boolean;
+  /** The country the trip starts in, from the atlas town nearest the start (U52); towns in another are labelled. */
+  homeCountry?: string | null;
   /** Roadside survivors along the planned route, in road order. Empty when no pulled corridor is near it. */
   roadsideStops?: RoadsideMarker[];
   /**
@@ -486,6 +488,7 @@ export default function PlanWorkspace({
   endDate,
   dateMode,
   initialCandidateFetchFailed = false,
+  homeCountry = null,
   roadsideStops = NO_ROADSIDE,
   roadPlaces = NO_PLACES,
   initialSelectedRoadsideId,
@@ -1877,6 +1880,7 @@ export default function PlanWorkspace({
                 previewedCityId: panelCityId,
                 notices: false,
                 detail: panelDetail,
+                homeCountry,
               };
               return (
                 <section

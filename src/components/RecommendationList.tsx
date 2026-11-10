@@ -4,7 +4,7 @@ import React, { useMemo, useState, type ReactNode } from "react";
 import type { PersonaConfig, RankedWaypoint } from "@/lib/personas/types";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { formatDrive } from "@/lib/today/presets";
-import { kindWord } from "@/lib/plan/words";
+import { abroadLabel, kindWord } from "@/lib/plan/words";
 import Figures from "@/components/Figures";
 // In a plain module so server code (the car endpoint) can call it: a
 // function exported from a "use client" file reaches the server as a
@@ -108,6 +108,8 @@ interface RecommendationListProps {
    * map to no town place (MOOD_WAYPOINTS) and so leave the towns whole.
    */
   moodFilter?: string | null;
+  /** The country the trip starts in (U52); a town in another is labelled "in Canada". Null labels nothing. */
+  homeCountry?: string | null;
 }
 
 /** Two towns' places along the road, for a sort: unknown last, two unknowns equal. */
@@ -243,6 +245,7 @@ export default function RecommendationList({
   roadKm,
   drawers = false,
   moodFilter = null,
+  homeCountry = null,
 }: RecommendationListProps) {
   const accent = moodProfile.accentColor;
   // Each town's drawer as last set by a tap (U50). A town never tapped is
@@ -339,6 +342,11 @@ export default function RecommendationList({
         const lead = rows[0];
         const rest = lead ? rows.filter((r) => r.waypointId !== lead.waypointId) : rows;
         const badges = rowBadges(rows, !!outOfTheWay);
+        // Across a border from the start (U52): said beside the name.
+        const abroad = abroadLabel(fetchResult.cities.find((c) => c.id === cityId)?.country, homeCountry);
+        const abroadTag = abroad ? (
+          <span data-abroad className="ml-1 text-[#8b949e] whitespace-nowrap">· {abroad}</span>
+        ) : null;
         // A drawer's places show once it is opened (U50).
         const isOpen = !drawers || townOpen(cityId);
         // One layout for every place, the lead included (U44: the lead ran
@@ -451,6 +459,8 @@ export default function RecommendationList({
                   >
                     <span aria-hidden className="inline-block w-5 text-lg leading-6 text-[#f0f6fc]">{isOpen ? "▾" : "▸"}</span>
                     <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
+                    {/* Right after the name, as on /today, so it never wraps away from it (U52 critic). */}
+                    {abroadTag}
                     {detourMinutes > 0 && !isAdded && (
                       <span className="ml-1 text-[#8b949e]">
                         · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}
@@ -473,6 +483,7 @@ export default function RecommendationList({
                 {/* The card's title (U41): the name in the body white, the
                     rest of the line grey, so the eye finds the town first. */}
                 <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
+                {abroadTag}
                 {detourMinutes > 0 && !isAdded && (
                   <span className="ml-1 text-[#8b949e]">
                     · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}

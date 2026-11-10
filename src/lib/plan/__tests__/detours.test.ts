@@ -101,3 +101,11 @@ describe("a town far off the road is out of the way (U39)", () => {
     expect(offeredTowns(marked, true).cities.map((c) => c.id)).toEqual(["beside", "edge", "far"]);
   });
 });
+
+describe("a town's country reaches the screens (U52)", () => {
+  it("is carried by cityContextFor when the atlas has one, and absent when not", () => {
+    const base = { oneWayDriveMinutes: 60, city: { id: "toronto", name: "Toronto", lat: 43.65, lng: -79.38, vibeClass: null } };
+    expect(cityContextFor({ ...base, city: { ...base.city, country: "Canada" } } as never).country).toBe("Canada");
+    expect(cityContextFor({ ...base, city: { ...base.city, country: "" } } as never).country).toBeUndefined();
+  });
+});

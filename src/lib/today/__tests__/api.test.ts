@@ -84,3 +84,14 @@ describe("PR #164 council", () => {
     expect(q("lat=%2041.5%20&lng=-95")).toMatchObject({ ok: true, origin: { lat: 41.5, lng: -95 } });
   });
 });
+
+describe("a town across a border (U52)", () => {
+  it("gives each town and here a country, so Toronto from Detroit can be labelled", async () => {
+    const a = await todayAnswer({ lat: 42.3314, lng: -83.0458 }, 4, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.here.country).toBe("United States");
+    const toronto = a.towns.find((t) => t.id === "toronto");
+    expect(toronto?.country).toBe("Canada");
+    expect(a.towns.filter((t) => t.id !== "toronto").every((t) => typeof t.country === "string")).toBe(true);
+  });
+});

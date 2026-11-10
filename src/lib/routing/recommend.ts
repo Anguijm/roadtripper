@@ -136,6 +136,7 @@ export function cityContextFor(cand: RadialCandidate): CityContext {
     lat: cand.city.lat,
     lng: cand.city.lng,
     ...(cand.outOfTheWay ? { outOfTheWay: true } : {}),
+    ...(cand.city.country ? { country: cand.city.country } : {}),
   };
 }
 
