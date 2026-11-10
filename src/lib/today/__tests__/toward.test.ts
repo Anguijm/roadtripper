@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTowardQuery, pickStops, towardAnswer, townAt, MAX_ROWS, ARRIVED_KM } from "@/lib/today/toward";
+import { parseTowardQuery, pickStops, towardAnswer, townAt, MAX_ROWS, ARRIVED_KM, MAX_DETOUR_MINUTES } from "@/lib/today/toward";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import { placeNameKey } from "@/lib/plan/days";
 import { inCone } from "@/lib/today/cone";
@@ -53,7 +53,8 @@ describe("towardAnswer, Detroit toward Louisville", () => {
     expect(a.here.name).toBe("Detroit");
     expect(a).toMatchObject({ hours: 5, moods: [] });
     expect(a.destination).toMatchObject({ cityId: "louisville", name: "Louisville", estimated: false, withinToday: false });
-    expect(a.stops.length).toBeGreaterThan(5);
+    // Towns only, so the count holds in CI, which has no roadside store.
+    expect(a.stops.filter((s) => s.type === "town").length).toBeGreaterThanOrEqual(4);
     expect(a.stops.length).toBeLessThanOrEqual(MAX_ROWS);
     const minutes = a.stops.map((s) => s.reachMinutes);
     expect(minutes).toEqual([...minutes].sort((x, y) => x - y));
@@ -62,11 +63,15 @@ describe("towardAnswer, Detroit toward Louisville", () => {
     for (const s of a.stops) {
       expect(inCone(DETROIT, dest, s)).toBe(true);
       expect(s.detourMinutes).toBeGreaterThanOrEqual(0);
+      // John's cap (2026-11-11): nothing that adds more than 40 minutes.
+      expect(s.detourMinutes).toBeLessThanOrEqual(MAX_DETOUR_MINUTES);
       expect(s.isDestination).toBe(false);
       expect(s.reachMinutes).toBeLessThanOrEqual(5 * 60);
     }
     const names = a.stops.map((s) => s.name);
     expect(names).toContain("Toledo");
+    // Columbus is toward Louisville but adds about 43 minutes: over the cap.
+    expect(names).not.toContain("Columbus");
     expect(names).not.toContain("Flint");
     expect(names).not.toContain("Detroit");
   });
