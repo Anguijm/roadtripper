@@ -23,6 +23,10 @@ ins.run("osm:node:3", "Behind the start", 35.2, -101, "viewpoint", null, 0.9);
 ins.run("osm:node:4", "Far to the side", 34.5, -99.5, "viewpoint", null, 0.9);
 ins.run("osm:node:5", "Below the line", 34.6, -101, "attraction", null, 0.3);
 ins.run("osm:node:6", "Bad kind", 34.4, -101, "spaceport", null, 0.9);
+ins.run("osm:node:7", "In the box, outside the ellipse", 34.9, -100.5, "viewpoint", null, 0.9);
+ins.run("osm:node:8", "In the box, just behind the start", 35.05, -101, "viewpoint", null, 0.9);
+// In the cone, about 42 km away: inside a 40 km reach's square box, outside its circle.
+ins.run("osm:node:9", "In the corner of the box", 34.7, -100.72, "artwork", null, 0.8);
 db.close();
 
 afterAll(() => {
@@ -33,7 +37,7 @@ afterAll(() => {
 describe("survivorsInCone", () => {
   it("keeps scored stops in the cone and within reach, with the straight km from here and the line to read", () => {
     const out = survivorsInCone(roadsideStore(path)!, FROM, TO, 200);
-    expect(out.map((s) => s.id).sort()).toEqual(["osm:node:1", "osm:node:2"]);
+    expect(out.map((s) => s.id).sort()).toEqual(["osm:node:1", "osm:node:2", "osm:node:9"]);
     const line = out.find((s) => s.id === "osm:node:1")!;
     expect(line.alongKm).toBeCloseTo(55.6, 0);
     expect(line.about).toBe("a roadside oddity");
@@ -42,7 +46,9 @@ describe("survivorsInCone", () => {
   it("drops what is behind, off to the side, below the line, malformed, or past today's reach", () => {
     const store = roadsideStore(path)!;
     const ids = survivorsInCone(store, FROM, TO, 200).map((s) => s.id);
-    for (const gone of ["osm:node:3", "osm:node:4", "osm:node:5", "osm:node:6"]) expect(ids).not.toContain(gone);
+    for (const gone of ["osm:node:3", "osm:node:4", "osm:node:5", "osm:node:6", "osm:node:7", "osm:node:8"]) expect(ids).not.toContain(gone);
+    // Reach is a circle, the box a square: the corner stop is left out by the reach, not the box.
     expect(survivorsInCone(store, FROM, TO, 40).map((s) => s.id)).toEqual([]);
+    expect(survivorsInCone(store, FROM, TO, 45).map((s) => s.id)).toEqual(["osm:node:9"]);
   });
 });
