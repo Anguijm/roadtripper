@@ -20,7 +20,17 @@
 import { haversineKm } from "@/lib/routing/polyline";
 import type { LatLng } from "@/lib/plan/types";
 
-/** How much longer than straight the detour through a place may be. */
+/**
+ * How much longer than straight the detour through a place may be. 1.25 is
+ * "very general" (John's words) without being "anywhere": on Detroit to
+ * Louisville (about 500 km) it reaches some 190 km either side halfway, and
+ * on the first runs it took Ann Arbor, Toledo, Dayton, Columbus, Cincinnati
+ * and Indianapolis and left out Chicago and Cleveland. Wider admits more
+ * places to the side and makes the store's box query larger (its area grows
+ * with the ratio); narrower drops towns a road reaches with a small detour.
+ * Changing it: read the lists it gives on a few real trips, as was done for
+ * 1.25, and re-run src/lib/today/__tests__/cone.test.ts and toward.test.ts.
+ */
 export const CONE_RATIO = 1.25;
 
 /** The extra straight-line km of going through `p` on the way from `from` to `to`. Never negative. */

@@ -31,12 +31,27 @@ import type { City } from "@/lib/urban-explorer/types";
  */
 export const TOWARD_API_VERSION = 1;
 
-/** Towns and roadside stops chosen, before the merge and the cap. */
+/**
+ * Towns and roadside stops chosen before the merge, and the cap after it.
+ * The car's host shows about six rows and the phone all of them; the car
+ * session asked for 12 to 15 and a small body (an answer is about 12 to 22
+ * KB). Eight of each keeps a mix when one kind is plentiful; 8 + 8 + the
+ * destination is 17, so the cap of 15 drops the two farthest. Towns are
+ * also bounded by the places pipeline, which reads at most
+ * MAX_WAYPOINT_CITIES (10) towns: MAX_TOWN_ROWS + 1 must stay within it.
+ * Raising any of these: re-check the body size and the tests in
+ * src/lib/today/__tests__/toward.test.ts.
+ */
 export const MAX_TOWN_ROWS = 8;
 export const MAX_STOP_ROWS = 8;
-/** The car shows about six; the phone all of them (car session). */
 export const MAX_ROWS = 15;
-/** Within this of the destination you have arrived. */
+/**
+ * Within this of the destination you have arrived. A metro's own radius in
+ * the atlas is 25 km and a town's 10, so 15 km is "in town" for most places
+ * without calling the suburbs of a big city arrival; the same town on both
+ * ends counts too. The car then asks /api/today for the town's own list.
+ * Tested in toward.test.ts ("says arrived within 15 km").
+ */
 export const ARRIVED_KM = 15;
 /** A town without its own radius in the registry is matched within this. */
 const DEFAULT_TOWN_RADIUS_KM = 10;
@@ -260,6 +275,10 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
   );
   while (rows.length > MAX_ROWS) {
     const last = rows.map((r) => r.isDestination).lastIndexOf(false);
+    // At most one row is the destination, so a row that is not exists
+    // whenever the cap is passed; the guard keeps a future change from
+    // splicing at -1, which would drop the last row, the destination.
+    if (last < 0) break;
     rows.splice(last, 1);
   }
 

@@ -27,9 +27,19 @@ export type TownsApiResponse =
   | { version: 1; status: "rate-limited"; retryAfterSeconds: number }
   | { version: 1; status: "error"; message: string };
 
-/** A same-named US place this close is the town; GeoNames puts a town's point near its centre, the atlas at its own. */
+/**
+ * A same-named US place this close is the town. GeoNames and the atlas each
+ * put a town's point at their own idea of its centre, which for a big city
+ * can be tens of km apart (a county seat against a downtown); 50 km takes
+ * that and still keeps a same-named town in the next state out, since
+ * duplicate names are rarely that close. The tests pin both Portlands.
+ */
 const SAME_NAME_KM = 50;
-/** Otherwise the nearest US place this close names the state. */
+/**
+ * Otherwise the nearest US place of any name this close names the state:
+ * near enough that a state line is unlikely between them. All 124 atlas ids
+ * that carry a state agreed with the result on 2026-11-10.
+ */
 const NEAREST_KM = 15;
 
 /**

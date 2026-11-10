@@ -3,6 +3,10 @@ import { parseTowardQuery, pickStops, towardAnswer, townAt, MAX_ROWS, ARRIVED_KM
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import { placeNameKey } from "@/lib/plan/days";
 import { inCone } from "@/lib/today/cone";
+import { resolveStorePath } from "@/lib/roadside/store";
+
+/** The real roadside store is fetched at build and is not in CI; its checks run where it is (survivorsInCone is checked on a made-up store in src/lib/roadside/__tests__/store.cone.test.ts). */
+const HAS_STORE = resolveStorePath() !== null;
 
 /**
  * GET /api/today/toward's contract (docs/car-api.md, agreed with the car
@@ -67,18 +71,23 @@ describe("towardAnswer, Detroit toward Louisville", () => {
     expect(names).not.toContain("Detroit");
   });
 
-  it("tells drive-graph minutes from estimates, and gives towns places and stops a nearby town", async () => {
+  it("gives towns drive-graph minutes and their places", async () => {
     const a = await towardAnswer(DETROIT, LOUISVILLE, 5, [], NOW);
     if (a.status !== "ok") throw new Error(a.status);
     const towns = a.stops.filter((s) => s.type === "town");
-    const stops = a.stops.filter((s) => s.type === "stop");
     expect(towns.length).toBeGreaterThan(0);
-    expect(stops.length).toBeGreaterThan(0);
     for (const t of towns) {
       expect(t.estimated).toBe(false);
       expect(t).toMatchObject({ kind: "Town", near: null, line: null });
       if (t.type === "town") expect(t.places.length).toBeGreaterThan(0);
     }
+  });
+
+  it.skipIf(!HAS_STORE)("gives roadside stops estimated minutes, an OSM id and a nearby town (real store)", async () => {
+    const a = await towardAnswer(DETROIT, LOUISVILLE, 5, [], NOW);
+    if (a.status !== "ok") throw new Error(a.status);
+    const stops = a.stops.filter((s) => s.type === "stop");
+    expect(stops.length).toBeGreaterThan(0);
     for (const s of stops) {
       expect(s.estimated).toBe(true);
       expect(s.id).toMatch(/^osm:/);
