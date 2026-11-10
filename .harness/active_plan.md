@@ -4,25 +4,13 @@
 
 # Active plan — roadtripper
 
-Branch: data/cloister-line
+Branch: docs/cloister-record
 
-## Ship rule (written before the work)
+(Docs only: records #173, live 22:01 JST, and two open questions for John.)
 
-Toledo's Cloister read "Museum on Monroe Street." (the OSM listing). John
-approved "A courtyard framed by centuries-old columns from French
-monasteries." (2026-11-10), every fact from the Atlas Obscura listing.
-city-atlas-service #70 (🟢 10/10 on round 2) put it in the approved-lines
-file and wrote it to the live atlas. Here: re-export, so /plan and /today
-show it.
+Ship rule: BACKLOG and SESSION_HANDOFF record the Cloister line and list the
+request-log and near-duplicate questions under Next.
 
-## Done
+Cost: None.
 
-- Export diffed row by row against a copy taken first: one waypoint row
-  changed, the Cloister's description. Cities, neighbourhoods and the drive
-  graph are identical.
-- A test pins the approved line in the app's read. Proof: with the previous
-  atlas swapped back in, it is red; restored, `cmp` clean.
-
-Cost: None. One re-export.
-
-Weakest part: the line says only what Atlas Obscura's one sentence says.
+Weakest part: the duplicate counts are from one read of today's atlas.

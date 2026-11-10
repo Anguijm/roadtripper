@@ -2,7 +2,7 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #171 (Toledo joins the atlas), after #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #173 (Toledo's Cloister line), after #171 (Toledo joins the atlas), #169 (U52 border label), #167 (U51), #165 (CI type-check), #164 (/api/today), #162 (U50), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
@@ -10,6 +10,8 @@ Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
+- **The platform keeps /api/today's position for 30 days** (found 2026-11-10 for the car app's Play privacy policy). The app stores nothing, but Cloud Run's request log (`run.googleapis.com/requests`, `_Default` bucket, 30 days) keeps the full URL with lat and lng, the IP address and the user agent. Options: say so in the policy, exclude those entries from the log, or move the position out of the URL. John's call.
+- **Near-duplicate places** (roadtripper-car, 2026-11-10): Grand Rapids lists the Calder twice, as "La Grande Vitesse (The Calder)" and "La Grande Vitesse". The export merges only identical names within 2 km. Dropping a bracketed part and merging within 300 m would collapse 82 pairs, 31 of them in the US (Old North Church / Old North Church (Christ Church) in Boston, among others).
 - **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
 - **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
 - **`GET /api/trip` for the car app**, phase two: the plan's days and Along the way are computed in the browser, so this is a port of that logic to the server. Shape agreed after the car app's Today screen has been used.
@@ -19,6 +21,8 @@ Nothing queued. Open questions for John are in Next.
 
 
 ## Done, recorded
+
+- **Toledo's Cloister line (#173, city-atlas-service #70, 2026-11-10).** It read the OSM listing's "Museum on Monroe Street."; John approved "A courtyard framed by centuries-old columns from French monasteries.", facts from the Atlas Obscura listing, kept in the U51 approved-lines file. One waypoint row changed in the export; a test pins the line. Live 22:01 JST, checked in headless Chrome.
 
 - **Toledo, Ohio joins the atlas (#171, city-atlas-service #67, 2026-11-10).** The car session found nothing between Ann Arbor and Dayton on I-75; John picked the addition. The October path: every scraper, then Gemini research with OpenStreetMap grounding. 6 neighbourhoods and 17 places, "degraded" against the metro floor of 48 (35 live metros are under it; follow-up city-atlas-service #68). The atlas has 304 cities and the drive graph 6,190 pairs. `build-drive-graph.mjs` gained `--max-pairs` and `--plan-only`: under Google's 625 cap the planner packed Toledo's 74 pairs into 630 billed elements, and a cap of 40 billed exactly 74. From Detroit, Toledo is now the second town and Toronto falls out of /api/today's ten. Live 12:29 JST: /api/today from Detroit lists Toledo second (the old build: Ann Arbor, Flint), and /today shows it at 59 min with its places, checked in headless Chrome at 390 px.
 
