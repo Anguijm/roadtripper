@@ -782,3 +782,8 @@ the waiter was wrong, not the process.
 - **KEEP: answer a council round with numbers from the code.** Round 1's "5-mile Phase C threshold" does not exist (`spatial_check.py` allows 60 km here), and 35 live metros already sit under the 48-place floor; round 2 went 🟢 10/10 on those answers.
 - **INSIGHT: a new town can push an old one out of a capped list.** /api/today carries ten towns; from Detroit, Toledo took Toronto's place, and the U52 border test had to move to Buffalo.
 - **INSIGHT: App Hosting again took about 5 minutes from merge to the new build answering** (merged 12:24 JST, Toledo in /api/today at 12:29).
+
+## 2026-11-10: Toledo's Cloister line (#173, city-atlas-service #70)
+
+- **IMPROVE: `gh pr checks --watch` can return before a new push's runs exist,** and the PR's council comment is the previous round's until it is re-edited. Wait on the run for the new SHA (`gh run watch <id>`), not on the PR.
+- **INSIGHT: "the app stores nothing" is not the whole answer for a privacy policy.** Cloud Run's own request log keeps every URL, query string and IP for 30 days; a GET with coordinates in it is logged by the platform even when the code logs none.
