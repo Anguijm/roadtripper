@@ -274,7 +274,11 @@ describe("the words on the screens, against the glossary", () => {
     // a live paragraph beside the grab handle, not a child of it.
     const html = clean(screens().sheet);
     const text = visible(html);
-    expect(text.indexOf("Lubbock fits today")).toBeLessThan(text.indexOf("places worth pulling over for"));
+    // This fixture chooses Museums and its stops carry no mood scores, so
+    // U50's filter leaves the day's list empty and says so in its place.
+    const along = text.search(/Along the way:|Nothing along the way for Museums today/);
+    expect(along).toBeGreaterThan(-1);
+    expect(text.indexOf("Lubbock fits today")).toBeLessThan(along);
     expect(html.indexOf("data-fits-today")).toBeLessThan(html.indexOf("plan-sheet-scroll"));
     expect(html).toMatch(/aria-label="Panel [^"]*"[^>]*>(?:<div[^>]*><\/div>)<\/div><p aria-live="polite" data-fits-today/);
     // The sheet's title tells the truth when the towns could not be read.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { orderRoadside } from "../order";
+import { alongTheWay, orderRoadside } from "../order";
 import type { RoadsideMarker } from "../along";
 
 /**
@@ -67,5 +67,28 @@ describe("the two orders the sheet offers", () => {
     const given = [stadium, canyon, diner];
     orderRoadside(given, ["food"], "best");
     expect(names(given)).toEqual(["The stadium", "The canyon", "The diner"]);
+  });
+});
+
+describe("the Along the way drawer (U50)", () => {
+  it("lists every place in the order you pass them, with no mood chosen", () => {
+    const { all: a, first } = alongTheWay(all, [], 10);
+    expect(names(a)).toEqual(["The stadium", "The canyon", "The diner"]);
+    expect(names(first)).toEqual(["The stadium", "The canyon", "The diner"]);
+  });
+
+  it("shows the strongest first N, but in road order, not strength order", () => {
+    // The two strongest by general score are the canyon (0.7) and the
+    // stadium (0.6); they are listed as you reach them, stadium first.
+    expect(names(alongTheWay(all, [], 2).first)).toEqual(["The stadium", "The canyon"]);
+  });
+
+  it("hides what answers no chosen mood", () => {
+    expect(names(alongTheWay(all, ["food"], 10).all)).toEqual(["The diner"]);
+    expect(names(alongTheWay(all, ["food", "sports"], 10).all)).toEqual(["The stadium", "The diner"]);
+  });
+
+  it("is empty, not unfiltered, when nothing answers the mood", () => {
+    expect(alongTheWay([canyon], ["food"], 10)).toEqual({ all: [], first: [] });
   });
 });

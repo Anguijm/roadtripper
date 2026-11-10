@@ -8,8 +8,6 @@ vi.mock("@/app/plan/actions", () => ({
 }));
 
 import PlanWorkspace from "@/components/PlanWorkspace";
-import { SORT_LABELS, SORT_LEAD } from "@/lib/roadside/tags";
-import { SORT_ACCENT } from "@/components/SortControl";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import type { MoodId } from "@/lib/roadside/tags";
 
@@ -70,80 +68,57 @@ const render = (moods: readonly MoodId[]) =>
 const order = (html: string) =>
   [...html.matchAll(/data-roadside-stop="([^"]+)"/g)].map((m) => m[1].replace("osm:way:", ""));
 
-describe("the day's places under the chosen moods", () => {
-  it("puts the general score first when no mood is chosen, exactly as before U6", () => {
-    // The sheet at rest must not reshuffle merely because the moods
-    // arrived: with nothing chosen rankFor is the general score.
-    expect(order(render([]))).toEqual(["canyon", "stadium", "diner"]);
+describe("the day's places under the chosen moods (U50: in road order, filtered)", () => {
+  // U6 ordered the list by the moods and never hid anything, with a control
+  // to switch to road order. U50 (John, 2026-11-10): the list is always in
+  // the order you pass the places, and a chosen mood hides what answers
+  // none of the chosen moods. These tests pin the new rule.
+
+  it("lists every place in road order when no mood is chosen", () => {
+    // Stadium at 10 km, canyon at 40, diner at 80; the general score
+    // (canyon highest) no longer decides the order.
+    expect(order(render([]))).toEqual(["stadium", "canyon", "diner"]);
   });
 
-  it("puts the diner over the stadium when the mood is food, which the general score alone never did", () => {
-    const listed = order(render(["food"]));
-    expect(listed[0]).toBe("diner");
-    // And the two that answer nothing about food keep their own order
-    // below it, by general score.
-    expect(listed).toEqual(["diner", "canyon", "stadium"]);
+  it("shows only what answers food when the mood is food", () => {
+    expect(order(render(["food"]))).toEqual(["diner"]);
   });
 
-  it("puts the stadium over the diner when the mood is sports", () => {
-    expect(order(render(["sports"]))[0]).toBe("stadium");
+  it("shows only what answers sports when the mood is sports", () => {
+    expect(order(render(["sports"]))).toEqual(["stadium"]);
   });
 
-  it("puts what answers both moods above what answers one", () => {
-    // Neither the diner nor the stadium answers both, so the band is one
-    // deep for each; the diner leads on food and the stadium follows,
-    // both above the canyon, which answers neither.
-    const listed = order(render(["food", "sports"]));
-    expect(listed[2]).toBe("canyon");
-    expect(listed.slice(0, 2).sort()).toEqual(["diner", "stadium"]);
+  it("shows what answers either mood when two are chosen, still in road order", () => {
+    expect(order(render(["food", "sports"]))).toEqual(["stadium", "diner"]);
   });
 
-  it("leaves nothing out of the list whatever is chosen", () => {
-    // The bands order the list; they never filter it. A place that answers
-    // no chosen mood still appears, at the bottom.
-    for (const moods of [[], ["food"], ["sports"], ["food", "sports"], ["machines"]] as const) {
-      expect(order(render(moods)).sort(), JSON.stringify(moods)).toEqual(["canyon", "diner", "stadium"]);
-    }
+  it("says so when a mood leaves the day's road empty, rather than show an empty list", () => {
+    const html = render(["machines"]).replace(/<!-- -->/g, "");
+    expect(order(html)).toEqual([]);
+    expect(html).toContain("Nothing along the way for Machines today.");
+    // With places listed, the line is not said.
+    expect(render(["food"])).not.toContain("Nothing along the way");
   });
 
-  it("fills the chosen order in the same gold the places are headed in", () => {
-    // SORT_ACCENT is written in SortControl.tsx and the heading's colour in
-    // PlanWorkspace.tsx; importing one into the other would make a cycle,
-    // so this is what stops the two drifting apart.
-    const html = render(["food"]);
-    expect(SORT_ACCENT).toBe("#e3b341");
-    expect(html).toContain(`style="background-color:${SORT_ACCENT}"`);
-    expect(html).toMatch(new RegExp(`id="roadside-heading-1"[^>]*class="[^"]*text-\\[${SORT_ACCENT}\\]`));
+  it("heads the list in the gold the places were always headed in", () => {
+    expect(render(["food"])).toMatch(/id="roadside-heading-1"[^>]*class="[^"]*text-\[#e3b341\]/);
   });
 
   it("says out loud what a tap changed, since the list it moves is off the screen", () => {
-    // The chips and the order control both reorder a list further down the
-    // sheet than the control itself, so a screen reader is the only way to
-    // know the tap did anything. The region is empty on arrival: it reports
-    // a change, it does not read the state.
+    // The chips reorder and filter a list further down the sheet than the
+    // chips themselves, so a screen reader is the only way to know the tap
+    // did anything. The region is empty on arrival: it reports a change,
+    // it does not read the state.
     const html = render(["food"]);
     const live = html.match(/<div aria-live="polite" class="sr-only">([^<]*)<\/div>/g) ?? [];
     expect(live.length).toBeGreaterThan(0);
     for (const region of live) expect(region).toBe('<div aria-live="polite" class="sr-only"></div>');
   });
 
-  it("offers the two orders once for the sheet, not once per day", () => {
+  it("has no order control: there is one order", () => {
     const html = render(["food"]);
-    expect(html.match(/data-sort-control/g)).toHaveLength(1);
-    expect(html).toContain(SORT_LEAD);
-    expect(html).toContain(SORT_LABELS.best);
-    expect(html).toContain(SORT_LABELS.along);
-    expect(html).toContain('aria-label="Order the day&#x27;s places"');
-    // Not the heading's own words: two tests in
-    // PlanWorkspace.roadside.ssr.test.tsx find "places worth pulling over
-    // for" by position, and a second copy of it in a label above them
-    // moved what they measure.
-    expect(html.match(/places worth pulling over for/g)).toHaveLength(1);
-    // Exactly one of the two is on: this control is a radiogroup, unlike
-    // the chips, because the list has exactly one order.
-    const sortChecked = html.match(/role="radio" aria-checked="true"/g) ?? [];
-    expect(sortChecked).toHaveLength(1);
-    expect(html).toMatch(new RegExp(`role="radio" aria-checked="true"[^>]*>${SORT_LABELS.best}</button>`));
+    expect(html).not.toContain("data-sort-control");
+    expect(html).not.toContain('role="radio"');
   });
 });
 
@@ -165,7 +140,9 @@ describe("where the chosen mood's matches end (U14)", () => {
     // list ran on into a helium monument with nothing to say the matches
     // had stopped. Now the matches say which mood they answer.
     const html = render(["food"]);
-    expect(marks(html)).toEqual({ diner: "Food", canyon: "attraction", stadium: "attraction" });
+    // Since U50 the places that answer nothing are hidden, so only the
+    // diner is left, marked with the mood it answers.
+    expect(marks(html)).toEqual({ diner: "Food" });
   });
 
   it("colours the mark in the mood's own colour", () => {
@@ -194,6 +171,6 @@ describe("where the chosen mood's matches end (U14)", () => {
   });
 
   it("marks each place with the mood it answers when two are chosen", () => {
-    expect(marks(render(["food", "sports"]))).toEqual({ diner: "Food", stadium: "Sports", canyon: "attraction" });
+    expect(marks(render(["food", "sports"]))).toEqual({ diner: "Food", stadium: "Sports" });
   });
 });
