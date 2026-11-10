@@ -38,7 +38,7 @@ import {
 import type { WaypointFetchResult, NeighborhoodLoadState, CityContext, LiteWaypoint } from "@/lib/routing/scoring";
 import { townOrder } from "@/lib/routing/scoring";
 import { formatDistance, formatDurationPlain } from "@/lib/routing/format";
-import { budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine, primaryTownLine, overrunLine } from "@/lib/plan/words";
+import { ROADSIDE_KIND_WORDS, budgetWords, fitsTodayLine, dayHeadingLine, tripShapeLine, townsFitHeading, lastTownLine, detourNoteLine, primaryTownLine, overrunLine } from "@/lib/plan/words";
 import { buildRoad, alongRoadKm, nearestOnRoad, pointAlong, nightMarks, primaryTownId, tripDays as cutIntoDays, townsDay, dayBounds, boundsOf, uniqueByName } from "@/lib/plan/days";
 import { arrivalSentence, localTodayIso } from "@/lib/plan/deadline";
 import { recomputeSequence, nextRecompute, isCurrentRecompute } from "@/lib/plan/recompute-sequence";
@@ -153,13 +153,6 @@ function stopTownFrom(set: WaypointFetchResult, stop: { cityId: string; cityName
  */
 const NO_ROADSIDE: RoadsideMarker[] = [];
 const NO_PLACES: NamedPoint[] = [];
-
-/** The kinds as the sheet says them, one or two plain words; anything unknown is "place". */
-const ROADSIDE_KIND_WORDS: Record<RoadsideMarker["kind"], string> = {
-  attraction: "attraction", museum: "museum", viewpoint: "viewpoint", artwork: "artwork", theme_park: "theme park", zoo: "zoo",
-  historic: "historic place", lighthouse: "lighthouse", tower: "tower", waterfall: "waterfall", arch: "arch", cave: "cave", park: "park",
-  notable: "well-known place", other: "place",
-};
 
 /**
  * The card's line when the store has none: `about` is already the

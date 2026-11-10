@@ -296,6 +296,18 @@ export function driveTimesFrom(fromCityId: string, maxMinutes: number): DriveTim
     .map((r) => ({ cityId: r.to_city_id, minutes: r.minutes, meters: r.meters }));
 }
 
+let radiiCache: Map<string, number> | null = null;
+
+/** Each city's own radius in km (the registry's maxRadiusKm: 25 for a metro, 10 a town, 3 a village). */
+export function cityRadiiKm(): ReadonlyMap<string, number> {
+  if (radiiCache) return radiiCache;
+  const rows = atlasDb()
+    .prepare<[], { id: string; r: number | null }>(`select id, max_radius_km r from cities`)
+    .all();
+  radiiCache = new Map(rows.filter((x) => typeof x.r === "number" && x.r > 0).map((x) => [x.id, x.r as number]));
+  return radiiCache;
+}
+
 /** Whether the graph knows anything at all about this city. */
 export function hasDriveGraphFor(cityId: string): boolean {
   // Same rule as driveTimesFrom: a broken or locked atlas throws. Returning
