@@ -128,6 +128,14 @@ describe("the reason to stop", () => {
     expect(total).toBeGreaterThan(10_000);
     expect(bareElsewhere).toEqual([]);
   });
+
+  it("carries a line John approved whole, over the listing's (Toledo's Cloister, city-atlas-service #70)", () => {
+    // The OSM listing said "Museum on Monroe Street."; the approved line
+    // lives in city-atlas-service's data/description-overrides.json, which
+    // wins at every ingest. A re-export must keep it, and the read must not cut it.
+    const cloister = waypointsForCities(["toledo-oh"]).find((w) => w.id === "toledo-oh-the-old-west-end-the-cloister-at-the-toledo-museum-of-art");
+    expect(cloister?.description).toBe("A courtyard framed by centuries-old columns from French monasteries.");
+  });
 });
 
 describe("clipReason", () => {
