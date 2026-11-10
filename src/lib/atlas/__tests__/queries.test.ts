@@ -109,10 +109,12 @@ describe("the reason to stop", () => {
     // Until U45 every waypoint had a description. The ten towns added from
     // OSM (city-atlas-service #62) leave a place undescribed rather than
     // keep Gemini's guess; such a row shows its name and kind (critic
-    // approved, U45). Anywhere else a missing description is a regression.
+    // approved, U45). Toledo (2026-11-10) went through the same OSM
+    // grounding. Anywhere else a missing description is a regression.
     const OSM_TOWNS = new Set([
       "grand-island-ne", "colby-ks", "ogallala-ne", "west-wendover-nv", "snyder-tx",
       "sweetwater-tx", "brownwood-tx", "santa-rosa-nm", "rock-springs-wy", "rawlins-wy",
+      "toledo-oh",
     ]);
     const all = allCities().map((c) => c.id);
     const bareElsewhere: string[] = [];

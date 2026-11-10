@@ -86,8 +86,11 @@ describe("PR #164 council", () => {
 });
 
 describe("a town across a border (U52)", () => {
-  it("gives each town and here a country, so Toronto from Detroit can be labelled", async () => {
-    const a = await todayAnswer({ lat: 42.3314, lng: -83.0458 }, 4, [], NOW);
+  it("gives each town and here a country, so Toronto from Buffalo can be labelled", async () => {
+    // From Detroit, Toronto was the tenth town until Toledo joined the atlas
+    // (2026-11-10) and pushed it out of the ten the answer carries. From
+    // Buffalo it is second, so this tests the label, not Detroit's top ten.
+    const a = await todayAnswer({ lat: 42.8864, lng: -78.8784 }, 4, [], NOW);
     if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
     expect(a.here.country).toBe("United States");
     const toronto = a.towns.find((t) => t.id === "toronto");

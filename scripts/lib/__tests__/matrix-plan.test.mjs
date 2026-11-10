@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { planRequests, splitRequest, neighboursWithin } from "../matrix-plan.mjs";
+import { planRequests, splitRequest, neighboursWithin, requestCap, billedElements } from "../matrix-plan.mjs";
 
 const city = (id, lat, lng) => ({ id, name: id, lat, lng });
 
@@ -60,6 +60,43 @@ describe("planRequests", () => {
   });
 });
 
+describe("requestCap", () => {
+  it("is the provider's own cap when --max-pairs is not given", () => {
+    expect(requestCap(undefined, 625)).toBe(625);
+  });
+
+  it("lowers the cap, and never raises it past the provider's", () => {
+    expect(requestCap("40", 625)).toBe(40);
+    expect(requestCap("5000", 625)).toBe(625);
+  });
+
+  it("rejects a cap that is not a positive whole number", () => {
+    for (const bad of ["0", "-3", "2.5", "abc", "true", ""]) {
+      expect(() => requestCap(bad, 625)).toThrow(/--max-pairs must be a positive integer/);
+    }
+  });
+});
+
+describe("a one-city top-up through Google", () => {
+  // A new hub and 16 towns around it in one longitude band, as when a city is
+  // added to a finished graph: the hub needs every town, each town needs only
+  // the hub. Packing them computes every town-to-town pair as well.
+  const hub = city("hub", 41.6, -83.5);
+  const towns = Array.from({ length: 16 }, (_, i) => city(`t${i}`, 39 + i * 0.4, -84 + (i % 4) * 0.3));
+  const plan = [{ city: hub, neighbours: towns }, ...towns.map((t) => ({ city: t, neighbours: [hub] }))];
+  const wanted = wantedPairs(plan).size; // 32
+
+  it("pays for pairs nobody wanted under Google's own cap", () => {
+    expect(billedElements(planRequests(plan, 625))).toBeGreaterThan(2 * wanted);
+  });
+
+  it("pays for exactly the wanted pairs under a cap just over the hub's neighbour count", () => {
+    const reqs = planRequests(plan, requestCap("17", 625));
+    expect(new Set(promisedPairs(reqs)).size).toBe(wanted);
+    expect(billedElements(reqs)).toBe(wanted);
+  });
+});
+
 describe("planRequests on the real atlas", () => {
   const db = new Database("data/atlas.sqlite", { readonly: true, fileMustExist: true });
   const cities = db.prepare(
@@ -80,6 +117,20 @@ describe("planRequests on the real atlas", () => {
     expect(new Set(promised)).toEqual(wanted);
     expect(promised.length).toBe(wanted.size);
     for (const r of reqs) expect(r.sources.length * r.destinations.length).toBeLessThanOrEqual(3500);
+  });
+
+  it("bills Toledo's top-up as its 74 pairs at --max-pairs=40, not 630 (2026-11-10)", () => {
+    // The real case that added the flag: Toledo joined a finished graph.
+    const toledo = cities.find((c) => c.id === "toledo-oh");
+    expect(toledo).toBeDefined();
+    const near = neighboursWithin(toledo, cities, 650);
+    const topUp = [{ city: toledo, neighbours: near }, ...near.map((c) => ({ city: c, neighbours: [toledo] }))];
+    const pairs = wantedPairs(topUp).size;
+    expect(pairs).toBe(2 * near.length);
+    expect(billedElements(planRequests(topUp, 625))).toBeGreaterThan(5 * pairs);
+    const capped = planRequests(topUp, requestCap("40", 625));
+    expect(new Set(promisedPairs(capped)).size).toBe(pairs);
+    expect(billedElements(capped)).toBe(pairs);
   });
 
   it("fits Google's 625-element cap in well under a hundred requests", () => {
