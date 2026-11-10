@@ -4,21 +4,29 @@
 
 # Active plan — roadtripper
 
-Branch: docs/api-today-record
-
-(Docs only: records #164 and #165.)
+Branch: data/u51-plain-lines
 
 ## Ship rule (written before the work)
 
-`.github/workflows/ci.yml` ran `npm run typecheck --if-present`; the script
-is `type-check`, so `--if-present` made the step a silent no-op and CI never
-type-checked (found by ops' survey 2026-11-10, confirmed). The step now runs
-`npm run type-check` with no `--if-present`, so a future rename fails loudly.
+U51. John allowed plain-word rewrites of the Wikipedia lines (2026-11-10)
+and approved five exact lines, each using only facts from its Wikipedia
+article. city-atlas-service #66 keeps them in a tracked overrides file that
+wins at ingest, and wrote them to Firestore; this PR is the re-exported atlas.
 
-The rule: this PR's CI run shows the Typecheck step running `tsc --noEmit`
-in its log. The old workflow's log for the same step shows npm doing nothing.
+The rule: on production, Omaha to Denver, Grand Island opened, the Stuhr
+Museum's `data-reason` is "Prairie pioneer museum with Railroad Town, a
+living-history 1890s village of original buildings." The old build says "A
+museum intended to preserve ...", so it fails.
 
-**Cost:** About ten seconds of CI per push.
+Atlas diff: 5 waypoint descriptions changed (Stuhr Museum, Fonner Park,
+Wendover Will, Reliance Tipple, Howard Payne University), nothing else;
+counts 303 / 2,241 / 13,659 / 6,116 unchanged; integrity_check ok.
 
-**Weakest part:** Gate 1 already type-checks locally, so this mainly catches
-pushes that skip the hook (SKIP_GATE1=1) and changes made in the GitHub UI.
+Critic before merge: matched 390 px pair, production (old) against local
+(new), Grand Island opened, the Stuhr row centered, blind.
+
+**Cost:** None at run time.
+
+**Weakest part:** The lines are no longer the sources' own sentences; their
+accuracy rests on the drafting and John's approval, each cited in
+city-atlas-service's data/description-overrides.json.
