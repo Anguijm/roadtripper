@@ -162,7 +162,7 @@ db.exec(`
   create index if not exists cdt_from on city_drive_times(from_city_id, minutes);
 `);
 
-import { dedupeWaypoints, DUPLICATE_RADIUS_KM } from "./lib/dedupe.mjs";
+import { dedupeWaypoints, dedupeBracketed, DUPLICATE_RADIUS_KM, BRACKETED_RADIUS_KM } from "./lib/dedupe.mjs";
 
 const pull = async (col) => (await fs.collection(col).get()).docs;
 const t0 = Date.now();
@@ -189,6 +189,7 @@ const insMeta = db.prepare(`insert or replace into meta values (?,?)`);
 
 const skipped = { cities: 0, neighborhoods: 0, waypoints: 0 };
 let duplicatesDropped = 0;
+let bracketedDropped = 0;
 
 db.transaction(() => {
   for (const d of cityDocs) {
@@ -244,8 +245,12 @@ db.transaction(() => {
     });
   }
 
-  const { kept, dropped } = dedupeWaypoints(candidates);
-  duplicatesDropped = dropped;
+  // Two passes: the same name within 2 km, then the same name but for a
+  // bracketed aside within 300 m (lib/dedupe.mjs says why each is shaped so).
+  const first = dedupeWaypoints(candidates);
+  const { kept, dropped } = dedupeBracketed(first.kept);
+  duplicatesDropped = first.dropped;
+  bracketedDropped = dropped;
   for (const w of kept) {
     const info = insWp.run(w);
     // The R-tree rowid MUST equal the waypoints rowid, because that is the only
@@ -280,6 +285,7 @@ if (carried.rows.length > 0 || carried.meta.length > 0) {
 
 console.log(`  skipped: cities ${skipped.cities}, neighborhoods ${skipped.neighborhoods}, waypoints ${skipped.waypoints}`);
 console.log(`  duplicates collapsed: ${duplicatesDropped} (same city, same name, within ${DUPLICATE_RADIUS_KM} km)`);
+console.log(`  bracketed duplicates collapsed: ${bracketedDropped} (same city, same name but for a bracketed aside, within ${BRACKETED_RADIUS_KM * 1000} m)`);
 db.pragma("wal_checkpoint(TRUNCATE)");
 db.exec("vacuum");
 const counts = ["cities", "neighborhoods", "waypoints"].map(

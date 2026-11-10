@@ -38,12 +38,22 @@ export const kmBetween = (a, b) => {
 export const nameKey = (n) => String(n ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
- * Collapse repeated records of the same place, keeping the richest one.
- *
- * "Richest" is trending_score first, then description length, then the id, so
- * the choice is deterministic and a re-export produces the same atlas.
+ * The richest of several records of one place: trending_score first, then
+ * description length, then the id, so the choice is deterministic and a
+ * re-export produces the same atlas.
  */
-export function dedupeWaypoints(rows) {
+const richestFirst = (a, b) =>
+  (b.trending_score ?? 0) - (a.trending_score ?? 0) ||
+  (b.description?.length ?? 0) - (a.description?.length ?? 0) ||
+  String(a.id).localeCompare(String(b.id));
+
+/**
+ * Group rows by city and `keyOf(name)`, cluster each group by distance, and
+ * keep the richest row of each cluster. Rows whose key is empty pass through.
+ * Returns the kept rows, the count dropped, and each merge (kept plus dropped)
+ * so a caller can list what it did.
+ */
+function collapse(rows, keyOf, radiusKm) {
   const groups = new Map();
   // Declared here, before the loop that fills it. An earlier version declared
   // it beside `kept`, which sits between the two loops, so the first unnamed
@@ -51,7 +61,7 @@ export function dedupeWaypoints(rows) {
   // because the shipped atlas has no empty names. Now tested directly.
   const unnamed = [];
   for (const r of rows) {
-    const key = nameKey(r.name);
+    const key = keyOf(r.name);
     // An empty or whitespace-only name is not a name. Grouping on "" would put
     // every unnamed place in a city into one group and keep only the richest,
     // silently destroying the rest. They pass through untouched instead.
@@ -61,6 +71,7 @@ export function dedupeWaypoints(rows) {
     if (list) list.push(r); else groups.set(k, [r]);
   }
   const kept = [];
+  const merges = [];
   let dropped = 0;
   for (const list of groups.values()) {
     if (list.length === 1) { kept.push(list[0]); continue; }
@@ -73,7 +84,7 @@ export function dedupeWaypoints(rows) {
     for (const r of list) {
       const hits = [];
       for (let i = 0; i < clusters.length; i++) {
-        if (clusters[i].some((x) => kmBetween(x, r) <= DUPLICATE_RADIUS_KM)) hits.push(i);
+        if (clusters[i].some((x) => kmBetween(x, r) <= radiusKm)) hits.push(i);
       }
       if (hits.length === 0) { clusters.push([r]); continue; }
       const merged = [r];
@@ -82,14 +93,61 @@ export function dedupeWaypoints(rows) {
       clusters.push(merged);
     }
     for (const c of clusters) {
-      c.sort((a, b) =>
-        (b.trending_score ?? 0) - (a.trending_score ?? 0) ||
-        (b.description?.length ?? 0) - (a.description?.length ?? 0) ||
-        String(a.id).localeCompare(String(b.id))
-      );
+      c.sort(richestFirst);
       kept.push(c[0]);
       dropped += c.length - 1;
+      if (c.length > 1) merges.push({ kept: c[0], dropped: c.slice(1) });
     }
   }
-  return { kept: [...kept, ...unnamed], dropped };
+  return { kept: [...kept, ...unnamed], dropped, merges };
+}
+
+/**
+ * Collapse repeated records of the same place, keeping the richest one.
+ * Same city, same name (case and whitespace only), within 2 km.
+ */
+export function dedupeWaypoints(rows) {
+  const { kept, dropped } = collapse(rows, nameKey, DUPLICATE_RADIUS_KM);
+  return { kept, dropped };
+}
+
+/**
+ * The second, narrower pass (2026-11-10, John's ruling): the same place
+ * written once with a bracketed aside and once without. Grand Rapids listed
+ * the Calder as "La Grande Vitesse (The Calder)" and as "La Grande Vitesse",
+ * two of the five places the car app shows; Boston has "Old North Church"
+ * beside "Old North Church (Christ Church)". On the atlas that day this
+ * pass found 80 merges, 29 of them in the US; John read the list before it
+ * shipped and kept one apart (KEEP_APART), so 79 merges went out.
+ *
+ * Tighter than the first pass on purpose, because the names agree less: the
+ * bracketed part is dropped, nothing else (no articles, no punctuation, so
+ * "The Fish Market" and "Fish Market" stay apart), and the places must sit
+ * within 300 m, a city block or two. Across those merges the separation was
+ * 101 m at the median and 240 m at p90.
+ */
+export const BRACKETED_RADIUS_KM = 0.3;
+
+/** nameKey with every bracketed aside removed: "Old North Church (Christ Church)"
+ *  and "Old North Church" share "old north church". A name that is only a
+ *  bracket gives "", which passes through untouched. */
+export const bracketKey = (n) => nameKey(String(n ?? "").replace(/\([^)]*\)/g, " "));
+
+/**
+ * Groups the bracketed pass leaves alone, as "<city_id>|<bracketKey>": their
+ * asides name different places, not one place twice. John's ruling on the
+ * list, 2026-11-10. Add to it only from a reviewed list, never to make a
+ * count come out.
+ */
+export const KEEP_APART = new Set([
+  // Two streets of the historic district, 274 m apart: two walks, not one.
+  "little-rock|quapaw quarter historic homes",
+]);
+
+export function dedupeBracketed(rows) {
+  const apart = [];
+  const rest = [];
+  for (const r of rows) (KEEP_APART.has(`${r.city_id}|${bracketKey(r.name)}`) ? apart : rest).push(r);
+  const out = collapse(rest, bracketKey, BRACKETED_RADIUS_KM);
+  return { ...out, kept: [...out.kept, ...apart] };
 }
