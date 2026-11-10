@@ -787,3 +787,9 @@ the waiter was wrong, not the process.
 
 - **IMPROVE: `gh pr checks --watch` can return before a new push's runs exist,** and the PR's council comment is the previous round's until it is re-edited. Wait on the run for the new SHA (`gh run watch <id>`), not on the PR.
 - **INSIGHT: "the app stores nothing" is not the whole answer for a privacy policy.** Cloud Run's own request log keeps every URL, query string and IP for 30 days; a GET with coordinates in it is logged by the platform even when the code logs none.
+
+## 2026-11-10: bracketed duplicates (#175) and the /api/today log exclusion
+
+- **IMPROVE: a mutation applied with `sed` must be checked to have applied.** Two of four mutants "passed" because the sed pattern never matched the regex literal; a count of 0 said so. Exact string replacement with an assertion, then rerun.
+- **KEEP: show the whole merge list before a data rule ships.** Reading all 80 found the one pair that was two places (Little Rock's two streets), now a named exception.
+- **INSIGHT: a log exclusion takes a few minutes to take hold, and App Hosting keeps its own request log beside Cloud Run's.** Test with a control request and wait until the control appears in every log before trusting an absence.
