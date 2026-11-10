@@ -459,6 +459,8 @@ export default function RecommendationList({
                   >
                     <span aria-hidden className="inline-block w-5 text-lg leading-6 text-[#f0f6fc]">{isOpen ? "▾" : "▸"}</span>
                     <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
+                    {/* Right after the name, as on /today, so it never wraps away from it (U52 critic). */}
+                    {abroadTag}
                     {detourMinutes > 0 && !isAdded && (
                       <span className="ml-1 text-[#8b949e]">
                         · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}
@@ -467,7 +469,6 @@ export default function RecommendationList({
                     {outOfTheWay && !isAdded && (
                       <span data-out-of-the-way className="ml-1 text-[#8b949e] whitespace-nowrap">· out of the way</span>
                     )}
-                    {abroadTag}
                     {/* What the drawer holds, said while it is closed. */}
                     {!isOpen && (
                       <span data-drawer-summary className="block pl-5 text-[#b0b9c2]">
@@ -482,6 +483,7 @@ export default function RecommendationList({
                 {/* The card's title (U41): the name in the body white, the
                     rest of the line grey, so the eye finds the town first. */}
                 <span data-town-name className="font-medium text-[#f0f6fc]">{cityName}</span>
+                {abroadTag}
                 {detourMinutes > 0 && !isAdded && (
                   <span className="ml-1 text-[#8b949e]">
                     · <Figures text={formatDrive(detourMinutes / 2)} /> {drivesFrom ? `from ${drivesFrom}` : "away"}
@@ -492,7 +494,6 @@ export default function RecommendationList({
                 {outOfTheWay && !isAdded && (
                   <span data-out-of-the-way className="ml-1 text-[#8b949e] whitespace-nowrap">· out of the way</span>
                 )}
-                {abroadTag}
                 </>
                 )}
               </h3>
