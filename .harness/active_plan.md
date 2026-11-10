@@ -4,7 +4,9 @@
 
 # Active plan — roadtripper
 
-Branch: data/u49-trim-wiki-lines
+Branch: docs/u49-record
+
+(Docs only: records U49, below, shipped as #160; production checked 09:13 JST; blind critic APPROVE, high.)
 
 ## Ship rule (written before the work)
 

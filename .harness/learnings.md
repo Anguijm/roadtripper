@@ -740,3 +740,10 @@ the waiter was wrong, not the process.
 - **KEEP: a stale number in copy is fixed by counting, not retyping.** The home's "258 cities" became `getAllCities().length`; the mutation proof (258 put back, test red) took a minute.
 - **IMPROVE: commit and push in separate tool calls.** `.claude/hooks/check-branch-not-merged.sh` judges a command containing `git push` against the tree before the commit in the same command lands, so a fresh branch's `commit && push` is blocked as "already merged".
 - **INSIGHT: App Hosting took about 4 minutes from merge to the new build answering** (merged ~07:59 JST, 258 at 08:00 to 08:02, 303 at 08:03), polled with the CDP phone script.
+
+## 2026-11-10: U49, shorter Wikipedia lines (#160, city-atlas-service #64)
+
+- **KEEP: deletion-only edits keep sourced text sourced.** The trim removes the subject and the town; it never rewrites, and a floor (25 characters) keeps the whole sentence when too little would remain.
+- **KEEP: the atlas council's round-1 BLOCK was right on four of five items.** "X is located in <town>." would have become "X is."; "was a" would have turned a closed place into an open one. Each fix got a test and a one-guard mutation proof.
+- **INSIGHT: a data-only atlas change can be proved by a full table diff.** Before and after copies of `data/atlas.sqlite` compared row by row: 4 waypoint descriptions changed, nothing else.
+- **IMPROVE: with no local plan page, the critic ran after the merge** on matched production shots (before captured pre-merge, the Stuhr row centered by the same script). It approved; if it had not, the fix was a revert.
