@@ -8,6 +8,15 @@
  * fails the call, so a typo cannot break the car. The pattern keeps the log
  * line to letters, digits, dots and dashes.
  */
+/**
+ * The tag's shape: lowercase letters, digits, dots and dashes, starting with
+ * a letter or digit, at most 40 characters. That fits "car-0.2.0" and any
+ * version name the car session plans, and nothing else can reach the log: no
+ * spaces, quotes or newlines to forge or split a line, and a length that
+ * keeps a line short. Agreed with the car session (2026-11-10); widening it
+ * (uppercase for "RC1", say) is a change to tell the car about and to test in
+ * __tests__/client.test.ts.
+ */
 const CLIENT = /^[a-z0-9][a-z0-9.-]{0,39}$/;
 
 export function clientTag(url: string): string {
