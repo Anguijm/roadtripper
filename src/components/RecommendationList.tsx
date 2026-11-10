@@ -105,6 +105,12 @@ interface RecommendationListProps {
   moodFilter?: string | null;
 }
 
+/** Two towns' places along the road, for a sort: unknown last, two unknowns equal. */
+export function byRoad(a: number | undefined, b: number | undefined): number {
+  if (a === undefined || b === undefined) return Number(a === undefined) - Number(b === undefined);
+  return a - b;
+}
+
 /** The line that counts the towns a mood left empty (U50). */
 export function hiddenTownsLine(count: number, moods: string): string | null {
   if (count <= 0) return null;
@@ -263,9 +269,21 @@ export default function RecommendationList({
   // marker, or from "What's in" inside it), so the answer is never drawn
   // inside a closed drawer (round 1). Derived rather than set from an
   // effect, so a tap after that still closes it.
-  const [tapped, setTapped] = useState<ReadonlyMap<string, boolean>>(() => new Map());
-  const townOpen = (id: string) => tapped.get(id) ?? previewedCityId === id;
-  const toggleTown = (id: string) => setTapped((curr) => new Map(curr).set(id, !(curr.get(id) ?? previewedCityId === id)));
+  //
+  // A tap remembers which town's write-up was showing when it was made: a
+  // later request for this town's write-up (its marker tapped after the
+  // drawer was closed by hand) opens it again (PR #162 council), while a
+  // close made with the write-up already showing is kept.
+  const [tapped, setTapped] = useState<ReadonlyMap<string, { open: boolean; during: string | null }>>(() => new Map());
+  const townOpen = (id: string) => {
+    const t = tapped.get(id);
+    if (previewedCityId === id && t?.during !== id) return true;
+    return t?.open ?? false;
+  };
+  const toggleTown = (id: string) => {
+    const next = !townOpen(id);
+    setTapped((curr) => new Map(curr).set(id, { open: next, during: previewedCityId ?? null }));
+  };
 
   const { groups, hiddenTowns } = useMemo(() => {
     const all = buildRankedGroupsWith(fetchResult, moodProfile, primaryCityId ?? null);
@@ -278,7 +296,10 @@ export default function RecommendationList({
         .sort(
           (a, b) =>
             Number(!!a.g.outOfTheWay) - Number(!!b.g.outOfTheWay) ||
-            (roadKm.get(a.g.cityId) ?? Infinity) - (roadKm.get(b.g.cityId) ?? Infinity) ||
+            // A town with no place on the road goes after those with one;
+            // two without keep their order (Infinity - Infinity is NaN,
+            // which leaves a sort undefined: PR #162 council).
+            byRoad(roadKm.get(a.g.cityId), roadKm.get(b.g.cityId)) ||
             a.i - b.i
         )
         .map(({ g }) => g);

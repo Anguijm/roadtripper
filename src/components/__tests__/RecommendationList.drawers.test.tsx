@@ -131,3 +131,26 @@ describe("a town's write-up and its drawer (U50, round 1)", () => {
     expect(html).toMatch(/id="town-places-lincoln"[^>]*>[\s\S]*?data-whats-in[^>]*>What&#x27;s in Lincoln: its parts of town</);
   });
 });
+
+describe("PR #162 council: two edge cases", () => {
+  it("reopens a drawer closed by hand when the town's write-up is then asked for", () => {
+    const { rerender } = render(<RecommendationList {...props([], null)} />);
+    const toggle = screen.getByText("Lincoln").closest("button")!;
+    fireEvent.click(toggle); // open
+    fireEvent.click(toggle); // close by hand
+    expect(document.getElementById("town-places-lincoln")!.hidden).toBe(true);
+    rerender(<RecommendationList {...props([], null)} previewedCityId="lincoln" />);
+    expect(document.getElementById("town-places-lincoln")!.hidden).toBe(false);
+    // A close made while the write-up shows is kept.
+    fireEvent.click(screen.getByText("Lincoln").closest("button")!);
+    expect(document.getElementById("town-places-lincoln")!.hidden).toBe(true);
+  });
+
+  it("orders towns with no place on the road last, and two of them stably", async () => {
+    const { byRoad } = await import("@/components/RecommendationList");
+    expect(byRoad(10, 20)).toBeLessThan(0);
+    expect(byRoad(undefined, 20)).toBeGreaterThan(0);
+    expect(byRoad(20, undefined)).toBeLessThan(0);
+    expect(byRoad(undefined, undefined)).toBe(0);
+  });
+});
