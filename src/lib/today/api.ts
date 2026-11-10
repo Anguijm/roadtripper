@@ -62,7 +62,8 @@ export type TodayApiResponse =
   | { version: 1; status: "no-city"; generatedAt: string }
   | { version: 1; status: "no-graph"; generatedAt: string; here: Here }
   | { version: 1; status: "bad-request"; message: string }
-  | { version: 1; status: "rate-limited"; retryAfterSeconds: number };
+  | { version: 1; status: "rate-limited"; retryAfterSeconds: number }
+  | { version: 1; status: "error"; message: string };
 
 export type TodayQuery =
   | { ok: true; origin: LatLng; hours: number; moods: MoodId[] }
@@ -76,12 +77,16 @@ export type TodayQuery =
  * should be loud (agreed with the car session).
  */
 export function parseTodayQuery(q: URLSearchParams): TodayQuery {
-  const lat = Number(q.get("lat"));
-  const lng = Number(q.get("lng"));
-  if (q.get("lat") === null || q.get("lat") === "" || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+  // Trimmed first: Number(" ") is 0, so a blank value would otherwise pass
+  // as the equator or the meridian (PR #164 council).
+  const latRaw = (q.get("lat") ?? "").trim();
+  const lngRaw = (q.get("lng") ?? "").trim();
+  const lat = Number(latRaw);
+  const lng = Number(lngRaw);
+  if (latRaw === "" || !Number.isFinite(lat) || lat < -90 || lat > 90) {
     return { ok: false, message: "lat must be a number between -90 and 90" };
   }
-  if (q.get("lng") === null || q.get("lng") === "" || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+  if (lngRaw === "" || !Number.isFinite(lng) || lng < -180 || lng > 180) {
     return { ok: false, message: "lng must be a number between -180 and 180" };
   }
   const raw = (q.get("moods") ?? "").split(",").map((m) => m.trim()).filter((m) => m !== "");
@@ -90,6 +95,9 @@ export function parseTodayQuery(q: URLSearchParams): TodayQuery {
     return { ok: false, message: `unknown mood "${unknown.slice(0, 40)}"; moods are ${MOODS.join(", ")}` };
   }
   const moods = [...new Set(raw)] as MoodId[];
+  // Two, because the web app's chips take two (U6: a third tap drops the
+  // oldest) and the ranking profile unions at most two moods' kinds; the
+  // car app offers the same choice.
   if (moods.length > 2) return { ok: false, message: "at most two moods" };
   return { ok: true, origin: { lat, lng }, hours: hoursFrom(q.get("hours") ?? undefined), moods };
 }

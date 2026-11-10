@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { GET } from "@/app/api/today/route";
+import * as api from "@/lib/today/api";
 
 /** The route's HTTP shape: statuses, headers and the rate limit (docs/car-api.md). */
 
@@ -33,5 +34,16 @@ describe("GET /api/today", () => {
     expect(await last!.json()).toMatchObject({ version: 1, status: "rate-limited" });
     // Another address is unaffected.
     expect((await call("lat=0&lng=-140", "10.0.0.4")).status).toBe(200);
+  });
+});
+
+describe("an unexpected failure (PR #164 council)", () => {
+  it("answers 500 JSON, not an HTML error page", async () => {
+    const spy = vi.spyOn(api, "todayAnswer").mockRejectedValueOnce(new Error("atlas gone"));
+    const res = await call("lat=41.2565&lng=-95.9345", "10.0.0.9");
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.json()).toMatchObject({ version: 1, status: "error" });
+    spy.mockRestore();
   });
 });

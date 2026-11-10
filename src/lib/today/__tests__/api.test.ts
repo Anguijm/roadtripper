@@ -76,3 +76,11 @@ describe("the answer", () => {
     expect(await todayAnswer({ lat: 0, lng: -140 }, 4, [], NOW)).toEqual({ version: 1, status: "no-city", generatedAt: "2026-11-10T01:00:00.000Z" });
   });
 });
+
+describe("PR #164 council", () => {
+  it("refuses a blank lat or lng instead of reading it as 0", () => {
+    expect(q("lat=%20&lng=-95")).toMatchObject({ ok: false });
+    expect(q("lat=41&lng=%20%20")).toMatchObject({ ok: false });
+    expect(q("lat=%2041.5%20&lng=-95")).toMatchObject({ ok: true, origin: { lat: 41.5, lng: -95 } });
+  });
+});

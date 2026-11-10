@@ -162,7 +162,8 @@ export function waypointsForCities(cityIds: readonly string[]) {
  * them to put a place on the map and to navigate there. Ids not in the
  * atlas are left out. Bounded like `waypointsForCities`.
  */
-export function waypointCoords(ids: readonly string[]): Map<string, { lat: number; lng: number }> {
+export function waypointCoords(idsIn: readonly string[]): Map<string, { lat: number; lng: number }> {
+  const ids = [...new Set(idsIn)];
   if (ids.length === 0) return new Map();
   if (ids.length > MAX_BOUND_CITY_IDS) {
     throw new Error(`waypointCoords called with ${ids.length} ids, above the ${MAX_BOUND_CITY_IDS} bound-parameter ceiling`);

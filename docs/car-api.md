@@ -76,11 +76,15 @@ drive times from it.
 ```json
 400 { "version": 1, "status": "bad-request", "message": "at most two moods" }
 429 { "version": 1, "status": "rate-limited", "retryAfterSeconds": 30 }   (plus a Retry-After header)
+500 { "version": 1, "status": "error", "message": "Something went wrong on our side. Try again." }
 ```
+
+Every answer is JSON, the 500 included (added after the PR #164 council,
+2026-11-10). A blank `lat` or `lng` is a 400, not 0.
 
 ### Caching and limits
 
-- 200s: `Cache-Control: private, max-age=300`. 400 and 429: `no-store`.
+- 200s: `Cache-Control: private, max-age=300`. 400, 429 and 500: `no-store`.
 - Rate limit: the per-IP burst limit the `/today` page uses (20 requests a
   minute). The daily recompute quota is for the paid Routes API calls of
   `/plan` and is deliberately not charged here, so a car app cannot use up a
