@@ -2,12 +2,11 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #162 (U50 drawers), after #160 (U49 shorter Wikipedia lines) and #158 (home city count). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #165 (CI type-check), after #164 (/api/today), #162 (U50 drawers), #160 (U49) and #158 (home city count). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
-- **`GET /api/today` for the car app.** Contract agreed with the roadtripper-car session on 2026-11-10 (to be written to `docs/car-api.md` in the PR): today's towns and places from lat, lng, hours and up to two moods, the /today page's computation, behind the per-IP rate limit. The car app (Kotlin, Android Auto, project `~/projects/roadtripper-car`) builds against a fixture until it is live.
-- **CI type-check fix, blocked.** Branch `fix/ci-type-check` (local commit) makes `ci.yml` run `npm run type-check`; GitHub refuses the push because this machine's GitHub token lacks the `workflow` scope. Waits on John: grant the scope, or push it from elsewhere.
+- **Plainer Wikipedia lines**, next (see Next): John said yes to rewrites on 2026-11-10; each line is shown to him before it ships.
 
 ## Next (scoped, not started)
 
@@ -19,6 +18,9 @@ Last refreshed: **2026-11-10**. Last change: #162 (U50 drawers), after #160 (U49
 
 
 ## Done, recorded
+
+- **CI type-checks (#165, 2026-11-10).** `ci.yml` called `typecheck --if-present`; the script is `type-check`, so CI never type-checked (ops survey). Now `npm run type-check`, no `--if-present`; the run's log shows the script running. Needed the GitHub `workflow` scope on the MS-S1, granted by John the same day.
+- **GET /api/today for the car app (#164, 2026-11-10).** Contract in `docs/car-api.md`, agreed with the roadtripper-car session. The /today page's computation plus each place's coordinates; discriminated on `status`; the /today page's per-IP burst limit, not the recompute quota. Council CONDITIONAL; four real items fixed (blank lat read as 0, HTML 500, id dedupe, two comments), its product objection declined (John's decision; Android Auto shows no web pages). Live 10:17 JST; the car session's one check call matched the contract.
 
 - **Along the way, then the towns, as drawers (U50, #162, 2026-11-10).** John's design: per day, "Along the way" first (a drawer, open, the ten strongest in road order, Show all), then each town a closed drawer in road order with its pick and count, Stop here in the header and "What's in X: its parts of town" inside. A chosen mood hides what answers none of the chosen moods in both drawers, and counts the towns it emptied; Machines and Sports leave the towns whole. Sort control removed; quality bar rule 4 amended. Critic round 1 REJECT ("What's in" beside the name was a second way to open a town), round 2 APPROVE. Council CLEAR; its two real items (a marker reopening a drawer closed by hand, a NaN sort) fixed with tests. Live on production 09:57 JST.
 

@@ -755,3 +755,11 @@ the waiter was wrong, not the process.
 - **INSIGHT: a critic's reject can be half my error and half real.** The wrong tap was mine; "What's in beside the name reads as a second way in" was real and changed the design.
 - **INSIGHT: React's lint forbids setState in an effect; derive instead.** The drawer's open state is computed from taps plus the shown write-up, and the council then found the derivation's edge (a close by hand outranked a later marker tap).
 - **IMPROVE: grep a push's output for errors, not only for gate lines.** A `workflow`-scope rejection went unseen behind a filter that printed only `gate1:` lines.
+
+## 2026-11-10: /api/today (#164) and the CI fix (#165)
+
+- **INSIGHT: a function exported from a "use client" file is a client reference on the server.** `rowBadges` had to move to `src/lib/plan/badges.ts` before a route handler could call it; unit tests cannot see the difference.
+- **KEEP: match the rate-limit layer to the cost.** /api/today reads only the atlas, so it takes the /today page's burst limit; charging the Routes recompute quota would have let a car app use up a person's plan recomputes.
+- **KEEP: agree a contract by message, then write it down in the repo.** The car session's three additions (generatedAt, a loud 400 on a bad mood, stable ids) cost minutes and its one check call matched with no differences.
+- **IMPROVE: state numbers from the code, not from memory, before another session builds on them.** Two contract numbers (town cap, default hours) went out wrong and needed corrections.
+- **INSIGHT: a branch that only touches `.github/workflows/` needs the token's `workflow` scope;** and a rebase while a background job uses the checkout belongs in a worktree.

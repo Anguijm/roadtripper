@@ -4,7 +4,9 @@
 
 # Active plan — roadtripper
 
-Branch: fix/ci-type-check
+Branch: docs/api-today-record
+
+(Docs only: records #164 and #165.)
 
 ## Ship rule (written before the work)
 
