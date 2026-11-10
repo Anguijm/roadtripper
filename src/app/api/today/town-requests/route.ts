@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { parseTownRequest } from "@/lib/today/town-request";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { clientTag } from "@/lib/today/client";
 
 /**
  * POST /api/today/town-requests: the car app's "add this town" button
  * (docs/car-api.md; rules in src/lib/today/town-request.ts). Writes nothing
- * but one log line, `[town-request] "<name>"`, which Cloud Logging keeps 30
+ * but one log line, `[town-request] client=<tag> "<name>"`, which Cloud Logging keeps 30
  * days and the atlas work reads in batches. The per-IP burst limit applies;
  * the phone sends one request per place, on the driver's tap.
  */
@@ -50,6 +51,6 @@ export async function POST(request: Request) {
   const q = parseTownRequest(parsed);
   if (!q.ok) return json({ version: 1, status: "bad-request", message: q.message }, 400);
   // JSON-quoted, so a name can never start a second log line or pass for another entry.
-  console.log(`[town-request] ${JSON.stringify(q.name)}`);
+  console.log(`[town-request] client=${clientTag(request.url)} ${JSON.stringify(q.name)}`);
   return json({ version: 1, status: "accepted" }, 202);
 }

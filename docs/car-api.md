@@ -96,9 +96,12 @@ Every answer is JSON, the 500 included (added after the PR #164 council,
   minute). The daily recompute quota is for the paid Routes API calls of
   `/plan` and is deliberately not charged here, so a car app cannot use up a
   person's plan recomputes.
-- The app sends `User-Agent: RoadtripperCar/<versionName>`; the server logs
-  one line per call with the status, the town count and that agent, and no
-  coordinates.
+- The app tags each call with `client=car-<versionName>` in the query
+  (from the car's next version; optional, and a malformed tag is ignored,
+  never a 400). The server logs one line per call, `[api/today] <status>
+  towns=<n> client=<tag or ->`, and no coordinates. Not the User-Agent:
+  App Hosting's front end hands every request to the app as "Google"
+  (found 2026-11-10), so the app never sees `RoadtripperCar/...`.
 
 ## GET /api/today/towns
 
@@ -218,8 +221,14 @@ atlas town (then ask `/api/today` for the town's own list).
 As `/api/today`: 200s `private, max-age=300`; 400, 404, 429 and 500
 `no-store`; the per-IP burst limit; no daily quota, since nothing here is
 paid. The car re-asks at most every 10 minutes and after about 10 km. One
-log line per call: status, row count and user agent, never a position or a
-destination.
+log line per call, `[api/today/toward] <status> rows=<n> client=<tag or ->`,
+never a position or a destination.
+
+What the car shows of it (FACT from the Car App Library documentation, per
+the car session): a car allows five templates per task and counts a list
+whose rows changed, so the car shows a changed list on its own at most once
+per opening and otherwise waits for the driver's refresh tap; minutes update
+in place. It still asks at the pace above, to keep its minutes honest.
 
 ## POST /api/today/town-requests
 
@@ -239,11 +248,13 @@ Content-Type: application/json
 - `name`: the place as the phone's geocoder names it, 2 to 80 characters
   of letters (any script), digits, spaces and `. , ' ’ ( ) -`. Runs of
   spaces are tidied. No position or id travels.
+- Send `?client=car-<versionName>` in the query, as on the other paths; the
+  body stays `{ "name": ... }` only.
 - `202 { "version": 1, "status": "accepted" }`; `400 bad-request` for a
   wrong `Content-Type`, a body that is not JSON or is over 1 KB, or a name
   outside those rules; `429` as /api/today. All `no-store`.
-- Kept: one app log line, `[town-request] "<name>"`, quoted so a name can
-  never start another line, for 30 days.
+- Kept: one app log line, `[town-request] client=<tag> "<name>"`, the name
+  quoted so it can never start another line, for 30 days.
 
 ## What the server keeps of a request
 
@@ -261,9 +272,11 @@ for the car app's Play privacy policy.
 - **IP address:** only the in-memory burst limiter, per server instance,
   swept after about 2 minutes.
 - **Other identifiers:** no cookies, ids or analytics. The app logs one
-  line per call, `[api/today] <status> towns=<n> ua=<first 40 characters>`
-  (`[api/today/toward] <status> rows=<n> ua=...` for the list toward a
-  destination), kept 30 days.
+  line per call with the status, a count and the car's `client` tag (its
+  app version, or `-`): `[api/today] ok towns=10 client=car-0.2.0`,
+  `[api/today/toward] ok rows=15 client=...`, `[api/today/towns] ok
+  client=...`, `[town-request] client=... "<name>"`. Kept 30 days. The
+  User-Agent is not logged by the app (it only ever sees "Google").
 - **A requested town's name** (`/api/today/town-requests`): one app log
   line, kept 30 days, read in batches to add towns. Nothing else about the
   request.

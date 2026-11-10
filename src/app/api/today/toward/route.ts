@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseTowardQuery, towardAnswer, type TowardApiResponse } from "@/lib/today/toward";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
+import { clientTag } from "@/lib/today/client";
 
 /**
  * GET /api/today/toward, read-only JSON for the car app: today's towns and
@@ -39,9 +40,8 @@ export async function GET(request: Request) {
     console.error("[api/today/toward] failed:", err instanceof Error ? err.constructor.name : "unknown");
     return json({ version: 1, status: "error", message: "Something went wrong on our side. Try again." }, 500, { "Cache-Control": "no-store" });
   }
-  // One line per call: status, row count, user agent. Never a position or a destination.
-  const ua = (request.headers.get("user-agent") ?? "").slice(0, 40);
-  console.log(`[api/today/toward] ${body.status} rows=${body.status === "ok" ? body.stops.length : 0} ua=${JSON.stringify(ua)}`);
+  // One line per call: status, row count, the car's client tag. Never a position or a destination.
+  console.log(`[api/today/toward] ${body.status} rows=${body.status === "ok" ? body.stops.length : 0} client=${clientTag(request.url)}`);
   if (body.status === "unknown-destination") return json(body, 404, { "Cache-Control": "no-store" });
   return json(body, 200);
 }
