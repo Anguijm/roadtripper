@@ -125,6 +125,14 @@ export function dedupeWaypoints(rows) {
  * "The Fish Market" and "Fish Market" stay apart), and the places must sit
  * within 300 m, a city block or two. Across those merges the separation was
  * 101 m at the median and 240 m at p90.
+ *
+ * Changing it: a wider radius merges more pairs whose brackets name
+ * different places (Little Rock's two streets were 274 m apart). Before
+ * raising it, list what the new value would merge, as was done for 300 m
+ * (run dedupeBracketed over the exported atlas and read every pair), add any
+ * pair that is two places to KEEP_APART, and update the counts above and the
+ * tests in scripts/lib/__tests__/dedupe.test.mjs. Never widen it to make a
+ * single duplicate go away.
  */
 export const BRACKETED_RADIUS_KM = 0.3;
 
