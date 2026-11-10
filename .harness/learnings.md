@@ -747,3 +747,11 @@ the waiter was wrong, not the process.
 - **KEEP: the atlas council's round-1 BLOCK was right on four of five items.** "X is located in <town>." would have become "X is."; "was a" would have turned a closed place into an open one. Each fix got a test and a one-guard mutation proof.
 - **INSIGHT: a data-only atlas change can be proved by a full table diff.** Before and after copies of `data/atlas.sqlite` compared row by row: 4 waypoint descriptions changed, nothing else.
 - **IMPROVE: with no local plan page, the critic ran after the merge** on matched production shots (before captured pre-merge, the Stuhr row centered by the same script). It approved; if it had not, the fix was a revert.
+
+## 2026-11-10: U50, the drawers (#162)
+
+- **KEEP: tests that encode a rule the operator just overturned are rewritten, not patched.** U6's "never filter" and the sort control, U47's stop town first: each test now pins the new rule with the reason beside it.
+- **IMPROVE: aim a screenshot's tap at the control, not at text.** Round 1's "opened" shot tapped "What's in Grand Island" (the smallest button containing the name), not the drawer; the critic judged the wrong state. `CLICKSEL='[data-town-toggle]'` fixed it.
+- **INSIGHT: a critic's reject can be half my error and half real.** The wrong tap was mine; "What's in beside the name reads as a second way in" was real and changed the design.
+- **INSIGHT: React's lint forbids setState in an effect; derive instead.** The drawer's open state is computed from taps plus the shown write-up, and the council then found the derivation's edge (a close by hand outranked a later marker tap).
+- **IMPROVE: grep a push's output for errors, not only for gate lines.** A `workflow`-scope rejection went unseen behind a filter that printed only `gate1:` lines.

@@ -4,7 +4,7 @@
 
 **Current branch: `main`**. Local in sync with origin.
 
-**Last change: PR #160 (2026-11-10), U49 shorter Wikipedia lines (atlas data, via city-atlas-service #64). Before it, PR #158, the home page counts the atlas's cities instead of saying 258.** Before it, PR #154 (U48, 2026-10-11), then docs only (#155 to #157).
+**Last change: PR #162 (2026-11-10), U50: Along the way, then the towns, as drawers in road order, filtered by the moods.** Before it the same day: #160 (U49 shorter Wikipedia lines), #158 (home city count). Before it, PR #154 (U48, 2026-10-11), then docs only (#155 to #157).
 
 **Where this session runs (since 2026-11-10):** the MS-S1, supervised (`roadtripper-session.service`, tmux socket `roadtripper`), clone at `~/projects/roadtripper`. The laptop is unreachable. Bun 1.4.4 came from `npm install -g bun` (into `~/opt/node22/bin`, symlinked from `~/.local/bin`). Install dependencies with `npm ci`, as CI does, because bun.lock is behind package.json (see Open items). **John ruled 2026-11-10 that a PR is pushed and merged without asking once the gates hold.** Run `git log --oneline -1 origin/main` for the current hash. Open items are in the section of that name below.
 
@@ -111,10 +111,11 @@ Refreshed 2026-10-24. One line each: what, since when, who it waits on.
 
 - **Plainer Wikipedia lines?** The U49 critic suggested rewriting, not just trimming (BACKLOG Next). Waits on John: rewritten lines are no longer Wikipedia's words.
 - **Google Cloud sign-in on the MS-S1 (2026-11-10):** `~/opt/google-cloud-sdk` (gcloud 592, unpacked, not on PATH) and Application Default Credentials for John's account at `~/.config/gcloud/application_default_credentials.json`. No quota project is set; pass `GOOGLE_CLOUD_QUOTA_PROJECT=urban-explorer-483600` to the atlas export and to city-atlas-service scripts. The atlas export now runs here: `GOOGLE_CLOUD_QUOTA_PROJECT=urban-explorer-483600 node scripts/export-atlas.mjs` (add `--force` only when `fuser data/atlas.sqlite*` shows nothing holds it).
-- **No `.env.local` on the MS-S1**, so the plan page cannot run locally; screen changes are checked on production (CDP phone script, see below). Waits on John if he wants the keys copied here.
+- **`.env.local` on the MS-S1 (2026-11-10, John's choice):** the two Maps keys, read from Secret Manager (project roadtripper-planner, secrets GOOGLE_MAPS_KEY and NEXT_PUBLIC_GOOGLE_MAPS_KEY) through the signed-in Application Default Credentials; mode 600, ignored by git. The plan page runs locally (`npx next dev -p 3123`), so screen critics judge before merge.
+- **Car app endpoints:** `/api/today` contract agreed with roadtripper-car (see BACKLOG Now); `/api/trip` is phase two.
+- **CI type-check fix waits on the GitHub `workflow` scope** (BACKLOG Now).
 - **Elk City, OK is still thin** (4 mapped places within 3 km), noted 2026-10-11. Waits on John to queue it.
 - **Why Food is thin on Amarillo → Austin** (round 3 open thread, 2026-10-08). Not urgent. Waits on John.
-- **No `data/roadside.sqlite` on the MS-S1 clone** (the 2026-10-22 mismatch was on the laptop's copy). Production fetches its own at build and is unaffected; the home example line falls back to the Cadillac Ranch and the Big Texan locally. Fetch the release `roadside-store` before any local roadside work. Waits on me, at the next code session that needs it.
 - **bun.lock is behind package.json** (missing `@testing-library/jest-dom`, seen 2026-11-10: `bun install --frozen-lockfile` refuses). CI and App Hosting use `npm ci` and are unaffected. A chore PR regenerates it. Waits on me.
 - **The phone screenshot script** (CDP 390 by 844 emulation plus `innerText`) was rewritten 2026-11-10 in a session scratchpad, the second time it has been lost there. It belongs in `scripts/`. Waits on John to say yes.
 

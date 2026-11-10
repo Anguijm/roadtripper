@@ -4,7 +4,9 @@
 
 # Active plan — roadtripper
 
-Branch: feat/u50-drawers
+Branch: docs/u50-record
+
+(Docs only: records U50, shipped as #162, live 09:57 JST.)
 
 ## Ship rule (written before the work)
 
