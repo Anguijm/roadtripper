@@ -31,13 +31,13 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
   "status": "ok",
   "generatedAt": "2026-11-10T01:07:04.864Z",
   "origin": { "lat": 41.2565, "lng": -95.9345 },
-  "here": { "cityId": "omaha", "name": "Omaha", "lat": 41.2565, "lng": -95.9345, "distanceKm": 0 },
+  "here": { "cityId": "omaha", "name": "Omaha", "lat": 41.2565, "lng": -95.9345, "distanceKm": 0, "country": "United States" },
   "hours": 4,
   "moods": ["history"],
   "placesComplete": true,
   "towns": [
     {
-      "id": "lincoln-ne", "name": "Lincoln", "lat": 40.8136, "lng": -96.7026, "driveMinutes": 51,
+      "id": "lincoln-ne", "name": "Lincoln", "lat": 40.8136, "lng": -96.7026, "driveMinutes": 51, "country": "United States",
       "places": [
         { "id": "lincoln-ne-downtown-...-mosaic-floor", "name": "Nebraska State Capitol Mosaic Floor",
           "lat": 40.8079, "lng": -96.7003, "kind": "Culture", "line": "Inside the magnificent ...", "badge": "pick" }
@@ -50,6 +50,11 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
 - `towns`: nearest drive first, at most 10 (`MAX_WAYPOINT_CITIES`).
   `driveMinutes` is one way from `here` (the snapped city) on the
   calibrated drive graph.
+- `country` on each town and on `here` (added 2026-11-10, U52, non-breaking):
+  the atlas's country name, or "" when it has none. A town whose country
+  differs from `here.country` is across a border; the web app says
+  "in Canada" beside its name, and the car app labels it the same way
+  (John's choice: label, not hide).
 - `places`: up to 5 per town (`TOP_WAYPOINTS_PER_CITY`), ranked by the moods
   as the page ranks them. `kind` is the web app's word. `line` is one or two
   sentences or null; **untrusted model text, render as plain text only**.

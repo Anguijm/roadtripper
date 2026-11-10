@@ -31,6 +31,8 @@ export interface CityContext {
   lng: number;
   /** Out of the way (U21): offered only to a dated trip with a day to spare, after the rest. Absent is on the way. */
   outOfTheWay?: boolean;
+  /** The atlas's country ("Canada"), for saying a town is across a border (U52). Absent when the atlas has none. */
+  country?: string;
 }
 
 /** Lean waypoint row shipped to the client. Keeps payload small. */

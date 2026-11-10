@@ -288,3 +288,14 @@ export function overrunLine(day: Pick<TripDay, "minutes" | "toName">, budgetMinu
   if (over <= 0) return null;
   return `${formatDurationPlain(over * 60)} over your ${formatDurationPlain(Math.round(budgetMinutes) * 60)}, to reach ${day.toName}`;
 }
+
+/**
+ * A town across a border from where the trip starts, said beside its name
+ * (U52, John 2026-11-10: from Detroit, Toronto was offered like any other
+ * town). "in Canada", or null when either country is unknown or they match:
+ * a town is labelled only when we know it is abroad.
+ */
+export function abroadLabel(townCountry: string | null | undefined, homeCountry: string | null | undefined): string | null {
+  if (!townCountry || !homeCountry || townCountry === homeCountry) return null;
+  return `in ${townCountry}`;
+}

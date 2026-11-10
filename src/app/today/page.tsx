@@ -8,7 +8,7 @@ import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { parseMoods, MOODS_PARAM } from "@/lib/roadside/tags";
 import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
-import { kindWord } from "@/lib/plan/words";
+import { abroadLabel, kindWord } from "@/lib/plan/words";
 import { checkRateLimit, getClientIp, maybeSweep } from "@/lib/routing/rate-limit";
 import { NEAR_THRESHOLD_KM } from "@/lib/geo/locate";
 import { parseIsoDate, deadlineLine, todayIso, daysUntil } from "@/lib/plan/deadline";
@@ -259,7 +259,14 @@ export default async function TodayPage({
             <li key={g.cityId} className="border border-[#30363d] bg-[#161b22] p-4">
               <div className="flex items-baseline justify-between gap-3 mb-2">
                 {/* A name wraps; it is never cut with an ellipsis (rule 2). */}
-                <h2 className="text-lg text-[#f0f6fc] min-w-0 break-words">{g.cityName}</h2>
+                <h2 className="text-lg text-[#f0f6fc] min-w-0 break-words">
+                  {g.cityName}
+                  {/* Across a border from here (U52): said beside the name. */}
+                  {(() => {
+                    const abroad = abroadLabel(cityById.get(g.cityId)?.country, plan.here?.city.country);
+                    return abroad ? <span data-abroad className="ml-1 text-base text-[#8b949e] whitespace-nowrap">· {abroad}</span> : null;
+                  })()}
+                </h2>
                 {/* A drive time, said as a phrase; the number is the one
                     thing in the mono face, "away" is in the body face
                     (quality bar, rule 2; Gauntlet U2, round 3). */}

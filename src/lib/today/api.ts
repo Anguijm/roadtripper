@@ -42,10 +42,12 @@ export interface TodayApiTown {
   lng: number;
   /** One way from `here`, on the calibrated drive graph, whole minutes. */
   driveMinutes: number;
+  /** The atlas's country ("Canada"); compare with `here.country` to label a town across a border (v1 addition, U52). */
+  country: string;
   places: TodayApiPlace[];
 }
 
-type Here = { cityId: string; name: string; lat: number; lng: number; distanceKm: number };
+type Here = { cityId: string; name: string; lat: number; lng: number; distanceKm: number; country: string };
 
 export type TodayApiResponse =
   | {
@@ -113,6 +115,7 @@ export async function todayAnswer(origin: LatLng, hours: number, moods: MoodId[]
     lat: plan.here.city.lat,
     lng: plan.here.city.lng,
     distanceKm: Math.round(plan.here.distanceKm * 10) / 10,
+    country: plan.here.city.country,
   };
   if (plan.reach === "no-graph") return { version: 1, status: "no-graph", generatedAt, here };
 
@@ -148,7 +151,7 @@ export async function todayAnswer(origin: LatLng, hours: number, moods: MoodId[]
       if (!at) return [];
       return [{ id: r.waypointId, name: r.name, lat: at.lat, lng: at.lng, kind: kindWord(r.type), line: r.description ?? null, badge: badges.get(r.waypointId) ?? null }];
     });
-    return [{ id: g.cityId, name: g.cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), places }];
+    return [{ id: g.cityId, name: g.cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), country: city.country ?? "", places }];
   });
 
   return {
