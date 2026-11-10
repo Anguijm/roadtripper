@@ -4,7 +4,9 @@
 
 # Active plan — roadtripper
 
-Branch: data/u51-plain-lines
+Branch: docs/u51-record
+
+(Docs only: records U51, shipped as #167, live 10:35 JST.)
 
 ## Ship rule (written before the work)
 

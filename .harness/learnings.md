@@ -763,3 +763,9 @@ the waiter was wrong, not the process.
 - **KEEP: agree a contract by message, then write it down in the repo.** The car session's three additions (generatedAt, a loud 400 on a bad mood, stable ids) cost minutes and its one check call matched with no differences.
 - **IMPROVE: state numbers from the code, not from memory, before another session builds on them.** Two contract numbers (town cap, default hours) went out wrong and needed corrections.
 - **INSIGHT: a branch that only touches `.github/workflows/` needs the token's `workflow` scope;** and a rebase while a background job uses the checkout belongs in a worktree.
+
+## 2026-11-10: U51, plain-word lines (#167, city-atlas-service #66)
+
+- **KEEP: a hand-written line lives in a tracked file that wins at the one write every ingest passes through.** Editing Firestore alone would have been undone by the next pipeline run.
+- **KEEP: rewrite only from the source's stated facts, show the exact lines, ship on approval.** The critic still wanted facts the lead does not give (racing season); those wait for a source.
+- **INSIGHT: a CI job that fails early hides every later step.** city-atlas-service's validate stops at npm audit, so seven writer tests had failed unseen since #63.

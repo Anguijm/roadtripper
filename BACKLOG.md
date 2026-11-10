@@ -2,15 +2,18 @@
 
 Living priority tracker. Re-rank as priorities shift. Each item is one line; link to GitHub issue/PR if one exists.
 
-Last refreshed: **2026-11-10**. Last change: #165 (CI type-check), after #164 (/api/today), #162 (U50 drawers), #160 (U49) and #158 (home city count). Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
+Last refreshed: **2026-11-10**. Last change: #167 (U51 plain-word lines), after #165 (CI type-check), #164 (/api/today), #162 (U50 drawers), #160 (U49) and #158. Before it, U45–U48 merged 2026-10-11 (#151–#154); phone smoke test passed (#150).
 
 ## Now (this week)
 
-- **Plainer Wikipedia lines**, next (see Next): John said yes to rewrites on 2026-11-10; each line is shown to him before it ships.
+Nothing queued. Open questions for John are in Next.
 
 ## Next (scoped, not started)
 
-- **Plainer Wikipedia lines (John said yes, 2026-11-10).** The U49 critic suggested rewriting, not just trimming: the Stuhr Museum's "intended to preserve the legacy of" is encyclopedia wording; "Pioneer village and museum of 1800s prairie life" reads faster. John allowed rewrites; each rewritten line is shown to him before it ships. Same critic: Studio 10 in Grand Island has no line at all.
+- **Cross-border towns in /api/today and /today** (roadtripper-car, 2026-11-10): from Detroit, Toronto is offered at 3 h 41 min like any other town, with no sign it is across a border. Leave out, label (an optional `country` on a town; the car app would label it), or leave as is. Waits on John.
+- **Toledo, Ohio is not in the atlas** (roadtripper-car, 2026-11-10): nothing between Ann Arbor and Dayton on I-75, so a Detroit to Ohio drive can never stop there. An atlas addition through city-atlas-service, like U45.
+- **More plain-word lines.** U51 rewrote five; the U51 critic suggested Fonner Park's racing season and a Stuhr line that opens on Railroad Town, both needing facts beyond the Wikipedia lead. Studio 10 in Grand Island has no line at all and no source yet.
+- **city-atlas-service CI:** its `validate` job fails at `npm audit` before reaching the tests (it has since #62), and four of its TypeScript tests fail on main (index definitions, coverage tiers). #66 fixed seven others. Neither blocks Roadtripper.
 - **`GET /api/trip` for the car app**, phase two: the plan's days and Along the way are computed in the browser, so this is a port of that logic to the server. Shape agreed after the car app's Today screen has been used.
 - **U50 critic notes (round 2), all predating U50:** a stop town's drawer shows no drive figure (U3's choice: the day heading carries it); Along the way rows have no gap between places; a town past where the day runs out (Ogallala on Omaha to Denver, 4 h 15 min on a 4 h day) is listed under "Towns that fit today", which road order now makes plain.
 
@@ -18,6 +21,8 @@ Last refreshed: **2026-11-10**. Last change: #165 (CI type-check), after #164 (/
 
 
 ## Done, recorded
+
+- **Plain-word lines for five places (U51, #167, 2026-11-10).** John allowed rewrites and approved five exact lines, each from facts in its Wikipedia article: Stuhr Museum ("Prairie pioneer museum with Railroad Town, a living-history 1890s village of original buildings."), Fonner Park, Wendover Will, Reliance Tipple, Howard Payne University. city-atlas-service #66 keeps them in `data/description-overrides.json`, applied at ingest so no pipeline run can undo them. Blind critic before merge: APPROVE, high. Live 10:35 JST.
 
 - **CI type-checks (#165, 2026-11-10).** `ci.yml` called `typecheck --if-present`; the script is `type-check`, so CI never type-checked (ops survey). Now `npm run type-check`, no `--if-present`; the run's log shows the script running. Needed the GitHub `workflow` scope on the MS-S1, granted by John the same day.
 - **GET /api/today for the car app (#164, 2026-11-10).** Contract in `docs/car-api.md`, agreed with the roadtripper-car session. The /today page's computation plus each place's coordinates; discriminated on `status`; the /today page's per-IP burst limit, not the recompute quota. Council CONDITIONAL; four real items fixed (blank lat read as 0, HTML 500, id dedupe, two comments), its product objection declined (John's decision; Android Auto shows no web pages). Live 10:17 JST; the car session's one check call matched the contract.
