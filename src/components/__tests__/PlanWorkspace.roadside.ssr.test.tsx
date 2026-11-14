@@ -406,6 +406,10 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
     // lower case, since it always follows the kind mid-line (round 3).
     expect(roadsideAlongText(0.3)).toBe("less than a mile along the road");
     expect(roadsideAlongText(0.3, { name: "Amarillo", near: true })).toBe("less than a mile along, in Amarillo");
+    // Km on a trip that starts abroad (John, 2026-11-15).
+    expect(roadsideAlongText(211.6, { name: "Lubbock", near: false }, "km")).toBe("212 km along, past Lubbock");
+    expect(roadsideAlongText(0.3, null, "km")).toBe("less than 1 km along the road");
+    expect(roadsideAlongText(9, { name: "Amarillo", near: true }, "mi")).toBe("6 miles along, in Amarillo");
   });
 
   it("places the towns along the road and names the one a stop is at or past", () => {
@@ -597,5 +601,32 @@ describe("roadside stops on the plan page (step 22, first-class in U1)", () => {
         <RouteMap origin={base.origin} destination={base.destination} encodedPolyline={base.encodedPolyline} searchArc={null} />
       )
     ).not.toThrow();
+  });
+});
+
+describe("miles in the US, km abroad (John, 2026-11-15)", () => {
+  // Text as read: the sheet sets each figure in its own span.
+  const words = (html: string) => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+  it("gives the route's length in the trip's unit", () => {
+    const miles = words(render({}));
+    expect(miles).toContain("497 mi ");
+    expect(miles).not.toContain("800 km");
+    const km = words(render({ distanceUnit: "km" }));
+    expect(km).toContain("800 km ");
+    expect(km).not.toContain("497 mi");
+  });
+
+  it("gives an open roadside card's distance along in the trip's unit", () => {
+    const stop = { ...stops[1], alongKm: 211.6 };
+    expect(words(renderToString(<RoadsideCard stop={stop} unit="km" />))).toContain("212 km along the road");
+    expect(words(renderToString(<RoadsideCard stop={stop} />))).toContain("131 miles along the road");
+  });
+
+  it("gives the day's Along the way list in the trip's unit", () => {
+    const miles = words(render({ roadsideStops: stops }));
+    const km = words(render({ roadsideStops: stops, distanceUnit: "km" }));
+    expect(miles).toMatch(/miles? along/);
+    expect(km).toMatch(/\d+ km along|less than 1 km along/);
+    expect(km).not.toMatch(/miles? along/);
   });
 });

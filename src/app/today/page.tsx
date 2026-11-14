@@ -15,6 +15,7 @@ import { parseIsoDate, deadlineLine, todayIso, daysUntil } from "@/lib/plan/dead
 import { feasibility, feasibilityLine } from "@/lib/plan/feasibility";
 import { snapToCity, driveMinutesBetween, driveGraphPaceMinutesPerKm } from "@/lib/atlas/queries";
 import { haversineKm } from "@/lib/routing/polyline";
+import { distanceWords, unitFor } from "@/lib/plan/units";
 
 interface TodaySearchParams {
   lat?: string;
@@ -137,7 +138,9 @@ export default async function TodayPage({
       <Shell>
         <Notice
           title="Not near a city we know"
-          text="We know no city within 650 km of that point, so we cannot say what is in range from here. Type the nearest city instead."
+          // NEAREST_TOWN_MAX_KM (650 km) is 404 miles; with no town there is
+          // no country to choose km by, so miles, rounded (a test pins it).
+          text="We know no city within about 400 miles of that point, so we cannot say what is in range from here. Type the nearest city instead."
         />
       </Shell>
     );
@@ -225,7 +228,7 @@ export default async function TodayPage({
           {/* Same 3 km as the "Near <city>" label, imported so it cannot drift:
               inside it you are in the city; beyond it, say how far. The
               boundary is pinned at exactly 3.0 by locate.test.ts. */}
-          {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
+          {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${distanceWords(plan.here.distanceKm, unitFor(plan.here.city.country))} from ${plan.here.city.name}` : ""}
           . Drive times are one way.
           {anyEstimated ? ' Times that say "about" are estimates by straight line.' : ""}
         </p>

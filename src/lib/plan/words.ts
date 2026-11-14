@@ -28,7 +28,7 @@ const NAMED_TOWNS = 2;
 
 /**
  * The sheet's header: "Lubbock and Abilene fit today", "Lubbock, Abilene
- * and 3 more fit today", "Nothing fits today; drive on to Austin". After a
+ * and 3 more fit today", "No town fits today; drive on to Austin". After a
  * stop the towns that fit are counted from that stop, so they are the next
  * day's, and the sentence names the day the sheet lists them under
  * (Gauntlet U3, round 3: "Fort Worth fits today after Lubbock" stood over
@@ -36,9 +36,25 @@ const NAMED_TOWNS = 2;
  * fits in day 2; drive on to Austin". Day 1 is "today", as U2 wrote it.
  * Never a count or a minutes figure as a label.
  */
-export function fitsTodayLine(towns: readonly string[], toName: string, day = 1): string {
+export function fitsTodayLine(
+  towns: readonly string[],
+  toName: string,
+  day = 1,
+  end?: Pick<TripDay, "endKind" | "toName">
+): string {
   const when = day > 1 ? `in day ${day}` : "today";
-  if (towns.length === 0) return `Nothing fits ${when}; drive on to ${toName}`;
+  // With nothing to name, say where the day goes. "Drive on to Montreal"
+  // only when the day reaches it: over "Two days, with a night near
+  // Massena" it told you to drive through (U54 critic, rule 5). A cut day
+  // ends where its heading says, "near Massena", or on the road. "No town",
+  // not "Nothing": the day can still list places Along the way, and
+  // "Nothing fits today" over "Along the way: 15 places" read as a
+  // contradiction (U54 critic, round 2).
+  if (towns.length === 0) {
+    if (end && (end.endKind === "near" || end.endKind === "past")) return `No town fits ${when}; the day ends ${end.toName}`;
+    if (end && end.endKind === "hours") return `No town fits ${when}; the day ends on the road`;
+    return `No town fits ${when}; drive on to ${toName}`;
+  }
   if (towns.length === 1) return `${towns[0]} fits ${when}`;
   const named = towns.slice(0, NAMED_TOWNS);
   const rest = towns.length - named.length;

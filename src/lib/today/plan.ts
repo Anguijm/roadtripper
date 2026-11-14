@@ -4,6 +4,7 @@ import { allCities, snapToCity, hasDriveGraphFor, driveTimesFrom, driveGraphPace
 import type { RadialCandidate } from "@/lib/routing/radial";
 import type { LatLng } from "@/lib/plan/types";
 import type { City } from "@/lib/urban-explorer/types";
+import { unitFor, type DistanceUnit } from "@/lib/plan/units";
 
 /**
  * "I have five hours. What is in range?"
@@ -40,6 +41,15 @@ export const GRAPH_NEIGHBOURHOOD_KM = 650;
  * abroad where it is thin), so even a longer day does not lift it.
  */
 export const NEAREST_TOWN_MAX_KM = GRAPH_NEIGHBOURHOOD_KM;
+
+/**
+ * The unit a trip starting at `point` reads in: miles in the US, km abroad
+ * (John, 2026-11-15), by the nearest atlas town within NEAREST_TOWN_MAX_KM,
+ * so a start between towns still has a country; none, miles. For /plan.
+ */
+export function unitAt(point: LatLng): DistanceUnit {
+  return unitFor(snapToCity(point, NEAREST_TOWN_MAX_KM)?.city.country);
+}
 
 export type TodayReach =
   /** Snapped to a city with graph rows; `reachable` is the answer. */

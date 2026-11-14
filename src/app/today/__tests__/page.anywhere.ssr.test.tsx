@@ -44,7 +44,8 @@ describe("between towns", () => {
   it("answers from the point, says how far the nearest town is, and lists it with about", async () => {
     const t = text(await render({ ...NEAR_LIMA, hours: "4", name: "Your location" }));
     expect(t).not.toContain("Not near a city we know");
-    expect(t).toContain('From your location, 109 km from Dayton. Drive times are one way. Times that say "about" are estimates by straight line.');
+    // Miles from a US start (John, 2026-11-15): 109 km.
+    expect(t).toContain('From your location, 68 miles from Dayton. Drive times are one way. Times that say "about" are estimates by straight line.');
     // 79 and 81 minutes by the estimate, said to the nearest 10.
     expect(t).toMatch(/Dayton about 1 h 20 min away/);
     expect(t).toMatch(/Toledo about 1 h 20 min away/);
@@ -52,13 +53,19 @@ describe("between towns", () => {
 
   it("never names you after the nearest town when the link has no name", async () => {
     const t = text(await render({ ...NEAR_LIMA, hours: "4" }));
-    expect(t).toContain("From your location, 109 km from Dayton.");
+    expect(t).toContain("From your location, 68 miles from Dayton.");
   });
 
-  it("keeps the notice past 650 km from every town, and says 650", async () => {
+  it("keeps the notice past 650 km from every town, said in miles", async () => {
     const t = text(await render({ lat: "30", lng: "-150", hours: "5" }));
     expect(t).toContain("Not near a city we know");
-    expect(t).toContain("within 650 km");
+    expect(t).toContain("within about 400 miles");
+  });
+
+  it("says km from a start abroad (John, 2026-11-15: miles in the US, km abroad)", async () => {
+    // 61 km north of Toronto, the nearest atlas town.
+    const t = text(await render({ lat: "44.2", lng: "-79.4", hours: "4", name: "Your location" }));
+    expect(t).toContain("From your location, 61 km from Toronto.");
   });
 
   it("in a town, says no about", async () => {

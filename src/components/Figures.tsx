@@ -16,14 +16,14 @@ export default function Figures({ text }: { text: string }) {
   // U28, critic: "Chicago to 45 min past Elizabethtown · 6" ended a line
   // with "h" alone on the next); the digits still set in mono, the unit in
   // the body face.
-  const parts = text.split(/((?:· )?\d+ (?:h|min|mi)\b|\d+)/);
+  const parts = text.split(/((?:· )?\d+ (?:h|min|mi|km)\b|\d+)/);
   return (
     <>
       {parts.map((part, i) => {
         if (i % 2 === 0) return part;
         // The separator before a figure travels with it ("· 6 h"), so no
         // line ends on a dangling "·" (U28, round 2).
-        const unit = /^((?:· )?)(\d+) (h|min|mi)$/.exec(part);
+        const unit = /^((?:· )?)(\d+) (h|min|mi|km)$/.exec(part);
         if (!unit) {
           return (
             <span key={i} className="num">
