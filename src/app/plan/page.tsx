@@ -21,6 +21,7 @@ import Figures from "@/components/Figures";
 import { roadsideForRoute } from "@/lib/roadside/store";
 import { placesForRoute } from "@/lib/plan/places";
 import { snapToCity } from "@/lib/atlas/queries";
+import { unitAt } from "@/lib/today/plan";
 
 interface PlanSearchParams {
   from?: string;
@@ -317,6 +318,8 @@ export default async function PlanPage({
           initialCandidateFetchFailed={candidateFetchFailed}
           // The start's country, so a town across a border says so (U52).
           homeCountry={snapToCity(origin)?.city.country || null}
+          // Miles from a US start, km abroad (John, 2026-11-15).
+          distanceUnit={unitAt(origin)}
         />
       ) : (
         <main className="flex-1 flex items-center justify-center bg-[#0d1117]">

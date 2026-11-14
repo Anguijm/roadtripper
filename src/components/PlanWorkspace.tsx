@@ -57,6 +57,7 @@ import { isCityId } from "@/lib/urban-explorer/cityAtlas";
 import { MAX_TRIP_STOPS } from "@/lib/trips/types";
 import { foldVisitMinutes, isOvernightStop, stretchEnds } from "@/lib/plan/visits";
 import { onTheMapLine } from "@/lib/roadside/text";
+import { inUnit, type DistanceUnit } from "@/lib/plan/units";
 
 interface PlanWorkspaceProps {
   origin: google.maps.LatLngLiteral;
@@ -84,6 +85,8 @@ interface PlanWorkspaceProps {
   initialCandidateFetchFailed?: boolean;
   /** The country the trip starts in, from the atlas town nearest the start (U52); towns in another are labelled. */
   homeCountry?: string | null;
+  /** Miles when the trip starts in the US, km abroad (John, 2026-11-15; src/lib/plan/units.ts). Miles when left out. */
+  distanceUnit?: DistanceUnit;
   /** Roadside survivors along the planned route, in road order. Empty when no pulled corridor is near it. */
   roadsideStops?: RoadsideMarker[];
   /**
@@ -183,12 +186,15 @@ export function roadsideMapLine(kind: RoadsideMarker["kind"]): string {
  * critic: one sheet, one unit), rounded as `formatDistance` rounds
  * (`Math.round` of the miles) so the two can never disagree.
  */
-export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null): string {
-  const mi = Math.round((alongKm * 1000) / 1609.34);
+export function roadsideAlongText(alongKm: number, anchor: RoadsideAnchor | null = null, unit: DistanceUnit = "mi"): string {
+  const n = inUnit(alongKm, unit);
   // Lower case: the text always follows the kind ("well-known place · less
   // than a mile along"), and a capital there read as a second sentence
-  // (U1's round-3 critic, rule 1).
-  const dist = mi < 1 ? "less than a mile along" : mi === 1 ? "1 mile along" : `${mi} miles along`;
+  // (U1's round-3 critic, rule 1). Km abroad (John, 2026-11-15).
+  const dist =
+    unit === "km"
+      ? n < 1 ? "less than 1 km along" : `${n} km along`
+      : n < 1 ? "less than a mile along" : n === 1 ? "1 mile along" : `${n} miles along`;
   if (!anchor) return `${dist} the road`;
   return `${dist}, ${anchor.near ? "in" : "past"} ${anchor.name}`;
 }
@@ -320,6 +326,7 @@ export function roadsideSwipeCloses(dx: number, dy: number): boolean {
 export function RoadsideCard({
   stop,
   anchor = null,
+  unit = "mi",
   onClose,
   isAdded = false,
   atCap = false,
@@ -327,6 +334,8 @@ export function RoadsideCard({
 }: {
   stop: RoadsideMarker;
   anchor?: RoadsideAnchor | null;
+  /** Miles in the US, km abroad (src/lib/plan/units.ts). */
+  unit?: DistanceUnit;
   onClose?: () => void;
   /** Whether this place is already one of the trip's stops. */
   isAdded?: boolean;
@@ -380,7 +389,7 @@ export function RoadsideCard({
         {stop.about ?? roadsideMapLine(stop.kind)}
       </p>
       <p data-roadside-where className="text-base text-[#8b949e]">
-        {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm, anchor)}
+        {ROADSIDE_KIND_WORDS[stop.kind] ?? "place"} · {roadsideAlongText(stop.alongKm, anchor, unit)}
       </p>
       {/* The one obvious action on this card is putting the place in the
           trip (rule 3), so it comes before "Open in Maps", which leaves
@@ -482,6 +491,7 @@ export default function PlanWorkspace({
   dateMode,
   initialCandidateFetchFailed = false,
   homeCountry = null,
+  distanceUnit = "mi",
   roadsideStops = NO_ROADSIDE,
   roadPlaces = NO_PLACES,
   initialSelectedRoadsideId,
@@ -713,7 +723,7 @@ export default function PlanWorkspace({
   const livePolyline = liveRoute?.encodedPolyline ?? encodedPolyline;
   const liveDistance = liveRoute?.totalDistanceMeters ?? initialDistanceMeters;
   const liveDuration = liveRoute?.totalDurationSeconds ?? initialDurationSeconds;
-  const totalDistanceText = formatDistance(liveDistance);
+  const totalDistanceText = formatDistance(liveDistance, distanceUnit);
   const onTheRoadText = formatDurationPlain(liveDuration);
 
   // The recommendation set the user actually sees — refreshed when present,
@@ -1538,7 +1548,7 @@ export default function PlanWorkspace({
   const panelDetail = panelNode && panelCityId ? { cityId: panelCityId, node: panelNode } : null;
 
   // The sheet's title: a sentence built from the data, "Lubbock and
-  // Abilene fit today" or "Nothing fits today; drive on to Austin", and
+  // Abilene fit today" or "No town fits today; drive on to Austin", and
   // after a stop where it counts from. Never a count or a minutes figure
   // as a label (quality bar, rule 1; Gauntlet U2). After a stop the towns
   // are counted from that stop, so the sentence names the day they are
@@ -1580,7 +1590,7 @@ export default function PlanWorkspace({
     ? "Couldn't load the towns along the road"
     : // The towns on the way only (U21, critic): a town out of the way is
       // offered at the bottom of the list, not counted as today's road.
-      fitsTodayLine(titleTowns.filter((c) => !c.outOfTheWay).map((c) => c.name), toName, townsDayNumber);
+      fitsTodayLine(titleTowns.filter((c) => !c.outOfTheWay).map((c) => c.name), toName, townsDayNumber, townsDay(days));
 
   return (
     <div className="flex flex-1 min-h-0">
@@ -1938,6 +1948,7 @@ export default function PlanWorkspace({
                           <RoadsideCard
                             stop={selectedRoadside}
                             anchor={roadsideAnchor(selectedRoadside, roadTowns)}
+                            unit={distanceUnit}
                             onClose={clearRoadside}
                             isAdded={addedCityIds.has(selectedRoadside.id)}
                             atCap={atCap}
@@ -2028,7 +2039,7 @@ export default function PlanWorkspace({
                                   }
                                   return ROADSIDE_KIND_WORDS[s.kind] ?? "place";
                                 })()}{" "}
-                                · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns))}
+                                · {roadsideAlongText(s.alongKm, roadsideAnchor(s, roadTowns), distanceUnit)}
                               </span>
                             </button>
                           </li>

@@ -4,56 +4,67 @@
 
 # Active plan — roadtripper
 
-Branch: feat/u53-today-anywhere
+Branch: feat/miles-us-km-abroad
 
 ## Ship rule (written before the work)
 
-`gauntlet/specs/U53-today-anywhere.md`. John asked "Is the web app getting
-fixed too?" after #181 and #182 and chose (2026-11-14) "Both: between towns
-+ long days". The /today page answers as the car does: between towns from
-the point itself, "about" on estimated minutes, chips 2 to 12 h and No
-limit in two rows; No limit has no count and no deadline line; /plan's
-daily budget keeps 2 to 8 h. A blind critic approves the 390 px shots
-before merge.
+`gauntlet/specs/U54-miles-us-km-abroad.md`. John chose (2026-11-15) "Miles
+in the US, km abroad" after the U53 critic's note. Every distance the web
+app shows reads miles from a US start and km from anywhere else; no figure
+on a US trip moves; the car API keeps km.
 
 ## Done
 
-- `TODAY_HOURS`, `NO_LIMIT`, `todayHoursFrom`, `hoursParam` in presets.ts;
-  the car's `CAR_HOURS` is now the same list (the council's #182 note:
-  one list, its "Changing it" comment names every place to update).
-- page.tsx: `planToday(..., { betweenTowns, beyondGraph })`, "From your
-  location, 109 km from Dayton", "about", the no-limit heading and footer,
-  the feasibility line off on No limit, the notice says 650 km.
-- TodayStart.tsx: nine chips in a five-column grid, No limit across two.
-- The id tie-break in planToday's merged sort (the council's #182 note).
-- Tests: src/app/today/__tests__/page.anywhere.ssr.test.tsx (10).
+- `src/lib/plan/units.ts` (`unitFor`, `inUnit`, `distanceWords`,
+  `KM_PER_MILE` = 1.60934, the divisor the app always used).
+- `unitAt(point)` in src/lib/today/plan.ts: the nearest atlas town within
+  650 km decides.
+- /today: the distance line and the far notice ("about 400 miles").
+- /plan: `distanceUnit` prop on PlanWorkspace (from `unitAt(origin)` in the
+  page); `formatDistance`, `roadsideAlongText` and `RoadsideCard` take it.
+- Figures keeps "800 km" on one line like "497 mi".
 
 ## Mutation proofs
 
-Fourteen, each red (the fourteenth: exact minutes on an estimate), each restored and `cmp` clean: no betweenTowns; named
-after the nearest town; "Your location" capitalised mid-sentence; no
-"about"; no about note; a count on No limit; the feasibility line on No
-limit; no No limit chip; the change link writing "null"; the notice saying
-40 km; no beyondGraph (Fargo on 12 h); no 10 and 12; "of N" on No limit.
+Ten, each red, restored and `cmp` clean: always miles; unknown read as km;
+/today always km; formatDistance ignoring the unit; the sheet's total, the
+card and the Along the way list each without the unit; unitAt snapping only
+40 km; Figures without km (survived at first; a Figures test was added and
+it went red); "1 miles".
 
 ## Critic
 
-Round 1 (fresh, blind, six 390 px shots): approved. Its minor notes:
-"about" was not set apart in the note (done: `Times that say "about" are
-estimates by straight line.`); "about 8 h 7 min" is more exact than
-"about" promises (done: estimates said to the nearest 10 minutes,
-`aboutMinutes`, mutation red); "109 km" where a US driver thinks in miles
-(declined here: the whole app says km; on the backlog for John).
-Round 2 (a new critic, the changed shots): approved. Minor notes, left:
-km again (on the backlog); "estimates by straight line" could be plainer
-(a wording preference, not a rule failure); "h" and "min" sit in the
-mono face with the digits, which is every drive time in the app since U2
-(the time is one `num` span), not something this PR changed.
+Round 1 (fresh, blind; /today US and Canada, /plan Toronto to Montreal):
+not approved, and not for the units, which it read as consistent on all
+four screens. Its largest failure, rule 5, was older than this change: the
+sheet's title said "Nothing fits today; drive on to Montreal" over "Two
+days, with a night near Massena". Fixed here: with nothing to name, the
+title says where that day ends ("Nothing fits today; the day ends near
+Massena", "... ends on the road"), and "drive on to" only when the day
+reaches the end (`fitsTodayLine` takes the day; four mutation proofs red).
+An older test had pinned the contradiction ("drive on to Austin" over "Two
+days, with a night on the road") and now pins the fix.
+Its minor notes: "past Toronto" on every place 292 to 401 km out (rule 4,
+older than this change; on the backlog as a later component); the mono
+"h"/"min" (every drive time since U2).
+Round 2 (a new critic, the reshot sheet): not approved, rule 5 again and
+again older than this change: "Nothing fits today" stood over "Along the
+way: 15 places" listed under Day 1. "Nothing" meant no town. Fixed: "No
+town fits today; the day ends near Massena", and "No town fits today;
+drive on to Austin" (two mutation proofs red). Minor notes: the mono
+"h"/"min" (since U2); the night "near Massena", a New York town across the
+river on a Toronto to Montreal trip, because the day-end names come from
+the US places list only (on the backlog); "past Toronto" (already there).
+Round 3 (a new critic): approved. Minor notes: "h"/"min" in the mono
+face on /today (the third critic to say so; real, since /plan sets only
+the digits in mono through Figures and /today wraps the whole time in one
+`num` span; on the backlog as U55); "past Toronto" (on the backlog); "No
+town fits today" over 15 places, which it says nothing on the screen
+contradicts.
 
-Cost: None. Atlas reads only, as before.
+Cost: one Routes API call for the /plan screenshot (Toronto to Montreal,
+on the dev server). Nothing else paid.
 
-Weakest part: "From your location, 109 km from Dayton" leans on the start
-screen's label being exactly "Your location" for a point it could not
-snap; a typed place name is kept as typed. And No limit from an island
-town would list the mainland by straight line, though no atlas island has
-a drive graph, so it gets the no-graph notice instead.
+Weakest part: the /plan page's own line, `distanceUnit={unitAt(origin)}`,
+has no test (the page calls the Routes API); `unitAt` is tested, and the
+Toronto shot and a production check cover the wiring.

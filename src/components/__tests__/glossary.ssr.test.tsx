@@ -213,13 +213,25 @@ describe("the words on the screens, against the glossary", () => {
     expect(fitsTodayLine(["Lubbock", "Abilene"], "Austin")).toBe("Lubbock and Abilene fit today");
     expect(fitsTodayLine(["Lubbock"], "Austin")).toBe("Lubbock fits today");
     expect(fitsTodayLine(["Lubbock", "Abilene", "Sweetwater", "Snyder"], "Austin")).toBe("Lubbock, Abilene and 2 more fit today");
-    expect(fitsTodayLine([], "Austin")).toBe("Nothing fits today; drive on to Austin");
+    expect(fitsTodayLine([], "Austin")).toBe("No town fits today; drive on to Austin");
+    // "No town", never "Nothing": the day can list places Along the way
+    // under it (U54 critic, round 2).
+    expect(fitsTodayLine([], "Austin")).not.toMatch(/^Nothing/);
     // After a stop the towns are the next day's, and the sentence says
     // which (U3, round 3: "fits today after Lubbock" stood over a list
     // that put the town in day 2). Day 1 is "today".
     expect(fitsTodayLine(["Abilene"], "Austin", 2)).toBe("Abilene fits in day 2");
     expect(fitsTodayLine(["Abilene", "Sweetwater"], "Austin", 3)).toBe("Abilene and Sweetwater fit in day 3");
-    expect(fitsTodayLine([], "Austin", 2)).toBe("Nothing fits in day 2; drive on to Austin");
+    expect(fitsTodayLine([], "Austin", 2)).toBe("No town fits in day 2; drive on to Austin");
+    // A day that stops short of the end says where it ends, not "drive on
+    // to" the end (U54 critic, rule 5: "Nothing fits today; drive on to
+    // Montreal" over "Two days, with a night near Massena").
+    expect(fitsTodayLine([], "Montreal", 1, { endKind: "near", toName: "near Massena" })).toBe("No town fits today; the day ends near Massena");
+    expect(fitsTodayLine([], "Austin", 2, { endKind: "past", toName: "past Lubbock" })).toBe("No town fits in day 2; the day ends past Lubbock");
+    expect(fitsTodayLine([], "Austin", 1, { endKind: "hours", toName: "on the road" })).toBe("No town fits today; the day ends on the road");
+    expect(fitsTodayLine([], "Austin", 1, { endKind: "end", toName: "Austin" })).toBe("No town fits today; drive on to Austin");
+    // With towns to name, the end changes nothing.
+    expect(fitsTodayLine(["Lubbock"], "Austin", 1, { endKind: "near", toName: "near Snyder" })).toBe("Lubbock fits today");
     expect(fitsTodayLine(["Lubbock"], "Austin", 1)).toBe("Lubbock fits today");
     // A kind of place in sentence case, never an identifier.
     expect(kindWord("hidden_gem")).toBe("Hidden gem");
@@ -286,13 +298,22 @@ describe("the words on the screens, against the glossary", () => {
       <PlanWorkspace {...plan} candidateMarkers={[]} waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }} initialCandidateFetchFailed />
     ));
     expect(failed).toContain("Couldn't load the towns along the road");
-    expect(failed).not.toContain("Nothing fits today");
+    expect(failed).not.toContain("No town fits today");
     expect(failed).toContain("The route is still here.");
     // And says that nothing fits when the towns were read and none fit.
     const none = visible(renderToString(
       <PlanWorkspace {...plan} candidateMarkers={[]} waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }} />
     ));
-    expect(none).toContain("Nothing fits today; drive on to Austin");
+    // This trip is two days with a night on the road, so the sentence says
+    // where today ends, not "drive on to Austin" (U54 critic, rule 5).
+    expect(none).toContain("Two days, with a night on the road");
+    expect(none).toContain("No town fits today; the day ends on the road");
+    expect(none).not.toContain("drive on to Austin");
+    // On a budget that reaches Austin in one day, drive on is the truth.
+    const oneDay = visible(renderToString(
+      <PlanWorkspace {...plan} budgetHours={10} candidateMarkers={[]} waypointFetch={{ status: "fresh", cities: [], waypoints: [], neighborhoods: {} }} />
+    ));
+    expect(oneDay).toContain("No town fits today; drive on to Austin");
   });
 
   it("cuts nothing with an ellipsis: no truncate or line-clamp anywhere, on a name, a chip or a description", () => {

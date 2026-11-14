@@ -1,3 +1,4 @@
+import { inUnit, type DistanceUnit } from "@/lib/plan/units";
 /**
  * Client-safe formatters for distance and duration. Extracted from
  * directions.ts (which carries `import "server-only"`) so that client
@@ -32,7 +33,7 @@ export function formatDurationPlain(seconds: number): string {
   return `${sign}${hours} h ${minutes} min`;
 }
 
-export function formatDistance(meters: number): string {
-  const miles = meters / 1609.34;
-  return `${Math.round(miles)} mi`;
+/** A route's length: "494 mi" in the US, "795 km" abroad (src/lib/plan/units.ts). */
+export function formatDistance(meters: number, unit: DistanceUnit = "mi"): string {
+  return `${inUnit(meters / 1000, unit)} ${unit}`;
 }

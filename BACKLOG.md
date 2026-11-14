@@ -32,6 +32,7 @@ Nothing queued. Open questions for John are in Next.
   - **Between towns (2026-11-14, the car session's request after John got "no nearby towns" between cities).** Both car endpoints answer `ok` within 650 km of any atlas town: `here` is the nearest town with `snapped: false`, it can be a row, and every minute is an estimate from the car's position. `no-city` only past 650 km. Live 22:01 JST (#181).
   - **Longer days (2026-11-14, the car session's request: John drives 10 to 12 hours).** The car endpoints take `hours=10`, `12` and `any` (no limit, echoed as `hours: null`). Towns past the drive graph's 650 km are added with an estimate from the car; on `any`, toward has no hours test and the destination town is always a row. Live 22:14 JST (#182).
   - **The /today page too (U53, John's choice 2026-11-14: "Both: between towns + long days").** Between towns it answers from where you are ("From your location, 109 km from Dayton") instead of "Not near a city we know", estimated minutes read "about", and the chips offer 2 to 12 h and No limit in two rows. No limit has no count and no deadline line. /plan's daily budget keeps 2 to 8 h.
+  - **Miles in the US, km abroad (U54, John's choice 2026-11-15).** The U53 critic twice read "109 km from Dayton" as not how a US driver talks; the app was mixed (/plan miles, /today km). One rule, `src/lib/plan/units.ts`: miles from a US start, km from anywhere else, by the nearest atlas town within 650 km. /today says "68 miles from Dayton"; /plan from Toronto says km. The car API keeps km fields.
 
 - **One place written two ways is one place (#175, 2026-11-10).** The car session found Grand Rapids' Calder twice, as "La Grande Vitesse (The Calder)" and "La Grande Vitesse". The export now runs a second pass: the same name but for a bracketed aside, same town, within 300 m, keeping the richest row. John read all 80 merges first and kept Little Rock's two Quapaw Quarter streets apart (`KEEP_APART`): 79 merges, 80 rows. The export diff showed nothing else changed. Live 22:21 JST: from Detroit, Grand Rapids lists the Calder once, with The Blue Bridge in the freed slot; /today shows it once at 390 px in headless Chrome.
 - **/api/today positions are no longer logged (2026-11-10, John's choice).** The platform's two request logs kept the URL (lat, lng), IP and user agent for 30 days. A `_Default` sink exclusion, `drop-api-today-requests`, drops those entries since 13:11 UTC; a test call left none while a control request was logged. `docs/car-api.md` says what the server keeps; the runbook has the filter and the undo.
@@ -76,7 +77,12 @@ Nothing queued. Open questions for John are in Next.
 
 ## Someday (architectural ideas, daydreams)
 
-- **Miles, not km?** The U53 critic (2026-11-14): "109 km from Dayton" where a US driver thinks in miles. The whole app says km (towns' distances, the between-towns line, the day's end). A unit choice for John, app-wide, not one screen.
+- **U55: /today's drive times in the body face, digits only in mono (rule 2).** Three critics (U53 round 2, U54 rounds 1 and 3) read "about 1 h 20 min away" with "h" and "min" in the mono face and wide gaps. /plan sets only the digits in mono through `Figures`; /today wraps the whole time in one `num` span. Small: `<Figures text={...} />` on /today, a critic round.
+
+- **A Canadian night named after a US town (U54 critic, round 2).** Toronto to Montreal cuts its night "near Massena", New York, across the St. Lawrence, because the day-end names come from `src/lib/plan/places-us.json` alone. A Canadian places list (GeoNames has one) would name it after a town on the road.
+
+- **"Past Toronto" 400 km out (U54 critic, rule 4).** On Toronto to Montreal every Along the way place reads "N km along, past Toronto", 292 to 401 km out, because no atlas town lies between: the anchor names the last atlas town passed however far back. A later component: name the nearest US place (the day-end names already come from places-us.json), or drop the anchor past some distance.
+
 
 - A map-first today screen. Left for the operator in round 1; never scoped.
 - A per-stop "stay the night here" choice, if a roadside motel ever needs to be an overnight. The operator chose the visit default over a toggle (U10).
