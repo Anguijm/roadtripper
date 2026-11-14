@@ -22,7 +22,7 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
 | parameter | | |
 |---|---|---|
 | `lat`, `lng` | required | decimal degrees; out of range or missing is a 400 |
-| `hours` | optional | 2, 3, 4, 5, 6 or 8. Missing or anything else falls back to 5, echoed in `hours` |
+| `hours` | optional | 2, 3, 4, 5, 6, 8, 10 or 12, or `any` for no limit (10, 12 and `any` added 2026-11-14; the /today page offers 2 to 8). Missing, blank, 0 or anything else falls back to 5. Echoed in `hours`: the number, or `null` for `any` |
 | `moods` | optional | comma-separated, at most two of `outdoors, history, art, museums, oddities, machines, food, sports`. An unknown mood or more than two is a 400 |
 
 ### 200, `status: "ok"`
@@ -179,7 +179,8 @@ A place counts when going there first costs at most a quarter more straight
 distance than heading straight to the destination (`km(here, place) +
 km(place, destination) <= 1.25 x km(here, destination)`: an ellipse), **and**
 it leaves you nearer the destination than you are, **and** it is within
-today's hours, **and** it adds at most 40 minutes against heading straight
+today's hours (any distance on `hours=any`), **and** it adds at most 40
+minutes against heading straight
 there (`detourMinutes`, John's cap, 2026-11-11: the cone says "toward", the
 cap says "on the way"). Straight lines only: a road that bends can pass a
 place the cone leaves out. From the towns that qualify, the 8 most on the way (least
@@ -214,7 +215,8 @@ capped at 15.
   and the car shows its own name. `lat`/`lng` are the point asked for, or
   the town's centre when picked by id. `driveMinutes` is the drive graph
   when both ends are atlas towns with a stored pair and `here.snapped`,
-  else an estimate from your position (`estimated: true`). `withinToday`: whether today's hours reach it.
+  else an estimate from your position (`estimated: true`). `withinToday`: whether today's hours reach it;
+  always true on `hours=any`.
 - `stops`: nearest first by `reachMinutes`, at most 15, possibly empty.
   - `type: "town"` rows: `reachMinutes` from `here` on the drive graph
     (`estimated: false`), or between towns an estimate from your position
@@ -253,6 +255,28 @@ list). Between towns, the destination being the nearest town is not
 arriving: 50 km out of Louisville toward Louisville is `ok`, with
 Louisville as the destination row. `no-city`: as `/api/today`, no atlas
 town within 650 km.
+
+### Longer days (2026-11-14)
+
+The car session's request: John drives 10 to 12 hours some days, or as long
+as it takes. Both car endpoints take `hours=10`, `hours=12` and `hours=any`
+(no limit, echoed as `"hours": null` on that answer only; every other
+answer's `hours` stays a number). The /today page's chips are unchanged.
+
+- The drive graph only holds pairs within 650 km (about 8 hours), so a town
+  farther than that from `here`'s town is measured from your position by
+  straight line at the graph's pace and marked `estimated: true`, as between
+  towns. Inside 650 km the graph's minutes stand (`estimated: false`).
+- `/api/today` still lists the 10 nearest towns, so a longer day changes it
+  only where towns are sparse (central Nevada: 3 towns on 3 hours, 10 on
+  `any`).
+- `/api/today/toward` with `any`: no hours test, so `withinToday` is
+  always true and a destination town is always a row. The list covers the
+  whole way, inside the cone and under the 40-minute cap, which bound it to
+  the trip. Detroit to Nashville: no destination row on 8 hours (about 547
+  min), the Nashville row on 10, 12 or `any`. Detroit to Los Angeles on
+  `any` lists towns as far as Colorado Springs; the roadside read for that
+  whole cone took 179 ms on the MS-S1.
 
 ### Caching and limits
 

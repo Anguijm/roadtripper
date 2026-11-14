@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { planToday, NEAREST_TOWN_MAX_KM } from "../plan";
-import { allCities, driveGraphPaceMinutesPerKm, haversineKm, SNAP_RADIUS_KM } from "@/lib/atlas/queries";
+import { readFileSync } from "node:fs";
+import { planToday, NEAREST_TOWN_MAX_KM, GRAPH_NEIGHBOURHOOD_KM } from "../plan";
+import { allCities, driveGraphPaceMinutesPerKm, driveTimesFrom, haversineKm, SNAP_RADIUS_KM } from "@/lib/atlas/queries";
 import { formatDrive, hoursFrom, pointFrom, placeNameFrom, DEFAULT_HOURS, MAX_PLACE_NAME_LENGTH } from "../presets";
 
 // Real atlas, real graph. These are the numbers the screen shows.
@@ -46,9 +47,11 @@ describe("planToday", () => {
     expect(plan.reachable).toEqual([]);
   });
 
-  it("rejects a budget that is not a positive number", () => {
+  it("rejects a budget that is not a positive number, and takes Infinity as no limit", () => {
     expect(() => planToday(DOWNTOWN_AMARILLO, 0)).toThrow(/positive/);
     expect(() => planToday(DOWNTOWN_AMARILLO, NaN)).toThrow(/positive/);
+    expect(() => planToday(DOWNTOWN_AMARILLO, -1)).toThrow(/positive/);
+    expect(planToday(DOWNTOWN_AMARILLO, Infinity).reach).toBe("hit");
   });
 });
 
@@ -119,5 +122,48 @@ describe("presets", () => {
     expect(hoursFrom(8)).toBe(8);
     for (const bad of ["7", "abc", "", undefined, null, -1, "5.5"]) expect(hoursFrom(bad)).toBe(DEFAULT_HOURS);
     expect(DEFAULT_HOURS).toBe(5);
+  });
+});
+
+describe("planToday past the drive graph (the car's longer days, 2026-11-14)", () => {
+  const DETROIT = { lat: 42.33, lng: -83.05 };
+  const byId = new Map(allCities().map((c) => [c.id, c]));
+  const detroit = byId.get("detroit")!;
+  const beyond = (id: string) => haversineKm(detroit, byId.get(id)!) > GRAPH_NEIGHBOURHOOD_KM;
+
+  it("is the build script's neighbourhood", () => {
+    const script = readFileSync("scripts/build-drive-graph.mjs", "utf8");
+    expect(script).toMatch(new RegExp(`const NEIGHBOUR_RADIUS_KM = ${GRAPH_NEIGHBOURHOOD_KM};`));
+    expect(NEAREST_TOWN_MAX_KM).toBe(GRAPH_NEIGHBOURHOOD_KM);
+  });
+
+  it("adds towns past 650 km with an estimate from the point, on ten hours from Detroit", () => {
+    const plan = planToday(DETROIT, 10, { beyondGraph: true });
+    const pace = driveGraphPaceMinutesPerKm();
+    const nashville = plan.reachable.find((r) => r.city.id === "nashville");
+    expect(nashville).toMatchObject({ estimated: true });
+    expect(nashville!.oneWayDriveMinutes).toBeCloseTo(haversineKm(DETROIT, nashville!.city) * pace, 6);
+    for (const r of plan.reachable) {
+      expect(r.estimated).toBe(beyond(r.city.id));
+      expect(r.oneWayDriveMinutes).toBeLessThanOrEqual(600);
+    }
+    const mins = plan.reachable.map((r) => r.oneWayDriveMinutes);
+    expect(mins).toEqual([...mins].sort((a, b) => a - b));
+    // Without the option, the /today page's answer: the graph's rows only.
+    const page = planToday(DETROIT, 10);
+    expect(page.reachable.some((r) => beyond(r.city.id))).toBe(false);
+    expect(page.reachable.every((r) => !r.estimated)).toBe(true);
+    expect(plan.reachable.filter((r) => !r.estimated)).toEqual(page.reachable);
+  });
+
+  it("with no limit, holds every town past 650 km and every graph row", () => {
+    const plan = planToday(DETROIT, Infinity, { beyondGraph: true });
+    const ids = new Set(plan.reachable.map((r) => r.city.id));
+    for (const c of allCities()) if (beyond(c.id)) expect(ids.has(c.id)).toBe(true);
+    expect(plan.reachable.filter((r) => !r.estimated).length).toBe(planToday(DETROIT, Infinity).reachable.length);
+    // Infinity reaches SQLite as a bound: every graph row, as a finite bound gives.
+    expect(planToday(DETROIT, Infinity).reachable.length).toBe(driveTimesFrom("detroit", 1e9).length);
+    expect(driveTimesFrom("detroit", 1e9).length).toBeGreaterThan(30);
+    expect(ids.has("detroit")).toBe(false);
   });
 });

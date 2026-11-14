@@ -1,7 +1,7 @@
 import "server-only";
 
 import { planToday, type TodayPlan, type TodayReach } from "@/lib/today/plan";
-import { hoursFrom } from "@/lib/today/presets";
+import { DEFAULT_HOURS, HOURS_PRESETS } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
@@ -24,6 +24,26 @@ import type { RadialCandidate } from "@/lib/routing/radial";
  */
 export const TODAY_API_VERSION = 1;
 
+/**
+ * The car's day lengths: the /today page's presets plus 10 and 12 (the car
+ * session's request, 2026-11-14: John drives 10 to 12 hours some days). The
+ * web page's chips stay HOURS_PRESETS.
+ */
+export const CAR_HOURS = [...HOURS_PRESETS, 10, 12] as const;
+/**
+ * `hours=any`: no limit, echoed as `hours: null`. A word, not 0, because a
+ * blank value reads as 0 (Number("")) and must stay the default.
+ */
+export const NO_LIMIT = "any";
+
+/** The car's hours: one of CAR_HOURS, null for NO_LIMIT, anything else (blank and missing included) the /today page's default, 5. */
+export function carHoursFrom(raw: string | null): number | null {
+  const s = (raw ?? "").trim();
+  if (s === NO_LIMIT) return null;
+  const n = Number(s);
+  return (CAR_HOURS as readonly number[]).includes(n) ? n : DEFAULT_HOURS;
+}
+
 export interface TodayApiPlace {
   id: string;
   name: string;
@@ -43,7 +63,7 @@ export interface TodayApiTown {
   lng: number;
   /** One way, whole minutes: from `here`'s town on the calibrated drive graph, or between towns from your position, estimated. */
   driveMinutes: number;
-  /** True between towns (`here.snapped` false): driveMinutes is a straight-line estimate, say "about" (v1 addition, 2026-11-14). */
+  /** True when driveMinutes is a straight-line estimate, say "about": between towns (`here.snapped` false), and towns past the drive graph's 650 km on a long day (v1 addition, 2026-11-14). */
   estimated: boolean;
   /** The atlas's country ("Canada"); compare with `here.country` to label a town across a border (v1 addition, U52). */
   country: string;
@@ -79,7 +99,8 @@ export type TodayApiResponse =
       generatedAt: string;
       origin: LatLng;
       here: Here;
-      hours: number;
+      /** As asked, or the default; null for no limit (`hours=any`). */
+      hours: number | null;
       moods: MoodId[];
       placesComplete: boolean;
       towns: TodayApiTown[];
@@ -91,7 +112,7 @@ export type TodayApiResponse =
   | { version: 1; status: "error"; message: string };
 
 export type TodayQuery =
-  | { ok: true; origin: LatLng; hours: number; moods: MoodId[] }
+  | { ok: true; origin: LatLng; hours: number | null; moods: MoodId[] }
   | { ok: false; message: string };
 
 /**
@@ -124,30 +145,29 @@ export function parseTodayQuery(q: URLSearchParams): TodayQuery {
   // oldest) and the ranking profile unions at most two moods' kinds; the
   // car app offers the same choice.
   if (moods.length > 2) return { ok: false, message: "at most two moods" };
-  return { ok: true, origin: { lat, lng }, hours: hoursFrom(q.get("hours") ?? undefined), moods };
+  return { ok: true, origin: { lat, lng }, hours: carHoursFrom(q.get("hours")), moods };
 }
 
 /** The answer for a parsed query; `now` is injectable for tests. */
-export async function todayAnswer(origin: LatLng, hours: number, moods: MoodId[], now: Date = new Date()): Promise<TodayApiResponse> {
+export async function todayAnswer(origin: LatLng, hours: number | null, moods: MoodId[], now: Date = new Date()): Promise<TodayApiResponse> {
   const generatedAt = now.toISOString();
   // Between towns too (the car's request, 2026-11-14): the car is on the
-  // road, so "no nearby towns" 60 km out of one is no answer at all.
-  const plan = planToday(origin, hours, { betweenTowns: true });
+  // road, so "no nearby towns" 60 km out of one is no answer at all. And
+  // past the graph's 650 km, for the car's longer days.
+  const plan = planToday(origin, hours ?? Infinity, { betweenTowns: true, beyondGraph: true });
   if (plan.reach === "no-city" || !plan.here) return { version: 1, status: "no-city", generatedAt };
   const here = hereOf(plan.here, plan.reach);
   if (plan.reach === "no-graph") return { version: 1, status: "no-graph", generatedAt, here };
 
   const fetchResult = await waypointsOrDegraded(plan.reachable, "[api/today]");
   const placesByTown = rankedPlaces(fetchResult, moods);
-  const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
-  const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
-  const estimated = plan.reach === "between";
+  const byId = new Map(plan.reachable.map((r) => [r.city.id, r]));
 
   const towns: TodayApiTown[] = [...placesByTown].flatMap(([cityId, { cityName, places }]) => {
-    const city = cityById.get(cityId);
-    const minutes = oneWay.get(cityId);
-    if (!city || minutes === undefined) return [];
-    return [{ id: cityId, name: cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), estimated, country: city.country ?? "", places }];
+    const r = byId.get(cityId);
+    if (!r) return [];
+    const { city } = r;
+    return [{ id: cityId, name: cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(r.oneWayDriveMinutes), estimated: r.estimated, country: city.country ?? "", places }];
   });
 
   return {

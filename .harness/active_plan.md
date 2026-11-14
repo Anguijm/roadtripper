@@ -4,57 +4,54 @@
 
 # Active plan — roadtripper
 
-Branch: feat/between-towns
+Branch: feat/longer-days
 
 ## Ship rule (written before the work)
 
-The car session's request, 2026-11-14 (John, between cities: "no nearby
-towns" and no list, though the car knows where he is and where he is
-going). /api/today and /api/today/toward answer `ok` anywhere within 650 km
-of an atlas town, not only within 40 km of one:
+The car session's request, 2026-11-14 (John: driving 10 to 12 hours today,
+and cannot choose that, nor "however long it takes"). On the car endpoints
+only, /api/today and /api/today/toward take hours 10, 12 and `any`:
 
-- `here` is the nearest town, `snapped: false`, `distanceKm` as now.
-- Every town is measured from the car's position (straight line at the
-  graph's median pace, `estimated: true`), from every atlas town today
-  covers, not the graph's neighbours of the nearest town.
-- The nearest town can be a row (the car is not in it); toward, only when
-  it passes the cone and the cap from the real position.
-- Toward: the destination's minutes are an estimate from the car, and
-  being nearest the destination town is not arriving.
-- `no-city` only past 650 km from every town. Within 40 km nothing changes.
-- The /today web page keeps its no-city notice (not asked; `betweenTowns`
-  is an option only the car endpoints pass).
-
-Additive to version 1: `here.snapped` and the towns' `estimated` are new
-fields; nothing removed or renamed.
+- `hours=any` is no limit, echoed as `hours: null` on that answer only.
+  Blank, 0 and anything else still fall back to 5: a word, not 0, because a
+  blank value is 0 to Number().
+- Towns more than 650 km from here's town (past the drive graph) are
+  added with a straight-line estimate from the car, `estimated: true`.
+  Inside 650 km the graph's minutes stand.
+- Toward on `any`: no hours test; withinToday true; the destination town
+  always a row; the cone and the 40-minute cap bound the list to the trip.
+- The /today page's chips and answers are unchanged (`beyondGraph` is an
+  option only the car endpoints pass).
 
 ## Done
 
-- `planBetweenTowns` in plan.ts, behind `planToday(..., { betweenTowns })`;
-  `NEAREST_TOWN_MAX_KM = 650`.
-- `hereOf` and `TodayHere` shared by api.ts and toward.ts.
-- Tests: near Lima, Ohio (109 km from Dayton) for both endpoints; 50 km
-  north of Louisville toward Louisville is `ok`, not arrived; 600 km off
-  Honolulu is `between` with no towns, 700 km is no-city; Detroit and
-  Omaha unchanged (snapped, graph minutes).
-- Full suite with the roadside store moved aside (as CI): 912 passed,
-  1 skipped.
+- `CAR_HOURS`, `NO_LIMIT` and `carHoursFrom` in api.ts.
+- `GRAPH_NEIGHBOURHOOD_KM` and `beyondTheGraph` in plan.ts, behind
+  `planToday(..., { beyondGraph })`. `planToday` takes Infinity for no
+  limit. Each candidate carries its own `estimated`.
+- A test reads scripts/build-drive-graph.mjs so the 650 km cannot drift.
+- Roadside read for Detroit to Los Angeles with no limit: 16k survivors,
+  179 ms on the MS-S1; the whole answer 183 ms.
 
 ## Mutation proofs
 
 Each restored and `cmp` clean; every one red.
-- Never between (opts ignored): 5 red.
-- No 650 km limit: 3 red.
-- Here's town never a row between towns: red.
-- Towns not marked estimated, in /api/today and in toward: red, each.
-- Destination minutes from the nearest town's graph row: red.
-- Arrived at the nearest town between towns: red.
-- `snapped` always true: 3 red.
-- Towns measured from the nearest town, not the car: 3 red.
+- `any` not recognised: 2 red. No 10 and 12: red.
+- Past-the-graph towns not added: 3 red. Added but not marked estimated:
+  3 red. Added inside 650 km too: 4 red.
+- withinToday ignoring no limit: red.
+- Toward rows' estimated by mode instead of per town: red.
+- Infinity rejected: 4 red.
+- Roadside reach 0 on no limit: red where the real store is (not in CI).
+- Infinity not reaching SQLite as a bound: red. (An earlier guard that
+  turned Infinity into a finite number survived, so it was removed: SQLite
+  takes Infinity.)
 
-Cost: None. Atlas reads only, 304 straight-line distances per call.
+Cost: None. Atlas and store reads; a no-limit cross-country call is about
+0.2 s of CPU.
 
-Weakest part: between towns every minute is a straight-line estimate, so a
-town across a river with one bridge, or round a lake, is further than it
-says; and at 40 km the answer switches from graph minutes to estimates, so
-two calls a kilometre apart can differ by several minutes.
+Weakest part: on `any` the eight towns are the most on-the-way of the
+whole trip, so on a long trip they spread across it (Detroit to Los
+Angeles: Ann Arbor to Colorado Springs) rather than crowding the next few
+hours; the car re-asks as it goes, so the near ones change, but a town 2
+hours ahead can lose its row to one 20 hours ahead that is straighter.

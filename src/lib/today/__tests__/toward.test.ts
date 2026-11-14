@@ -222,3 +222,44 @@ describe("pickStops", () => {
   });
 });
 
+describe("towardAnswer on longer days (the car's request, 2026-11-14)", () => {
+  const NASHVILLE = { kind: "city" as const, id: "nashville" };
+  const byId = new Map(allCities().map((c) => [c.id, c]));
+  const detroit = byId.get("detroit")!;
+
+  it("reaches Nashville from Detroit on ten hours, not on eight; no limit always reaches", async () => {
+    const eight = await towardAnswer(DETROIT, NASHVILLE, 8, [], NOW);
+    const ten = await towardAnswer(DETROIT, NASHVILLE, 10, [], NOW);
+    const any = await towardAnswer(DETROIT, NASHVILLE, null, [], NOW);
+    if (eight.status !== "ok" || ten.status !== "ok" || any.status !== "ok") throw new Error("expected ok");
+    // Over 650 km apart, so no graph pair: an estimate, about 547 min.
+    expect(eight.destination).toMatchObject({ cityId: "nashville", estimated: true, withinToday: false });
+    expect(eight.stops.some((s) => s.isDestination)).toBe(false);
+    expect(ten.destination.withinToday).toBe(true);
+    expect(ten.stops.find((s) => s.isDestination)).toMatchObject({ id: "nashville", type: "town", estimated: true });
+    expect(any.hours).toBeNull();
+    expect(any.destination.withinToday).toBe(true);
+    expect(any.stops.some((s) => s.isDestination)).toBe(true);
+  });
+
+  it("with no limit to Los Angeles, lists towns past the graph, estimated, and keeps the cone and the cap", async () => {
+    const LA = { kind: "city" as const, id: "los-angeles" };
+    const a = await towardAnswer(DETROIT, LA, null, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    const towns = a.stops.filter((s) => s.type === "town" && !s.isDestination);
+    expect(towns.some((t) => haversineKm(detroit, t) > 650)).toBe(true);
+    for (const t of towns) expect(t.estimated).toBe(haversineKm(detroit, t) > 650);
+    const la = byId.get("los-angeles")!;
+    for (const s of a.stops) {
+      expect(s.detourMinutes).toBeLessThanOrEqual(MAX_DETOUR_MINUTES);
+      if (!s.isDestination) expect(inCone(DETROIT, la, s)).toBe(true);
+    }
+    expect(a.stops.length).toBeLessThanOrEqual(MAX_ROWS);
+  });
+
+  it.skipIf(!HAS_STORE)("with no limit, roadside stops come from past what eight hours reach (real store)", async () => {
+    const a = await towardAnswer(DETROIT, { kind: "city", id: "los-angeles" }, null, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.stops.some((s) => s.type === "stop" && s.reachMinutes > 8 * 60)).toBe(true);
+  });
+});
