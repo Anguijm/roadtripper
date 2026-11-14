@@ -13,13 +13,14 @@ import type { City } from "@/lib/urban-explorer/types";
  * nearest first. Every number here comes from SQLite, so a page open costs
  * nothing and takes milliseconds.
  *
- * Two options are for the car app's endpoints only; the /today page asks
- * for neither, so its answers are as they were:
+ * Two options, asked for by the car app's endpoints (2026-11-14) and by the
+ * /today page since U53 the same day (John: "Both"); without them the
+ * answer is the drive graph's alone:
  * - `betweenTowns`: with no atlas town within 40 km, an answer from the
- *   point itself (`planBetweenTowns`) instead of no-city (2026-11-14).
+ *   point itself (`planBetweenTowns`) instead of no-city.
  * - `beyondGraph`: towns past the drive graph's 650 km are added with an
  *   estimate, for days longer than the graph reaches: 10 and 12 hours and
- *   no limit (`hours` Infinity), the car's request the same day.
+ *   no limit (`hours` Infinity).
  */
 
 /**
@@ -100,7 +101,7 @@ export function planToday(origin: LatLng, hours: number, opts: { betweenTowns?: 
   if (!opts.beyondGraph) return { origin, hours, here, reach: "hit", reachable: graphRows };
 
   const beyond = beyondTheGraph(origin, snapped.city, budget);
-  const reachable = beyond.length === 0 ? graphRows : [...graphRows, ...beyond].sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
+  const reachable = beyond.length === 0 ? graphRows : [...graphRows, ...beyond].sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes || a.city.id.localeCompare(b.city.id));
   return { origin, hours, here, reach: "hit", reachable };
 }
 

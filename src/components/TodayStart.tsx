@@ -6,11 +6,12 @@ import { APIProvider } from "@vis.gl/react-google-maps";
 import CityAutocomplete, { type CitySelection } from "./CityAutocomplete";
 import MoodChips from "./MoodChips";
 import { useLocatedOrigin } from "./useLocatedOrigin";
-import { HOURS_PRESETS, type HoursPreset } from "@/lib/today/presets";
+import { TODAY_HOURS, hoursParam, type TodayHours } from "@/lib/today/presets";
 import { toggleMood, MOODS_PARAM, type MoodId } from "@/lib/roadside/tags";
 
 interface TodayStartProps {
-  initialHours: HoursPreset;
+  /** 2 to 12, or null for no limit. */
+  initialHours: TodayHours;
   /** The moods the link arrived with, oldest first; empty is the screen at rest. */
   initialMoods: readonly MoodId[];
   /** Extra URL parameters to keep through Go: the deadline and its destination. */
@@ -29,7 +30,7 @@ export default function TodayStart({ initialHours, initialMoods, carry, deadline
   const router = useRouter();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
   const [origin, setOrigin] = useState<CitySelection | null>(null);
-  const [hours, setHours] = useState<HoursPreset>(initialHours);
+  const [hours, setHours] = useState<TodayHours>(initialHours);
   const [moods, setMoods] = useState<readonly MoodId[]>(initialMoods);
   const [submitting, setSubmitting] = useState(false);
   const located = useLocatedOrigin(setOrigin);
@@ -51,7 +52,7 @@ export default function TodayStart({ initialHours, initialMoods, carry, deadline
       ...(carry ?? {}),
       lat: origin.lat.toString(),
       lng: origin.lng.toString(),
-      hours: hours.toString(),
+      hours: hoursParam(hours),
       name: origin.name,
     });
     // Left out entirely when nothing is chosen, so the link for the screen
@@ -101,25 +102,28 @@ export default function TodayStart({ initialHours, initialMoods, carry, deadline
           <legend className="text-base text-[#b0b9c2] mb-1">
             I have
           </legend>
-          <div className="flex gap-1">
-            {HOURS_PRESETS.map((h) => {
+          {/* Nine choices in two rows of five columns (U53): 2 to 6 h, then
+              8, 10, 12 h and No limit across two. One row of nine is under
+              40 px a chip at 390 px. */}
+          <div className="grid grid-cols-5 gap-1">
+            {[...TODAY_HOURS, null].map((h) => {
               const active = hours === h;
               return (
                 <button
-                  key={h}
+                  key={hoursParam(h)}
                   type="button"
                   aria-pressed={active}
                   onClick={() => setHours(h)}
                   // 48 px tall: a few over rule 7's 44, so a measurement of
                   // the painted box (the round-1 critic read 43) cannot land
                   // under it. The same on the home form's hour buttons.
-                  className={`flex-1 min-h-[48px] text-base num border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none ${
+                  className={`${h === null ? "col-span-2" : ""} min-h-[48px] text-base border transition-colors focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none ${h === null ? "" : "num"} ${
                     active
                       ? "bg-[#1c2128] border-[#6e7681] text-[#f0f6fc]"
                       : "bg-[#0d1117] border-[#30363d] text-[#8b949e] hover:border-[#3d444d] hover:text-[#b0b9c2]"
                   }`}
                 >
-                  {`${h} h`}
+                  {h === null ? "No limit" : `${h} h`}
                 </button>
               );
             })}

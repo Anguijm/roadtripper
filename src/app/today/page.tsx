@@ -3,7 +3,7 @@ import Link from "next/link";
 import TodayStart from "@/components/TodayStart";
 import TodayMoodChips from "@/components/TodayMoodChips";
 import { planToday } from "@/lib/today/plan";
-import { hoursFrom, formatDrive, pointFrom, placeNameFrom } from "@/lib/today/presets";
+import { todayHoursFrom, hoursParam, formatDrive, aboutMinutes, pointFrom, placeNameFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { parseMoods, MOODS_PARAM } from "@/lib/roadside/tags";
@@ -85,7 +85,8 @@ export default async function TodayPage({
 }) {
   const params = await searchParams;
   const chosenMoods = parseMoods(params.moods);
-  const hours = hoursFrom(params.hours);
+  // 2 to 12, or null for no limit (U53).
+  const hours = todayHoursFrom(params.hours);
   const deadline = deadlineFrom(params);
   const deadlineText = deadline
     ? deadlineLine({ toName: deadline.toName, endDate: deadline.endDate, today: todayIso() })
@@ -123,15 +124,20 @@ export default async function TodayPage({
     );
   }
 
-  const plan = planToday(origin, hours);
-  const whereLabel = placeNameFrom(params.name, plan.here ? plan.here.city.name : "Your location");
+  // The car's answer (U53, John 2026-11-14): between towns, from the point
+  // itself; past the drive graph on a long day, by estimate.
+  const plan = planToday(origin, hours ?? Infinity, { betweenTowns: true, beyondGraph: true });
+  // Between towns the nearest town is not where you are, so it never names you.
+  const whereLabel = placeNameFrom(params.name, plan.here && plan.reach !== "between" ? plan.here.city.name : "Your location");
+  // Mid-sentence, after "From".
+  const fromWords = whereLabel === "Your location" ? "your location" : whereLabel;
 
   if (plan.reach === "no-city") {
     return (
       <Shell>
         <Notice
           title="Not near a city we know"
-          text="We know no city within 40 km of that point, so we cannot say what is in range from here. Type the nearest city instead."
+          text="We know no city within 650 km of that point, so we cannot say what is in range from here. Type the nearest city instead."
         />
       </Shell>
     );
@@ -172,6 +178,8 @@ export default async function TodayPage({
   const groups = buildRankedGroupsWith(fetchResult, waypointProfileForMoods(chosenMoods));
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
   const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
+  // A straight-line estimate (between towns, or past the drive graph) reads "about" (U53).
+  const estimated = new Set(plan.reachable.filter((r) => r.estimated).map((r) => r.city.id));
 
   // The feasibility line, per city, when there is a deadline: how long you
   // can stay there and still make the destination. Minutes on to the
@@ -182,10 +190,10 @@ export default async function TodayPage({
   const pace = deadline ? driveGraphPaceMinutesPerKm() : 0;
   const feasibilityFor = (cityId: string): string | null => {
     if (!deadline) return null;
-    // hoursFrom only ever returns a preset from 2 to 8, so this cannot fail;
-    // it is here so the budget's sign is checked where the budget is used,
-    // since maxNights throws on zero.
-    if (!(hours > 0)) return null;
+    // No limit has no daily budget to count driving days by, so no line (U53).
+    // The sign check stays where the budget is used, since maxNights throws
+    // on zero; todayHoursFrom only returns 2 to 12 or null.
+    if (hours === null || !(hours > 0)) return null;
     const city = cityById.get(cityId);
     if (!city) return null;
     if (destCity && destCity.id === cityId) return null;  // that city is the destination
@@ -201,20 +209,25 @@ export default async function TodayPage({
   };
   const shown = groups.length;
   const total = plan.reachable.length;
+  const anyEstimated = groups.some((g) => estimated.has(g.cityId));
+  // "within 5 hours", or with no limit no count at all: it would be every
+  // town in the atlas, abroad included (U53).
+  const within = hours === null ? null : `within ${hours} hours`;
 
   return (
     <Shell>
       <div className="mb-5">
         <h1 className="text-2xl text-[#f0f6fc] mb-1">
-          {total === 0 ? `Nothing within ${hours} hours` : `${total} ${total === 1 ? "city" : "cities"} within ${hours} hours`}
+          {within === null ? "The nearest cities, no time limit" : total === 0 ? `Nothing ${within}` : `${total} ${total === 1 ? "city" : "cities"} ${within}`}
         </h1>
         <p className="text-base text-[#8b949e]">
-          From {whereLabel}
+          From {fromWords}
           {/* Same 3 km as the "Near <city>" label, imported so it cannot drift:
               inside it you are in the city; beyond it, say how far. The
               boundary is pinned at exactly 3.0 by locate.test.ts. */}
           {plan.here && plan.here.distanceKm > NEAR_THRESHOLD_KM ? `, ${Math.round(plan.here.distanceKm)} km from ${plan.here.city.name}` : ""}
           . Drive times are one way.
+          {anyEstimated ? ' Times that say "about" are estimates by straight line.' : ""}
         </p>
         {deadline && deadlineText && (
           <div className="mt-3 flex flex-col gap-2">
@@ -252,9 +265,9 @@ export default async function TodayPage({
       </div>
 
       {total === 0 ? (
-        <Notice title="Try more hours" text={`No city we know is within ${hours} hours of ${whereLabel}.`} />
+        <Notice title="Try more hours" text={`No city we know is ${within ?? "in reach"} of ${fromWords}.`} />
       ) : (
-        <ol className="flex flex-col gap-4" aria-label={`Cities within ${hours} hours, nearest first`}>
+        <ol className="flex flex-col gap-4" aria-label={within === null ? "The nearest cities" : `Cities ${within}, nearest first`}>
           {groups.map((g) => (
             <li key={g.cityId} className="border border-[#30363d] bg-[#161b22] p-4">
               <div className="flex items-baseline justify-between gap-3 mb-2">
@@ -270,8 +283,11 @@ export default async function TodayPage({
                 {/* A drive time, said as a phrase; the number is the one
                     thing in the mono face, "away" is in the body face
                     (quality bar, rule 2; Gauntlet U2, round 3). */}
-                <span className="text-base text-[#8b949e] whitespace-nowrap">
-                  <span className="num">{formatDrive(oneWay.get(g.cityId) ?? g.detourMinutes / 2)}</span> away
+                <span className="text-base text-[#8b949e] whitespace-nowrap" data-drive>
+                  {(() => {
+                    const m = oneWay.get(g.cityId) ?? g.detourMinutes / 2;
+                    return estimated.has(g.cityId) ? <>about <span className="num">{formatDrive(aboutMinutes(m))}</span></> : <span className="num">{formatDrive(m)}</span>;
+                  })()} away
                 </span>
               </div>
               {/* The way out of this screen into the trip planner: start and
@@ -328,8 +344,8 @@ export default async function TodayPage({
       )}
 
       <p className="mt-5 text-base text-[#8b949e]">
-        {shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
-        <Link href={`/today?${new URLSearchParams({ hours: String(hours), ...(chosenMoods.length > 0 ? { [MOODS_PARAM]: chosenMoods.join(",") } : {}), ...(carry ?? {}) }).toString()}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
+        {within === null ? `Showing the nearest ${shown}. ` : shown < total ? `Showing the nearest ${shown} of ${total}. ` : ""}
+        <Link href={`/today?${new URLSearchParams({ hours: hoursParam(hours), ...(chosenMoods.length > 0 ? { [MOODS_PARAM]: chosenMoods.join(",") } : {}), ...(carry ?? {}) }).toString()}`} className="underline hover:text-[#f0f6fc] focus-visible:ring-1 focus-visible:ring-[#f0f6fc] focus-visible:outline-none">
           Change where or how long
         </Link>
       </p>

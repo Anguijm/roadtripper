@@ -22,7 +22,7 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
 | parameter | | |
 |---|---|---|
 | `lat`, `lng` | required | decimal degrees; out of range or missing is a 400 |
-| `hours` | optional | 2, 3, 4, 5, 6, 8, 10 or 12, or `any` for no limit (10, 12 and `any` added 2026-11-14; the /today page offers 2 to 8). Missing, blank, 0 or anything else falls back to 5. Echoed in `hours`: the number, or `null` for `any` |
+| `hours` | optional | 2, 3, 4, 5, 6, 8, 10 or 12, or `any` for no limit (10, 12 and `any` added 2026-11-14; the /today page offers the same since U53). Missing, blank, 0 or anything else falls back to 5. Echoed in `hours`: the number, or `null` for `any` |
 | `moods` | optional | comma-separated, at most two of `outdoors, history, art, museums, oddities, machines, food, sports`. An unknown mood or more than two is a 400 |
 
 ### 200, `status: "ok"`
@@ -104,8 +104,8 @@ and `/api/today/toward` still answer `ok`:
 Example, a point on I-75 near Lima, Ohio (`lat=40.74&lng=-84.11&hours=4`):
 `here` is Dayton at 109.3 km, `snapped: false`, and the towns start
 Dayton about 79 min, Toledo about 81, Columbus about 92. Code:
-`planBetweenTowns` in `src/lib/today/plan.ts`; the /today web page does not
-use it and still asks for a town.
+`planBetweenTowns` in `src/lib/today/plan.ts`; the /today web page gives
+the same answer since U53 (2026-11-14), with "about" on estimated minutes.
 
 ### Errors
 
@@ -261,7 +261,7 @@ town within 650 km.
 The car session's request: John drives 10 to 12 hours some days, or as long
 as it takes. Both car endpoints take `hours=10`, `hours=12` and `hours=any`
 (no limit, echoed as `"hours": null` on that answer only; every other
-answer's `hours` stays a number). The /today page's chips are unchanged.
+answer's `hours` stays a number). The /today page offers the same choices since U53.
 
 - The drive graph only holds pairs within 650 km (about 8 hours), so a town
   farther than that from `here`'s town is measured from your position by

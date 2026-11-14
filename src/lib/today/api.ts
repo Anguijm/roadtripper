@@ -1,7 +1,7 @@
 import "server-only";
 
 import { planToday, type TodayPlan, type TodayReach } from "@/lib/today/plan";
-import { DEFAULT_HOURS, HOURS_PRESETS } from "@/lib/today/presets";
+import { TODAY_HOURS, NO_LIMIT, todayHoursFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
 import { waypointProfileForMoods } from "@/lib/personas/moodProfile";
@@ -25,24 +25,14 @@ import type { RadialCandidate } from "@/lib/routing/radial";
 export const TODAY_API_VERSION = 1;
 
 /**
- * The car's day lengths: the /today page's presets plus 10 and 12 (the car
- * session's request, 2026-11-14: John drives 10 to 12 hours some days). The
- * web page's chips stay HOURS_PRESETS.
+ * The car's day lengths are the today screen's (TODAY_HOURS and NO_LIMIT in
+ * src/lib/today/presets.ts, 2026-11-14), so the two cannot drift; `any`
+ * answers echo `hours: null`. Re-exported under the car's name for the
+ * contract's tests.
  */
-export const CAR_HOURS = [...HOURS_PRESETS, 10, 12] as const;
-/**
- * `hours=any`: no limit, echoed as `hours: null`. A word, not 0, because a
- * blank value reads as 0 (Number("")) and must stay the default.
- */
-export const NO_LIMIT = "any";
-
-/** The car's hours: one of CAR_HOURS, null for NO_LIMIT, anything else (blank and missing included) the /today page's default, 5. */
-export function carHoursFrom(raw: string | null): number | null {
-  const s = (raw ?? "").trim();
-  if (s === NO_LIMIT) return null;
-  const n = Number(s);
-  return (CAR_HOURS as readonly number[]).includes(n) ? n : DEFAULT_HOURS;
-}
+export const CAR_HOURS = TODAY_HOURS;
+export { NO_LIMIT };
+export const carHoursFrom = (raw: string | null): number | null => todayHoursFrom(raw);
 
 export interface TodayApiPlace {
   id: string;

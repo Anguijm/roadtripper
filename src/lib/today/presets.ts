@@ -11,6 +11,37 @@ export type HoursPreset = (typeof HOURS_PRESETS)[number];
 /** "I have five hours" is the sentence this screen exists to answer. */
 export const DEFAULT_HOURS: HoursPreset = 5;
 
+/**
+ * The today screen's and the car's day lengths: HOURS_PRESETS plus 10 and 12
+ * (2026-11-14: John drives 10 to 12 hours some days), with NO_LIMIT beside
+ * them. /plan's daily budget keeps HOURS_PRESETS: a trip is split into days
+ * by it, and no limit would make any trip one day.
+ * Changing it: the hours row in docs/car-api.md (the car reads it), the
+ * chips' two rows in src/components/TodayStart.tsx, and the tests in
+ * src/lib/today/__tests__/api.test.ts and src/components/__tests__/.
+ */
+export const TODAY_HOURS = [...HOURS_PRESETS, 10, 12] as const;
+/**
+ * `hours=any`: no limit. A word, not 0, because a blank value reads as 0
+ * (Number("")) and must stay the default.
+ */
+export const NO_LIMIT = "any";
+/** A day's length: hours, or null for no limit. */
+export type TodayHours = number | null;
+
+/** One of TODAY_HOURS, null for NO_LIMIT, anything else (blank and missing included) the default, 5. */
+export function todayHoursFrom(raw: unknown): TodayHours {
+  const s = typeof raw === "string" ? raw.trim() : typeof raw === "number" ? String(raw) : "";
+  if (s === NO_LIMIT) return null;
+  const n = Number(s);
+  return (TODAY_HOURS as readonly number[]).includes(n) ? n : DEFAULT_HOURS;
+}
+
+/** The URL's spelling of a day's length: "5", or "any". */
+export function hoursParam(h: TodayHours): string {
+  return h === null ? NO_LIMIT : String(h);
+}
+
 /** Anything not in the presets, including garbage from the URL, becomes the default. */
 export function hoursFrom(raw: unknown): HoursPreset {
   const n = typeof raw === "string" ? Number(raw) : typeof raw === "number" ? raw : NaN;
@@ -42,6 +73,15 @@ export function pointFrom(lat: unknown, lng: unknown): { lat: number; lng: numbe
   if (!Number.isFinite(la) || !Number.isFinite(ln)) return null;
   if (la < -90 || la > 90 || ln < -180 || ln > 180) return null;
   return { lat: la, lng: ln };
+}
+
+/**
+ * An estimated drive time, to the nearest 10 minutes and never under 10:
+ * "about 8 h 7 min" promises a precision a straight line does not have (the
+ * U53 critic's note). The minutes still sort by the exact estimate.
+ */
+export function aboutMinutes(minutes: number): number {
+  return Math.max(10, Math.round(minutes / 10) * 10);
 }
 
 /** One-way drive time as people say it: "45 min", "2 h", "2 h 10 min". */

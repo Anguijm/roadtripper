@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { planToday, NEAREST_TOWN_MAX_KM, GRAPH_NEIGHBOURHOOD_KM } from "../plan";
 import { allCities, driveGraphPaceMinutesPerKm, driveTimesFrom, haversineKm, SNAP_RADIUS_KM } from "@/lib/atlas/queries";
-import { formatDrive, hoursFrom, pointFrom, placeNameFrom, DEFAULT_HOURS, MAX_PLACE_NAME_LENGTH } from "../presets";
+import { formatDrive, aboutMinutes, hoursFrom, pointFrom, placeNameFrom, DEFAULT_HOURS, MAX_PLACE_NAME_LENGTH } from "../presets";
 
 // Real atlas, real graph. These are the numbers the screen shows.
 const DOWNTOWN_AMARILLO = { lat: 35.2073, lng: -101.8338 };
@@ -90,6 +90,10 @@ describe("planToday between towns (the car's request, 2026-11-14)", () => {
 });
 
 describe("presets", () => {
+  it("says an estimate to the nearest 10 minutes, never under 10 (U53)", () => {
+    expect([3, 14, 15, 79, 81, 116, 487].map(aboutMinutes)).toEqual([10, 10, 20, 80, 80, 120, 490]);
+  });
+
   it("formats one-way drive time the way people say it", () => {
     expect(formatDrive(45)).toBe("45 min");
     expect(formatDrive(120)).toBe("2 h");
