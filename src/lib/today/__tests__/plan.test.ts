@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { planToday } from "../plan";
+import { planToday, NEAREST_TOWN_MAX_KM } from "../plan";
+import { allCities, driveGraphPaceMinutesPerKm, haversineKm, SNAP_RADIUS_KM } from "@/lib/atlas/queries";
 import { formatDrive, hoursFrom, pointFrom, placeNameFrom, DEFAULT_HOURS, MAX_PLACE_NAME_LENGTH } from "../presets";
 
 // Real atlas, real graph. These are the numbers the screen shows.
 const DOWNTOWN_AMARILLO = { lat: 35.2073, lng: -101.8338 };
 const MIDDLE_OF_THE_PACIFIC = { lat: 30.0, lng: -150.0 };
+/** On I-75, 109 km from Dayton and 112 from Toledo: no atlas town within 40 km. */
+const NEAR_LIMA_OHIO = { lat: 40.74, lng: -84.11 };
+/** Out to sea east of Honolulu, the nearest atlas town: about 600 and 700 km. */
+const HONOLULU_600_KM = { lat: 21.3, lng: -152.1 };
+const HONOLULU_700_KM = { lat: 21.3, lng: -151.1 };
 
 const names = (plan: ReturnType<typeof planToday>) => plan.reachable.map((r) => r.city.name);
 
@@ -43,6 +49,40 @@ describe("planToday", () => {
   it("rejects a budget that is not a positive number", () => {
     expect(() => planToday(DOWNTOWN_AMARILLO, 0)).toThrow(/positive/);
     expect(() => planToday(DOWNTOWN_AMARILLO, NaN)).toThrow(/positive/);
+  });
+});
+
+describe("planToday between towns (the car's request, 2026-11-14)", () => {
+  it("keeps the /today page's no-city when betweenTowns is not asked", () => {
+    expect(planToday(NEAR_LIMA_OHIO, 4).reach).toBe("no-city");
+  });
+
+  it("stands at the nearest town and measures every town today covers from the point itself", () => {
+    const plan = planToday(NEAR_LIMA_OHIO, 4, { betweenTowns: true });
+    expect(plan.reach).toBe("between");
+    expect(plan.here?.city.id).toBe("dayton");
+    expect(plan.here?.distanceKm).toBeGreaterThan(SNAP_RADIUS_KM);
+    const pace = driveGraphPaceMinutesPerKm();
+    // Every town within four hours by the estimate, and only those: not the
+    // graph's neighbours of Dayton, which is 80 minutes away.
+    const expected = allCities().filter((c) => haversineKm(NEAR_LIMA_OHIO, c) * pace <= 240).map((c) => c.id).sort();
+    expect(plan.reachable.map((r) => r.city.id).sort()).toEqual(expected);
+    for (const r of plan.reachable) expect(r.oneWayDriveMinutes).toBeCloseTo(haversineKm(NEAR_LIMA_OHIO, r.city) * pace, 6);
+    const mins = plan.reachable.map((r) => r.oneWayDriveMinutes);
+    expect(mins).toEqual([...mins].sort((a, b) => a - b));
+    // You are not in Dayton, so it is a town in the list, the nearest.
+    expect(plan.reachable.slice(0, 2).map((r) => r.city.id)).toEqual(["dayton", "toledo-oh"]);
+  });
+
+  it("changes nothing within 40 km of a town", () => {
+    expect(planToday(DOWNTOWN_AMARILLO, 5, { betweenTowns: true })).toEqual(planToday(DOWNTOWN_AMARILLO, 5));
+  });
+
+  it("says no-city only past 650 km from every town", () => {
+    expect(NEAREST_TOWN_MAX_KM).toBe(650);
+    expect(planToday(HONOLULU_600_KM, 5, { betweenTowns: true })).toMatchObject({ reach: "between", here: { city: { id: "honolulu" } }, reachable: [] });
+    expect(planToday(HONOLULU_700_KM, 8, { betweenTowns: true })).toMatchObject({ reach: "no-city", here: null, reachable: [] });
+    expect(planToday(MIDDLE_OF_THE_PACIFIC, 8, { betweenTowns: true }).reach).toBe("no-city");
   });
 });
 

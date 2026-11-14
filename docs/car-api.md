@@ -33,13 +33,13 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
   "status": "ok",
   "generatedAt": "2026-11-10T01:07:04.864Z",
   "origin": { "lat": 41.2565, "lng": -95.9345 },
-  "here": { "cityId": "omaha", "name": "Omaha", "lat": 41.2565, "lng": -95.9345, "distanceKm": 0, "country": "United States" },
+  "here": { "cityId": "omaha", "name": "Omaha", "lat": 41.2565, "lng": -95.9345, "distanceKm": 0, "country": "United States", "snapped": true },
   "hours": 4,
   "moods": ["history"],
   "placesComplete": true,
   "towns": [
     {
-      "id": "lincoln-ne", "name": "Lincoln", "lat": 40.8136, "lng": -96.7026, "driveMinutes": 51, "country": "United States",
+      "id": "lincoln-ne", "name": "Lincoln", "lat": 40.8136, "lng": -96.7026, "driveMinutes": 51, "estimated": false, "country": "United States",
       "places": [
         { "id": "lincoln-ne-downtown-...-mosaic-floor", "name": "Nebraska State Capitol Mosaic Floor",
           "lat": 40.8079, "lng": -96.7003, "kind": "Culture", "line": "Inside the magnificent ...", "badge": "pick" }
@@ -51,7 +51,8 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
 
 - `towns`: nearest drive first, at most 10 (`MAX_WAYPOINT_CITIES`).
   `driveMinutes` is one way from `here` (the snapped city) on the
-  calibrated drive graph.
+  calibrated drive graph, or between towns an estimate from your position
+  (`estimated: true`, see "Between towns" below).
 - `country` on each town and on `here` (added 2026-11-10, U52, non-breaking):
   the atlas's country name, or "" when it has none. A town whose country
   differs from `here.country` is across a border; the web app says
@@ -75,8 +76,36 @@ GET https://roadtripper--roadtripper-planner.us-central1.hosted.app/api/today?la
 { "version": 1, "status": "no-graph", "generatedAt": "...", "here": { ... } }
 ```
 
-`no-city`: no known city within 40 km. `no-graph`: a known city with no
-drive times from it.
+`no-city`: no atlas town within 650 km (mid-ocean, or abroad where the
+atlas is thin); until 2026-11-14 it was any point 40 km from a town, see
+below. `no-graph`: a known city with no drive times from it.
+
+### Between towns (2026-11-14)
+
+Asked for by the car session after John got "no nearby towns" between
+cities. With no atlas town within 40 km of the point, both `/api/today`
+and `/api/today/toward` still answer `ok`:
+
+- `here` is the nearest atlas town, up to 650 km away, with
+  `distanceKm` saying how far and **`snapped: false`**. Within 40 km
+  `snapped` is `true` and nothing else changes. (`snapped` and the towns'
+  `estimated` are v1 additions; nothing was removed or renamed.)
+- You are not in that town, so it can be a row itself (in `/api/today` it
+  is usually the first town; in `/api/today/toward` only when it passes the
+  direction rules from your actual position, like any other town).
+- Every town's minutes are measured from your position, by straight line
+  at the drive graph's median pace (`estimated: true`; say "about"). The
+  graph is measured between town centres, so from 100 km out of one its
+  minutes would be off by the hour it takes to get there.
+- Which towns: every atlas town today's hours cover by that estimate, not
+  the graph's neighbours of the nearest town. The 650 km is the graph's own
+  neighbourhood and about what 8 hours cover at its pace (653 km).
+
+Example, a point on I-75 near Lima, Ohio (`lat=40.74&lng=-84.11&hours=4`):
+`here` is Dayton at 109.3 km, `snapped: false`, and the towns start
+Dayton about 79 min, Toledo about 81, Columbus about 92. Code:
+`planBetweenTowns` in `src/lib/today/plan.ts`; the /today web page does not
+use it and still asks for a town.
 
 ### Errors
 
@@ -179,15 +208,17 @@ capped at 15.
 }
 ```
 
+- `here`: as `/api/today`, `snapped` included.
 - `destination`: `cityId` and `name` when the point is within an atlas
   town's own radius (25 km for a metro, 10 a town, 3 a village), else null
   and the car shows its own name. `lat`/`lng` are the point asked for, or
   the town's centre when picked by id. `driveMinutes` is the drive graph
-  when both ends are atlas towns with a stored pair, else an estimate
-  (`estimated: true`). `withinToday`: whether today's hours reach it.
+  when both ends are atlas towns with a stored pair and `here.snapped`,
+  else an estimate from your position (`estimated: true`). `withinToday`: whether today's hours reach it.
 - `stops`: nearest first by `reachMinutes`, at most 15, possibly empty.
   - `type: "town"` rows: `reachMinutes` from `here` on the drive graph
-    (`estimated: false`), `kind` "Town", `line`, `badge` and `near` null,
+    (`estimated: false`), or between towns an estimate from your position
+    (`estimated: true`), `kind` "Town", `line`, `badge` and `near` null,
     and `places` exactly as `/api/today` (up to 5).
   - `type: "stop"` rows (roadside): `reachMinutes` is straight-line km from
     your actual position at the graph's median pace (`estimated: true`;
@@ -203,7 +234,8 @@ capped at 15.
 - Ids are unique across the answer: atlas city ids, atlas place ids, and
   OSM ids (`osm:node:...`), which atlas ids never resemble. A roadside stop
   named like a place in one of the answer's towns is that place and appears
-  once, as the place. The here town is never a row.
+  once, as the place. The here town is never a row while `here.snapped`;
+  between towns it can be one.
 
 ### Other answers
 
@@ -216,7 +248,11 @@ capped at 15.
 ```
 
 `arrived`: here is within 15 km of the destination, or both are the same
-atlas town (then ask `/api/today` for the town's own list).
+atlas town while `here.snapped` (then ask `/api/today` for the town's own
+list). Between towns, the destination being the nearest town is not
+arriving: 50 km out of Louisville toward Louisville is `ok`, with
+Louisville as the destination row. `no-city`: as `/api/today`, no atlas
+town within 650 km.
 
 ### Caching and limits
 

@@ -29,6 +29,7 @@ Nothing queued. Open questions for John are in Next.
   - A 40-minute detour cap (John, 2026-11-11), after the cone alone offered a monument 65 minutes off the road: the cone says "toward", the cap says "on the way". Lists stay at 13 to 15 rows.
   - All live under /api/today, so the request-log exclusion covers them. Checked on production: no entries in either request log.
   - Contract agreed with roadtripper-car-a3, in `docs/car-api.md`. Live 23:46 and 23:55 JST.
+  - **Between towns (2026-11-14, the car session's request after John got "no nearby towns" between cities).** Both car endpoints answer `ok` within 650 km of any atlas town: `here` is the nearest town with `snapped: false`, it can be a row, and every minute is an estimate from the car's position. `no-city` only past 650 km. The /today web page is unchanged.
 
 - **One place written two ways is one place (#175, 2026-11-10).** The car session found Grand Rapids' Calder twice, as "La Grande Vitesse (The Calder)" and "La Grande Vitesse". The export now runs a second pass: the same name but for a bracketed aside, same town, within 300 m, keeping the richest row. John read all 80 merges first and kept Little Rock's two Quapaw Quarter streets apart (`KEEP_APART`): 79 merges, 80 rows. The export diff showed nothing else changed. Live 22:21 JST: from Detroit, Grand Rapids lists the Calder once, with The Blue Bridge in the freed slot; /today shows it once at 390 px in headless Chrome.
 - **/api/today positions are no longer logged (2026-11-10, John's choice).** The platform's two request logs kept the URL (lat, lng), IP and user agent for 30 days. A `_Default` sink exclusion, `drop-api-today-requests`, drops those entries since 13:11 UTC; a test call left none while a control request was logged. `docs/car-api.md` says what the server keeps; the runbook has the filter and the undo.
@@ -72,6 +73,8 @@ Nothing queued. Open questions for John are in Next.
   The only "1" left is `daysSpannedBy` reading a stretch whose drive is not back yet as one day, which is intended. `tripBudgetFor` is guarded by the U13 test against `(tripDayCount ?? 1)`.
 
 ## Someday (architectural ideas, daydreams)
+
+- **The /today web page between towns.** The car endpoints answer from any point within 650 km of a town (2026-11-14); the page still says "Not near a city we know" past 40 km and asks for a town. `planToday(..., { betweenTowns: true })` is the same answer; the page would need "about" on its minutes. Not asked for.
 
 - A map-first today screen. Left for the operator in round 1; never scoped.
 - A per-stop "stay the night here" choice, if a roadside motel ever needs to be an overnight. The operator chose the visit default over a toggle (U10).
