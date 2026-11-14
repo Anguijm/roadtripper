@@ -1,7 +1,7 @@
 import "server-only";
 
 import { planToday } from "@/lib/today/plan";
-import { parseTodayQuery, rankedPlaces, waypointsOrDegraded, type TodayApiPlace } from "@/lib/today/api";
+import { hereOf, parseTodayQuery, rankedPlaces, waypointsOrDegraded, type TodayApiPlace, type TodayHere } from "@/lib/today/api";
 import { allCities, cityRadiiKm, driveGraphPaceMinutesPerKm, driveMinutesBetween, haversineKm, snapToCity, SNAP_RADIUS_KM } from "@/lib/atlas/queries";
 import { roadsideToward } from "@/lib/roadside/store";
 import type { RoadsideMarker } from "@/lib/roadside/along";
@@ -72,7 +72,7 @@ export const MAX_DETOUR_MINUTES = 40;
 /** A town without its own radius in the registry is matched within this. */
 const DEFAULT_TOWN_RADIUS_KM = 10;
 
-type Here = { cityId: string; name: string; lat: number; lng: number; distanceKm: number; country: string };
+type Here = TodayHere;
 
 export interface TowardDestination {
   /** The atlas town the destination is, or null for a place the atlas does not have. */
@@ -95,7 +95,7 @@ interface RowBase {
   name: string;
   lat: number;
   lng: number;
-  /** From here, whole minutes: the drive graph for a town, an estimate for a stop. */
+  /** From here, whole minutes: the drive graph for a town (an estimate between towns), an estimate for a stop. */
   reachMinutes: number;
   estimated: boolean;
   /** Extra minutes against heading straight to the destination. Always an estimate. */
@@ -195,20 +195,18 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
     destAt = to.at;
   }
 
-  const plan = planToday(origin, hours);
+  // Between towns as /api/today (2026-11-14). There, here's town is only the
+  // nearest one, maybe 100 km off, so nothing is measured from it: the
+  // destination's minutes are an estimate from the car, here's town can be a
+  // row, and being nearest the destination town is not having arrived.
+  const plan = planToday(origin, hours, { betweenTowns: true });
   if (plan.reach === "no-city" || !plan.here) return { version: 1, status: "no-city", generatedAt };
-  const here: Here = {
-    cityId: plan.here.city.id,
-    name: plan.here.city.name,
-    lat: plan.here.city.lat,
-    lng: plan.here.city.lng,
-    distanceKm: Math.round(plan.here.distanceKm * 10) / 10,
-    country: plan.here.city.country,
-  };
+  const here = hereOf(plan.here, plan.reach);
   if (plan.reach === "no-graph") return { version: 1, status: "no-graph", generatedAt, here };
+  const snapped = here.snapped;
 
   const pace = driveGraphPaceMinutesPerKm();
-  const graphMinutes = destCity ? driveMinutesBetween(here.cityId, destCity.id) : null;
+  const graphMinutes = snapped && destCity ? driveMinutesBetween(here.cityId, destCity.id) : null;
   const driveMinutes = graphMinutes !== null ? Math.round(graphMinutes) : estimateMinutes(haversineKm(origin, destAt), pace);
   const destination: TowardDestination = {
     cityId: destCity?.id ?? null,
@@ -221,18 +219,19 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
     withinToday: driveMinutes <= hours * 60,
   };
 
-  if (haversineKm(origin, destAt) <= ARRIVED_KM || (destCity !== null && destCity.id === here.cityId)) {
+  if (haversineKm(origin, destAt) <= ARRIVED_KM || (snapped && destCity !== null && destCity.id === here.cityId)) {
     return { version: 1, status: "arrived", generatedAt, here, hours, moods, destination };
   }
 
-  // Towns: today's reach from the drive graph, in the cone, never here and
-  // never the destination itself, which has its own row. The most on-the-way
+  // Towns: today's reach (the drive graph, or estimates between towns), in
+  // the cone, never the town you are in and never the destination itself,
+  // which has its own row. The most on-the-way
   // are chosen (least detour), then shown by time: choosing the nearest let
   // wide early detours crowd out towns on the road further down (Cleveland
   // and Akron over Cincinnati, toward Mammoth Cave, on the first run).
   const addsAtMost = (p: LatLng) => estimateMinutes(detourKm(origin, destAt, p), pace) <= MAX_DETOUR_MINUTES;
   const towns = plan.reachable
-    .filter((r) => r.city.id !== here.cityId && r.city.id !== destCity?.id && inCone(origin, destAt, r.city) && addsAtMost(r.city))
+    .filter((r) => (!snapped || r.city.id !== here.cityId) && r.city.id !== destCity?.id && inCone(origin, destAt, r.city) && addsAtMost(r.city))
     .map((r) => ({ r, detour: detourKm(origin, destAt, r.city) }))
     .sort((a, b) => a.detour - b.detour || a.r.oneWayDriveMinutes - b.r.oneWayDriveMinutes)
     .slice(0, MAX_TOWN_ROWS)
@@ -251,7 +250,7 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
     lat: r.city.lat,
     lng: r.city.lng,
     reachMinutes: Math.round(r.oneWayDriveMinutes),
-    estimated: r === destRow ? destination.estimated : false,
+    estimated: r === destRow ? destination.estimated : !snapped,
     detourMinutes: estimateMinutes(detourKm(origin, destAt, r.city), pace),
     kind: "Town",
     line: null,

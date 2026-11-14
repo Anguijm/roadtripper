@@ -1,6 +1,6 @@
 import "server-only";
 
-import { planToday } from "@/lib/today/plan";
+import { planToday, type TodayPlan, type TodayReach } from "@/lib/today/plan";
 import { hoursFrom } from "@/lib/today/presets";
 import { fetchWaypointsForCandidates, MAX_WAYPOINT_CITIES } from "@/lib/routing/recommend";
 import { buildRankedGroupsWith, type WaypointFetchResult } from "@/lib/routing/scoring";
@@ -41,14 +41,36 @@ export interface TodayApiTown {
   name: string;
   lat: number;
   lng: number;
-  /** One way from `here`, on the calibrated drive graph, whole minutes. */
+  /** One way, whole minutes: from `here`'s town on the calibrated drive graph, or between towns from your position, estimated. */
   driveMinutes: number;
+  /** True between towns (`here.snapped` false): driveMinutes is a straight-line estimate, say "about" (v1 addition, 2026-11-14). */
+  estimated: boolean;
   /** The atlas's country ("Canada"); compare with `here.country` to label a town across a border (v1 addition, U52). */
   country: string;
   places: TodayApiPlace[];
 }
 
-type Here = { cityId: string; name: string; lat: number; lng: number; distanceKm: number; country: string };
+/**
+ * Where the answer stands. `snapped` (v1 addition, 2026-11-14): true when you
+ * are within 40 km of the town and its drive graph minutes are used; false
+ * between towns, when the town is only the nearest one (`distanceKm` says how
+ * far, up to 650 km), it can be a row itself, and every minute is an estimate
+ * from your position. Shared by /api/today and /api/today/toward.
+ */
+export type TodayHere = { cityId: string; name: string; lat: number; lng: number; distanceKm: number; country: string; snapped: boolean };
+type Here = TodayHere;
+
+export function hereOf(here: NonNullable<TodayPlan["here"]>, reach: TodayReach): TodayHere {
+  return {
+    cityId: here.city.id,
+    name: here.city.name,
+    lat: here.city.lat,
+    lng: here.city.lng,
+    distanceKm: Math.round(here.distanceKm * 10) / 10,
+    country: here.city.country,
+    snapped: reach !== "between",
+  };
+}
 
 export type TodayApiResponse =
   | {
@@ -108,28 +130,24 @@ export function parseTodayQuery(q: URLSearchParams): TodayQuery {
 /** The answer for a parsed query; `now` is injectable for tests. */
 export async function todayAnswer(origin: LatLng, hours: number, moods: MoodId[], now: Date = new Date()): Promise<TodayApiResponse> {
   const generatedAt = now.toISOString();
-  const plan = planToday(origin, hours);
+  // Between towns too (the car's request, 2026-11-14): the car is on the
+  // road, so "no nearby towns" 60 km out of one is no answer at all.
+  const plan = planToday(origin, hours, { betweenTowns: true });
   if (plan.reach === "no-city" || !plan.here) return { version: 1, status: "no-city", generatedAt };
-  const here: Here = {
-    cityId: plan.here.city.id,
-    name: plan.here.city.name,
-    lat: plan.here.city.lat,
-    lng: plan.here.city.lng,
-    distanceKm: Math.round(plan.here.distanceKm * 10) / 10,
-    country: plan.here.city.country,
-  };
+  const here = hereOf(plan.here, plan.reach);
   if (plan.reach === "no-graph") return { version: 1, status: "no-graph", generatedAt, here };
 
   const fetchResult = await waypointsOrDegraded(plan.reachable, "[api/today]");
   const placesByTown = rankedPlaces(fetchResult, moods);
   const oneWay = new Map(plan.reachable.map((r) => [r.city.id, r.oneWayDriveMinutes]));
   const cityById = new Map(plan.reachable.map((r) => [r.city.id, r.city]));
+  const estimated = plan.reach === "between";
 
   const towns: TodayApiTown[] = [...placesByTown].flatMap(([cityId, { cityName, places }]) => {
     const city = cityById.get(cityId);
     const minutes = oneWay.get(cityId);
     if (!city || minutes === undefined) return [];
-    return [{ id: cityId, name: cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), country: city.country ?? "", places }];
+    return [{ id: cityId, name: cityName, lat: city.lat, lng: city.lng, driveMinutes: Math.round(minutes), estimated, country: city.country ?? "", places }];
   });
 
   return {

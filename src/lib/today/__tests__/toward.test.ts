@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { parseTowardQuery, pickStops, towardAnswer, townAt, MAX_ROWS, ARRIVED_KM, MAX_DETOUR_MINUTES } from "@/lib/today/toward";
 import type { RoadsideMarker } from "@/lib/roadside/along";
 import { placeNameKey } from "@/lib/plan/days";
-import { inCone } from "@/lib/today/cone";
+import { estimateMinutes, inCone } from "@/lib/today/cone";
+import { allCities, driveGraphPaceMinutesPerKm, haversineKm } from "@/lib/atlas/queries";
 import { resolveStorePath } from "@/lib/roadside/store";
 
 /** The real roadside store is fetched at build and is not in CI; its checks run where it is (survivorsInCone is checked on a made-up store in src/lib/roadside/__tests__/store.cone.test.ts). */
@@ -18,6 +19,10 @@ const DETROIT = { lat: 42.33, lng: -83.05 };
 const LOUISVILLE = { kind: "city" as const, id: "louisville" };
 const MAMMOTH_CAVE = { lat: 37.19, lng: -86.1 };
 const NOW = new Date("2026-11-10T13:00:00.000Z");
+/** On I-75, 109 km from Dayton and 112 from Toledo: no atlas town within 40 km. */
+const NEAR_LIMA_OHIO = { lat: 40.74, lng: -84.11 };
+/** 50 km north of Louisville, the nearest atlas town. */
+const NORTH_OF_LOUISVILLE = { lat: 38.7, lng: -85.76 };
 
 describe("parseTowardQuery", () => {
   it("takes an atlas id, or a point, as the destination", () => {
@@ -149,6 +154,47 @@ describe("towardAnswer, the other answers", () => {
   it("says unknown-destination for an id the atlas lacks, and no-city far from any town", async () => {
     expect(await towardAnswer(DETROIT, { kind: "city", id: "atlantis" }, 5, [], NOW)).toMatchObject({ status: "unknown-destination" });
     expect(await towardAnswer({ lat: 0, lng: -140 }, LOUISVILLE, 5, [], NOW)).toMatchObject({ status: "no-city" });
+  });
+});
+
+describe("towardAnswer between towns (the car's request, 2026-11-14)", () => {
+  it("answers ok 109 km from Dayton toward Louisville: Dayton is a row, every minute is an estimate from the car", async () => {
+    const a = await towardAnswer(NEAR_LIMA_OHIO, LOUISVILLE, 5, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.here).toMatchObject({ cityId: "dayton", snapped: false });
+    const louisville = allCities().find((c) => c.id === "louisville")!;
+    // Not Dayton's graph minutes to Louisville (149), which would leave out the 80 to Dayton.
+    expect(a.destination).toMatchObject({ cityId: "louisville", estimated: true, withinToday: true });
+    expect(a.destination.driveMinutes).toBe(estimateMinutes(haversineKm(NEAR_LIMA_OHIO, louisville), driveGraphPaceMinutesPerKm()));
+    const towns = a.stops.filter((s) => s.type === "town");
+    expect(towns.map((t) => t.name)).toEqual(expect.arrayContaining(["Dayton", "Cincinnati", "Louisville"]));
+    // Toledo is as near but behind.
+    expect(towns.map((t) => t.name)).not.toContain("Toledo");
+    expect(towns.every((t) => t.estimated)).toBe(true);
+    for (const s of a.stops) {
+      expect(s.detourMinutes).toBeLessThanOrEqual(MAX_DETOUR_MINUTES);
+      if (!s.isDestination) expect(inCone(NEAR_LIMA_OHIO, louisville, s)).toBe(true);
+    }
+    const dayton = towns.find((t) => t.name === "Dayton");
+    expect(dayton?.type === "town" && dayton.places.length > 0).toBe(true);
+  });
+
+  it("has not arrived 50 km from the destination town, though it is the nearest one", async () => {
+    const a = await towardAnswer(NORTH_OF_LOUISVILLE, LOUISVILLE, 5, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.here).toMatchObject({ cityId: "louisville", snapped: false });
+    expect(a.here.distanceKm).toBeGreaterThan(ARRIVED_KM);
+    const dest = a.stops.find((s) => s.isDestination);
+    expect(dest).toMatchObject({ id: "louisville", type: "town", estimated: true });
+  });
+
+  it("is snapped, with graph minutes and no row for the town you are in, within 40 km", async () => {
+    const a = await towardAnswer(DETROIT, LOUISVILLE, 5, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.here).toMatchObject({ cityId: "detroit", snapped: true });
+    expect(a.destination.estimated).toBe(false);
+    expect(a.stops.some((s) => s.id === "detroit")).toBe(false);
+    expect(a.stops.filter((s) => s.type === "town").every((t) => !t.estimated)).toBe(true);
   });
 });
 

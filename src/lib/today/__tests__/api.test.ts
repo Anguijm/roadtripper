@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseTodayQuery, todayAnswer } from "@/lib/today/api";
+import { allCities, driveGraphPaceMinutesPerKm, driveMinutesBetween, haversineKm } from "@/lib/atlas/queries";
 
 /**
  * GET /api/today's contract (docs/car-api.md, agreed with the car session
@@ -9,6 +10,8 @@ import { parseTodayQuery, todayAnswer } from "@/lib/today/api";
 const q = (s: string) => parseTodayQuery(new URLSearchParams(s));
 const OMAHA = { lat: 41.2565, lng: -95.9345 };
 const NOW = new Date("2026-11-10T01:00:00.000Z");
+/** On I-75, 109 km from Dayton and 112 from Toledo: no atlas town within 40 km. */
+const NEAR_LIMA_OHIO = { lat: 40.74, lng: -84.11 };
 
 describe("the query", () => {
   it("needs lat and lng in range", () => {
@@ -96,5 +99,29 @@ describe("a town across a border (U52)", () => {
     const toronto = a.towns.find((t) => t.id === "toronto");
     expect(toronto?.country).toBe("Canada");
     expect(a.towns.filter((t) => t.id !== "toronto").every((t) => typeof t.country === "string")).toBe(true);
+  });
+});
+
+describe("between towns (the car's request, 2026-11-14)", () => {
+  it("answers ok 109 km from Dayton, every town measured from the point and marked estimated, Dayton among them", async () => {
+    const a = await todayAnswer(NEAR_LIMA_OHIO, 4, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.here).toMatchObject({ cityId: "dayton", name: "Dayton", snapped: false });
+    expect(a.here.distanceKm).toBeCloseTo(109.3, 0);
+    expect(a.towns.slice(0, 2).map((t) => t.id)).toEqual(["dayton", "toledo-oh"]);
+    expect(a.towns.length).toBe(10);
+    expect(a.towns.every((t) => t.estimated)).toBe(true);
+    const pace = driveGraphPaceMinutesPerKm();
+    const byId = new Map(allCities().map((c) => [c.id, c]));
+    for (const t of a.towns) expect(t.driveMinutes).toBe(Math.round(haversineKm(NEAR_LIMA_OHIO, byId.get(t.id)!) * pace));
+    expect(a.towns[0].places.length).toBeGreaterThan(0);
+  });
+
+  it("keeps drive graph minutes, snapped, within 40 km of a town", async () => {
+    const a = await todayAnswer(OMAHA, 4, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    expect(a.here.snapped).toBe(true);
+    expect(a.towns.every((t) => !t.estimated && t.id !== "omaha")).toBe(true);
+    expect(a.towns.find((t) => t.id === "lincoln-ne")?.driveMinutes).toBe(Math.round(driveMinutesBetween("omaha", "lincoln-ne")!));
   });
 });
