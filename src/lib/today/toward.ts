@@ -1,6 +1,6 @@
 import "server-only";
 
-import { planToday } from "@/lib/today/plan";
+import { planToday, type TodayCandidate } from "@/lib/today/plan";
 import { hereOf, parseTodayQuery, rankedPlaces, waypointsOrDegraded, type TodayApiPlace, type TodayHere } from "@/lib/today/api";
 import { allCities, cityRadiiKm, driveGraphPaceMinutesPerKm, driveMinutesBetween, haversineKm, snapToCity, SNAP_RADIUS_KM } from "@/lib/atlas/queries";
 import { roadsideToward } from "@/lib/roadside/store";
@@ -10,7 +10,6 @@ import { answeredMood, type MoodId } from "@/lib/roadside/tags";
 import { roadsideKindWord } from "@/lib/plan/words";
 import { placeNameKey } from "@/lib/plan/days";
 import { detourKm, estimateMinutes, inCone } from "@/lib/today/cone";
-import type { RadialCandidate } from "@/lib/routing/radial";
 import type { LatLng } from "@/lib/plan/types";
 import type { City } from "@/lib/urban-explorer/types";
 
@@ -85,7 +84,7 @@ export interface TowardDestination {
   /** One way from here: the drive graph when both ends are atlas towns with a stored pair, else an estimate. */
   driveMinutes: number;
   estimated: boolean;
-  /** Whether today's hours reach it. */
+  /** Whether today's hours reach it; always true with no limit. */
   withinToday: boolean;
 }
 
@@ -119,13 +118,14 @@ export type TowardApiResponse =
       generatedAt: string;
       origin: LatLng;
       here: Here;
-      hours: number;
+      /** As /api/today: null for no limit. */
+      hours: number | null;
       moods: MoodId[];
       destination: TowardDestination;
       placesComplete: boolean;
       stops: TowardRow[];
     }
-  | { version: 1; status: "arrived"; generatedAt: string; here: Here; hours: number; moods: MoodId[]; destination: TowardDestination }
+  | { version: 1; status: "arrived"; generatedAt: string; here: Here; hours: number | null; moods: MoodId[]; destination: TowardDestination }
   | { version: 1; status: "no-city"; generatedAt: string }
   | { version: 1; status: "no-graph"; generatedAt: string; here: Here }
   | { version: 1; status: "unknown-destination"; message: string }
@@ -136,7 +136,7 @@ export type TowardApiResponse =
 export type TowardTarget = { kind: "city"; id: string } | { kind: "point"; at: LatLng };
 
 export type TowardQuery =
-  | { ok: true; origin: LatLng; hours: number; moods: MoodId[]; to: TowardTarget }
+  | { ok: true; origin: LatLng; hours: number | null; moods: MoodId[]; to: TowardTarget }
   | { ok: false; message: string };
 
 const CITY_ID = /^[a-z0-9-]{1,80}$/;
@@ -180,7 +180,7 @@ export function townAt(point: LatLng, cities: readonly City[] = allCities(), rad
 }
 
 /** The answer for a parsed query; `now` is injectable for tests. */
-export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: number, moods: MoodId[], now: Date = new Date()): Promise<TowardApiResponse> {
+export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: number | null, moods: MoodId[], now: Date = new Date()): Promise<TowardApiResponse> {
   const generatedAt = now.toISOString();
   const cities = allCities();
 
@@ -199,7 +199,9 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
   // nearest one, maybe 100 km off, so nothing is measured from it: the
   // destination's minutes are an estimate from the car, here's town can be a
   // row, and being nearest the destination town is not having arrived.
-  const plan = planToday(origin, hours, { betweenTowns: true });
+  // Past the graph's 650 km too, for the car's longer days; with no limit
+  // (hours null) the cone alone bounds the list, to the whole way there.
+  const plan = planToday(origin, hours ?? Infinity, { betweenTowns: true, beyondGraph: true });
   if (plan.reach === "no-city" || !plan.here) return { version: 1, status: "no-city", generatedAt };
   const here = hereOf(plan.here, plan.reach);
   if (plan.reach === "no-graph") return { version: 1, status: "no-graph", generatedAt, here };
@@ -216,7 +218,7 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
     country: destCity ? destCity.country || null : null,
     driveMinutes,
     estimated: graphMinutes === null,
-    withinToday: driveMinutes <= hours * 60,
+    withinToday: hours === null || driveMinutes <= hours * 60,
   };
 
   if (haversineKm(origin, destAt) <= ARRIVED_KM || (snapped && destCity !== null && destCity.id === here.cityId)) {
@@ -236,8 +238,8 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
     .sort((a, b) => a.detour - b.detour || a.r.oneWayDriveMinutes - b.r.oneWayDriveMinutes)
     .slice(0, MAX_TOWN_ROWS)
     .map((x) => x.r);
-  const destRow: RadialCandidate | null =
-    destCity && destination.withinToday ? { city: destCity, oneWayDriveMinutes: driveMinutes } : null;
+  const destRow: TodayCandidate | null =
+    destCity && destination.withinToday ? { city: destCity, oneWayDriveMinutes: driveMinutes, estimated: destination.estimated } : null;
   const candidates = destRow ? [...towns, destRow] : towns;
 
   const fetchResult = await waypointsOrDegraded(candidates, "[api/today/toward]");
@@ -250,7 +252,7 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
     lat: r.city.lat,
     lng: r.city.lng,
     reachMinutes: Math.round(r.oneWayDriveMinutes),
-    estimated: r === destRow ? destination.estimated : !snapped,
+    estimated: r.estimated,
     detourMinutes: estimateMinutes(detourKm(origin, destAt, r.city), pace),
     kind: "Town",
     line: null,
@@ -262,10 +264,11 @@ export async function towardAnswer(origin: LatLng, to: TowardTarget, hours: numb
   }));
 
   // Roadside stops: in the cone and within the km today's hours cover at the
-  // graph's pace, chosen by pickStops.
+  // graph's pace (with no limit, the cone alone: Detroit to Los Angeles read
+  // 16k survivors in 179 ms on the MS-S1), chosen by pickStops.
   const named = new Set(townRows.flatMap((t) => (t.type === "town" ? t.places.map((p) => placeNameKey(p.name)) : [])));
   const stopRows: TowardRow[] = [];
-  for (const s of pickStops(roadsideToward(origin, destAt, (hours * 60) / pace).filter(addsAtMost), moods, named)) {
+  for (const s of pickStops(roadsideToward(origin, destAt, hours === null ? Infinity : (hours * 60) / pace).filter(addsAtMost), moods, named)) {
     stopRows.push({
       type: "stop",
       id: s.id,

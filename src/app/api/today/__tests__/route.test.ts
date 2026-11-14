@@ -16,6 +16,12 @@ describe("GET /api/today", () => {
     expect(body).toMatchObject({ version: 1, status: "ok", hours: 4 });
   });
 
+  it("echoes hours=any as null (no limit)", async () => {
+    const res = await call("lat=41.2565&lng=-95.9345&hours=any", "10.0.0.2");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: "ok", hours: null });
+  });
+
   it("logs one line with the status, the town count and the car's client tag, and no position", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     await call("lat=41.2565&lng=-95.9345&hours=4&client=car-0.2.0", "10.0.0.5");

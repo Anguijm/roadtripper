@@ -3,6 +3,7 @@ import "server-only";
 import { allCities, snapToCity, hasDriveGraphFor, driveTimesFrom, driveGraphPaceMinutesPerKm, haversineKm } from "@/lib/atlas/queries";
 import type { RadialCandidate } from "@/lib/routing/radial";
 import type { LatLng } from "@/lib/plan/types";
+import type { City } from "@/lib/urban-explorer/types";
 
 /**
  * "I have five hours. What is in range?"
@@ -12,20 +13,32 @@ import type { LatLng } from "@/lib/plan/types";
  * nearest first. Every number here comes from SQLite, so a page open costs
  * nothing and takes milliseconds.
  *
- * Between towns (no atlas town within 40 km) the /today page says so and
- * asks for a town; the car app's endpoints ask for `betweenTowns` instead
- * and get an answer from the point itself (`planBetweenTowns`).
+ * Two options are for the car app's endpoints only; the /today page asks
+ * for neither, so its answers are as they were:
+ * - `betweenTowns`: with no atlas town within 40 km, an answer from the
+ *   point itself (`planBetweenTowns`) instead of no-city (2026-11-14).
+ * - `beyondGraph`: towns past the drive graph's 650 km are added with an
+ *   estimate, for days longer than the graph reaches: 10 and 12 hours and
+ *   no limit (`hours` Infinity), the car's request the same day.
  */
 
 /**
- * Between towns, the nearest atlas town must be within this to stand as
- * "here", or the answer is no-city. 650 km is the drive graph's own
- * neighbourhood (NEIGHBOUR_RADIUS_KM in scripts/build-drive-graph.mjs) and
- * about what the longest day, 8 hours, covers at the graph's pace (0.7355
- * min/km: 653 km), so a point with no town this near has none in reach on
- * any day: mid-ocean, or abroad where the atlas is thin.
+ * The drive graph's neighbourhood: pairs are built only between towns this
+ * close (NEIGHBOUR_RADIUS_KM in scripts/build-drive-graph.mjs; a test reads
+ * the script so the two cannot drift). Inside it, a town missing from a
+ * town's rows is out of the budget, or a pair the road cannot make (an
+ * island); outside it, the graph simply does not know.
  */
-export const NEAREST_TOWN_MAX_KM = 650;
+export const GRAPH_NEIGHBOURHOOD_KM = 650;
+
+/**
+ * Between towns, the nearest atlas town must be within this to stand as
+ * "here", or the answer is no-city. The graph's neighbourhood, and about
+ * what 8 hours cover at the graph's pace (0.72 min/km: 660 km). A point
+ * this far from every town is off the map the atlas covers (mid-ocean, or
+ * abroad where it is thin), so even a longer day does not lift it.
+ */
+export const NEAREST_TOWN_MAX_KM = GRAPH_NEIGHBOURHOOD_KM;
 
 export type TodayReach =
   /** Snapped to a city with graph rows; `reachable` is the answer. */
@@ -43,17 +56,24 @@ export type TodayReach =
   /** A city we know, but the graph has no rows for it (never on a complete graph). */
   | "no-graph";
 
+/** A town in range, and whether its minutes are the drive graph's (false) or a straight-line estimate from the point (true). */
+export interface TodayCandidate extends RadialCandidate {
+  estimated: boolean;
+}
+
 export interface TodayPlan {
   origin: LatLng;
+  /** Infinity for no limit (the car's `hours=any`). */
   hours: number;
   here: { city: { id: string; name: string; lat: number; lng: number; country: string }; distanceKm: number } | null;
   reach: TodayReach;
-  /** Cities within `hours` of one-way driving, nearest first. On "between", estimated from `origin`, and `here`'s town is one of them. */
-  reachable: RadialCandidate[];
+  /** Cities within `hours` of one-way driving, nearest first. On "between", all estimated from `origin`, and `here`'s town is one of them. */
+  reachable: TodayCandidate[];
 }
 
-export function planToday(origin: LatLng, hours: number, opts: { betweenTowns?: boolean } = {}): TodayPlan {
-  if (!Number.isFinite(hours) || hours <= 0) {
+export function planToday(origin: LatLng, hours: number, opts: { betweenTowns?: boolean; beyondGraph?: boolean } = {}): TodayPlan {
+  // Infinity passes (no limit); NaN, 0 and below do not.
+  if (!(hours > 0)) {
     throw new Error(`hours must be a positive number, got ${hours}`);
   }
   const snapped = snapToCity(origin);
@@ -63,6 +83,7 @@ export function planToday(origin: LatLng, hours: number, opts: { betweenTowns?: 
   const here = { city: { id, name, lat, lng, country: country ?? "" }, distanceKm: snapped.distanceKm };
   if (!hasDriveGraphFor(id)) return { origin, hours, here, reach: "no-graph", reachable: [] };
 
+  const budget = hours * 60;
   const byId = new Map(allCities().map((c) => [c.id, c]));
   // driveTimesFrom already filters to the budget and sorts ascending; the
   // minutes it holds are calibrated, one-way, city centre to city centre.
@@ -70,12 +91,32 @@ export function planToday(origin: LatLng, hours: number, opts: { betweenTowns?: 
   // origin (650 km neighbourhood; mean 27), read by one indexed query, and
   // the waypoint pipeline slices to its own MAX_WAYPOINT_CITIES before it
   // touches waypoints. A cap here would only make "N cities within 5 hours"
-  // a lie; the page shows the count and says how many it left out.
-  const reachable = driveTimesFrom(id, hours * 60).flatMap((row) => {
+  // a lie; the page shows the count and says how many it left out. No limit
+  // binds Infinity, which SQLite compares as a real (every row; tested).
+  const graphRows: TodayCandidate[] = driveTimesFrom(id, budget).flatMap((row) => {
     const city = byId.get(row.cityId);
-    return city ? [{ city, oneWayDriveMinutes: row.minutes }] : [];
+    return city ? [{ city, oneWayDriveMinutes: row.minutes, estimated: false }] : [];
   });
+  if (!opts.beyondGraph) return { origin, hours, here, reach: "hit", reachable: graphRows };
+
+  const beyond = beyondTheGraph(origin, snapped.city, budget);
+  const reachable = beyond.length === 0 ? graphRows : [...graphRows, ...beyond].sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes);
   return { origin, hours, here, reach: "hit", reachable };
+}
+
+/**
+ * The towns farther from `hereCity` than the graph's neighbourhood that the
+ * budget covers by estimate: straight line from the point at the graph's
+ * median pace, as between towns. Only those: inside the neighbourhood the
+ * graph has measured, and a town it leaves out is out of reach.
+ */
+function beyondTheGraph(origin: LatLng, hereCity: City, budget: number): TodayCandidate[] {
+  const pace = driveGraphPaceMinutesPerKm();
+  return allCities().flatMap((city) => {
+    if (haversineKm(hereCity, city) <= GRAPH_NEIGHBOURHOOD_KM) return [];
+    const minutes = haversineKm(origin, city) * pace;
+    return minutes <= budget ? [{ city, oneWayDriveMinutes: minutes, estimated: true }] : [];
+  });
 }
 
 /**
@@ -94,7 +135,7 @@ function planBetweenTowns(origin: LatLng, hours: number): TodayPlan {
   const here = { city: { id, name, lat, lng, country: country ?? "" }, distanceKm: nearest.distanceKm };
   const pace = driveGraphPaceMinutesPerKm();
   const reachable = allCities()
-    .map((city) => ({ city, oneWayDriveMinutes: haversineKm(origin, city) * pace }))
+    .map((city) => ({ city, oneWayDriveMinutes: haversineKm(origin, city) * pace, estimated: true }))
     .filter((r) => r.oneWayDriveMinutes <= hours * 60)
     .sort((a, b) => a.oneWayDriveMinutes - b.oneWayDriveMinutes || a.city.id.localeCompare(b.city.id));
   return { origin, hours, here, reach: "between", reachable };

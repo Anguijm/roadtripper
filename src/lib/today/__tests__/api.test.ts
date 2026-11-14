@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTodayQuery, todayAnswer } from "@/lib/today/api";
+import { parseTodayQuery, todayAnswer, CAR_HOURS, NO_LIMIT } from "@/lib/today/api";
 import { allCities, driveGraphPaceMinutesPerKm, driveMinutesBetween, haversineKm } from "@/lib/atlas/queries";
 
 /**
@@ -24,6 +24,17 @@ describe("the query", () => {
     expect(q("lat=41&lng=-95")).toMatchObject({ ok: true, hours: 5 });
     expect(q("lat=41&lng=-95&hours=7")).toMatchObject({ ok: true, hours: 5 });
     expect(q("lat=41&lng=-95&hours=8")).toMatchObject({ ok: true, hours: 8 });
+  });
+
+  it("takes the car's longer days, 10 and 12, and any for no limit (2026-11-14)", () => {
+    expect(CAR_HOURS).toEqual([2, 3, 4, 5, 6, 8, 10, 12]);
+    expect(NO_LIMIT).toBe("any");
+    expect(q("lat=41&lng=-95&hours=10")).toMatchObject({ ok: true, hours: 10 });
+    expect(q("lat=41&lng=-95&hours=12")).toMatchObject({ ok: true, hours: 12 });
+    expect(q("lat=41&lng=-95&hours=any")).toMatchObject({ ok: true, hours: null });
+    expect(q("lat=41&lng=-95&hours=%20any%20")).toMatchObject({ ok: true, hours: null });
+    // A blank value is 0 to Number(), and must not mean no limit.
+    for (const v of ["", "0", "ANY", "none", "9", "24", "-1"]) expect(q(`lat=41&lng=-95&hours=${v}`)).toMatchObject({ ok: true, hours: 5 });
   });
 
   it("is loud about an unknown mood or more than two", () => {
@@ -123,5 +134,28 @@ describe("between towns (the car's request, 2026-11-14)", () => {
     expect(a.here.snapped).toBe(true);
     expect(a.towns.every((t) => !t.estimated && t.id !== "omaha")).toBe(true);
     expect(a.towns.find((t) => t.id === "lincoln-ne")?.driveMinutes).toBe(Math.round(driveMinutesBetween("omaha", "lincoln-ne")!));
+  });
+});
+
+describe("longer days (the car's request, 2026-11-14)", () => {
+  // Central Nevada, 161 km from Elko: few towns, so the day's length shows.
+  const NEVADA = { lat: 39.5, lng: -116.5 };
+  it("echoes no limit as null and reaches further than a short day", async () => {
+    const any = await todayAnswer(NEVADA, null, [], NOW);
+    const three = await todayAnswer(NEVADA, 3, [], NOW);
+    if (any.status !== "ok" || three.status !== "ok") throw new Error("expected ok");
+    expect(any.hours).toBeNull();
+    expect(three.hours).toBe(3);
+    expect(three.towns.length).toBeLessThan(any.towns.length);
+    expect(any.towns.length).toBe(10);
+    const m = any.towns.map((t) => t.driveMinutes);
+    expect(m).toEqual([...m].sort((a, b) => a - b));
+  });
+
+  it("marks a town past the drive graph's 650 km estimated, and the graph's towns not", async () => {
+    const a = await todayAnswer(OMAHA, 12, [], NOW);
+    if (a.status !== "ok") throw new Error(`expected ok, got ${a.status}`);
+    // The ten nearest are all inside the graph from Omaha.
+    expect(a.towns.every((t) => !t.estimated)).toBe(true);
   });
 });
